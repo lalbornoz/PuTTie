@@ -27,13 +27,12 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    Configurable URL pattern matching string[[12](#r12)], sans DBCS support; are you fucking kidding me Simon Tatham?
 
 ## TODO/wish list
-1. **Bug**: emojis are broken re: bgimg & selection
-2. **Bug**: URLs w/ Arabic text in them are broken
-3. **Cleanup**: optimise {reconf,size} bgimg logic, XXX document items & {debugging,error} messages
-4. **New feature**: allow specification of more than one URL pattern matching string (e.g. ``*://*`` AND ``www.*``, etc.)
-5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-6. **New feature**: optionally disable RMB paste action (for alghazi)
-7. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+1. **Bug**: URLs w/ Arabic text in them are broken -- fix: while (is_rtl(..)) { collect; }; copy backwards;
+2. **Cleanup**: optimise {reconf,size} bgimg logic, XXX document items & {debugging,error} messages
+3. **New feature**: allow specification of more than one URL pattern matching string (e.g. ``*://*`` AND ``www.*``, etc.)
+4. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
+5. **New feature**: optionally disable RMB paste action (for alghazi)
+6. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  

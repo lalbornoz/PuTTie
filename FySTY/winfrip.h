@@ -62,7 +62,7 @@ typedef enum WinFripBgImgOp {
     WINFRIP_BGIMG_OP_RECONF		= 1,
     WINFRIP_BGIMG_OP_SIZE		= 2,
 } WinFripBgImgOp;
-BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int x, int y);
+BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
 
 /*
  * windows/window.c:WinMain()

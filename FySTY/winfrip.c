@@ -579,7 +579,7 @@ static BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
  * Public subroutines
  */
 
-BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int x, int y)
+BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y)
 {
     HDC hdc;
     BOOL rc = FALSE;
@@ -606,8 +606,13 @@ BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, 
     case WINFRIP_BGIMG_OP_DRAW:
 	if ((nbg == 258) || (nbg == 259)) {
 	    if (winfrip_bgimg_hdc || winfrip_init_bgimg(hdc, FALSE)) {
-		rc = BitBlt(hdc, x, y, char_width * len, font_height,
-			    winfrip_bgimg_hdc, x, y, SRCCOPY) > 0;
+		if (rc_width > 0) {
+		    rc = BitBlt(hdc, x, y, rc_width, font_height,
+				winfrip_bgimg_hdc, x, y, SRCCOPY) > 0;
+		} else {
+		    rc = BitBlt(hdc, x, y, char_width * len, font_height,
+				winfrip_bgimg_hdc, x, y, SRCCOPY) > 0;
+		}
 	    }
 	}
 	break;
