@@ -9,6 +9,9 @@
 #include "putty.h"
 #include "dialog.h"
 #include "storage.h"
+/* {{{ winfrip */
+#include "winfrip.h"
+/* winfrip }}} */
 
 #define PRINTER_DISABLED_STRING "None (printing disabled)"
 
@@ -1908,6 +1911,10 @@ void setup_config_box(struct controlbox *b, int midsession,
     ctrl_checkbox(s, "Warn before closing window", 'w',
 		  HELPCTX(behaviour_closewarn),
 		  conf_checkbox_handler, I(CONF_warn_on_close));
+
+    /* {{{ winfrip */
+    winfrip_config_panel(b);
+    /* winfrip }}} */
 
     /*
      * The Window/Translation panel.

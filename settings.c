@@ -11,7 +11,9 @@
 #include "sshgssc.h"
 #include "sshgss.h"
 #endif
-
+/* {{{ winfrip */
+#include "winfrip.h"
+/* winfrip }}} */
 
 /* The cipher order given here is the default order. */
 static const struct keyvalwhere ciphernames[] = {
@@ -629,6 +631,9 @@ void save_open_settings(void *sesskey, Conf *conf)
     write_setting_i(sesskey, "HideMousePtr", conf_get_int(conf, CONF_hide_mouseptr));
     write_setting_i(sesskey, "SunkenEdge", conf_get_int(conf, CONF_sunken_edge));
     write_setting_i(sesskey, "WindowBorder", conf_get_int(conf, CONF_window_border));
+    /* {{{ winfrip */
+    WINFRIP_SAVE_OPEN_SETTINGS(sesskey, conf);
+    /* winfrip }}} */
     write_setting_i(sesskey, "CurType", conf_get_int(conf, CONF_cursor_type));
     write_setting_i(sesskey, "BlinkCur", conf_get_int(conf, CONF_blink_cur));
     write_setting_i(sesskey, "Beep", conf_get_int(conf, CONF_beep));
@@ -1034,6 +1039,9 @@ void load_open_settings(void *sesskey, Conf *conf)
     gppi(sesskey, "HideMousePtr", 0, conf, CONF_hide_mouseptr);
     gppi(sesskey, "SunkenEdge", 0, conf, CONF_sunken_edge);
     gppi(sesskey, "WindowBorder", 1, conf, CONF_window_border);
+    /* {{{ winfrip */
+    WINFRIP_LOAD_OPEN_SETTINGS(sesskey, conf);
+    /* winfrip }}} */
     gppi(sesskey, "CurType", 0, conf, CONF_cursor_type);
     gppi(sesskey, "BlinkCur", 0, conf, CONF_blink_cur);
     /* pedantic compiler tells me I can't use conf, CONF_beep as an int * :-) */

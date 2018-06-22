@@ -12,6 +12,9 @@
 #include <assert.h>
 #include "putty.h"
 #include "terminal.h"
+/* {{{ winfrip */
+#include "winfrip.h"
+/* winfrip }}} */
 
 #define poslt(p1,p2) ( (p1).y < (p2).y || ( (p1).y == (p2).y && (p1).x < (p2).x ) )
 #define posle(p1,p2) ( (p1).y < (p2).y || ( (p1).y == (p2).y && (p1).x <= (p2).x ) )
@@ -5289,6 +5292,10 @@ static void do_paint(Terminal *term, Context ctx, int may_optimise)
 	    if (j < term->cols-1 && d[1].chr == UCSWIDE)
 		tattr |= ATTR_WIDE;
 
+	    /* {{{ winfrip */
+	    winfrip_hover_op(WINFRIP_HOVER_OP_DRAW, NULL, 0, &tattr, term, 0, scrpos.x, scrpos.y);
+	    /* winfrip }}} */
+
 	    /* Video reversing things */
 	    if (term->selstate == DRAGGING || term->selstate == SELECTED) {
 		if (term->seltype == LEXICOGRAPHIC)
@@ -5538,6 +5545,10 @@ static void do_paint(Terminal *term, Context ctx, int may_optimise)
 
 	unlineptr(ldata);
     }
+
+    /* {{{ winfrip */
+    winfrip_hover_op(WINFRIP_HOVER_OP_CLEAR, NULL, 0, NULL, term, 0, -1, -1);
+    /* winfrip }}} */
 
     sfree(newline);
     sfree(ch);
