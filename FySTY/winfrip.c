@@ -567,12 +567,12 @@ static BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
 	out_w_size = out_w_len * sizeof(*out_w);
 	out_w = malloc(out_w_size);
 	ZeroMemory(out_w, out_w_size);
-	MultiByteToWideChar(CP_ACP, 0, in, in_size, out_w, out_w_size);
-	*pout_w = out_w;
-	return TRUE;
-    } else {
-	return FALSE;
+	if (MultiByteToWideChar(CP_ACP, 0, in, in_size, out_w, out_w_size) == out_w_len) {
+	    *pout_w = out_w;
+	    return TRUE;
+	}
     }
+    return FALSE;
 }
 
 /*
