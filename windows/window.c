@@ -2589,7 +2589,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 			 wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam)));
 	/* winfrip }}} */
 
-	if (wParam & (MK_CONTROL | MK_LBUTTON | MK_MBUTTON | MK_RBUTTON) &&
+	if (wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON) &&
 	    GetCapture() == hwnd) {
 	    Mouse_Button b;
 	    if (wParam & MK_LBUTTON)
