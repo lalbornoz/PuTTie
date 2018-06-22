@@ -1295,7 +1295,7 @@ static void exact_textout(HDC hdc, int x, int y, CONST RECT *lprc,
  */
 static void general_textout(HDC hdc, int x, int y, CONST RECT *lprc,
 			    unsigned short *lpString, UINT cbCount,
-			    CONST INT *lpDx, int opaque, BOOL bgfl)
+			    CONST INT *lpDx, int opaque)
 {
     int i, j, xp, xn;
     int bkmode = 0, got_bkmode = FALSE;
@@ -1320,9 +1320,9 @@ static void general_textout(HDC hdc, int x, int y, CONST RECT *lprc,
 	 */
 	if (rtl) {
 	    exact_textout(hdc, xp, y, lprc, lpString+i, j-i,
-                          font_varpitch ? NULL : lpDx+i, opaque && !bgfl);
+                          font_varpitch ? NULL : lpDx+i, opaque);
 	} else {
-	    ExtTextOutW(hdc, xp, y, ETO_CLIPPED | (opaque && !bgfl ? ETO_OPAQUE : 0),
+	    ExtTextOutW(hdc, xp, y, ETO_CLIPPED | (opaque ? ETO_OPAQUE : 0),
 			lprc, lpString+i, j-i,
                         font_varpitch ? NULL : lpDx+i);
 	}
@@ -3740,7 +3740,7 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
             general_textout(hdc, x + xoffset,
                             y - font_height * (lattr==LATTR_BOT) + text_adjust,
                             &line_box, wbuf, len, lpDx,
-                            opaque && !(attr & TATTR_COMBINING), bgfl);
+                            opaque && !(attr & TATTR_COMBINING) && !bgfl);
 
             /* And the shadow bold hack. */
             if (bold_font_mode == BOLD_SHADOW && (attr & ATTR_BOLD)) {
