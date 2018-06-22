@@ -2323,7 +2323,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 		    /* {{{ winfrip */
 		    winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL,
-				     hwnd, -1, -1, -1, -1, -1, -1);
+				     hwnd, -1, -1, -1, -1, -1, -1, -1);
 		    winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, hwnd);
 		    /* winfrip }}} */
 		}
@@ -3010,7 +3010,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 	/* {{{ winfrip */
 	winfrip_bgimg_op(WINFRIP_BGIMG_OP_SIZE, NULL,
-			 hwnd, -1, -1, -1, -1, -1, -1);
+			 hwnd, -1, -1, -1, -1, -1, -1, -1);
 	/* winfrip }}} */
 	sys_cursor_update();
 	return 0;
@@ -3252,7 +3252,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       /* {{{ winfrip */
       case WM_DISPLAYCHANGE:
 	winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL,
-			 hwnd, -1, -1, -1, -1, -1, -1);
+			 hwnd, -1, -1, -1, -1, -1, -1, -1);
 	return 0;
       /* winfrip }}} */
       default:
@@ -3396,6 +3396,7 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
     static int lpDx_len = 0;
     int *lpDx_maybe;
     int len2; /* for SURROGATE PAIR */
+    int rc_width = 0;
     /* {{{ winfrip */
     BOOL bgfl;
     /* winfrip }}} */
@@ -3533,18 +3534,9 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
                  GetBValue(fg) * 2 / 3);
     }
 
-    /* {{{ winfrip */
-    bgfl = winfrip_bgimg_op(WINFRIP_BGIMG_OP_DRAW, hdc, NULL,
-			    char_width, font_height, len, nbg, x, y);
-    /* winfrip }}} */
-
     SelectObject(hdc, fonts[nfont]);
     SetTextColor(hdc, fg);
     SetBkColor(hdc, bg);
-    if ((attr & TATTR_COMBINING) || bgfl)
-	SetBkMode(hdc, TRANSPARENT);
-    else
-	SetBkMode(hdc, OPAQUE);
     line_box.left = x;
     line_box.top = y;
     line_box.right = x + char_width * len;
@@ -3552,7 +3544,6 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
     /* adjust line_box.right for SURROGATE PAIR & VARIATION SELECTOR */
     {
 	int i;
-	int rc_width = 0;
 	for (i = 0; i < len ; i++) {
 	    if (i+1 < len && IS_HIGH_VARSEL(text[i], text[i+1])) {
 		i++;
@@ -3567,6 +3558,16 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
 	}
 	line_box.right = line_box.left + rc_width;
     }
+
+    /* {{{ winfrip */
+    bgfl = winfrip_bgimg_op(WINFRIP_BGIMG_OP_DRAW, hdc, NULL,
+			    char_width, font_height, len, nbg, rc_width, x, y);
+    /* winfrip }}} */
+
+    if ((attr & TATTR_COMBINING) || bgfl)
+	SetBkMode(hdc, TRANSPARENT);
+    else
+	SetBkMode(hdc, OPAQUE);
 
     /* Only want the left half of double width lines */
     if (line_box.right > font_width*term->cols+offset_width)
