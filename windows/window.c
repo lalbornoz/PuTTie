@@ -2585,8 +2585,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	noise_ultralight(lParam);
 
 	/* {{{ winfrip */
-	winfrip_hover_op(WINFRIP_HOVER_OP_CTRL_EVENT, NULL, message, NULL, term,
-			 wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam)));
+	if (winfrip_hover_op(WINFRIP_HOVER_OP_CTRL_EVENT, NULL, message, NULL, term,
+			     wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))))
+	{
+	    return 0;
+	}
 	/* winfrip }}} */
 
 	if (wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON) &&
