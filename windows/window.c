@@ -25,6 +25,9 @@
 #include "win_res.h"
 #include "winsecur.h"
 #include "tree234.h"
+/* {{{ winfrip */
+#include "winfrip.h"
+/* winfrip }}} */
 
 #ifndef NO_MULTIMON
 #include <multimon.h>
@@ -354,6 +357,10 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     HRESULT hr;
     int guess_width, guess_height;
 
+    /* {{{ winfrip */
+    winfrip_debug_init();
+    /* winfrip }}} */
+
     dll_hijacking_protection();
 
     hinst = inst;
@@ -618,6 +625,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
                                winmode, CW_USEDEFAULT, CW_USEDEFAULT,
                                guess_width, guess_height,
                                NULL, NULL, inst, NULL);
+	/* {{{ winfrip */
+	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, hwnd);
+	/* winfrip }}} */
         sfree(uappname);
     }
 
@@ -1285,7 +1295,7 @@ static void exact_textout(HDC hdc, int x, int y, CONST RECT *lprc,
  */
 static void general_textout(HDC hdc, int x, int y, CONST RECT *lprc,
 			    unsigned short *lpString, UINT cbCount,
-			    CONST INT *lpDx, int opaque)
+			    CONST INT *lpDx, int opaque, BOOL bgfl)
 {
     int i, j, xp, xn;
     int bkmode = 0, got_bkmode = FALSE;
@@ -1310,9 +1320,9 @@ static void general_textout(HDC hdc, int x, int y, CONST RECT *lprc,
 	 */
 	if (rtl) {
 	    exact_textout(hdc, xp, y, lprc, lpString+i, j-i,
-                          font_varpitch ? NULL : lpDx+i, opaque);
+                          font_varpitch ? NULL : lpDx+i, opaque && !bgfl);
 	} else {
-	    ExtTextOutW(hdc, xp, y, ETO_CLIPPED | (opaque ? ETO_OPAQUE : 0),
+	    ExtTextOutW(hdc, xp, y, ETO_CLIPPED | (opaque && !bgfl ? ETO_OPAQUE : 0),
 			lprc, lpString+i, j-i,
                         font_varpitch ? NULL : lpDx+i);
 	}
@@ -2310,6 +2320,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 			init_lvl = 2;
 		    }
+
+		    /* {{{ winfrip */
+		    winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL,
+				     hwnd, -1, -1, -1, -1, -1, -1);
+		    winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, hwnd);
+		    /* winfrip }}} */
 		}
 
 		/* Oops */
@@ -2431,6 +2447,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_LBUTTONUP:
       case WM_MBUTTONUP:
       case WM_RBUTTONUP:
+	/* {{{ winfrip */
+	if (winfrip_hover_op(WINFRIP_HOVER_OP_MOUSE_EVENT, NULL, message, NULL, term,
+			     wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam)))) {
+	    break;
+	}
+	/* winfrip }}} */
+
 	if (message == WM_RBUTTONDOWN &&
 	    ((wParam & MK_CONTROL) ||
 	     (conf_get_int(conf, CONF_mouse_is_xterm) == 2))) {
@@ -2561,7 +2584,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	 */
 	noise_ultralight(lParam);
 
-	if (wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON) &&
+	/* {{{ winfrip */
+	winfrip_hover_op(WINFRIP_HOVER_OP_CTRL_EVENT, NULL, message, NULL, term,
+			 wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam)));
+	/* winfrip }}} */
+
+	if (wParam & (MK_CONTROL | MK_LBUTTON | MK_MBUTTON | MK_RBUTTON) &&
 	    GetCapture() == hwnd) {
 	    Mouse_Button b;
 	    if (wParam & MK_LBUTTON)
@@ -2711,6 +2739,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         }
 	return 0;
       case WM_SETFOCUS:
+	/* {{{ winfrip */
+	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, hwnd);
+	/* winfrip }}} */
 	term_set_focus(term, TRUE);
 	CreateCaret(hwnd, caretbm, font_width, font_height);
 	ShowCaret(hwnd);
@@ -2719,6 +2750,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	term_update(term);
 	break;
       case WM_KILLFOCUS:
+	/* {{{ winfrip */
+	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_KILL, hwnd);
+	/* winfrip }}} */
 	show_mouseptr(1);
 	term_set_focus(term, FALSE);
 	DestroyCaret();
@@ -2970,6 +3004,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 reset_window(0);
 	    }
 	}
+	
+	/* {{{ winfrip */
+	winfrip_bgimg_op(WINFRIP_BGIMG_OP_SIZE, NULL,
+			 hwnd, -1, -1, -1, -1, -1, -1);
+	/* winfrip }}} */
 	sys_cursor_update();
 	return 0;
       case WM_VSCROLL:
@@ -3207,6 +3246,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_GOT_CLIPDATA:
 	process_clipdata((HGLOBAL)lParam, wParam);
 	return 0;
+      /* {{{ winfrip */
+      case WM_DISPLAYCHANGE:
+	winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL,
+			 hwnd, -1, -1, -1, -1, -1, -1);
+	return 0;
+      /* winfrip }}} */
       default:
 	if (message == wm_mousewheel || message == WM_MOUSEWHEEL) {
 	    int shift_pressed=0, control_pressed=0;
@@ -3348,6 +3393,9 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
     static int lpDx_len = 0;
     int *lpDx_maybe;
     int len2; /* for SURROGATE PAIR */
+    /* {{{ winfrip */
+    BOOL bgfl;
+    /* winfrip }}} */
 
     lattr &= LATTR_MODE;
 
@@ -3482,10 +3530,15 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
                  GetBValue(fg) * 2 / 3);
     }
 
+    /* {{{ winfrip */
+    bgfl = winfrip_bgimg_op(WINFRIP_BGIMG_OP_DRAW, hdc, NULL,
+			    char_width, font_height, len, nbg, x, y);
+    /* winfrip }}} */
+
     SelectObject(hdc, fonts[nfont]);
     SetTextColor(hdc, fg);
     SetBkColor(hdc, bg);
-    if (attr & TATTR_COMBINING)
+    if ((attr & TATTR_COMBINING) || bgfl)
 	SetBkMode(hdc, TRANSPARENT);
     else
 	SetBkMode(hdc, OPAQUE);
@@ -3623,7 +3676,7 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
 
             ExtTextOutW(hdc, x + xoffset,
                         y - font_height * (lattr == LATTR_BOT) + text_adjust,
-                        ETO_CLIPPED | (opaque ? ETO_OPAQUE : 0),
+                        ETO_CLIPPED | (opaque && !bgfl ? ETO_OPAQUE : 0),
                         &line_box, uni_buf, nlen,
                         lpDx_maybe);
             if (bold_font_mode == BOLD_SHADOW && (attr & ATTR_BOLD)) {
@@ -3649,7 +3702,7 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
 
             ExtTextOut(hdc, x + xoffset,
                        y - font_height * (lattr == LATTR_BOT) + text_adjust,
-                       ETO_CLIPPED | (opaque ? ETO_OPAQUE : 0),
+                       ETO_CLIPPED | (opaque && !bgfl ? ETO_OPAQUE : 0),
                        &line_box, directbuf, len, lpDx_maybe);
             if (bold_font_mode == BOLD_SHADOW && (attr & ATTR_BOLD)) {
                 SetBkMode(hdc, TRANSPARENT);
@@ -3687,7 +3740,7 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
             general_textout(hdc, x + xoffset,
                             y - font_height * (lattr==LATTR_BOT) + text_adjust,
                             &line_box, wbuf, len, lpDx,
-                            opaque && !(attr & TATTR_COMBINING));
+                            opaque && !(attr & TATTR_COMBINING), bgfl);
 
             /* And the shadow bold hack. */
             if (bold_font_mode == BOLD_SHADOW && (attr & ATTR_BOLD)) {

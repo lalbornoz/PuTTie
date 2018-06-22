@@ -882,6 +882,16 @@ void cleanup_exit(int);
     X(INT, NONE, hide_mouseptr) \
     X(INT, NONE, sunken_edge) \
     X(INT, NONE, window_border) \
+    /* {{{ winfrip */ \
+    X(FILENAME, NONE, frip_bgimg_filename) \
+    X(INT, NONE, frip_bgimg_opacity) \
+    X(INT, NONE, frip_bgimg_style) \
+    X(INT, NONE, frip_bgimg_type) \
+    X(STR, NONE, frip_hover_match_spec) \
+    X(INT, NONE, frip_transp_custom) \
+    X(INT, NONE, frip_transp_opaque_on) \
+    X(INT, NONE, frip_transp_setting) \
+    /* winfrip }}} */ \
     X(STR, NONE, answerback) \
     X(STR, NONE, printer) \
     X(INT, NONE, arabicshaping) \
