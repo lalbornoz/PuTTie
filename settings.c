@@ -11,6 +11,7 @@
 #include "sshgssc.h"
 #include "sshgss.h"
 #endif
+
 /* {{{ winfrip */
 #include "winfrip.h"
 /* winfrip }}} */
