@@ -30,9 +30,10 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 1. **Bug**: emojis are broken re: bgimg & selection
 2. **Bug**: URLs w/ Arabic text in them are broken
 3. **Cleanup**: optimise {reconf,size} bgimg logic, XXX document items & {debugging,error} messages
-4. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-5. **New feature**: optionally disable RMB paste action (for alghazi)
-6. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+4. **New feature**: allow specification of more than one URL pattern matching string (e.g. ``*://*`` AND ``www.*``, etc.)
+5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
+6. **New feature**: optionally disable RMB paste action (for alghazi)
+7. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
@@ -44,7 +45,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    Do you fancy yourself better than others? Or is your excuse “I'm a benevolent dictator!” you pathetic Linus Torvalds clone?  
    Sod off you time-wasting parasite! Go do something else that isn't programming!
 3. **What of ExtraPuTTY[[17](#r17)], KiTTY[[13](#r13)], Nutty[[16](#r16)], mintty[[7](#r7)], PuTTYTray[[11](#r11)], the covidimus patch[[14](#r14)], and transputty[[15](#r15)]?**  
-   All of those are either dead or in a questionable state -- are they all wrong? Dualism much?
+   All of those are either dead or in a questionable state -- and yet: are they all wrong? Dualism much?
 4. **Ultimately**: all of this entails **maintenance cost** & shows **lack of concern for end users** -- *who happen to be the only reason your project is of any relevance to anyone whatsoever!*  
    A complete waste of time, and above all: **net loss for everyone!** It's *vastly* preferable to have {code,features} that work{s,} *at all* as opposed to *nowt*, especially in the face of academic balderdash nonsense “design concerns”[[9](#r9)] that don't relate to the real world in any tangible way.
 
