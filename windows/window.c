@@ -3007,7 +3007,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 reset_window(0);
 	    }
 	}
-	
+
 	/* {{{ winfrip */
 	winfrip_bgimg_op(WINFRIP_BGIMG_OP_SIZE, NULL,
 			 hwnd, -1, -1, -1, -1, -1, -1);
