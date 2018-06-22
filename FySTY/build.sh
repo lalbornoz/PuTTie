@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright (c) 2018 Lucio Andrés Illanes Albornoz <lucio@lucioillanes.de>
 #
 
 usage() {
