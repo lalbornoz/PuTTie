@@ -1,4 +1,5 @@
 #!/bin/sh
+# Copyright (c) 2018 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
 #
 
 usage() {
