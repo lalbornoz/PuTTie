@@ -15,7 +15,7 @@
 #include <gdiplus/gdiplusflat.h>
 
 /*
- * Private enumerations and preprocessor macros
+ * Private enumerations
  */
 
 /*
@@ -86,6 +86,31 @@ typedef enum WinFripTranspSetting {
 } WinFripTranspSetting;
 
 /*
+ * Preprocessor macros
+ */
+
+/*
+ * XXX document
+ */
+#define winfrip_posle(p1,px,py) ( (p1).y < (py) || ( (p1).y == (py) && (p1).x <= (px) ) )
+#define winfrip_poslt(px,py,p2) ( (py) < (p2).y || ( (py) == (p2).y && (px) < (p2).x ) )
+
+/*
+ * XXX document
+ */
+#define WINFRIP_BGIMG_FILTER_IMAGE_FILES									\
+	("Bitmap Files (*.bmp)\0*.bmp\0"									\
+	"EMF (*.emf)\0*.emf\0"											\
+	"GIF (*.gif)\0*.gif\0"											\
+	"ICO (*.ico)\0*.ico\0"											\
+	"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"						\
+	"PNG (*.png)\0*.png\0"											\
+	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"									\
+	"WMF (*.wmf)\0*.wmf\0"											\
+	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
+	"All Files (*.*)\0*\0\0\0")
+
+/*
  * {External,Static} variables
  */
 
@@ -123,27 +148,6 @@ static size_t winfrip_hover_url_w_size = 0;
  */
 static char *winfrip_hover_match_spec_conf = NULL;
 static wchar_t *winfrip_hover_match_spec_w = NULL;
-
-/*
- * XXX document
- */
-#define winfrip_posle(p1,px,py) ( (p1).y < (py) || ( (p1).y == (py) && (p1).x <= (px) ) )
-#define winfrip_poslt(px,py,p2) ( (py) < (p2).y || ( (py) == (p2).y && (px) < (p2).x ) )
-
-/*
- * XXX document
- */
-#define WINFRIP_BGIMG_FILTER_IMAGE_FILES									\
-	("Bitmap Files (*.bmp)\0*.bmp\0"									\
-	"EMF (*.emf)\0*.emf\0"											\
-	"GIF (*.gif)\0*.gif\0"											\
-	"ICO (*.ico)\0*.ico\0"											\
-	"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"						\
-	"PNG (*.png)\0*.png\0"											\
-	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"									\
-	"WMF (*.wmf)\0*.wmf\0"											\
-	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
-	"All Files (*.*)\0*\0\0\0")
 
 /*
  * Private subroutine prototypes
