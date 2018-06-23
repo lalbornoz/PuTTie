@@ -4,12 +4,33 @@
  */
 
 #include "putty.h"
+#include "dialog.h"
 #include "winfrip.h"
 #include "winfrip_priv.h"
 
 #include <assert.h>
 #include <gdiplus/gdiplus.h>
 #include <gdiplus/gdiplusflat.h>
+
+/*
+ * Preprocessor macros
+ */
+
+/*
+ * XXX document
+ */
+#define WINFRIP_BGIMG_FILTER_IMAGE_FILES (									\
+	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
+	"Bitmap Files (*.bmp)\0*.bmp\0"										\
+	"EMF (*.emf)\0*.emf\0"											\
+	"GIF (*.gif)\0*.gif\0"											\
+	"ICO (*.ico)\0*.ico\0"											\
+	"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"						\
+	"PNG (*.png)\0*.png\0"											\
+	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"									\
+	"WMF (*.wmf)\0*.wmf\0"											\
+	"All Files (*.*)\0*\0"											\
+	"\0\0")
 
 /*
  * {External,Static} variables
@@ -434,6 +455,39 @@ static BOOL winfrip_init_bgimg(HDC hdc, BOOL force)
     winfrip_bgimg_state = WINFRIP_BGIMG_STATE_FAILED;
     return FALSE;
 }
+
+/*
+ * Public subroutine private to FySTY/winfrip*.c prototypes
+ */
+
+void winfrip_bgimg_config_panel(struct controlbox *b)
+{
+    struct controlset *s;
+
+
+    /*
+     * The Window/Frippery: background panel.
+     */
+
+    ctrl_settitle(b, "Window/Frippery: background image", "Configure pointless frippery: background image");
+    s = ctrl_getset(b, "Window/Frippery: background image", "frip_bgimg", "Background image settings");
+    ctrl_filesel(s, "Image file:", NO_SHORTCUT,
+		 WINFRIP_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file",
+		 HELPCTX(appearance_frippery), conf_filesel_handler, I(CONF_frip_bgimg_filename));
+    ctrl_editbox(s, "Opacity (0-100):", NO_SHORTCUT, 20, HELPCTX(appearance_frippery),
+		 conf_editbox_handler, I(CONF_frip_bgimg_opacity), I(-1));
+    ctrl_radiobuttons(s, "Style:", NO_SHORTCUT, 4, HELPCTX(appearance_frippery),
+		      conf_radiobutton_handler, I(CONF_frip_bgimg_style),
+		      "Absolute",	NO_SHORTCUT,	I(WINFRIP_BGIMG_STYLE_ABSOLUTE),
+		      "Center",		NO_SHORTCUT,	I(WINFRIP_BGIMG_STYLE_CENTER),
+		      "Stretch",	NO_SHORTCUT,	I(WINFRIP_BGIMG_STYLE_STRETCH),
+		      "Tile",		NO_SHORTCUT,	I(WINFRIP_BGIMG_STYLE_TILE), NULL);
+    ctrl_radiobuttons(s, "Type:", NO_SHORTCUT, 2, HELPCTX(appearance_frippery),
+		      conf_radiobutton_handler, I(CONF_frip_bgimg_type),
+		      "Solid",		NO_SHORTCUT,	I(WINFRIP_BGIMG_TYPE_SOLID),
+		      "Image",		NO_SHORTCUT,	I(WINFRIP_BGIMG_TYPE_IMAGE), NULL);
+}
+
 
 /*
  * Public subroutines

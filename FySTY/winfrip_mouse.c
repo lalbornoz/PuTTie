@@ -4,6 +4,7 @@
  */
 
 #include "putty.h"
+#include "dialog.h"
 #include "winfrip.h"
 #include "winfrip_priv.h"
 
@@ -17,6 +18,29 @@
  * XXX document
  */
 extern Conf *conf;
+
+/*
+ * Public subroutine private to FySTY/winfrip*.c prototypes
+ */
+
+void winfrip_mouse_config_panel(struct controlbox *b)
+{
+    struct controlset *s;
+
+
+    /*
+     * The Window/Frippery: mouse panel.
+     */
+
+    ctrl_settitle(b, "Window/Frippery: mouse", "Configure pointless frippery: mouse");
+    s = ctrl_getset(b, "Window/Frippery: mouse", "frip", "Click actions");
+    ctrl_radiobuttons(s, "Right mouse button:", NO_SHORTCUT, 2, HELPCTX(appearance_frippery),
+		      conf_radiobutton_handler, I(CONF_frip_mouse_rmb),
+		      "Normal",		NO_SHORTCUT,	I(WINFRIP_MOUSE_RMB_NORMAL),
+		      "Inhibit",	NO_SHORTCUT,	I(WINFRIP_MOUSE_RMB_INHIBIT), NULL);
+    ctrl_text(s, "This only affects click actions with no modifiers, e.g. CTRL, ALT, and/or SHIFT.",
+	      HELPCTX(appearance_frippery));
+}
 
 /*
  * Public subroutines

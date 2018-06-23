@@ -4,6 +4,7 @@
  */
 
 #include "putty.h"
+#include "dialog.h"
 #include "terminal.h"
 #include "winfrip.h"
 #include "winfrip_priv.h"
@@ -263,6 +264,27 @@ static BOOL winfrip_init_urls_get_url(pos hover_end, pos hover_start, wchar_t **
      */
     (*phover_url_w)[hover_len] = L'\0';
     return TRUE;
+}
+
+/*
+ * Public subroutines private to FySTY/winfrip*.c
+ */
+
+void winfrip_urls_config_panel(struct controlbox *b)
+{
+    struct controlset *s;
+
+
+    /*
+     * The Window/Frippery: URLs panel.
+     */
+
+    ctrl_settitle(b, "Window/Frippery: URLs", "Configure pointless frippery: clickable URLs");
+    s = ctrl_getset(b, "Window/Frippery: URLs", "frip_urls", "Clickable URLs settings");
+    ctrl_editbox(s, "Match string", NO_SHORTCUT, 75, HELPCTX(appearance_frippery),
+		 conf_editbox_handler, I(CONF_frip_urls_match_spec), I(1));
+    ctrl_text(s, "Specify multiple match strings by separating them with "
+	      "a single semicolon.", HELPCTX(appearance_frippery));
 }
 
 /*
