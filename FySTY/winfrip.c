@@ -231,7 +231,7 @@ static BOOL winfrip_init_bgimg_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int 
     bg_height = GetDeviceCaps(hdc, VERTRES);
     bg_width = GetDeviceCaps(hdc, HORZRES);
     if ((bmp_src = LoadImageW(0, bmp_src_fname_w, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE))) {
-    	if ((bg_hdc = CreateCompatibleDC(hdc))) {
+	if ((bg_hdc = CreateCompatibleDC(hdc))) {
 	    if ((bg_bmp = CreateCompatibleBitmap(hdc, bg_width, bg_height))) {
 		bg_hdc_old = SelectObject(bg_hdc, bg_bmp);
 		rc = TRUE;
@@ -694,8 +694,11 @@ static BOOL winfrip_init_hover_get_matchv(char **pmatch_spec_conf, size_t *pmatc
 
 static BOOL winfrip_init_hover_get_url(pos hover_end, pos hover_start, wchar_t **phover_url_w, size_t *phover_url_w_size)
 {
-    size_t hover_len, idx, new_buf_w_size;
-    wchar_t *new_buf_w, wch;
+    size_t hover_len, idx_in, idx_out, new_buf_w_size;
+    wchar_t *new_buf_w;
+    size_t rtl_idx, rtl_len;
+    int rtl_start;
+    wchar_t wch;
 
 
     assert(phover_url_w);
@@ -718,13 +721,47 @@ static BOOL winfrip_init_hover_get_url(pos hover_end, pos hover_start, wchar_t *
     /*
      * XXX document
     */
-    for (idx = 0; idx < hover_len; idx++) {
-	wch = term->disptext[hover_start.y]->chars[hover_start.x + idx].chr;
-	if (DIRECT_FONT(wch)) {
-	    wch &= 0xFF;
+    for (idx_in = idx_out = 0, rtl_len = 0, rtl_start = -1; idx_in < hover_len; idx_in++) {
+	wch = term->disptext[hover_start.y]->chars[hover_start.x + idx_in].chr;
+	if (rtl_start == -1) {
+	    if (DIRECT_FONT(wch) || !is_rtl(wch)) {
+		if (DIRECT_FONT(wch)) {
+		    wch &= 0xFF;
+		}
+		(*phover_url_w)[idx_out] = wch; idx_out++;
+	    } else if (is_rtl(wch)) {
+		rtl_start = idx_in; rtl_len = 1;
+	    }
+	} else if (rtl_start != -1) {
+	    if (DIRECT_FONT(wch) || !is_rtl(wch)) {
+		for (rtl_idx = 0; rtl_idx < rtl_len; rtl_idx++) {
+		    wch = term->disptext[hover_start.y]->chars[hover_start.x + rtl_start + (rtl_len - 1 - rtl_idx)].chr;
+		    (*phover_url_w)[idx_out] = wch;
+		    idx_out++;
+		}
+		rtl_start = -1; rtl_len = 0;
+		wch = term->disptext[hover_start.y]->chars[hover_start.x + idx_in].chr;
+		if (DIRECT_FONT(wch)) {
+		    wch &= 0xFF;
+		}
+		(*phover_url_w)[idx_out] = wch; idx_out++;
+	    } else if (is_rtl(wch)) {
+		rtl_len++;
+	    }
 	}
-	(*phover_url_w)[idx] = wch;
     }
+    if (rtl_start != -1) {
+	for (rtl_idx = 0; rtl_idx < rtl_len; rtl_idx++) {
+	    wch = term->disptext[hover_start.y]->chars[hover_start.x + rtl_start + (rtl_len - 1 - rtl_idx)].chr;
+	    (*phover_url_w)[idx_out] = wch;
+	    idx_out++;
+	}
+	rtl_start = -1; rtl_len = 0;
+    }
+
+    /*
+     * XXX document
+     */
     (*phover_url_w)[hover_len] = L'\0';
     return TRUE;
 }
@@ -997,16 +1034,24 @@ BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long 
 		*/
 		if (!winfrip_init_hover_get_url(winfrip_hover_end, winfrip_hover_start,
 						&winfrip_hover_url_w, &winfrip_hover_url_w_size)) {
-		    return FALSE;
+		    if (winfrip_hover_url_w) {
+			ZeroMemory(winfrip_hover_url_w, winfrip_hover_url_w_size);
+		    }
+		    winfrip_hover_state = WINFRIP_HOVER_STATE_NONE;
+		    term_update(term);
+		    return TRUE;
 		} else if (!winfrip_init_hover_get_matchv(&winfrip_hover_match_spec_conf,
 							  &winfrip_hover_matchc_w,
 							  &winfrip_hover_matchv_w)) {
-		    return FALSE;
+		    ZeroMemory(winfrip_hover_url_w, winfrip_hover_url_w_size);
+		    winfrip_hover_state = WINFRIP_HOVER_STATE_NONE;
+		    term_update(term);
+		    return TRUE;
 		}
 
 		/*
- 		 * XXX document
- 		 */
+		 * XXX document
+		 */
 		for (nmatch = 0; nmatch < winfrip_hover_matchc_w; nmatch++) {
 		    if (PathMatchSpecW(winfrip_hover_url_w, winfrip_hover_matchv_w[nmatch])) {
 			winfrip_hover_state = WINFRIP_HOVER_STATE_CLICK;
@@ -1015,9 +1060,16 @@ BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long 
 		    }
 		}
 		ZeroMemory(winfrip_hover_url_w, winfrip_hover_url_w_size);
-		return FALSE;
+		winfrip_hover_state = WINFRIP_HOVER_STATE_NONE;
+		term_update(term);
+		return TRUE;
 	    } else {
-		return FALSE;
+		if (winfrip_hover_url_w) {
+		    ZeroMemory(winfrip_hover_url_w, winfrip_hover_url_w_size);
+		}
+		winfrip_hover_state = WINFRIP_HOVER_STATE_NONE;
+		term_update(term);
+		return TRUE;
 	    }
 	} else if (winfrip_hover_state == WINFRIP_HOVER_STATE_CLICK) {
 	    /*
