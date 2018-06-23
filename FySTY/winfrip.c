@@ -22,8 +22,9 @@
 /*
  * XXX document
  */
-#define WINFRIP_BGIMG_FILTER_IMAGE_FILES									\
-	("Bitmap Files (*.bmp)\0*.bmp\0"									\
+#define WINFRIP_BGIMG_FILTER_IMAGE_FILES (									\
+	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
+	"Bitmap Files (*.bmp)\0*.bmp\0"										\
 	"EMF (*.emf)\0*.emf\0"											\
 	"GIF (*.gif)\0*.gif\0"											\
 	"ICO (*.ico)\0*.ico\0"											\
@@ -31,8 +32,8 @@
 	"PNG (*.png)\0*.png\0"											\
 	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"									\
 	"WMF (*.wmf)\0*.wmf\0"											\
-	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
-	"All Files (*.*)\0*\0\0\0")
+	"All Files (*.*)\0*\0"											\
+	"\0\0")
 
 /*
  * Public subroutines private to FySTY/winfrip*.c
@@ -70,15 +71,11 @@ void winfrip_config_panel(struct controlbox *b)
 
 
     /*
-     * The Window/Frippery panel (#1).
+     * The Window/Frippery: background panel.
      */
 
-    ctrl_settitle(b, "Window/Frippery", "Configure pointless frippery");
-
-    /*
-     * Background image
-     */
-    s = ctrl_getset(b, "Window/Frippery", "frip_bgimg", "Background image settings");
+    ctrl_settitle(b, "Window/Frippery: background image", "Configure pointless frippery: background image");
+    s = ctrl_getset(b, "Window/Frippery: background image", "frip_bgimg", "Background image settings");
     ctrl_filesel(s, "Image file:", NO_SHORTCUT,
 		 WINFRIP_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file",
 		 HELPCTX(appearance_frippery), conf_filesel_handler, I(CONF_frip_bgimg_filename));
@@ -96,9 +93,11 @@ void winfrip_config_panel(struct controlbox *b)
 		      "Image",		NO_SHORTCUT,	I(WINFRIP_BGIMG_TYPE_IMAGE), NULL);
 
     /*
-     * Transparency
+     * The Window/Frippery: transparency panel.
      */
-    s = ctrl_getset(b, "Window/Frippery", "frip_transp", "Transparency settings");
+
+    ctrl_settitle(b, "Window/Frippery: transparency", "Configure pointless frippery: transparency");
+    s = ctrl_getset(b, "Window/Frippery: transparency", "frip_transp", "Transparency settings");
     ctrl_radiobuttons(s, "Setting", NO_SHORTCUT, 2, HELPCTX(appearance_frippery),
 		      conf_radiobutton_handler, I(CONF_frip_transp_setting),
 		      "Off",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_OFF),
@@ -115,15 +114,11 @@ void winfrip_config_panel(struct controlbox *b)
 		      "Focus",		NO_SHORTCUT,	I(WINFRIP_TRANSP_OPAQUE_FOCUS_SET), NULL);
 
     /*
-     * The Window/Frippery panel (#2).
+     * The Window/Frippery: URLs panel.
      */
 
-    ctrl_settitle(b, "Window/Frippery, #2", "Configure pointless frippery (#2)");
-
-    /*
-     * Clickable URLs
-     */
-    s = ctrl_getset(b, "Window/Frippery, #2", "frip_urls", "Clickable URLs settings");
+    ctrl_settitle(b, "Window/Frippery: URLs", "Configure pointless frippery: clickable URLs");
+    s = ctrl_getset(b, "Window/Frippery: URLs", "frip_urls", "Clickable URLs settings");
     ctrl_editbox(s, "Match string", NO_SHORTCUT, 20, HELPCTX(appearance_frippery),
 		 conf_editbox_handler, I(CONF_frip_urls_match_spec), I(1));
     ctrl_text(s, "Specify multiple match strings by separating them with "
