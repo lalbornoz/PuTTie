@@ -519,6 +519,7 @@ static BOOL winfrip_init_bgimg(HDC hdc, BOOL force)
 	    rc = winfrip_init_bgimg_load_nonbmp(&bg_hdc, &bg_hdc_old, &bg_height, &bg_width, &bmp_src, bg_bmp_fname_w, hdc);
 	    break;
 	}
+	free(bg_bmp_fname_w);
     }
 
     /*
@@ -860,7 +861,7 @@ BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long 
 		hover_len = winfrip_hover_end.x - winfrip_hover_start.x;
 		new_buf_w_size = (hover_len + 1) * sizeof(*winfrip_hover_url_w);
 		if (new_buf_w_size > winfrip_hover_url_w_size) {
-		    if ((new_buf_w = malloc(new_buf_w_size))) {
+		    if ((new_buf_w = realloc(winfrip_hover_url_w, new_buf_w_size))) {
 			winfrip_hover_url_w = new_buf_w;
 			winfrip_hover_url_w_size = new_buf_w_size;
 		    } else {
@@ -884,12 +885,13 @@ BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long 
 		 * XXX document
 		*/
 		match_spec_conf = conf_get_str(conf, CONF_frip_hover_match_spec);
-		if (!winfrip_hover_match_spec_conf ||
-		    (winfrip_hover_match_spec_conf != match_spec_conf))
-		{
+		if (match_spec_conf && (winfrip_hover_match_spec_conf != match_spec_conf)) {
 		    if (!winfrip_towcsdup(match_spec_conf, strlen(match_spec_conf) + 1, &winfrip_hover_match_spec_w)) {
 			return TRUE;
 		    } else {
+			if (winfrip_hover_match_spec_conf) {
+			    free(winfrip_hover_match_spec_conf);
+			}
 			winfrip_hover_match_spec_conf = match_spec_conf;
 		    }
 		}
