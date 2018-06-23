@@ -12,6 +12,10 @@
 
 #include "misc.h"
 
+/* {{{ winfrip */
+#include "winfrip.h"
+/* winfrip }}} */
+
 #define UNIX_EPOCH	11644473600ULL	/* Seconds from Windows epoch */
 #define CNS_PERSEC	10000000ULL	/* # 100ns per second */
 
@@ -117,18 +121,18 @@ struct ssh_gss_liblist *ssh_gss_setup(Conf *conf)
 
     /* MIT Kerberos GSSAPI implementation */
     module = NULL;
-    if (RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\MIT\\Kerberos", &regkey)
+    if (winfrip_confstore_RegOpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\MIT\\Kerberos", &regkey)
 	== ERROR_SUCCESS) {
 	DWORD type, size;
 	LONG ret;
 	char *buffer;
 
 	/* Find out the string length */
-        ret = RegQueryValueEx(regkey, "InstallDir", NULL, &type, NULL, &size);
+        ret = winfrip_confstore_RegQueryValueEx(regkey, "InstallDir", NULL, &type, NULL, &size);
 
 	if (ret == ERROR_SUCCESS && type == REG_SZ) {
 	    buffer = snewn(size + 20, char);
-	    ret = RegQueryValueEx(regkey, "InstallDir", NULL,
+	    ret = winfrip_confstore_RegQueryValueEx(regkey, "InstallDir", NULL,
 				  &type, (LPBYTE)buffer, &size);
 	    if (ret == ERROR_SUCCESS && type == REG_SZ) {
                 strcat (buffer, "\\bin");
@@ -148,7 +152,7 @@ struct ssh_gss_liblist *ssh_gss_setup(Conf *conf)
 	    }
 	    sfree(buffer);
 	}
-	RegCloseKey(regkey);
+	winfrip_confstore_RegCloseKey(regkey);
     }
     if (module) {
 	struct ssh_gss_library *lib =
