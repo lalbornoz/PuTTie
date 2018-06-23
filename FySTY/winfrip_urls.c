@@ -160,8 +160,8 @@ static BOOL winfrip_init_urls_get_matchv(char **pmatch_spec_conf, size_t *pmatch
 	}
     }
     new_matchc_w = nitems + 1;
-    if (!(new_matchv_w = malloc(new_matchc_w * sizeof(*new_matchv_w)))) {
-	free(match_spec_w);
+    if (!(new_matchv_w = snewn(new_matchc_w, wchar_t *))) {
+	sfree(match_spec_w);
 	return FALSE;
     } else {
 	ZeroMemory(new_matchv_w, new_matchc_w * sizeof(*new_matchv_w));
@@ -181,9 +181,9 @@ static BOOL winfrip_init_urls_get_matchv(char **pmatch_spec_conf, size_t *pmatch
     /*
      * XXX document
      */
-    free(match_spec_w);
+    sfree(match_spec_w);
     if (*pmatchv_w) {
-	free(*pmatchv_w);
+	sfree(*pmatchv_w);
     }
     *pmatch_spec_conf = match_spec_conf;
     *pmatchc_w = new_matchc_w;
@@ -209,7 +209,7 @@ static BOOL winfrip_init_urls_get_url(pos hover_end, pos hover_start, wchar_t **
     hover_len = hover_end.x - hover_start.x;
     new_buf_w_size = (hover_len + 1) * sizeof(**phover_url_w);
     if (new_buf_w_size > *phover_url_w_size) {
-	if ((new_buf_w = realloc(*phover_url_w, new_buf_w_size))) {
+	if ((new_buf_w = sresize(*phover_url_w, new_buf_w_size, wchar_t))) {
 	    *phover_url_w = new_buf_w;
 	    *phover_url_w_size = new_buf_w_size;
 	} else {

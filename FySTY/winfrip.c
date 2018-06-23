@@ -50,7 +50,7 @@ BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
     out_w_len = MultiByteToWideChar(CP_ACP, 0, in, in_size, NULL, 0);
     if (out_w_len > 0) {
 	out_w_size = out_w_len * sizeof(*out_w);
-	out_w = malloc(out_w_size);
+	out_w = snewn(out_w_size, wchar_t);
 	ZeroMemory(out_w, out_w_size);
 	if (MultiByteToWideChar(CP_ACP, 0, in, in_size, out_w, out_w_size) == out_w_len) {
 	    *pout_w = out_w;
