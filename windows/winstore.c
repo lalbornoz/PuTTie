@@ -3,6 +3,10 @@
  * defined in storage.h.
  */
 
+/* {{{ winfrip */
+#include "winfrip_confstore_pre.h"
+/* winfrip }}} */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -19,7 +23,7 @@
 #endif
 
 /* {{{ winfrip */
-#include "winfrip.h"
+#include "winfrip_confstore_post.h"
 /* winfrip }}} */
 
 static const char *const reg_jumplist_key = PUTTY_REG_POS "\\Jumplist";
@@ -92,15 +96,15 @@ void *open_settings_w(const char *sessionname, char **errmsg)
     p = snewn(3 * strlen(sessionname) + 1, char);
     mungestr(sessionname, p);
 
-    ret = winfrip_confstore_RegCreateKey(HKEY_CURRENT_USER, puttystr, &subkey1);
+    ret = RegCreateKey(HKEY_CURRENT_USER, puttystr, &subkey1);
     if (ret != ERROR_SUCCESS) {
 	sfree(p);
         *errmsg = dupprintf("Unable to create registry key\n"
                             "HKEY_CURRENT_USER\\%s", puttystr);
 	return NULL;
     }
-    ret = winfrip_confstore_RegCreateKey(subkey1, p, &sesskey);
-    winfrip_confstore_RegCloseKey(subkey1);
+    ret = RegCreateKey(subkey1, p, &sesskey);
+    RegCloseKey(subkey1);
     if (ret != ERROR_SUCCESS) {
         *errmsg = dupprintf("Unable to create registry key\n"
                             "HKEY_CURRENT_USER\\%s\\%s", puttystr, p);
@@ -114,20 +118,20 @@ void *open_settings_w(const char *sessionname, char **errmsg)
 void write_setting_s(void *handle, const char *key, const char *value)
 {
     if (handle)
-	winfrip_confstore_RegSetValueEx((HKEY) handle, key, 0, REG_SZ, (CONST BYTE *)value,
+	RegSetValueEx((HKEY) handle, key, 0, REG_SZ, (CONST BYTE *)value,
 		      1 + strlen(value));
 }
 
 void write_setting_i(void *handle, const char *key, int value)
 {
     if (handle)
-	winfrip_confstore_RegSetValueEx((HKEY) handle, key, 0, REG_DWORD,
+	RegSetValueEx((HKEY) handle, key, 0, REG_DWORD,
 		      (CONST BYTE *) &value, sizeof(value));
 }
 
 void close_settings_w(void *handle)
 {
-    winfrip_confstore_RegCloseKey((HKEY) handle);
+    RegCloseKey((HKEY) handle);
 }
 
 void *open_settings_r(const char *sessionname)
@@ -141,13 +145,13 @@ void *open_settings_r(const char *sessionname)
     p = snewn(3 * strlen(sessionname) + 1, char);
     mungestr(sessionname, p);
 
-    if (winfrip_confstore_RegOpenKey(HKEY_CURRENT_USER, puttystr, &subkey1) != ERROR_SUCCESS) {
+    if (RegOpenKey(HKEY_CURRENT_USER, puttystr, &subkey1) != ERROR_SUCCESS) {
 	sesskey = NULL;
     } else {
-	if (winfrip_confstore_RegOpenKey(subkey1, p, &sesskey) != ERROR_SUCCESS) {
+	if (RegOpenKey(subkey1, p, &sesskey) != ERROR_SUCCESS) {
 	    sesskey = NULL;
 	}
-	winfrip_confstore_RegCloseKey(subkey1);
+	RegCloseKey(subkey1);
     }
 
     sfree(p);
@@ -164,14 +168,14 @@ char *read_setting_s(void *handle, const char *key)
 	return NULL;
 
     /* Find out the type and size of the data. */
-    if (winfrip_confstore_RegQueryValueEx((HKEY) handle, key, 0,
+    if (RegQueryValueEx((HKEY) handle, key, 0,
 			&type, NULL, &size) != ERROR_SUCCESS ||
 	type != REG_SZ)
 	return NULL;
 
     allocsize = size+1;         /* allow for an extra NUL if needed */
     ret = snewn(allocsize, char);
-    if (winfrip_confstore_RegQueryValueEx((HKEY) handle, key, 0,
+    if (RegQueryValueEx((HKEY) handle, key, 0,
 			&type, (BYTE *)ret, &size) != ERROR_SUCCESS ||
 	type != REG_SZ) {
         sfree(ret);
@@ -190,7 +194,7 @@ int read_setting_i(void *handle, const char *key, int defvalue)
     size = sizeof(val);
 
     if (!handle ||
-	winfrip_confstore_RegQueryValueEx((HKEY) handle, key, 0, &type,
+	RegQueryValueEx((HKEY) handle, key, 0, &type,
 			(BYTE *) &val, &size) != ERROR_SUCCESS ||
 	size != sizeof(val) || type != REG_DWORD)
 	return defvalue;
@@ -272,7 +276,7 @@ void write_setting_filename(void *handle, const char *name, Filename *result)
 
 void close_settings_r(void *handle)
 {
-    winfrip_confstore_RegCloseKey((HKEY) handle);
+    RegCloseKey((HKEY) handle);
 }
 
 void del_settings(const char *sessionname)
@@ -280,15 +284,15 @@ void del_settings(const char *sessionname)
     HKEY subkey1;
     char *p;
 
-    if (winfrip_confstore_RegOpenKey(HKEY_CURRENT_USER, puttystr, &subkey1) != ERROR_SUCCESS)
+    if (RegOpenKey(HKEY_CURRENT_USER, puttystr, &subkey1) != ERROR_SUCCESS)
 	return;
 
     p = snewn(3 * strlen(sessionname) + 1, char);
     mungestr(sessionname, p);
-    winfrip_confstore_RegDeleteKey(subkey1, p);
+    RegDeleteKey(subkey1, p);
     sfree(p);
 
-    winfrip_confstore_RegCloseKey(subkey1);
+    RegCloseKey(subkey1);
 
     remove_session_from_jumplist(sessionname);
 }
@@ -303,7 +307,7 @@ void *enum_settings_start(void)
     struct enumsettings *ret;
     HKEY key;
 
-    if (winfrip_confstore_RegOpenKey(HKEY_CURRENT_USER, puttystr, &key) != ERROR_SUCCESS)
+    if (RegOpenKey(HKEY_CURRENT_USER, puttystr, &key) != ERROR_SUCCESS)
 	return NULL;
 
     ret = snew(struct enumsettings);
@@ -320,7 +324,7 @@ char *enum_settings_next(void *handle, char *buffer, int buflen)
     struct enumsettings *e = (struct enumsettings *) handle;
     char *otherbuf;
     otherbuf = snewn(3 * buflen, char);
-    if (winfrip_confstore_RegEnumKey(e->key, e->i++, otherbuf, 3 * buflen) == ERROR_SUCCESS) {
+    if (RegEnumKey(e->key, e->i++, otherbuf, 3 * buflen) == ERROR_SUCCESS) {
 	unmungestr(otherbuf, buffer, buflen);
 	sfree(otherbuf);
 	return buffer;
@@ -333,7 +337,7 @@ char *enum_settings_next(void *handle, char *buffer, int buflen)
 void enum_settings_finish(void *handle)
 {
     struct enumsettings *e = (struct enumsettings *) handle;
-    winfrip_confstore_RegCloseKey(e->key);
+    RegCloseKey(e->key);
     sfree(e);
 }
 
@@ -368,7 +372,7 @@ int verify_host_key(const char *hostname, int port,
 
     hostkey_regname(regname, hostname, port, keytype);
 
-    if (winfrip_confstore_RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_POS "\\SshHostKeys",
+    if (RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_POS "\\SshHostKeys",
 		   &rkey) != ERROR_SUCCESS) {
         sfree(regname);
 	return 1;		       /* key does not exist in registry */
@@ -376,7 +380,7 @@ int verify_host_key(const char *hostname, int port,
 
     readlen = len;
     otherstr = snewn(len, char);
-    ret = winfrip_confstore_RegQueryValueEx(rkey, regname, NULL,
+    ret = RegQueryValueEx(rkey, regname, NULL,
                           &type, (BYTE *)otherstr, &readlen);
 
     if (ret != ERROR_SUCCESS && ret != ERROR_MORE_DATA &&
@@ -389,7 +393,7 @@ int verify_host_key(const char *hostname, int port,
 	char *justhost = regname + 1 + strcspn(regname, ":");
 	char *oldstyle = snewn(len + 10, char);	/* safety margin */
 	readlen = len;
-	ret = winfrip_confstore_RegQueryValueEx(rkey, justhost, NULL, &type,
+	ret = RegQueryValueEx(rkey, justhost, NULL, &type,
 			      (BYTE *)oldstyle, &readlen);
 
 	if (ret == ERROR_SUCCESS && type == REG_SZ) {
@@ -436,14 +440,14 @@ int verify_host_key(const char *hostname, int port,
 	     * wrong, and hyper-cautiously do nothing.
 	     */
 	    if (!strcmp(otherstr, key))
-		winfrip_confstore_RegSetValueEx(rkey, regname, 0, REG_SZ, (BYTE *)otherstr,
+		RegSetValueEx(rkey, regname, 0, REG_SZ, (BYTE *)otherstr,
 			      strlen(otherstr) + 1);
 	}
 
         sfree(oldstyle);
     }
 
-    winfrip_confstore_RegCloseKey(rkey);
+    RegCloseKey(rkey);
 
     compare = strcmp(otherstr, key);
 
@@ -479,10 +483,10 @@ void store_host_key(const char *hostname, int port,
 
     hostkey_regname(regname, hostname, port, keytype);
 
-    if (winfrip_confstore_RegCreateKey(HKEY_CURRENT_USER, PUTTY_REG_POS "\\SshHostKeys",
+    if (RegCreateKey(HKEY_CURRENT_USER, PUTTY_REG_POS "\\SshHostKeys",
 		     &rkey) == ERROR_SUCCESS) {
-	winfrip_confstore_RegSetValueEx(rkey, regname, 0, REG_SZ, (BYTE *)key, strlen(key) + 1);
-	winfrip_confstore_RegCloseKey(rkey);
+	RegSetValueEx(rkey, regname, 0, REG_SZ, (BYTE *)key, strlen(key) + 1);
+	RegCloseKey(rkey);
     } /* else key does not exist in registry */
 
     sfree(regname);
@@ -538,13 +542,13 @@ static HANDLE access_random_seed(int action)
      * Registry, if any.
      */
     size = sizeof(seedpath);
-    if (winfrip_confstore_RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_POS, &rkey) ==
+    if (RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_POS, &rkey) ==
 	ERROR_SUCCESS) {
-	int ret = winfrip_confstore_RegQueryValueEx(rkey, "RandSeedFile",
+	int ret = RegQueryValueEx(rkey, "RandSeedFile",
 				  0, &type, (BYTE *)seedpath, &size);
 	if (ret != ERROR_SUCCESS || type != REG_SZ)
 	    seedpath[0] = '\0';
-	winfrip_confstore_RegCloseKey(rkey);
+	RegCloseKey(rkey);
 
 	if (*seedpath && try_random_seed(seedpath, action, &rethandle))
 	    return rethandle;
@@ -666,7 +670,7 @@ static int transform_jumplist_registry
     char *old_value, *new_value;
     char *piterator_old, *piterator_new, *piterator_tmp;
 
-    ret = winfrip_confstore_RegCreateKeyEx(HKEY_CURRENT_USER, reg_jumplist_key, 0, NULL,
+    ret = RegCreateKeyEx(HKEY_CURRENT_USER, reg_jumplist_key, 0, NULL,
                          REG_OPTION_NON_VOLATILE, (KEY_READ | KEY_WRITE), NULL,
                          &pjumplist_key, NULL);
     if (ret != ERROR_SUCCESS) {
@@ -676,7 +680,7 @@ static int transform_jumplist_registry
     /* Get current list of saved sessions in the registry. */
     value_length = 200;
     old_value = snewn(value_length, char);
-    ret = winfrip_confstore_RegQueryValueEx(pjumplist_key, reg_jumplist_value, NULL, &type,
+    ret = RegQueryValueEx(pjumplist_key, reg_jumplist_value, NULL, &type,
                           (BYTE *)old_value, &value_length);
     /* When the passed buffer is too small, ERROR_MORE_DATA is
      * returned and the required size is returned in the length
@@ -684,7 +688,7 @@ static int transform_jumplist_registry
     if (ret == ERROR_MORE_DATA) {
         sfree(old_value);
         old_value = snewn(value_length, char);
-        ret = winfrip_confstore_RegQueryValueEx(pjumplist_key, reg_jumplist_value, NULL, &type,
+        ret = RegQueryValueEx(pjumplist_key, reg_jumplist_value, NULL, &type,
                               (BYTE *)old_value, &value_length);
     }
 
@@ -695,15 +699,15 @@ static int transform_jumplist_registry
     } else if (ret != ERROR_SUCCESS) {
         /* Some non-recoverable error occurred. */
         sfree(old_value);
-        winfrip_confstore_RegCloseKey(pjumplist_key);
+        RegCloseKey(pjumplist_key);
         return JUMPLISTREG_ERROR_VALUEREAD_FAILURE;
     } else if (type != REG_MULTI_SZ) {
         /* The value present in the registry has the wrong type: we
          * try to delete it and start from an empty value. */
-        ret = winfrip_confstore_RegDeleteValue(pjumplist_key, reg_jumplist_value);
+        ret = RegDeleteValue(pjumplist_key, reg_jumplist_value);
         if (ret != ERROR_SUCCESS) {
             sfree(old_value);
-            winfrip_confstore_RegCloseKey(pjumplist_key);
+            RegCloseKey(pjumplist_key);
             return JUMPLISTREG_ERROR_VALUEREAD_FAILURE;
         }
 
@@ -758,7 +762,7 @@ static int transform_jumplist_registry
         ++piterator_new;
 
         /* Save the new list to the registry. */
-        ret = winfrip_confstore_RegSetValueEx(pjumplist_key, reg_jumplist_value, 0, REG_MULTI_SZ,
+        ret = RegSetValueEx(pjumplist_key, reg_jumplist_value, 0, REG_MULTI_SZ,
                             (BYTE *)new_value, piterator_new - new_value);
 
         sfree(old_value);
@@ -775,7 +779,7 @@ static int transform_jumplist_registry
         sfree(old_value);
 
     /* Clean up and return. */
-    winfrip_confstore_RegCloseKey(pjumplist_key);
+    RegCloseKey(pjumplist_key);
 
     if (ret != ERROR_SUCCESS) {
         return JUMPLISTREG_ERROR_VALUEWRITE_FAILURE;
@@ -820,12 +824,12 @@ static void registry_recursive_remove(HKEY key)
     HKEY subkey;
 
     i = 0;
-    while (winfrip_confstore_RegEnumKey(key, i, name, sizeof(name)) == ERROR_SUCCESS) {
-	if (winfrip_confstore_RegOpenKey(key, name, &subkey) == ERROR_SUCCESS) {
+    while (RegEnumKey(key, i, name, sizeof(name)) == ERROR_SUCCESS) {
+	if (RegOpenKey(key, name, &subkey) == ERROR_SUCCESS) {
 	    registry_recursive_remove(subkey);
-	    winfrip_confstore_RegCloseKey(subkey);
+	    RegCloseKey(subkey);
 	}
-	winfrip_confstore_RegDeleteKey(key, name);
+	RegDeleteKey(key, name);
     }
 }
 
@@ -854,31 +858,31 @@ void cleanup_all(void)
     /*
      * Open the main PuTTY registry key and remove everything in it.
      */
-    if (winfrip_confstore_RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_POS, &key) ==
+    if (RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_POS, &key) ==
 	ERROR_SUCCESS) {
 	registry_recursive_remove(key);
-	winfrip_confstore_RegCloseKey(key);
+	RegCloseKey(key);
     }
     /*
      * Now open the parent key and remove the PuTTY main key. Once
      * we've done that, see if the parent key has any other
      * children.
      */
-    if (winfrip_confstore_RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_PARENT,
+    if (RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_PARENT,
 		   &key) == ERROR_SUCCESS) {
-	winfrip_confstore_RegDeleteKey(key, PUTTY_REG_PARENT_CHILD);
-	ret = winfrip_confstore_RegEnumKey(key, 0, name, sizeof(name));
-	winfrip_confstore_RegCloseKey(key);
+	RegDeleteKey(key, PUTTY_REG_PARENT_CHILD);
+	ret = RegEnumKey(key, 0, name, sizeof(name));
+	RegCloseKey(key);
 	/*
 	 * If the parent key had no other children, we must delete
 	 * it in its turn. That means opening the _grandparent_
 	 * key.
 	 */
 	if (ret != ERROR_SUCCESS) {
-	    if (winfrip_confstore_RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_GPARENT,
+	    if (RegOpenKey(HKEY_CURRENT_USER, PUTTY_REG_GPARENT,
 			   &key) == ERROR_SUCCESS) {
-		winfrip_confstore_RegDeleteKey(key, PUTTY_REG_GPARENT_CHILD);
-		winfrip_confstore_RegCloseKey(key);
+		RegDeleteKey(key, PUTTY_REG_GPARENT_CHILD);
+		RegCloseKey(key);
 	    }
 	}
     }
