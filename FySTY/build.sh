@@ -3,7 +3,8 @@
 #
 
 usage() {
-	echo "usage: ${0} [-d] [-h] [-m] [-u] [[--] make args...]" >&2;
+	echo "usage: ${0} [-c] [-d] [-h] [-m] [-u] [[--] make args...]" >&2;
+	echo "       -c.......: make [ ... ] clean before build" >&2;
 	echo "       -d.......: build w/ XFLAGS=-DWINFRIP_DEBUG" >&2;
 	echo "       -h.......: show this screen" >&2;
 	echo "       -m.......: select \`mingw' build type" >&2;
@@ -12,10 +13,11 @@ usage() {
 };
 
 build() {
-	local _build_type="" _dflag=0 _makeflags_extra="" _opt="";
+	local _build_type="" _cflag=0 _dflag=0 _makeflags_extra="" _opt="";
 
-	while getopts dhmu _opt; do
+	while getopts cdhmu _opt; do
 	case "${_opt}" in
+	c)	_cflag=1; ;;
 	d)	_dflag=1; ;;
 	m)	_build_type="mingw"; ;;
 	u)	_build_type="unix"; ;;
@@ -29,10 +31,16 @@ build() {
 			_makeflags_extra="${_makeflags_extra:+${_makeflags_extra} }XFLAGS=-DWINFRIP_DEBUG";
 		fi;
 		cd windows;
+		if [ "${_cflag:-0}" -eq 1 ]; then
+		    make -f Makefile.mgw ${_makeflags_extra} clean;
+		fi;
 		make -f Makefile.mgw ${_makeflags_extra} "${@}";
 		;;
 	unix)
 		cd unix;
+		if [ "${_cflag:-0}" -eq 1 ]; then
+		    make ${_makeflags_extra} clean;
+		fi;
 		make ${_makeflags_extra} "${@}";
 		;;
 	*)
