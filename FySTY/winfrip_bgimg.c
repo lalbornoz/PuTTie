@@ -500,7 +500,6 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
 		      "Image",		NO_SHORTCUT,	I(WINFRIP_BGIMG_TYPE_IMAGE), NULL);
 }
 
-
 /*
  * Public subroutines
  */
