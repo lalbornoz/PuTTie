@@ -400,7 +400,7 @@ static BOOL winfrip_init_bgimg(HDC hdc, BOOL force)
 	    rc = winfrip_init_bgimg_load_nonbmp(&bg_hdc, &bg_hdc_old, &bg_height, &bg_width, &bmp_src, bg_bmp_fname_w, hdc);
 	    break;
 	}
-	free(bg_bmp_fname_w);
+	sfree(bg_bmp_fname_w);
     }
 
     /*
