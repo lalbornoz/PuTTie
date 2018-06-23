@@ -5293,7 +5293,7 @@ static void do_paint(Terminal *term, Context ctx, int may_optimise)
 		tattr |= ATTR_WIDE;
 
 	    /* {{{ winfrip */
-	    winfrip_hover_op(WINFRIP_HOVER_OP_DRAW, NULL, 0, &tattr, term, 0, scrpos.x, scrpos.y);
+	    winfrip_urls_op(WINFRIP_URLS_OP_DRAW, NULL, 0, &tattr, term, 0, scrpos.x, scrpos.y);
 	    /* winfrip }}} */
 
 	    /* Video reversing things */
@@ -5547,7 +5547,7 @@ static void do_paint(Terminal *term, Context ctx, int may_optimise)
     }
 
     /* {{{ winfrip */
-    winfrip_hover_op(WINFRIP_HOVER_OP_CLEAR, NULL, 0, NULL, term, 0, -1, -1);
+    winfrip_urls_op(WINFRIP_URLS_OP_CLEAR, NULL, 0, NULL, term, 0, -1, -1);
     /* winfrip }}} */
 
     sfree(newline);

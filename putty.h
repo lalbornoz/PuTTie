@@ -887,7 +887,7 @@ void cleanup_exit(int);
     X(INT, NONE, frip_bgimg_opacity) \
     X(INT, NONE, frip_bgimg_style) \
     X(INT, NONE, frip_bgimg_type) \
-    X(STR, NONE, frip_hover_match_spec) \
+    X(STR, NONE, frip_urls_match_spec) \
     X(INT, NONE, frip_transp_custom) \
     X(INT, NONE, frip_transp_opaque_on) \
     X(INT, NONE, frip_transp_setting) \

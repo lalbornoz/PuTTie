@@ -2448,7 +2448,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_MBUTTONUP:
       case WM_RBUTTONUP:
 	/* {{{ winfrip */
-	if (winfrip_hover_op(WINFRIP_HOVER_OP_MOUSE_EVENT, NULL, message, NULL, term,
+	if (winfrip_urls_op(WINFRIP_URLS_OP_MOUSE_EVENT, NULL, message, NULL, term,
 			     wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam)))) {
 	    break;
 	}
@@ -2585,7 +2585,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	noise_ultralight(lParam);
 
 	/* {{{ winfrip */
-	if (winfrip_hover_op(WINFRIP_HOVER_OP_CTRL_EVENT, NULL, message, NULL, term,
+	if (winfrip_urls_op(WINFRIP_URLS_OP_CTRL_EVENT, NULL, message, NULL, term,
 			     wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))))
 	{
 	    return 0;
