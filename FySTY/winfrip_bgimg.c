@@ -94,7 +94,7 @@ static BOOL winfrip_init_bgimg_get_fname(wchar_t **pbg_fname_w, BOOL *pbg_bmpfl)
 	    } else {
 		*pbg_bmpfl = FALSE;
 	    }
-	    return winfrip_towcsdup(bg_fname, bg_fname_len + 1, pbg_fname_w);
+	    return winfripp_towcsdup(bg_fname, bg_fname_len + 1, pbg_fname_w);
 	}
     }
     return FALSE;
@@ -460,7 +460,7 @@ static BOOL winfrip_init_bgimg(HDC hdc, BOOL force)
  * Public subroutine private to FySTY/winfrip*.c prototypes
  */
 
-void winfrip_bgimg_config_panel(struct controlbox *b)
+void winfripp_bgimg_config_panel(struct controlbox *b)
 {
     struct controlset *s;
 

@@ -23,7 +23,7 @@ extern Conf *conf;
  * Public subroutines private to FySTY/winfrip*.c
  */
 
-void winfrip_transp_config_panel(struct controlbox *b)
+void winfripp_transp_config_panel(struct controlbox *b)
 {
     struct controlset *s;
 

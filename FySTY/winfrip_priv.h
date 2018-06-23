@@ -98,10 +98,11 @@ typedef enum WinFripUrlsState {
  * Public subroutine private to FySTY/winfrip*.c prototypes
  */
 
-void winfrip_bgimg_config_panel(struct controlbox *b);
-void winfrip_mouse_config_panel(struct controlbox *b);
-void winfrip_transp_config_panel(struct controlbox *b);
-void winfrip_urls_config_panel(struct controlbox *b);
-BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w);
+void winfripp_bgimg_config_panel(struct controlbox *b);
+void winfripp_mouse_config_panel(struct controlbox *b);
+void winfripp_transp_config_panel(struct controlbox *b);
+void winfripp_urls_config_panel(struct controlbox *b);
+
+BOOL winfripp_towcsdup(char *in, size_t in_size, wchar_t **pout_w);
 
 #endif
