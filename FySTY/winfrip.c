@@ -98,6 +98,11 @@ typedef enum WinFripTranspSetting {
 /*
  * XXX document
  */
+#define WINHELP_CTX_appearance_frippery "appearance.frippery:config-winfrippery"
+
+/*
+ * XXX document
+ */
 #define WINFRIP_BGIMG_FILTER_IMAGE_FILES									\
 	("Bitmap Files (*.bmp)\0*.bmp\0"									\
 	"EMF (*.emf)\0*.emf\0"											\
