@@ -6,6 +6,8 @@
 #ifndef PUTTY_WINFRIP_H
 #define PUTTY_WINFRIP_H
 
+BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w);
+
 /*
  * config.c:setup_config_box()
  */
@@ -65,11 +67,6 @@ typedef enum WinFripBgImgOp {
 BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
 
 /*
- * windows/window.c:WinMain()
- */
-void winfrip_debug_init(void);
-
-/*
  * windows/window.c:{WinMain,WndProc}()
  */
 typedef enum WinFripTranspOp {
@@ -77,5 +74,10 @@ typedef enum WinFripTranspOp {
     WINFRIP_TRANSP_OP_FOCUS_SET		= 1,
 } WinFripTranspOp;
 void winfrip_transp_op(WinFripTranspOp op, HWND hwnd);
+
+/*
+ * windows/window.c:WinMain()
+ */
+void winfrip_debug_init(void);
 
 #endif

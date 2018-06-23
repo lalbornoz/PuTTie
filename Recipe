@@ -238,7 +238,8 @@ TERMINAL = terminal wcwidth ldiscucs logging tree234 minibidi
 
 # GUI front end and terminal emulator (putty, puttytel).
 GUITERM  = TERMINAL window windlg winctrls sizetip winprint winutils
-	 + wincfg sercfg winhelp winjump sessprep winfrip
+	 + wincfg sercfg winhelp winjump sessprep
+	 + winfrip winfrip_bgimg winfrip_transp winfrip_urls
 
 # Same thing on Unix.
 UXTERM   = TERMINAL uxcfg sercfg uxucs uxprint timing callback miscucs
@@ -282,7 +283,7 @@ LIBS     = advapi32.lib user32.lib gdi32.lib comdlg32.lib
          + shell32.lib imm32.lib ole32.lib
 
 # GUI front end and terminal emulator (putty, puttytel) libraries.
-GUILIBS  = msimg32.lib gdiplus.lib shlwapi.lib
+GUILIBS  = gdiplus.lib msimg32.lib shlwapi.lib
 
 # Network backend sets. This also brings in the relevant attachment
 # to proxy.c depending on whether we're crypto-avoidant or not.
