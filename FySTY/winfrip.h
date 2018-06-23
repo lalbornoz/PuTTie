@@ -19,7 +19,7 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripBgImgOpacity", 75, (conf), CONF_frip_bgimg_opacity);					\
     gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);					\
     gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);						\
-    gpps((sesskey), "FripHoverMatchSpec", "*://*;www.*", (conf), CONF_frip_hover_match_spec);			\
+    gpps((sesskey), "FripUrlsMatchSpec", "*://*;www.*", (conf), CONF_frip_urls_match_spec);			\
     gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);					\
     gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);				\
     gppi((sesskey), "FripTranspSetting", 0, (conf), CONF_frip_transp_setting);					\
@@ -33,7 +33,7 @@ void winfrip_config_panel(struct controlbox *b);
     write_setting_i((sesskey), "FripBgImgOpacity", conf_get_int((conf), CONF_frip_bgimg_opacity));		\
     write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));			\
     write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));			\
-    write_setting_s((sesskey), "FripHoverMatchSpec", conf_get_str((conf), CONF_frip_hover_match_spec));		\
+    write_setting_s((sesskey), "FripUrlsMatchSpec", conf_get_str((conf), CONF_frip_urls_match_spec));		\
     write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));		\
     write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_transp_opaque_on));		\
     write_setting_i((sesskey), "FripTranspSetting", conf_get_int((conf), CONF_frip_transp_setting));		\
@@ -42,17 +42,17 @@ void winfrip_config_panel(struct controlbox *b);
 /*
  * terminal.c:do_paint()
  */
-typedef enum WinFripHoverOp {
-    WINFRIP_HOVER_OP_CLEAR		= 0,
-    WINFRIP_HOVER_OP_CTRL_DOWN		= 1,
-    WINFRIP_HOVER_OP_CTRL_EVENT		= 2,
-    WINFRIP_HOVER_OP_CTRL_UP		= 3,
-    WINFRIP_HOVER_OP_DRAW		= 4,
-    WINFRIP_HOVER_OP_MOUSE_DOWN		= 5,
-    WINFRIP_HOVER_OP_MOUSE_EVENT	= 6,
-    WINFRIP_HOVER_OP_MOUSE_UP		= 7,
-} WinFripHoverOp;
-BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
+typedef enum WinFripUrlsOp {
+    WINFRIP_URLS_OP_CLEAR		= 0,
+    WINFRIP_URLS_OP_CTRL_DOWN		= 1,
+    WINFRIP_URLS_OP_CTRL_EVENT		= 2,
+    WINFRIP_URLS_OP_CTRL_UP		= 3,
+    WINFRIP_URLS_OP_DRAW		= 4,
+    WINFRIP_URLS_OP_MOUSE_DOWN		= 5,
+    WINFRIP_URLS_OP_MOUSE_EVENT	= 6,
+    WINFRIP_URLS_OP_MOUSE_UP		= 7,
+} WinFripUrlsOp;
+BOOL winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
 
 /*
  * windows/window.c:{do_text_internal,WndProc}()
