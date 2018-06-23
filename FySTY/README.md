@@ -25,14 +25,15 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    Optionally in conjunction with background images, configurable opacity on {focus,focus loss} behaviour
 3. **Clickable URLs**, similarly to the mintty[[7](#r7)] implementation  
    Configurable URL pattern matching string(s)[[12](#r12)], sans DBCS support; are you fucking kidding me Simon Tatham?
+4. **Click actions**, similarly to the mintty[[7](#r7)] implementation
+   Configurable normal or inhibit RMB processing behaviour (for alghazi)
 
 ## TODO/wish list
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
 2. **Bug**: original PuTTY code: fix emoji handling (on {paste,type} vs. on display)
 3. **Cleanup**: optimise {reconf,size} bgimg logic, XXX document items & {debugging,error} messages
 4. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-5. **New feature**: optionally disable RMB paste action (for alghazi)
-6. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+5. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  

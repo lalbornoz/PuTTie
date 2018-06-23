@@ -21,6 +21,7 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripBgImgOpacity", 75, (conf), CONF_frip_bgimg_opacity);					\
     gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);					\
     gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);						\
+    gppi((sesskey), "FripMouseRmb", 0, (conf), CONF_frip_mouse_rmb);						\
     gpps((sesskey), "FripUrlsMatchSpec", "*://*;www.*", (conf), CONF_frip_urls_match_spec);			\
     gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);					\
     gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);				\
@@ -35,6 +36,7 @@ void winfrip_config_panel(struct controlbox *b);
     write_setting_i((sesskey), "FripBgImgOpacity", conf_get_int((conf), CONF_frip_bgimg_opacity));		\
     write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));			\
     write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));			\
+    write_setting_i((sesskey), "FripMouseRmb", conf_get_int((conf), CONF_frip_mouse_rmb));			\
     write_setting_s((sesskey), "FripUrlsMatchSpec", conf_get_str((conf), CONF_frip_urls_match_spec));		\
     write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));		\
     write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_transp_opaque_on));		\
@@ -51,7 +53,7 @@ typedef enum WinFripUrlsOp {
     WINFRIP_URLS_OP_CTRL_UP		= 3,
     WINFRIP_URLS_OP_DRAW		= 4,
     WINFRIP_URLS_OP_MOUSE_DOWN		= 5,
-    WINFRIP_URLS_OP_MOUSE_EVENT	= 6,
+    WINFRIP_URLS_OP_MOUSE_EVENT		= 6,
     WINFRIP_URLS_OP_MOUSE_UP		= 7,
 } WinFripUrlsOp;
 BOOL winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
@@ -70,7 +72,7 @@ BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, 
  * windows/window.c:{WinMain,WndProc}()
  */
 typedef enum WinFripTranspOp {
-    WINFRIP_TRANSP_OP_FOCUS_KILL		= 0,
+    WINFRIP_TRANSP_OP_FOCUS_KILL	= 0,
     WINFRIP_TRANSP_OP_FOCUS_SET		= 1,
 } WinFripTranspOp;
 void winfrip_transp_op(WinFripTranspOp op, HWND hwnd);
@@ -79,5 +81,14 @@ void winfrip_transp_op(WinFripTranspOp op, HWND hwnd);
  * windows/window.c:WinMain()
  */
 void winfrip_debug_init(void);
+
+/*
+ * windows/window.c:WndProc()
+ */
+typedef enum WinFripMouseOp {
+    WINFRIP_MOUSE_OP_MOUSE_EVENT	= 0,
+    WINFRIP_MOUSE_OP_RMB_DOWN		= 1,
+} WinFripMouseOp;
+BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam);
 
 #endif

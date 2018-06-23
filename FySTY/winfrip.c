@@ -71,6 +71,19 @@ void winfrip_config_panel(struct controlbox *b)
 
 
     /*
+     * The Window/Frippery panel.
+     */
+
+    ctrl_settitle(b, "Window/Frippery", "Configure pointless frippery");
+    s = ctrl_getset(b, "Window/Frippery", "frip", "Click actions");
+    ctrl_radiobuttons(s, "Right mouse button:", NO_SHORTCUT, 2, HELPCTX(appearance_frippery),
+		      conf_radiobutton_handler, I(CONF_frip_mouse_rmb),
+		      "Normal",		NO_SHORTCUT,	I(WINFRIP_MOUSE_RMB_NORMAL),
+		      "Inhibit",	NO_SHORTCUT,	I(WINFRIP_MOUSE_RMB_INHIBIT), NULL);
+    ctrl_text(s, "This only affects click actions with no modifiers, e.g. CTRL, ALT, and/or SHIFT.",
+	      HELPCTX(appearance_frippery));
+
+    /*
      * The Window/Frippery: background panel.
      */
 
@@ -98,7 +111,7 @@ void winfrip_config_panel(struct controlbox *b)
 
     ctrl_settitle(b, "Window/Frippery: transparency", "Configure pointless frippery: transparency");
     s = ctrl_getset(b, "Window/Frippery: transparency", "frip_transp", "Transparency settings");
-    ctrl_radiobuttons(s, "Setting", NO_SHORTCUT, 2, HELPCTX(appearance_frippery),
+    ctrl_radiobuttons(s, "Setting", NO_SHORTCUT, 3, HELPCTX(appearance_frippery),
 		      conf_radiobutton_handler, I(CONF_frip_transp_setting),
 		      "Off",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_OFF),
 		      "Low",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_LOW),
@@ -107,7 +120,7 @@ void winfrip_config_panel(struct controlbox *b)
 		      "Custom",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_CUSTOM), NULL);
     ctrl_editbox(s, "Custom (0-255):", NO_SHORTCUT, 20, HELPCTX(appearance_frippery),
 		 conf_editbox_handler, I(CONF_frip_transp_custom), I(-1));
-    ctrl_radiobuttons(s, "Opaque on", NO_SHORTCUT, 2, HELPCTX(appearance_frippery),
+    ctrl_radiobuttons(s, "Opaque on", NO_SHORTCUT, 3, HELPCTX(appearance_frippery),
 		      conf_radiobutton_handler, I(CONF_frip_transp_opaque_on),
 		      "Never",		NO_SHORTCUT,	I(WINFRIP_TRANSP_OPAQUE_NEVER),
 		      "Focus loss",	NO_SHORTCUT,	I(WINFRIP_TRANSP_OPAQUE_FOCUS_KILL),
@@ -119,7 +132,7 @@ void winfrip_config_panel(struct controlbox *b)
 
     ctrl_settitle(b, "Window/Frippery: URLs", "Configure pointless frippery: clickable URLs");
     s = ctrl_getset(b, "Window/Frippery: URLs", "frip_urls", "Clickable URLs settings");
-    ctrl_editbox(s, "Match string", NO_SHORTCUT, 20, HELPCTX(appearance_frippery),
+    ctrl_editbox(s, "Match string", NO_SHORTCUT, 75, HELPCTX(appearance_frippery),
 		 conf_editbox_handler, I(CONF_frip_urls_match_spec), I(1));
     ctrl_text(s, "Specify multiple match strings by separating them with "
 	      "a single semicolon.", HELPCTX(appearance_frippery));

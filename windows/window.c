@@ -2449,7 +2449,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_RBUTTONUP:
 	/* {{{ winfrip */
 	if (winfrip_urls_op(WINFRIP_URLS_OP_MOUSE_EVENT, NULL, message, NULL, term,
-			     wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam)))) {
+			    wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam)))) {
+	    break;
+	} else if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, message, wParam)) {
 	    break;
 	}
 	/* winfrip }}} */
