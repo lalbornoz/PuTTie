@@ -40,6 +40,14 @@ typedef enum WinFripBgImgType {
 /*
  * XXX document
  */
+typedef enum WinFripMouseRmb {
+    WINFRIP_MOUSE_RMB_NORMAL		= 0,
+    WINFRIP_MOUSE_RMB_INHIBIT		= 1,
+} WinFripMouseRmb;
+
+/*
+ * XXX document
+ */
 typedef enum WinFripTranspLevel {
     WINFRIP_TRANSP_LEVEL_OFF		= 255,
     WINFRIP_TRANSP_LEVEL_LOW		= 255 - 16,

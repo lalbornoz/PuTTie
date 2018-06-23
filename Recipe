@@ -239,7 +239,7 @@ TERMINAL = terminal wcwidth ldiscucs logging tree234 minibidi
 # GUI front end and terminal emulator (putty, puttytel).
 GUITERM  = TERMINAL window windlg winctrls sizetip winprint winutils
 	 + wincfg sercfg winhelp winjump sessprep
-	 + winfrip winfrip_bgimg winfrip_transp winfrip_urls
+	 + winfrip winfrip_bgimg winfrip_mouse winfrip_transp winfrip_urls
 
 # Same thing on Unix.
 UXTERM   = TERMINAL uxcfg sercfg uxucs uxprint timing callback miscucs
