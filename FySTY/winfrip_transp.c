@@ -4,6 +4,7 @@
  */
 
 #include "putty.h"
+#include "dialog.h"
 #include "winfrip.h"
 #include "winfrip_priv.h"
 
@@ -17,6 +18,37 @@
  * XXX document
  */
 extern Conf *conf;
+
+/*
+ * Public subroutines private to FySTY/winfrip*.c
+ */
+
+void winfrip_transp_config_panel(struct controlbox *b)
+{
+    struct controlset *s;
+
+
+    /*
+     * The Window/Frippery: transparency panel.
+     */
+
+    ctrl_settitle(b, "Window/Frippery: transparency", "Configure pointless frippery: transparency");
+    s = ctrl_getset(b, "Window/Frippery: transparency", "frip_transp", "Transparency settings");
+    ctrl_radiobuttons(s, "Setting", NO_SHORTCUT, 3, HELPCTX(appearance_frippery),
+		      conf_radiobutton_handler, I(CONF_frip_transp_setting),
+		      "Off",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_OFF),
+		      "Low",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_LOW),
+		      "Medium",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_MEDIUM),
+		      "High",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_HIGH),
+		      "Custom",		NO_SHORTCUT,	I(WINFRIP_TRANSP_SETTING_CUSTOM), NULL);
+    ctrl_editbox(s, "Custom (0-255):", NO_SHORTCUT, 20, HELPCTX(appearance_frippery),
+		 conf_editbox_handler, I(CONF_frip_transp_custom), I(-1));
+    ctrl_radiobuttons(s, "Opaque on", NO_SHORTCUT, 3, HELPCTX(appearance_frippery),
+		      conf_radiobutton_handler, I(CONF_frip_transp_opaque_on),
+		      "Never",		NO_SHORTCUT,	I(WINFRIP_TRANSP_OPAQUE_NEVER),
+		      "Focus loss",	NO_SHORTCUT,	I(WINFRIP_TRANSP_OPAQUE_FOCUS_KILL),
+		      "Focus",		NO_SHORTCUT,	I(WINFRIP_TRANSP_OPAQUE_FOCUS_SET), NULL);
+}
 
 /*
  * Public subroutines
