@@ -25,7 +25,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    Optionally in conjunction with background images, configurable opacity on {focus,focus loss} behaviour
 3. **Clickable URLs**, similarly to the mintty[[7](#r7)] implementation  
    Configurable URL pattern matching string(s)[[12](#r12)], sans DBCS support; are you fucking kidding me Simon Tatham?
-4. **Click actions**, similarly to the mintty[[7](#r7)] implementation
+4. **Click actions**, similarly to the mintty[[7](#r7)] implementation  
    Configurable normal or inhibit RMB processing behaviour (for alghazi)
 
 ## TODO/wish list
