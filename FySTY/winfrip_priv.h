@@ -103,6 +103,23 @@ void winfripp_mouse_config_panel(struct controlbox *b);
 void winfripp_transp_config_panel(struct controlbox *b);
 void winfripp_urls_config_panel(struct controlbox *b);
 
+#ifdef WINFRIP_DEBUG
+#define WINFRIPP_DEBUGF(fmt, ...)		\
+	winfripp_debugf(fmt, __FILE__, __func__, __LINE__, ##__VA_ARGS__)
+#define WINFRIPP_DEBUG_FAIL()			\
+	winfripp_debugf("failure condition!", __FILE__, __func__, __LINE__)
+#define WINFRIPP_DEBUG_FAIL_ON_RC(rc) do {	\
+	if (rc != TRUE) {			\
+	    WINFRIPP_DEBUG_FAIL();		\
+	}					\
+} while (0)
+void winfripp_debugf(const char *fmt, const char *file, const char *func, int line, ...);
+#else
+#define WINFRIPP_DEBUGF(fmt, ...)
+#define WINFRIPP_DEBUG_FAIL()
+#define WINFRIPP_DEBUG_FAIL_ON_RC(rc)
+#endif
+
 BOOL winfripp_towcsdup(char *in, size_t in_size, wchar_t **pout_w);
 
 #endif

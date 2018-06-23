@@ -94,9 +94,12 @@ static BOOL winfrip_init_bgimg_get_fname(wchar_t **pbg_fname_w, BOOL *pbg_bmpfl)
 	    } else {
 		*pbg_bmpfl = FALSE;
 	    }
-	    return winfripp_towcsdup(bg_fname, bg_fname_len + 1, pbg_fname_w);
+	    if (winfripp_towcsdup(bg_fname, bg_fname_len + 1, pbg_fname_w)) {
+		return TRUE;
+	    }
 	}
     }
+    WINFRIPP_DEBUG_FAIL();
     return FALSE;
 }
 
@@ -138,6 +141,7 @@ static BOOL winfrip_init_bgimg_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int 
     *pbg_hdc = bg_hdc; *pbg_hdc_old = bg_hdc_old;
     *pbg_height = bg_height; *pbg_width = bg_width;
     *pbmp_src = bmp_src;
+    WINFRIPP_DEBUG_FAIL_ON_RC(rc);
     return rc;
 }
 
@@ -173,8 +177,10 @@ static BOOL winfrip_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
     gdip_si.SuppressBackgroundThread = FALSE;
     gdip_si.SuppressExternalCodecs = FALSE;
     if ((gdip_status = GdiplusStartup(&gdip_token, &gdip_si, NULL)) != Ok) {
+	WINFRIPP_DEBUG_FAIL();
 	return FALSE;
     } else if ((gdip_status = GdipCreateBitmapFromFile(bmp_src_fname_w, &gdip_bmp)) != Ok) {
+	WINFRIPP_DEBUG_FAIL();
 	GdiplusShutdown(gdip_token);
 	return FALSE;
     } else {
@@ -182,6 +188,7 @@ static BOOL winfrip_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
 	GdipDisposeImage(gdip_bmp);
 	GdiplusShutdown(gdip_token);
 	if (gdip_status != Ok) {
+	    WINFRIPP_DEBUG_FAIL();
 	    return FALSE;
 	}
     }
@@ -204,6 +211,7 @@ static BOOL winfrip_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
     *pbg_hdc = bg_hdc; *pbg_hdc_old = bg_hdc_old;
     *pbg_height = bg_height; *pbg_width = bg_width;
     *pbmp_src = bmp_src;
+    WINFRIPP_DEBUG_FAIL_ON_RC(rc);
     return rc;
 }
 
@@ -307,6 +315,7 @@ static BOOL winfrip_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width, 
 	break;
     }
 
+    WINFRIPP_DEBUG_FAIL_ON_RC(rc);
     return rc;
 }
 
@@ -362,6 +371,7 @@ static BOOL winfrip_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_w
     if (blend_bmp) {
 	DeleteObject(blend_bmp);
     }
+    WINFRIPP_DEBUG_FAIL_ON_RC(rc);
     return rc;
 }
 
@@ -387,6 +397,7 @@ static BOOL winfrip_init_bgimg(HDC hdc, BOOL force)
 	break;
     case WINFRIP_BGIMG_STATE_FAILED:
 	if (!force) {
+	    WINFRIPP_DEBUG_FAIL();
 	    return FALSE;
 	} else {
 	    break;
@@ -453,6 +464,7 @@ static BOOL winfrip_init_bgimg(HDC hdc, BOOL force)
 	DeleteObject(bmp_src);
     }
     winfrip_bgimg_state = WINFRIP_BGIMG_STATE_FAILED;
+    WINFRIPP_DEBUG_FAIL();
     return FALSE;
 }
 
@@ -548,6 +560,7 @@ BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, 
 	case WINFRIP_BGIMG_STYLE_CENTER:
 	case WINFRIP_BGIMG_STYLE_STRETCH:
 	    rc = winfrip_init_bgimg(hdc, TRUE);
+	    WINFRIPP_DEBUG_FAIL_ON_RC(rc);
 	    break;
 	}
 	break;

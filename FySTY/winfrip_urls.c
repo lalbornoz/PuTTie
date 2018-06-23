@@ -146,6 +146,7 @@ static BOOL winfrip_init_urls_get_matchv(char **pmatch_spec_conf, size_t *pmatch
 	return FALSE;
     } else if (*pmatch_spec_conf != match_spec_conf) {
 	if (!winfripp_towcsdup(match_spec_conf, match_spec_conf_len + 1, &match_spec_w)) {
+	    WINFRIPP_DEBUG_FAIL();
 	    return FALSE;
 	}
     } else {
@@ -163,6 +164,7 @@ static BOOL winfrip_init_urls_get_matchv(char **pmatch_spec_conf, size_t *pmatch
     new_matchc_w = nitems + 1;
     if (!(new_matchv_w = snewn(new_matchc_w, wchar_t *))) {
 	sfree(match_spec_w);
+	WINFRIPP_DEBUG_FAIL();
 	return FALSE;
     } else {
 	ZeroMemory(new_matchv_w, new_matchc_w * sizeof(*new_matchv_w));
@@ -214,6 +216,7 @@ static BOOL winfrip_init_urls_get_url(pos hover_end, pos hover_start, wchar_t **
 	    *phover_url_w = new_buf_w;
 	    *phover_url_w_size = new_buf_w_size;
 	} else {
+	    WINFRIPP_DEBUG_FAIL();
 	    return FALSE;
 	}
     }
@@ -317,7 +320,8 @@ BOOL winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigned long *t
 
     switch (op) {
     default:
-	break;
+	WINFRIPP_DEBUG_FAIL();
+	return FALSE;
 
     /*
      * XXX document

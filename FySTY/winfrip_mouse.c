@@ -80,6 +80,7 @@ BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam)
 	    } else {
 		rc = GetKeyboardState(keystate);
 		if (!rc) {
+		    WINFRIPP_DEBUG_FAIL();
 		    return FALSE;
 		} else if ((keystate[VK_MENU] & 0x80) || (keystate[VK_RMENU] & 0x80)) {
 		    return FALSE;
