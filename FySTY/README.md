@@ -32,13 +32,15 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
 2. **Bug**: original PuTTY code: fix emoji handling (on {paste,type} vs. on display)
 3. **Cleanup**: optimise {reconf,size} bgimg logic, XXX document items & error messages
-4. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-5. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+4. **New feature**: configurable Always-on-Top, similarly to[[11](#r11)](?)
+5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
+6. **New feature**: use \<Shift\> + WM\_MOUSEWHELL to {de,in}crease font size, similarly to[[11](#r11)](?)
+7. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
    Unsubstantiated bullshit & a pattern! How about if you don't feel like doing something just say so and stop rationalising your unwillingness to do so?  
-   Furthermore: well-near **150K** SLOC of code? Entire OS have been written in less than that! What the bloody hell is the point of DBCS support? Windows 9x support? Get the fuck out! The FySTY code accounts for **less than 1%** of PuTTY! Shame on you, Simon Tatham! *You're* the #1 cause of bloat in PuTTY!  
+   Furthermore: well-near **150K** SLOC of code? Entire OS have been written in less than that! What the bloody hell is the point of DBCS support? Windows 9x support? Get the fuck out! The FySTY code accounts for **1% at most** of PuTTY! Shame on you, Simon Tatham! *You're* the #1 cause of bloat in PuTTY!  
    The drop-dead obvious solution: lower maintenance cost as much as possible through (source code) modularity -- needless to say, this is only necessary on account of **far too much** imperative & impure code *very* poor in architecture & expressiveness -- yes that means you Simon Tatham!
 2. **The “pointless frippery”[[3](#r3)] “argument”**:  
    This is nothing more than valuing your own opinion over that of everyone else: were it pointless, would anyone at all bother in the very first place?
@@ -48,6 +50,8 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    All of those are either dead or in a questionable state -- and yet: are they all wrong? Dualism much?
 4. **Ultimately**: all of this entails **maintenance cost** & shows **lack of concern for end users** -- *who happen to be the only reason your project is of any relevance to anyone whatsoever!*  
    A complete waste of time, and above all: **net loss for everyone!** It's *vastly* preferable to have {code,features} that work{s,} *at all* as opposed to *nowt*, especially in the face of academic balderdash nonsense “design concerns”[[9](#r9)] that don't relate to the real world in any tangible way.
+5. **Especially not where the upstream does not want to be tracked, as is the case with Putty: they make things very difficult.**[[8](#r8)]  
+   Not even commenting!  
 
 ## Pull requests policy
 Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn, Ben Harris, or Jacob Nevins.
