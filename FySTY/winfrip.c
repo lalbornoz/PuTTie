@@ -14,7 +14,7 @@
  * Public subroutines private to FySTY/winfrip*.c
  */
 
-BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
+BOOL winfripp_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
 {
     size_t out_w_len, out_w_size;
     wchar_t *out_w;
@@ -42,10 +42,10 @@ BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
 
 void winfrip_config_panel(struct controlbox *b)
 {
-    winfrip_bgimg_config_panel(b);
-    winfrip_mouse_config_panel(b);
-    winfrip_transp_config_panel(b);
-    winfrip_urls_config_panel(b);
+    winfripp_bgimg_config_panel(b);
+    winfripp_mouse_config_panel(b);
+    winfripp_transp_config_panel(b);
+    winfripp_urls_config_panel(b);
 }
 
 void winfrip_debug_init(void)

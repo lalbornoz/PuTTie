@@ -23,7 +23,7 @@ extern Conf *conf;
  * Public subroutine private to FySTY/winfrip*.c prototypes
  */
 
-void winfrip_mouse_config_panel(struct controlbox *b)
+void winfripp_mouse_config_panel(struct controlbox *b)
 {
     struct controlset *s;
 

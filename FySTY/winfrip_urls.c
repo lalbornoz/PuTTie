@@ -145,7 +145,7 @@ static BOOL winfrip_init_urls_get_matchv(char **pmatch_spec_conf, size_t *pmatch
     if (!match_spec_conf_len) {
 	return FALSE;
     } else if (*pmatch_spec_conf != match_spec_conf) {
-	if (!winfrip_towcsdup(match_spec_conf, match_spec_conf_len + 1, &match_spec_w)) {
+	if (!winfripp_towcsdup(match_spec_conf, match_spec_conf_len + 1, &match_spec_w)) {
 	    return FALSE;
 	}
     } else {
@@ -270,7 +270,7 @@ static BOOL winfrip_init_urls_get_url(pos hover_end, pos hover_start, wchar_t **
  * Public subroutines private to FySTY/winfrip*.c
  */
 
-void winfrip_urls_config_panel(struct controlbox *b)
+void winfripp_urls_config_panel(struct controlbox *b)
 {
     struct controlset *s;
 
