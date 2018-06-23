@@ -34,8 +34,10 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 3. **Cleanup**: optimise {reconf,size} bgimg logic, XXX document items & error messages
 4. **New feature**: configurable Always-on-Top, similarly to[[11](#r11)](?)
 5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-6. **New feature**: use \<Shift\> + WM\_MOUSEWHELL to {de,in}crease font size, similarly to[[11](#r11)](?)
-7. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+6. **New feature**: MS Visual C++ build environment support bits via Winelib
+7. **New feature**: provide installer package(s) & images
+8. **New feature**: use \<Shift\> + WM\_MOUSEWHELL to {de,in}crease font size, similarly to[[11](#r11)](?)
+9. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
