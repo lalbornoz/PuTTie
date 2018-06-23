@@ -18,7 +18,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 ## Screenshot
 ![Screenshot](https://github.com/lalbornoz/FySTY/raw/master/FySTY/FySTY.png "Screenshot")
 
-## List of newly introduced features (only on Windows presently)
+## List of newly introduced features (only in MinGW build environment & on Windows presently)
 1. **Background BMP or {JPG,PNG,...}[[10](#r10)] images**, similarly to[[6](#r6)]  
    Absolute positioning, centered, scaled, or tiled, with configurable opacity
 2. **Transparency**, similarly to the mintty[[7](#r7)] implementation  
