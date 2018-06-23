@@ -9,10 +9,28 @@
 #include "winfrip_priv.h"
 
 #include <assert.h>
+#include <stdarg.h>
 
 /*
  * Public subroutines private to FySTY/winfrip*.c
  */
+
+#ifdef WINFRIP_DEBUG
+void winfripp_debugf(const char *fmt, const char *file, const char *func, int line, ...)
+{
+    va_list ap;
+
+
+    /*
+     * XXX document
+     */
+    fprintf(stderr, "In %s:%d:%s():\n", file, line, func);
+    va_start(ap, line);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fprintf(stderr, "\n\n");
+}
+#endif
 
 BOOL winfripp_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
 {
@@ -33,6 +51,7 @@ BOOL winfripp_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
 	    return TRUE;
 	}
     }
+    WINFRIPP_DEBUG_FAIL();
     return FALSE;
 }
 
@@ -50,10 +69,10 @@ void winfrip_config_panel(struct controlbox *b)
 
 void winfrip_debug_init(void)
 {
+#ifdef WINFRIP_DEBUG
     /*
      * XXX document
      */
-#ifdef WINFRIP_DEBUG
     AllocConsole();
     AttachConsole(GetCurrentProcessId());
     freopen("CON", "w", stdout);

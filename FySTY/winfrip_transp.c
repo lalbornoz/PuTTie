@@ -75,6 +75,7 @@ void winfrip_transp_op(WinFripTranspOp op, HWND hwnd)
     case WINFRIP_TRANSP_SETTING_CUSTOM:
 	opacity = conf_get_int(conf, CONF_frip_transp_custom); break;
     default:
+	WINFRIPP_DEBUG_FAIL();
 	return;
     }
 
