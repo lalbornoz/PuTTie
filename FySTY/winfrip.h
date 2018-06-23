@@ -19,7 +19,7 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripBgImgOpacity", 75, (conf), CONF_frip_bgimg_opacity);					\
     gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);					\
     gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);						\
-    gpps((sesskey), "FripHoverMatchSpec", "*://*", (conf), CONF_frip_hover_match_spec);				\
+    gpps((sesskey), "FripHoverMatchSpec", "*://*;www.*", (conf), CONF_frip_hover_match_spec);			\
     gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);					\
     gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);				\
     gppi((sesskey), "FripTranspSetting", 0, (conf), CONF_frip_transp_setting);					\
