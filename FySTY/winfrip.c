@@ -159,6 +159,9 @@ static BOOL winfrip_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
 static BOOL winfrip_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, HDC hdc);
 static BOOL winfrip_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_width);
 static BOOL winfrip_init_bgimg(HDC hdc, BOOL force);
+static BOOL winfrip_init_hover_get_endstart(Terminal *term, pos *pend, pos *pstart, int x, int y);
+static BOOL winfrip_init_hover_get_match_spec(char **pmatch_spec_conf, wchar_t **pmatch_spec_w);
+static BOOL winfrip_init_hover_get_url(pos hover_end, pos hover_start, wchar_t **phover_url_w, size_t *phover_url_w_size);
 static BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w);
 
 /*
@@ -554,6 +557,128 @@ static BOOL winfrip_init_bgimg(HDC hdc, BOOL force)
     return FALSE;
 }
 
+static BOOL winfrip_init_hover_get_endstart(Terminal *term, pos *pend, pos *pstart, int x, int y)
+{
+    int x_end, x_start;
+    wchar_t wch;
+
+
+    assert(term);
+    assert(pend);
+    assert(pstart);
+
+    /*
+     * XXX document
+    */
+    if ((x >= term->cols) || (y >= term->rows)) {
+	return FALSE;
+    }
+
+    /*
+     * XXX document
+     */
+    for (x_start = x; x_start >= 0; x_start--) {
+	wch = term->disptext[y]->chars[x_start].chr;
+	if (DIRECT_FONT(wch)) {
+	    wch &= 0xFF;
+	}
+	if (wch == 0x20) {
+	    x_start++; break;
+	} else if (x_start == 0) {
+	    break;
+	}
+    }
+    if ((x_start < 0) || (x_start > x)) {
+	return FALSE;
+    }
+
+    /*
+     * XXX document
+     */
+    for (x_end = x; x_end < term->cols; x_end++) {
+	wch = term->disptext[y]->chars[x_end].chr;
+	if (DIRECT_FONT(wch)) {
+	    wch &= 0xFF;
+	}
+	if (wch == 0x20) {
+	    break;
+	}
+    }
+    if (x_end == x) {
+	return FALSE;
+    }
+
+    /*
+     * XXX document
+     */
+    pend->x = x_end;
+    pend->y = pstart->y = y;
+    pstart->x = x_start;
+    return TRUE;
+}
+
+static BOOL winfrip_init_hover_get_match_spec(char **pmatch_spec_conf, wchar_t **pmatch_spec_w)
+{
+    char *match_spec_conf;
+
+
+    assert(pmatch_spec_conf);
+    assert(pmatch_spec_w);
+
+    /*
+     * XXX document
+     */
+    match_spec_conf = conf_get_str(conf, CONF_frip_hover_match_spec);
+    if (match_spec_conf && (*pmatch_spec_conf != match_spec_conf)) {
+	if (!winfrip_towcsdup(match_spec_conf, strlen(match_spec_conf) + 1, pmatch_spec_w)) {
+	    return FALSE;
+	} else {
+	    if (*pmatch_spec_conf) {
+		free(*pmatch_spec_conf);
+	    }
+	    *pmatch_spec_conf = match_spec_conf;
+	}
+    }
+    return TRUE;
+}
+
+static BOOL winfrip_init_hover_get_url(pos hover_end, pos hover_start, wchar_t **phover_url_w, size_t *phover_url_w_size)
+{
+    size_t hover_len, idx, new_buf_w_size;
+    wchar_t *new_buf_w, wch;
+
+
+    assert(phover_url_w);
+    assert(phover_url_w_size);
+
+    /*
+     * XXX document
+    */
+    hover_len = hover_end.x - hover_start.x;
+    new_buf_w_size = (hover_len + 1) * sizeof(**phover_url_w);
+    if (new_buf_w_size > *phover_url_w_size) {
+	if ((new_buf_w = realloc(*phover_url_w, new_buf_w_size))) {
+	    *phover_url_w = new_buf_w;
+	    *phover_url_w_size = new_buf_w_size;
+	} else {
+	    return FALSE;
+	}
+    }
+
+    /*
+     * XXX document
+    */
+    for (idx = 0; idx < hover_len; idx++) {
+	wch = term->disptext[hover_start.y]->chars[hover_start.x + idx].chr;
+	if (DIRECT_FONT(wch)) {
+	    wch &= 0xFF;
+	}
+	(*phover_url_w)[idx] = wch;
+    }
+    (*phover_url_w)[hover_len] = L'\0';
+    return TRUE;
+}
+
 static BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
 {
     size_t out_w_len, out_w_size;
@@ -711,6 +836,8 @@ void winfrip_config_panel(struct controlbox *b)
     s = ctrl_getset(b, "Window/Frippery, #2", "frip_hover", "Clickable URLs settings");
     ctrl_editbox(s, "Match string", NO_SHORTCUT, 20, HELPCTX(appearance_frippery),
 		 conf_editbox_handler, I(CONF_frip_hover_match_spec), I(1));
+    ctrl_text(s, "Specify multiple match strings by separating them with "
+	      "a single semicolon.", HELPCTX(appearance_frippery));
 }
 
 void winfrip_debug_init(void)
@@ -728,13 +855,6 @@ void winfrip_debug_init(void)
 
 BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y)
 {
-    size_t hover_len, idx, new_buf_w_size;
-    char *match_spec_conf;
-    wchar_t *new_buf_w;
-    wchar_t wch;
-    int x_end, x_start;
-
-
     /*
      * XXX document
      */
@@ -805,46 +925,10 @@ BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long 
      * XXX document
      */
     case WINFRIP_HOVER_OP_CTRL_DOWN:
-	if ((x < term->cols) && (y < term->rows)) {
-	    /*
-	     * XXX document
-	     */
-	    for (x_start = x; x_start >= 0; x_start--) {
-		wch = term->disptext[y]->chars[x_start].chr;
-		if (DIRECT_FONT(wch)) {
-		    wch &= 0xFF;
-		}
-		if (wch == 0x20) {
-		    x_start++; break;
-		} else if (x_start == 0) {
-		    break;
-		}
-	    }
-	    if ((x_start < 0) || (x_start > x)) {
-		break;
-	    }
-
-	    /*
-	     * XXX document
-	     */
-	    for (x_end = x; x_end < term->cols; x_end++) {
-		wch = term->disptext[y]->chars[x_end].chr;
-		if (DIRECT_FONT(wch)) {
-		    wch &= 0xFF;
-		}
-		if (wch == 0x20) {
-		    break;
-		}
-	    }
-	    if (x_end == x) {
-		break;
-	    } else {
-		winfrip_hover_state = WINFRIP_HOVER_STATE_SELECT;
-		winfrip_hover_end.x = x_end;
-		winfrip_hover_end.y = winfrip_hover_start.y = y;
-		winfrip_hover_start.x = x_start;
-		term_update(term);
-	    }
+	if (winfrip_init_hover_get_endstart(term, &winfrip_hover_end,
+					    &winfrip_hover_start, x, y)) {
+	    winfrip_hover_state = WINFRIP_HOVER_STATE_SELECT;
+	    term_update(term);
 	}
 	break;
 
@@ -858,42 +942,12 @@ BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long 
 		/*
 		 * XXX document
 		*/
-		hover_len = winfrip_hover_end.x - winfrip_hover_start.x;
-		new_buf_w_size = (hover_len + 1) * sizeof(*winfrip_hover_url_w);
-		if (new_buf_w_size > winfrip_hover_url_w_size) {
-		    if ((new_buf_w = realloc(winfrip_hover_url_w, new_buf_w_size))) {
-			winfrip_hover_url_w = new_buf_w;
-			winfrip_hover_url_w_size = new_buf_w_size;
-		    } else {
-			return TRUE;
-		    }
-		}
-
-		/*
-		 * XXX document
-		*/
-		for (idx = 0; idx < hover_len; idx++) {
-		    wch = term->disptext[winfrip_hover_start.y]->chars[winfrip_hover_start.x + idx].chr;
-		    if (DIRECT_FONT(wch)) {
-			wch &= 0xFF;
-		    }
-		    winfrip_hover_url_w[idx] = wch;
-		}
-		winfrip_hover_url_w[hover_len] = L'\0';
-
-		/*
-		 * XXX document
-		*/
-		match_spec_conf = conf_get_str(conf, CONF_frip_hover_match_spec);
-		if (match_spec_conf && (winfrip_hover_match_spec_conf != match_spec_conf)) {
-		    if (!winfrip_towcsdup(match_spec_conf, strlen(match_spec_conf) + 1, &winfrip_hover_match_spec_w)) {
-			return TRUE;
-		    } else {
-			if (winfrip_hover_match_spec_conf) {
-			    free(winfrip_hover_match_spec_conf);
-			}
-			winfrip_hover_match_spec_conf = match_spec_conf;
-		    }
+		if (!winfrip_init_hover_get_url(winfrip_hover_end, winfrip_hover_start,
+						&winfrip_hover_url_w, &winfrip_hover_url_w_size)) {
+		    return FALSE;
+		} else if (!winfrip_init_hover_get_match_spec(&winfrip_hover_match_spec_conf,
+							      &winfrip_hover_match_spec_w)) {
+		    return FALSE;
 		}
 
 		/*
@@ -902,12 +956,18 @@ BOOL winfrip_hover_op(WinFripHoverOp op, HWND hwnd, UINT message, unsigned long 
 		if (PathMatchSpecW(winfrip_hover_url_w, winfrip_hover_match_spec_w)) {
 		    winfrip_hover_state = WINFRIP_HOVER_STATE_CLICK;
 		    term_update(term);
+		    return TRUE;
 		} else {
 		    ZeroMemory(winfrip_hover_url_w, winfrip_hover_url_w_size);
+		    return FALSE;
 		}
+	    } else {
+		return FALSE;
 	    }
-	    return TRUE;
 	} else if (winfrip_hover_state == WINFRIP_HOVER_STATE_CLICK) {
+	    /*
+	     * XXX document
+	     */
 	    ShellExecuteW(NULL, L"open", winfrip_hover_url_w, NULL, NULL, SW_SHOWNORMAL);
 	    ZeroMemory(winfrip_hover_url_w, winfrip_hover_url_w_size);
 	    winfrip_hover_state = WINFRIP_HOVER_STATE_NONE;
