@@ -92,7 +92,7 @@ typedef enum WinFripMouseOp {
 BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam);
 
 /*
- * windows/win{gss,pgnt,store}.c
+ * windows/win{gss,store}.c
  */
 
 LONG winfrip_confstore_RegCloseKey(HKEY hKey);
