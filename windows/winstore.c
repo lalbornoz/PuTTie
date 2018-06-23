@@ -24,6 +24,7 @@
 
 /* {{{ winfrip */
 #include "winfrip_confstore_post.h"
+#include "winfrip.h"
 /* winfrip }}} */
 
 static const char *const reg_jumplist_key = PUTTY_REG_POS "\\Jumplist";

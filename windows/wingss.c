@@ -18,6 +18,7 @@
 
 /* {{{ winfrip */
 #include "winfrip_confstore_post.h"
+#include "winfrip.h"
 /* winfrip }}} */
 
 #define UNIX_EPOCH	11644473600ULL	/* Seconds from Windows epoch */
