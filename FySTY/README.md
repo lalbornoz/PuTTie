@@ -18,7 +18,10 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 ## Screenshot
 ![Screenshot](https://github.com/lalbornoz/FySTY/raw/master/FySTY/FySTY.png "Screenshot")
 
-## List of newly introduced features (only in MinGW build environment & on Windows presently)
+## Built & tested on
+1. MinGW on Ubuntu 16.04.4 LTS & Windows 8.1 x64, resp.
+
+## List of newly introduced features
 1. **Background BMP or {JPG,PNG,...}[[10](#r10)] images**, similarly to[[6](#r6)]  
    Absolute positioning, centered, scaled, or tiled, with configurable opacity
 2. **Transparency**, similarly to the mintty[[7](#r7)] implementation  
@@ -41,7 +44,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
    Unsubstantiated bullshit & a pattern! How about if you don't feel like doing something just say so and stop rationalising your unwillingness to do so?  
-   Furthermore: well-near **150K** SLOC of code? Entire OS have been written in less than that! What the bloody hell is the point of DBCS support? Windows 9x support? Get the fuck out! The FySTY code accounts for **1% at most** of PuTTY! Shame on you, Simon Tatham! *You're* the #1 cause of bloat in PuTTY!  
+   Furthermore: well-near **150K** SLOC of code? Entire OS have been written in less than that! What the bloody hell is the point of DBCS support? Windows 9x support? Get the fuck out! The FySTY code accounts for **less than 2%** of PuTTY! Shame on you, Simon Tatham! *You're* the #1 cause of bloat in PuTTY!  
    The drop-dead obvious solution: lower maintenance cost as much as possible through (source code) modularity -- needless to say, this is only necessary on account of **far too much** imperative & impure code *very* poor in architecture & expressiveness -- yes that means you Simon Tatham!
 2. **The “pointless frippery”[[3](#r3)] “argument”**:  
    This is nothing more than valuing your own opinion over that of everyone else: were it pointless, would anyone at all bother in the very first place?
