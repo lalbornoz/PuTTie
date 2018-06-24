@@ -16,33 +16,35 @@ void winfrip_config_panel(struct controlbox *b);
 /*
  * settings.c:load_open_settings()
  */
-#define WINFRIP_LOAD_OPEN_SETTINGS(sesskey, conf) do {								\
-    gppfile((sesskey), "FripBgImgFile", (conf), CONF_frip_bgimg_filename);					\
-    gppi((sesskey), "FripBgImgOpacity", 75, (conf), CONF_frip_bgimg_opacity);					\
-    gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);					\
-    gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);						\
-    gppi((sesskey), "FripMouseRmb", 0, (conf), CONF_frip_mouse_rmb);						\
-    gppi((sesskey), "FripMouseWheel", 0, (conf), CONF_frip_mouse_wheel);					\
-    gpps((sesskey), "FripUrlsMatchSpec", "*://*;www.*", (conf), CONF_frip_urls_match_spec);			\
-    gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);					\
-    gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);				\
-    gppi((sesskey), "FripTranspSetting", 0, (conf), CONF_frip_transp_setting);					\
+#define WINFRIP_LOAD_OPEN_SETTINGS(sesskey, conf) do {									\
+    gppfile((sesskey), "FripBgImgFile", (conf), CONF_frip_bgimg_filename);						\
+    gppi((sesskey), "FripBgImgOpacity", 75, (conf), CONF_frip_bgimg_opacity);						\
+    gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);						\
+    gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);							\
+    gppi((sesskey), "FripGeneralAlwaysOnTop", 0, (conf), CONF_frip_general_always_on_top);				\
+    gppi((sesskey), "FripMouseRmb", 0, (conf), CONF_frip_mouse_rmb);							\
+    gppi((sesskey), "FripMouseWheel", 0, (conf), CONF_frip_mouse_wheel);						\
+    gpps((sesskey), "FripUrlsMatchSpec", "*://*;www.*", (conf), CONF_frip_urls_match_spec);				\
+    gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);						\
+    gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);					\
+    gppi((sesskey), "FripTranspSetting", 0, (conf), CONF_frip_transp_setting);						\
 } while (0)
 
 /*
  * settings.c:save_open_settings()
  */
-#define WINFRIP_SAVE_OPEN_SETTINGS(sesskey, conf) do {								\
-    write_setting_filename((sesskey), "FripBgImgFile", conf_get_filename((conf), CONF_frip_bgimg_filename));	\
-    write_setting_i((sesskey), "FripBgImgOpacity", conf_get_int((conf), CONF_frip_bgimg_opacity));		\
-    write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));			\
-    write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));			\
-    write_setting_i((sesskey), "FripMouseRmb", conf_get_int((conf), CONF_frip_mouse_rmb));			\
-    write_setting_i((sesskey), "FripMouseWheel", conf_get_int((conf), CONF_frip_mouse_wheel));			\
-    write_setting_s((sesskey), "FripUrlsMatchSpec", conf_get_str((conf), CONF_frip_urls_match_spec));		\
-    write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));		\
-    write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_transp_opaque_on));		\
-    write_setting_i((sesskey), "FripTranspSetting", conf_get_int((conf), CONF_frip_transp_setting));		\
+#define WINFRIP_SAVE_OPEN_SETTINGS(sesskey, conf) do {									\
+    write_setting_filename((sesskey), "FripBgImgFile", conf_get_filename((conf), CONF_frip_bgimg_filename));		\
+    write_setting_i((sesskey), "FripBgImgOpacity", conf_get_int((conf), CONF_frip_bgimg_opacity));			\
+    write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));				\
+    write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));				\
+    write_setting_i((sesskey), "FripGeneralAlwaysOnTop", conf_get_int((conf), CONF_frip_general_always_on_top));	\
+    write_setting_i((sesskey), "FripMouseRmb", conf_get_int((conf), CONF_frip_mouse_rmb));				\
+    write_setting_i((sesskey), "FripMouseWheel", conf_get_int((conf), CONF_frip_mouse_wheel));				\
+    write_setting_s((sesskey), "FripUrlsMatchSpec", conf_get_str((conf), CONF_frip_urls_match_spec));			\
+    write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));			\
+    write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_transp_opaque_on));			\
+    write_setting_i((sesskey), "FripTranspSetting", conf_get_int((conf), CONF_frip_transp_setting));			\
 } while (0)
 
 /*
@@ -83,6 +85,15 @@ void winfrip_transp_op(WinFripTranspOp op, HWND hwnd);
  * windows/window.c:WinMain()
  */
 void winfrip_debug_init(void);
+
+/*
+ * windows/window.c:WndProc()
+ */
+typedef enum WinFripGeneralOp {
+    WINFRIP_GENERAL_OP_CONFIG_DIALOG	= 0,
+    WINFRIP_GENERAL_OP_FOCUS_SET	= 1,
+} WinFripGeneralOp;
+void winfrip_general_op(WinFripGeneralOp op, HWND hwnd, int reconfiguring);
 
 /*
  * windows/window.c:WndProc()

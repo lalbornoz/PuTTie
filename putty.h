@@ -883,6 +883,7 @@ void cleanup_exit(int);
     X(INT, NONE, sunken_edge) \
     X(INT, NONE, window_border) \
     /* {{{ winfrip */ \
+    X(INT, NONE, frip_general_always_on_top) \
     X(FILENAME, NONE, frip_bgimg_filename) \
     X(INT, NONE, frip_bgimg_opacity) \
     X(INT, NONE, frip_bgimg_style) \

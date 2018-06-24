@@ -2199,10 +2199,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 		prev_conf = conf_copy(conf);
 
+		/* {{{ winfrip */
+		winfrip_general_op(WINFRIP_GENERAL_OP_CONFIG_DIALOG, hwnd, -1);
+		/* winfrip }}} */
 		reconfig_result =
 		    do_reconfig(hwnd, back ? back->cfg_info(backhandle) : 0);
 		reconfiguring = FALSE;
 		if (!reconfig_result) {
+		    /* {{{ winfrip */
+		    winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, hwnd, FALSE);
+		    /* winfrip }}} */
                     conf_free(prev_conf);
 		    break;
                 }
@@ -2369,6 +2375,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		reset_window(init_lvl);
 
 		conf_free(prev_conf);
+		/* {{{ winfrip */
+		winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, hwnd, FALSE);
+		/* winfrip }}} */
 	    }
 	    break;
 	  case IDM_COPYALL:
@@ -2746,6 +2755,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_SETFOCUS:
 	/* {{{ winfrip */
 	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, hwnd);
+	winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, hwnd, reconfiguring);
 	/* winfrip }}} */
 	term_set_focus(term, TRUE);
 	CreateCaret(hwnd, caretbm, font_width, font_height);
