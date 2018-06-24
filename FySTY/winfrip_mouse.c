@@ -32,13 +32,21 @@ void winfripp_mouse_config_panel(struct controlbox *b)
      * The Window/Frippery: mouse panel.
      */
 
-    ctrl_settitle(b, "Window/Frippery: mouse", "Configure pointless frippery: mouse");
-    s = ctrl_getset(b, "Window/Frippery: mouse", "frip", "Click actions");
+    ctrl_settitle(b, "Window/Frippery: mouse", "Configure pointless frippery: mouse behaviour");
+    s = ctrl_getset(b, "Window/Frippery: mouse", "frip", "Mouse behaviour");
+
     ctrl_radiobuttons(s, "Right mouse button:", NO_SHORTCUT, 2, HELPCTX(appearance_frippery),
 		      conf_radiobutton_handler, I(CONF_frip_mouse_rmb),
 		      "Normal",		NO_SHORTCUT,	I(WINFRIP_MOUSE_RMB_NORMAL),
 		      "Inhibit",	NO_SHORTCUT,	I(WINFRIP_MOUSE_RMB_INHIBIT), NULL);
     ctrl_text(s, "This only affects click actions with no modifiers, e.g. CTRL, ALT, and/or SHIFT.",
+	      HELPCTX(appearance_frippery));
+
+    ctrl_radiobuttons(s, "Mouse wheel:", NO_SHORTCUT, 2, HELPCTX(appearance_frippery),
+		      conf_radiobutton_handler, I(CONF_frip_mouse_wheel),
+		      "Normal",			NO_SHORTCUT,	I(WINFRIP_MOUSE_WHEEL_NORMAL),
+		      "Change font size",	NO_SHORTCUT,	I(WINFRIP_MOUSE_WHEEL_FONT_SIZE), NULL);
+    ctrl_text(s, "This only affects mouse wheel actions with the CTRL modifier.",
 	      HELPCTX(appearance_frippery));
 }
 
@@ -48,7 +56,9 @@ void winfripp_mouse_config_panel(struct controlbox *b)
 
 BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam)
 {
+    FontSpec *font;
     BYTE keystate[256];
+    short wheel_distance;
     int rc;
 
 
@@ -58,6 +68,8 @@ BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam)
     if (op == WINFRIP_MOUSE_OP_MOUSE_EVENT) {
 	if (message == WM_RBUTTONDOWN) {
 	    op = WINFRIP_MOUSE_OP_RMB_DOWN;
+	} else if (message == WM_MOUSEWHEEL) {
+	    op = WINFRIP_MOUSE_OP_WHEEL;
 	} else {
 	    return FALSE;
 	}
@@ -70,8 +82,12 @@ BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam)
     default:
 	break;
 
+    /*
+     * XXX document
+     */
     case WINFRIP_MOUSE_OP_RMB_DOWN:
 	switch (conf_get_int(conf, CONF_frip_mouse_rmb)) {
+	default:
 	case WINFRIP_MOUSE_RMB_NORMAL:
 	    return FALSE;
 	case WINFRIP_MOUSE_RMB_INHIBIT:
@@ -89,6 +105,36 @@ BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam)
 		}
 	    }
 	}
+
+    /*
+     * XXX document
+     */
+    case WINFRIP_MOUSE_OP_WHEEL:
+	if ((LOWORD(wParam) & MK_CONTROL) && !(LOWORD(wParam) & MK_SHIFT)) {
+	    switch (conf_get_int(conf, CONF_frip_mouse_wheel)) {
+	    default:
+	    case WINFRIP_MOUSE_WHEEL_NORMAL:
+		return FALSE;
+	    case WINFRIP_MOUSE_WHEEL_FONT_SIZE:
+		font = conf_get_fontspec(conf, CONF_font);
+		wheel_distance = (short)HIWORD(wParam);
+		if ((wheel_distance > 0) && (font->height < 32)) {
+		    font->height++;
+		    conf_set_fontspec(conf, CONF_font, font);
+		    return TRUE;
+		} else if ((wheel_distance < 0) && (font->height > 1)) {
+		    font->height--;
+		    conf_set_fontspec(conf, CONF_font, font);
+		    return TRUE;
+		} else {
+		    WINFRIPP_DEBUG_FAIL();
+		    return FALSE;
+		}
+	    }
+	} else {
+	    return FALSE;
+	}
     }
+
     return FALSE;
 }

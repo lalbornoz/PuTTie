@@ -888,6 +888,7 @@ void cleanup_exit(int);
     X(INT, NONE, frip_bgimg_style) \
     X(INT, NONE, frip_bgimg_type) \
     X(INT, NONE, frip_mouse_rmb) \
+    X(INT, NONE, frip_mouse_wheel) \
     X(STR, NONE, frip_urls_match_spec) \
     X(INT, NONE, frip_transp_custom) \
     X(INT, NONE, frip_transp_opaque_on) \

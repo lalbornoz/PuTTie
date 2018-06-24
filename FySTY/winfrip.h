@@ -22,6 +22,7 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);					\
     gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);						\
     gppi((sesskey), "FripMouseRmb", 0, (conf), CONF_frip_mouse_rmb);						\
+    gppi((sesskey), "FripMouseWheel", 0, (conf), CONF_frip_mouse_wheel);					\
     gpps((sesskey), "FripUrlsMatchSpec", "*://*;www.*", (conf), CONF_frip_urls_match_spec);			\
     gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);					\
     gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);				\
@@ -37,6 +38,7 @@ void winfrip_config_panel(struct controlbox *b);
     write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));			\
     write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));			\
     write_setting_i((sesskey), "FripMouseRmb", conf_get_int((conf), CONF_frip_mouse_rmb));			\
+    write_setting_i((sesskey), "FripMouseWheel", conf_get_int((conf), CONF_frip_mouse_wheel));			\
     write_setting_s((sesskey), "FripUrlsMatchSpec", conf_get_str((conf), CONF_frip_urls_match_spec));		\
     write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));		\
     write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_transp_opaque_on));		\
@@ -88,6 +90,7 @@ void winfrip_debug_init(void);
 typedef enum WinFripMouseOp {
     WINFRIP_MOUSE_OP_MOUSE_EVENT	= 0,
     WINFRIP_MOUSE_OP_RMB_DOWN		= 1,
+    WINFRIP_MOUSE_OP_WHEEL		= 2,
 } WinFripMouseOp;
 BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam);
 

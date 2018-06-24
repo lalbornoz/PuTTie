@@ -3262,6 +3262,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	    int shift_pressed=0, control_pressed=0;
 
 	    if (message == WM_MOUSEWHEEL) {
+		/* {{{ winfrip */
+		if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, message, wParam)) {
+		    reset_window(2); return 0;
+		}
+		/* winfrip }}} */
 		wheel_accumulator += (short)HIWORD(wParam);
 		shift_pressed=LOWORD(wParam) & MK_SHIFT;
 		control_pressed=LOWORD(wParam) & MK_CONTROL;
