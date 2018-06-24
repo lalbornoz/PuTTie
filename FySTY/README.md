@@ -48,7 +48,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    The drop-dead obvious solution: lower maintenance cost as much as possible through (source code) modularity -- needless to say, this is only necessary on account of **far too much** imperative & impure code *very* poor in architecture & expressiveness -- yes that means you Simon Tatham!
 2. **The “pointless frippery”[[3](#r3)] “argument”**:  
    This is nothing more than valuing your own opinion over that of everyone else: were it pointless, would anyone at all bother in the very first place?
-   Do you fancy yourself better than others? Or is your excuse “I'm a benevolent dictator!” you pathetic Linus Torvalds clone?  
+   Do you fancy yourself better than others? Or is your excuse “I'm a benevolent dictator!”[[18](#r18)] you pathetic Linus Torvalds clone?  
    Sod off you time-wasting parasite! Go do something else that isn't programming!
 3. **What of ExtraPuTTY[[17](#r17)], KiTTY[[13](#r13)], Nutty[[16](#r16)], mintty[[7](#r7)], PuTTYTray[[11](#r11)], the covidimus patch[[14](#r14)], and transputty[[15](#r15)]?**  
    All of those are either dead or in a questionable state -- and yet: are they all wrong? Dualism much?
@@ -78,5 +78,6 @@ Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn, Be
 ``Fri, 22 Jun 2018 14:58:09 +0200 [15]`` <a href="http://web.archive.org/web/20120505105249/http://cprogramming.hu/transputty/" id="r15">Putty - transparent "eye-candy" patch</a>  
 ``Fri, 22 Jun 2018 15:00:08 +0200 [16]`` <a href="http://web.archive.org/web/20150214071803/http://groehn.net/nutty/" id="r16">Nutty – SSH Client for Windows</a>  
 ``Fri, 22 Jun 2018 15:02:18 +0200 [17]`` <a href="http://www.extraputty.com/" id="r17">ExtraPuTTY | Fork of PuTTY</a>  
+``Sun, 24 Jun 2018 15:15:52 +0200 [18]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/team.html" id="r18">PuTTY Team Members</a>  
   
 vim:tw=0
