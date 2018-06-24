@@ -36,7 +36,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 ## TODO/wish list
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
 2. **Bug**: original PuTTY code: fix emoji handling (on {paste,type} vs. on display)
-3. **Cleanup**: optimise {reconf,size} bgimg logic, XXX document items & error messages
+3. **Cleanup**: optimise {{reconf,size} bgimg,confstore} logic, XXX document items, add error messages
 4. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
 5. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
 6. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
