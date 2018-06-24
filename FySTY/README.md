@@ -37,9 +37,11 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
 2. **Bug**: original PuTTY code: fix emoji handling (on {paste,type} vs. on display)
 3. **Cleanup**: optimise {{reconf,size} bgimg,confstore} logic, XXX document items, add error messages
-4. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-5. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
-6. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+4. **New feature**: Direct{2D,Write} backend, similarly to [[21](#r21)]
+5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
+6. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
+7. **New feature**: ssh:// protocol handler registration, similarly to [[19](#r19)]
+8. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
@@ -50,7 +52,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    This is nothing more than valuing your own opinion over that of everyone else: were it pointless, would anyone at all bother in the very first place?
    Do you fancy yourself better than others? Or is your excuse “I'm a benevolent dictator!”[[18](#r18)] you pathetic Linus Torvalds clone?  
    Sod off you time-wasting parasite! Go do something else that isn't programming!
-3. **What of ExtraPuTTY[[17](#r17)], KiTTY[[13](#r13)], Nutty[[16](#r16)], mintty[[7](#r7)], PuTTYTray[[11](#r11)], the covidimus patch[[14](#r14)], and transputty[[15](#r15)]?**  
+3. **What of ExtraPuTTY[[17](#r17)], KiTTY[[13](#r13)], Nutty[[16](#r16)], mintty[[7](#r7)], PuTTYTray[[11](#r11)], the covidimus patch[[14](#r14)], ransputty[[15](#r15)], ...[[20](#r20)]?**  
    All of those are either dead or in a questionable state -- and yet: are they all wrong? Dualism much?
 4. **Ultimately**: all of this entails **maintenance cost** & shows **lack of concern for end users** -- *who happen to be the only reason your project is of any relevance to anyone whatsoever!*  
    A complete waste of time, and above all: **net loss for everyone!** It's *vastly* preferable to have {code,features} that work{s,} *at all* as opposed to *nowt*, especially in the face of academic balderdash nonsense “design concerns”[[9](#r9)] that don't relate to the real world in any tangible way.
@@ -79,5 +81,8 @@ Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn, Be
 ``Fri, 22 Jun 2018 15:00:08 +0200 [16]`` <a href="http://web.archive.org/web/20150214071803/http://groehn.net/nutty/" id="r16">Nutty – SSH Client for Windows</a>  
 ``Fri, 22 Jun 2018 15:02:18 +0200 [17]`` <a href="http://www.extraputty.com/" id="r17">ExtraPuTTY | Fork of PuTTY</a>  
 ``Sun, 24 Jun 2018 15:15:52 +0200 [18]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/team.html" id="r18">PuTTY Team Members</a>  
+``Sun, 24 Jun 2018 19:49:00 +0200 [19]`` <a href="https://github.com/FauxFaux/PuTTYTray/issues/203" id="r19">Support ssh:// URI · Issue #203 · FauxFaux/PuTTYTray</a>  
+``Sun, 24 Jun 2018 19:57:24 +0200 [20]`` <a href="https://github.com/FauxFaux/PuTTYTray/wiki/Other-forks-of-PuTTY" id="r20">Other forks of PuTTY · FauxFaux/PuTTYTray Wiki</a>  
+``Sun, 24 Jun 2018 21:19:05 +0200 [21]`` <a href="https://ice.hotmint.com/putty/d2ddw.html" id="r21">iceiv+putty</a>  
   
 vim:tw=0
