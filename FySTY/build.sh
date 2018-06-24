@@ -10,7 +10,6 @@ usage() {
 	echo "       -m.......: select \`mingw' build type" >&2;
 	echo "       -r.......: call mkfiles.pl before build" >&2;
 	echo "       -u.......: select \`unix' build type" >&2;
-	exit 0;
 };
 
 build() {
@@ -20,10 +19,11 @@ build() {
 	case "${_opt}" in
 	c)	_cflag=1; ;;
 	d)	_dflag=1; ;;
+	h)	usage; exit 0; ;;
 	m)	_build_type="mingw"; ;;
 	r)	_rflag=1; ;;
 	u)	_build_type="unix"; ;;
-	*)	usage; ;;
+	*)	usage; exit 1; ;;
 	esac; done; shift $((${OPTIND}-1));
 
 	case "${_build_type}" in
@@ -49,7 +49,8 @@ build() {
 		make ${_makeflags_extra} "${@}";
 		;;
 	*)
-		usage; ;;
+		echo "error: unknown build type \`${_build_type}'" >&2;
+		usage; exit 1; ;;
 	esac;
 };
 
