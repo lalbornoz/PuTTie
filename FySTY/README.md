@@ -26,18 +26,17 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 3. **Clickable URLs**, similarly to the mintty[[7](#r7)] implementation  
    Configurable URL pattern matching string(s)[[12](#r12)], sans DBCS support; are you fucking kidding me Simon Tatham?
 4. **Mouse behaviour changes**, similarly to the mintty[[7](#r7)] and PuTTYTray[[11](#r11)] implementations  
-   Configurable {de,in}crease font size with \<Shift\> + \<Mouse wheel\>
+   Configurable {de,in}crease font size with \<Shift\> + \<Mouse wheel\>  
    Configurable {normal,inhibit} RMB processing behaviour (for alghazi)
+5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation
 
 ## TODO/wish list
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
 2. **Bug**: original PuTTY code: fix emoji handling (on {paste,type} vs. on display)
 3. **Cleanup**: optimise {reconf,size} bgimg logic, XXX document items & error messages
-4. **New feature**: configurable Always-on-Top, similarly to[[11](#r11)](?)
-5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-6. **New feature**: MS Visual C++ build environment support bits via Winelib
-7. **New feature**: provide installer package(s) & images
-8. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+4. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
+5. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
+6. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
