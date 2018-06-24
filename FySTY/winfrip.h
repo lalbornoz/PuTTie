@@ -109,13 +109,18 @@ BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam);
  * windows/win{gss,store}.c
  */
 
-LONG winfrip_confstore_RegCloseKey(HKEY hKey);
+/* Key {creation,open} methods */
 LONG winfrip_confstore_RegCreateKey(HKEY hKey, LPCSTR lpSubKey, PHKEY phkResult);
 LONG winfrip_confstore_RegCreateKeyEx(HKEY hKey, LPCSTR lpSubKey, DWORD Reserved, LPSTR lpClass, DWORD dwOptions, REGSAM samDesired, LPSECURITY_ATTRIBUTES lpSecurityAttributes, PHKEY phkResult, LPDWORD lpdwDisposition);
-LONG winfrip_confstore_RegDeleteKey(HKEY hKey, LPCSTR lpSubKey);
-LONG winfrip_confstore_RegDeleteValue(HKEY hKey, LPCSTR lpValueName);
-LONG winfrip_confstore_RegEnumKey(HKEY hKey, DWORD dwIndex, LPSTR lpName, DWORD cchName);
 LONG winfrip_confstore_RegOpenKey(HKEY hKey, LPCSTR lpSubKey, PHKEY phkResult);
+
+/* Key {closing,deletion,enumeration} methods */
+LONG winfrip_confstore_RegCloseKey(HKEY hKey);
+LONG winfrip_confstore_RegDeleteKey(HKEY hKey, LPCSTR lpSubKey);
+LONG winfrip_confstore_RegEnumKey(HKEY hKey, DWORD dwIndex, LPSTR lpName, DWORD cchName);
+
+/* Value {deletion,querying,setting} methods */
+LONG winfrip_confstore_RegDeleteValue(HKEY hKey, LPCSTR lpValueName);
 LONG winfrip_confstore_RegQueryValueEx(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData);
 LONG winfrip_confstore_RegSetValueEx(HKEY hKey, LPCSTR lpValueName, DWORD Reserved, DWORD dwType, CONST BYTE *lpData, DWORD cbData);
 
