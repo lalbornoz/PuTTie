@@ -25,8 +25,9 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    Optionally in conjunction with background images, configurable opacity on {focus,focus loss} behaviour
 3. **Clickable URLs**, similarly to the mintty[[7](#r7)] implementation  
    Configurable URL pattern matching string(s)[[12](#r12)], sans DBCS support; are you fucking kidding me Simon Tatham?
-4. **Click actions**, similarly to the mintty[[7](#r7)] implementation  
-   Configurable normal or inhibit RMB processing behaviour (for alghazi)
+4. **Mouse behaviour changes**, similarly to the mintty[[7](#r7)] and PuTTYTray[[11](#r11)] implementations  
+   Configurable {de,in}crease font size with \<Shift\> + \<Mouse wheel\>
+   Configurable {normal,inhibit} RMB processing behaviour (for alghazi)
 
 ## TODO/wish list
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
@@ -36,8 +37,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
 6. **New feature**: MS Visual C++ build environment support bits via Winelib
 7. **New feature**: provide installer package(s) & images
-8. **New feature**: use \<Shift\> + WM\_MOUSEWHELL to {de,in}crease font size, similarly to[[11](#r11)](?)
-9. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+8. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
@@ -53,7 +53,7 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 4. **Ultimately**: all of this entails **maintenance cost** & shows **lack of concern for end users** -- *who happen to be the only reason your project is of any relevance to anyone whatsoever!*  
    A complete waste of time, and above all: **net loss for everyone!** It's *vastly* preferable to have {code,features} that work{s,} *at all* as opposed to *nowt*, especially in the face of academic balderdash nonsense “design concerns”[[9](#r9)] that don't relate to the real world in any tangible way.
 5. **Especially not where the upstream does not want to be tracked, as is the case with Putty: they make things very difficult.**[[8](#r8)]  
-   Not even commenting!  
+   Not even commenting!
 
 ## Pull requests policy
 Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn, Ben Harris, or Jacob Nevins.

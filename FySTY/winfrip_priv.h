@@ -57,6 +57,14 @@ typedef enum WinFripMouseRmb {
 /*
  * XXX document
  */
+typedef enum WinFripMouseWheel {
+    WINFRIP_MOUSE_WHEEL_NORMAL		= 0,
+    WINFRIP_MOUSE_WHEEL_FONT_SIZE	= 1,
+} WinFripMouseWheel;
+
+/*
+ * XXX document
+ */
 typedef enum WinFripTranspLevel {
     WINFRIP_TRANSP_LEVEL_OFF		= 255,
     WINFRIP_TRANSP_LEVEL_LOW		= 255 - 16,
