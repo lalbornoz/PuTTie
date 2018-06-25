@@ -1,7 +1,7 @@
 #ifndef NO_GSSAPI
 
 /* {{{ winfrip */
-#include "winfrip_confstore_pre.h"
+#include "FySTY/winfrip_confstore_pre.h"
 /* winfrip }}} */
 
 #include <limits.h>
@@ -17,8 +17,8 @@
 #include "misc.h"
 
 /* {{{ winfrip */
-#include "winfrip_confstore_post.h"
-#include "winfrip.h"
+#include "FySTY/winfrip_confstore_post.h"
+#include "FySTY/winfrip.h"
 /* winfrip }}} */
 
 #define UNIX_EPOCH	11644473600ULL	/* Seconds from Windows epoch */

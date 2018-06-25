@@ -1,1 +1,0 @@
-../FySTY/winfrip_confstore_post.h

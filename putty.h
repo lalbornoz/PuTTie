@@ -22,6 +22,10 @@
 #include "misc.h"
 #include "marshal.h"
 
+/* {{{ winfrip */
+#include "FySTY/winfrip.h"
+/* winfrip }}} */
+
 /*
  * We express various time intervals in unsigned long minutes, but may need to
  * clip some values so that the resulting number of ticks does not overflow an
@@ -883,17 +887,7 @@ void cleanup_exit(int);
     X(INT, NONE, sunken_edge) \
     X(INT, NONE, window_border) \
     /* {{{ winfrip */ \
-    X(INT, NONE, frip_general_always_on_top) \
-    X(FILENAME, NONE, frip_bgimg_filename) \
-    X(INT, NONE, frip_bgimg_opacity) \
-    X(INT, NONE, frip_bgimg_style) \
-    X(INT, NONE, frip_bgimg_type) \
-    X(INT, NONE, frip_mouse_rmb) \
-    X(INT, NONE, frip_mouse_wheel) \
-    X(STR, NONE, frip_urls_match_spec) \
-    X(INT, NONE, frip_transp_custom) \
-    X(INT, NONE, frip_transp_opaque_on) \
-    X(INT, NONE, frip_transp_setting) \
+    WINFRIP_CONFIG_OPTIONS(X) \
     /* winfrip }}} */ \
     X(STR, NONE, answerback) \
     X(STR, NONE, printer) \

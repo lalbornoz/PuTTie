@@ -5,13 +5,39 @@
 
 #ifndef PUTTY_WINFRIP_H
 #define PUTTY_WINFRIP_H
+#ifndef PUTTY_UNIX_H
 
-BOOL winfrip_towcsdup(char *in, size_t in_size, wchar_t **pout_w);
+/*
+ * XXX document
+ */
+typedef enum WinFripReturn {
+    WINFRIP_RETURN_FAILURE		= 0,
+    WINFRIP_RETURN_BREAK		= 1,
+    WINFRIP_RETURN_BREAK_RESET_WINDOW	= 2,
+    WINFRIP_RETURN_CONTINUE		= 3,
+    WINFRIP_RETURN_NOOP			= 4,
+} WinFripReturn;
 
 /*
  * config.c:setup_config_box()
  */
 void winfrip_config_panel(struct controlbox *b);
+
+/*
+ * putty.h:CONFIG_OPTIONS()
+ */
+#define WINFRIP_CONFIG_OPTIONS(X)											\
+    X(INT, NONE, frip_general_always_on_top)										\
+    X(FILENAME, NONE, frip_bgimg_filename)										\
+    X(INT, NONE, frip_bgimg_opacity)											\
+    X(INT, NONE, frip_bgimg_style)											\
+    X(INT, NONE, frip_bgimg_type)											\
+    X(INT, NONE, frip_mouse_rmb)											\
+    X(INT, NONE, frip_mouse_wheel)											\
+    X(STR, NONE, frip_urls_match_spec)											\
+    X(INT, NONE, frip_transp_custom)											\
+    X(INT, NONE, frip_transp_opaque_on)											\
+    X(INT, NONE, frip_transp_setting)
 
 /*
  * settings.c:load_open_settings()
@@ -49,6 +75,7 @@ void winfrip_config_panel(struct controlbox *b);
 
 /*
  * terminal.c:do_paint()
+ * windows/window.c:WndProc()
  */
 typedef enum WinFripUrlsOp {
     WINFRIP_URLS_OP_CLEAR		= 0,
@@ -60,7 +87,7 @@ typedef enum WinFripUrlsOp {
     WINFRIP_URLS_OP_MOUSE_EVENT		= 6,
     WINFRIP_URLS_OP_MOUSE_UP		= 7,
 } WinFripUrlsOp;
-BOOL winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
+WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
 
 /*
  * windows/window.c:{do_text_internal,WndProc}()
@@ -70,7 +97,7 @@ typedef enum WinFripBgImgOp {
     WINFRIP_BGIMG_OP_RECONF		= 1,
     WINFRIP_BGIMG_OP_SIZE		= 2,
 } WinFripBgImgOp;
-BOOL winfrip_bgimg_op(WinFripBgImgOp op, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
+WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
 
 /*
  * windows/window.c:{WinMain,WndProc}()
@@ -103,7 +130,7 @@ typedef enum WinFripMouseOp {
     WINFRIP_MOUSE_OP_RMB_DOWN		= 1,
     WINFRIP_MOUSE_OP_WHEEL		= 2,
 } WinFripMouseOp;
-BOOL winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam);
+WinFripReturn winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam);
 
 /*
  * windows/win{gss,store}.c
@@ -124,4 +151,9 @@ LONG winfrip_confstore_RegDeleteValue(HKEY hKey, LPCSTR lpValueName);
 LONG winfrip_confstore_RegQueryValueEx(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData);
 LONG winfrip_confstore_RegSetValueEx(HKEY hKey, LPCSTR lpValueName, DWORD Reserved, DWORD dwType, CONST BYTE *lpData, DWORD cbData);
 
+#else
+#define WINFRIP_CONFIG_OPTIONS(X)
+#define WINFRIP_LOAD_OPEN_SETTINGS(sesskey, conf)
+#define WINFRIP_SAVE_OPEN_SETTINGS(sesskey, conf)
+#endif
 #endif

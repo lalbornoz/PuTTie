@@ -13,7 +13,7 @@
 #include "putty.h"
 #include "terminal.h"
 /* {{{ winfrip */
-#include "winfrip.h"
+#include "FySTY/winfrip.h"
 /* winfrip }}} */
 
 #define poslt(p1,p2) ( (p1).y < (p2).y || ( (p1).y == (p2).y && (p1).x < (p2).x ) )
@@ -5293,7 +5293,9 @@ static void do_paint(Terminal *term, Context ctx, int may_optimise)
 		tattr |= ATTR_WIDE;
 
 	    /* {{{ winfrip */
+	#ifndef PUTTY_UNIX_H
 	    winfrip_urls_op(WINFRIP_URLS_OP_DRAW, NULL, 0, &tattr, term, 0, scrpos.x, scrpos.y);
+	#endif
 	    /* winfrip }}} */
 
 	    /* Video reversing things */
@@ -5547,7 +5549,9 @@ static void do_paint(Terminal *term, Context ctx, int may_optimise)
     }
 
     /* {{{ winfrip */
+#ifndef PUTTY_UNIX_H
     winfrip_urls_op(WINFRIP_URLS_OP_CLEAR, NULL, 0, NULL, term, 0, -1, -1);
+#endif
     /* winfrip }}} */
 
     sfree(newline);

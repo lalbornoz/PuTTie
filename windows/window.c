@@ -25,8 +25,9 @@
 #include "win_res.h"
 #include "winsecur.h"
 #include "tree234.h"
+
 /* {{{ winfrip */
-#include "winfrip.h"
+#include "FySTY/winfrip.h"
 /* winfrip }}} */
 
 #ifndef NO_MULTIMON
@@ -2328,7 +2329,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		    }
 
 		    /* {{{ winfrip */
-		    winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL,
+		    winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL, NULL,
 				     hwnd, -1, -1, -1, -1, -1, -1, -1);
 		    winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, hwnd);
 		    /* winfrip }}} */
@@ -2458,9 +2459,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_RBUTTONUP:
 	/* {{{ winfrip */
 	if (winfrip_urls_op(WINFRIP_URLS_OP_MOUSE_EVENT, NULL, message, NULL, term,
-			    wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam)))) {
+			    wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))) == WINFRIP_RETURN_BREAK) {
 	    break;
-	} else if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, message, wParam)) {
+	} else if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, message, wParam) == WINFRIP_RETURN_BREAK) {
 	    break;
 	}
 	/* winfrip }}} */
@@ -2597,8 +2598,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 	/* {{{ winfrip */
 	if (winfrip_urls_op(WINFRIP_URLS_OP_CTRL_EVENT, NULL, message, NULL, term,
-			     wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))))
-	{
+			     wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))) == WINFRIP_RETURN_BREAK) {
 	    return 0;
 	}
 	/* winfrip }}} */
@@ -3021,7 +3021,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	}
 
 	/* {{{ winfrip */
-	winfrip_bgimg_op(WINFRIP_BGIMG_OP_SIZE, NULL,
+	winfrip_bgimg_op(WINFRIP_BGIMG_OP_SIZE, NULL, NULL,
 			 hwnd, -1, -1, -1, -1, -1, -1, -1);
 	/* winfrip }}} */
 	sys_cursor_update();
@@ -3263,7 +3263,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	return 0;
       /* {{{ winfrip */
       case WM_DISPLAYCHANGE:
-	winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL,
+	winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL, NULL,
 			 hwnd, -1, -1, -1, -1, -1, -1, -1);
 	return 0;
       /* winfrip }}} */
@@ -3273,7 +3273,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
 	    if (message == WM_MOUSEWHEEL) {
 		/* {{{ winfrip */
-		if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, message, wParam)) {
+		if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, message, wParam) == WINFRIP_RETURN_BREAK_RESET_WINDOW) {
 		    reset_window(2); return 0;
 		}
 		/* winfrip }}} */
@@ -3415,7 +3415,7 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
     int len2; /* for SURROGATE PAIR */
     int rc_width = 0;
     /* {{{ winfrip */
-    BOOL bgfl;
+    BOOL bgfl = FALSE;
     /* winfrip }}} */
 
     lattr &= LATTR_MODE;
@@ -3577,8 +3577,8 @@ void do_text_internal(Context ctx, int x, int y, wchar_t *text, int len,
     }
 
     /* {{{ winfrip */
-    bgfl = winfrip_bgimg_op(WINFRIP_BGIMG_OP_DRAW, hdc, NULL,
-			    char_width, font_height, len, nbg, rc_width, x, y);
+    winfrip_bgimg_op(WINFRIP_BGIMG_OP_DRAW, &bgfl, hdc, NULL,
+		     char_width, font_height, len, nbg, rc_width, x, y);
     /* winfrip }}} */
 
     if ((attr & TATTR_COMBINING) || bgfl)
