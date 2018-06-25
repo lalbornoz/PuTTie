@@ -35,7 +35,7 @@ build() {
 	mingw)
 		_makeflags_extra="COMPAT=-DNO_MULTIMON TOOLPATH=x86_64-w64-mingw32-";
 		if [ "${_dflag:-0}" -eq 1 ]; then
-			_makeflags_extra="${_makeflags_extra:+${_makeflags_extra} }XFLAGS=-DWINFRIP_DEBUG";
+			_makeflags_extra="${_makeflags_extra:+${_makeflags_extra} }XFLAGS=-DDEBUG XFLAGS+=-DWINFRIP_DEBUG";
 		fi;
 		cd windows;
 		if [ "${_cflag:-0}" -eq 1 ]; then
