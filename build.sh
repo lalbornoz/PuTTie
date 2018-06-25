@@ -1,1 +1,0 @@
-FySTY/build.sh
