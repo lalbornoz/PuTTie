@@ -37,11 +37,12 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
 2. **Bug**: original PuTTY code: fix emoji handling (on {paste,type} vs. on display)
 3. **Cleanup**: optimise {{reconf,size} bgimg,confstore} logic, XXX document items, add error messages
-4. **New feature**: Direct{2D,Write} backend, similarly to [[21](#r21)]
+4. **New feature**: Direct{2D,Write} backend, similarly to[[21](#r21)]
 5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
 6. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
-7. **New feature**: ssh:// protocol handler registration, similarly to [[19](#r19)]
-8. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+7. **New feature**: ssh:// protocol handler registration, similarly to[[19](#r19)]
+8. **New feature**: ReGIS[[22](#r22)] and/or Sixel[[23](#r23)] terminal graphics support
+9. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
@@ -49,7 +50,8 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
    stop rationalising your unwillingness to do so?  
    Furthermore: well-near **150K** SLOC of code? Entire OS have been written in less than that! What the
    bloody hell is the point of DBCS support? Windows 9x support? Get the fuck out! The FySTY code accounts
-   for **less than 2%** of PuTTY and the changes made to the original PuTTY code amount to **less than 0.5%**!
+   for **less than 2%** of PuTTY and the changes made to the original PuTTY code amount to **less than 0.5%**!  
+   And while we're at it: **2086** mkfiles.**pl** -- do you know *anything* about bloody **anything**?  
    Shame on you, Simon Tatham! *You're* the #1 cause of bloat in PuTTY!  
    The drop-dead obvious solution: lower maintenance cost as much as possible through (source code) modularity
    -- needless to say, this is only necessary on account of **far too much** imperative & impure code *very*
@@ -96,5 +98,7 @@ Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn, Be
 ``Sun, 24 Jun 2018 19:49:00 +0200 [19]`` <a href="https://github.com/FauxFaux/PuTTYTray/issues/203" id="r19">Support ssh:// URI · Issue #203 · FauxFaux/PuTTYTray</a>  
 ``Sun, 24 Jun 2018 19:57:24 +0200 [20]`` <a href="https://github.com/FauxFaux/PuTTYTray/wiki/Other-forks-of-PuTTY" id="r20">Other forks of PuTTY · FauxFaux/PuTTYTray Wiki</a>  
 ``Sun, 24 Jun 2018 21:19:05 +0200 [21]`` <a href="https://ice.hotmint.com/putty/d2ddw.html" id="r21">iceiv+putty</a>  
+``Mon, 25 Jun 2018 14:59:14 +0200 [22]`` <a href="https://en.wikipedia.org/wiki/ReGIS" id="r22">ReGIS - Wikipedia</a>  
+``Mon, 25 Jun 2018 14:59:15 +0200 [23]`` <a href="https://en.wikipedia.org/wiki/Sixel" id="r23">Sixel - Wikipedia</a>  
   
 vim:tw=0

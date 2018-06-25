@@ -1,1 +1,0 @@
-../FySTY/winfrip_mouse.c

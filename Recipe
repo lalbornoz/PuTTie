@@ -25,6 +25,7 @@
 !makefile vstudio12 windows/VS2012
 # Source directories.
 !srcdir charset/
+!srcdir FySTY/
 !srcdir windows/
 !srcdir unix/
 
@@ -236,11 +237,15 @@ CONF     = conf marshal
 TERMINAL = terminal wcwidth ldiscucs logging tree234 minibidi
          + config dialog CONF
 
+# {{{ winfrip
+CONFFRIP = winfrip_confstore
+WINFRIP  = winfrip winfrip_bgimg winfrip_general winfrip_mouse winfrip_transp
+	 + winfrip_urls CONFFRIP
+# winfrip }}}
+
 # GUI front end and terminal emulator (putty, puttytel).
 GUITERM  = TERMINAL window windlg winctrls sizetip winprint winutils
-	 + wincfg sercfg winhelp winjump sessprep
-	 + winfrip winfrip_bgimg winfrip_confstore winfrip_general
-	 + winfrip_mouse winfrip_transp winfrip_urls
+	 + wincfg sercfg winhelp winjump sessprep WINFRIP
 
 # Same thing on Unix.
 UXTERM   = TERMINAL uxcfg sercfg uxucs uxprint timing callback miscucs
@@ -268,8 +273,8 @@ SFTP     = sftp int64 logging cmdline
 # network ones, or the Unix or Windows subsets of those in turn.
 MISC     = misc marshal
 MISCNET  = timing callback MISC version settings tree234 proxy CONF be_misc
-WINMISC  = MISCNET winstore winfrip_confstore winnet winhandl cmdline windefs winmisc winproxy
-         + wintime winhsock errsock winsecur winucs miscucs
+WINMISC  = MISCNET winstore winnet winhandl cmdline windefs winmisc winproxy
+         + wintime winhsock errsock winsecur winucs miscucs CONFFRIP
 UXMISC   = MISCNET uxstore uxsel uxnet uxpeer uxmisc uxproxy time
 
 # import.c and dependencies, for PuTTYgen-like utilities that have to
@@ -319,10 +324,10 @@ pageant  : [G] winpgnt pageant sshrsa sshpubk sshdes sshbn sshmd5 version
 	 + sshsh512 winutils sshecc winmisc winhelp conf pageant.res LIBS
 
 puttygen : [G] winpgen sshrsag sshdssg sshprime sshdes sshbn sshmd5 version
-         + sshrand winnoise sshsha winstore winfrip_confstore MISC winctrls sshrsa sshdss winmisc
+         + sshrand winnoise sshsha winstore MISC winctrls sshrsa sshdss winmisc
          + sshpubk sshaes sshsh256 sshsh512 IMPORT winutils puttygen.res
          + tree234 notiming winhelp winnojmp CONF LIBS wintime sshecc
-         + sshecdsag winsecur
+         + sshecdsag winsecur CONFFRIP
 
 pterm    : [X] GTKTERM uxmisc misc ldisc settings uxpty uxsel BE_NONE uxstore
          + uxsignal CHARSET cmdline uxpterm version time xpmpterm xpmptcfg
