@@ -597,12 +597,6 @@ LONG winfrip_confstore_RegCreateKey(HKEY hKey, LPCSTR lpSubKey, PHKEY phkResult)
      * XXX document
      */
     rc = RegCreateKeyA(hKey, lpSubKey, phkResult);
-    if (rc == ERROR_SUCCESS) {
-	winfripp_confstore_map_hkey_add(winfripp_confstore_hkey_map,
-					winfripp_confstore_hkey_map_len,
-					*phkResult, hKey, lpSubKey);
-    }
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
 
@@ -619,12 +613,6 @@ LONG winfrip_confstore_RegCreateKeyEx(HKEY hKey, LPCSTR lpSubKey, DWORD Reserved
      * XXX document
      */
     rc = RegCreateKeyExA(hKey, lpSubKey, Reserved, lpClass, dwOptions, samDesired, lpSecurityAttributes, phkResult, lpdwDisposition);
-    if (rc == ERROR_SUCCESS) {
-	winfripp_confstore_map_hkey_add(winfripp_confstore_hkey_map,
-					winfripp_confstore_hkey_map_len,
-					*phkResult, hKey, lpSubKey);
-    }
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
 
@@ -641,12 +629,6 @@ LONG winfrip_confstore_RegOpenKey(HKEY hKey, LPCSTR lpSubKey, PHKEY phkResult)
      * XXX document
      */
     rc = RegOpenKeyA(hKey, lpSubKey, phkResult);
-    if (rc == ERROR_SUCCESS) {
-	winfripp_confstore_map_hkey_add(winfripp_confstore_hkey_map,
-					winfripp_confstore_hkey_map_len,
-					*phkResult, hKey, lpSubKey);
-    }
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
 
@@ -665,12 +647,6 @@ LONG winfrip_confstore_RegCloseKey(HKEY hKey)
      * XXX document
      */
     rc = RegCloseKey(hKey);
-    if (rc == ERROR_SUCCESS) {
-	winfripp_confstore_map_hkey_del(winfripp_confstore_hkey_map,
-					winfripp_confstore_hkey_map_len,
-					hKey, NULL);
-    }
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
 
@@ -686,12 +662,6 @@ LONG winfrip_confstore_RegDeleteKey(HKEY hKey, LPCSTR lpSubKey)
      * XXX document
      */
     rc = RegDeleteKeyA(hKey, lpSubKey);
-    if (rc == ERROR_SUCCESS) {
-	winfripp_confstore_map_hkey_del(winfripp_confstore_hkey_map,
-					winfripp_confstore_hkey_map_len,
-					hKey, lpSubKey);
-    }
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
 
@@ -708,7 +678,6 @@ LONG winfrip_confstore_RegEnumKey(HKEY hKey, DWORD dwIndex, LPSTR lpName, DWORD 
      * XXX document
      */
     rc = RegEnumKeyA(hKey, dwIndex, lpName, cchName);
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
 
@@ -728,7 +697,6 @@ LONG winfrip_confstore_RegDeleteValue(HKEY hKey, LPCSTR lpValueName)
      * XXX document
      */
     rc = RegDeleteValueA(hKey, lpValueName);
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
 
@@ -744,7 +712,6 @@ LONG winfrip_confstore_RegQueryValueEx(HKEY hKey, LPCSTR lpValueName, LPDWORD lp
      * XXX document
      */
     rc = RegQueryValueExA(hKey, lpValueName, lpReserved, lpType, lpData, lpcbData);
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
 
@@ -762,6 +729,5 @@ LONG winfrip_confstore_RegSetValueEx(HKEY hKey, LPCSTR lpValueName, DWORD Reserv
      * XXX document
      */
     rc = RegSetValueExA(hKey, lpValueName, Reserved, dwType, lpData, cbData);
-    WINFRIPP_CONFSTORE_DEBUG_ASSERT(rc == ERROR_SUCCESS);
     return rc;
 }
