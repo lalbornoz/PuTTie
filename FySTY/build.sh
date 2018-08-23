@@ -3,10 +3,11 @@
 #
 
 usage() {
-	echo "usage: ${0} [-c] [-d] [-h] [-m] [-r] [-u] [-U] [[--] make args...]" >&2;
+	echo "usage: ${0} [-c] [-d] [-h] [-i] [-m] [-r] [-u] [-U] [[--] make args...]" >&2;
 	echo "       -c.......: make [ ... ] clean before build" >&2;
 	echo "       -d.......: build w/ XFLAGS=-DWINFRIP_DEBUG" >&2;
 	echo "       -h.......: show this screen" >&2;
+	echo "       -i.......: {clean,install} images {pre,post}-build" >&2;
 	echo "       -m.......: select \`mingw' build type" >&2;
 	echo "       -r.......: call mkfiles.pl before build" >&2;
 	echo "       -u.......: select \`unix_cmd' build type" >&2;
@@ -14,13 +15,16 @@ usage() {
 };
 
 build() {
-	local _build_type="" _cflag=0 _dflag=0 _makeflags_extra="" _opt="" _rflag=0;
+	local	_build_target="release" _build_type=""	\
+		_makeflags_extra=""			\
+		_cflag=0 _dflag=0 _iflag=0 _opt="" _rflag=0;
 
-	while getopts cdhmruU _opt; do
+	while getopts cdhimruU _opt; do
 	case "${_opt}" in
 	c)	_cflag=1; ;;
-	d)	_dflag=1; ;;
+	d)	_dflag=1; _build_target="debug"; ;;
 	h)	usage; exit 0; ;;
+	i)	_iflag=1; ;;
 	m)	_build_type="mingw"; ;;
 	r)	_rflag=1; ;;
 	u)	_build_type="unix_cmd"; ;;
@@ -40,8 +44,16 @@ build() {
 		cd windows;
 		if [ "${_cflag:-0}" -eq 1 ]; then
 			make -f Makefile.mgw ${_makeflags_extra} clean;
+			if [ "${_iflag:-0}" -eq 1 ]; then
+				find "../FySTY/${_build_target}"	\
+					-maxdepth 1 -name \*.exe -type f -exec rm -f {} \;
+			fi;
 		fi;
 		make -f Makefile.mgw ${_makeflags_extra} "${@}";
+		if [ "${_iflag:-0}" -eq 1 ]; then
+			find . -maxdepth 1 -name \*.exe -type f		\
+				-exec cp -a {} "../FySTY/${_build_target}" \;
+		fi;
 		;;
 	unix_cmd)
 		_makeflags_extra="";
