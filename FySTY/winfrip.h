@@ -28,6 +28,7 @@ void winfrip_config_panel(struct controlbox *b);
  */
 #define WINFRIP_CONFIG_OPTIONS(X)											\
     X(INT, NONE, frip_general_always_on_top)										\
+    X(INT, NONE, frip_general_store_backend)										\
     X(FILENAME, NONE, frip_bgimg_filename)										\
     X(INT, NONE, frip_bgimg_opacity)											\
     X(INT, NONE, frip_bgimg_style)											\
@@ -49,6 +50,7 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);						\
     gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);							\
     gppi((sesskey), "FripGeneralAlwaysOnTop", 0, (conf), CONF_frip_general_always_on_top);				\
+    gppi((sesskey), "FripGeneralStoreBackEnd", 0, (conf), CONF_frip_general_store_backend);				\
     gppi((sesskey), "FripMouseRmb", 0, (conf), CONF_frip_mouse_rmb);							\
     gppi((sesskey), "FripMouseWheel", 0, (conf), CONF_frip_mouse_wheel);						\
     gpps((sesskey), "FripUrlsMatchSpec", "*://*;www.*", (conf), CONF_frip_urls_match_spec);				\
@@ -67,6 +69,7 @@ void winfrip_config_panel(struct controlbox *b);
     write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));				\
     write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));				\
     write_setting_i((sesskey), "FripGeneralAlwaysOnTop", conf_get_int((conf), CONF_frip_general_always_on_top));	\
+    write_setting_i((sesskey), "FripGeneralStoreBackEnd", conf_get_int((conf), CONF_frip_general_store_backend));	\
     write_setting_i((sesskey), "FripMouseRmb", conf_get_int((conf), CONF_frip_mouse_rmb));				\
     write_setting_i((sesskey), "FripMouseWheel", conf_get_int((conf), CONF_frip_mouse_wheel));				\
     write_setting_s((sesskey), "FripUrlsMatchSpec", conf_get_str((conf), CONF_frip_urls_match_spec));			\
@@ -81,14 +84,14 @@ void winfrip_config_panel(struct controlbox *b);
  * windows/window.c:WndProc()
  */
 typedef enum WinFripUrlsOp {
-    WINFRIP_URLS_OP_CLEAR		= 0,
-    WINFRIP_URLS_OP_CTRL_DOWN		= 1,
-    WINFRIP_URLS_OP_CTRL_EVENT		= 2,
-    WINFRIP_URLS_OP_CTRL_UP		= 3,
-    WINFRIP_URLS_OP_DRAW		= 4,
-    WINFRIP_URLS_OP_MOUSE_DOWN		= 5,
-    WINFRIP_URLS_OP_MOUSE_EVENT		= 6,
-    WINFRIP_URLS_OP_MOUSE_UP		= 7,
+    WINFRIP_URLS_OP_CLEAR			= 0,
+    WINFRIP_URLS_OP_CTRL_DOWN			= 1,
+    WINFRIP_URLS_OP_CTRL_EVENT			= 2,
+    WINFRIP_URLS_OP_CTRL_UP			= 3,
+    WINFRIP_URLS_OP_DRAW			= 4,
+    WINFRIP_URLS_OP_MOUSE_DOWN			= 5,
+    WINFRIP_URLS_OP_MOUSE_EVENT			= 6,
+    WINFRIP_URLS_OP_MOUSE_UP			= 7,
 } WinFripUrlsOp;
 WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
 
@@ -96,9 +99,9 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
  * windows/window.c:{do_text_internal,WndProc}()
  */
 typedef enum WinFripBgImgOp {
-    WINFRIP_BGIMG_OP_DRAW		= 0,
-    WINFRIP_BGIMG_OP_RECONF		= 1,
-    WINFRIP_BGIMG_OP_SIZE		= 2,
+    WINFRIP_BGIMG_OP_DRAW			= 0,
+    WINFRIP_BGIMG_OP_RECONF			= 1,
+    WINFRIP_BGIMG_OP_SIZE			= 2,
 } WinFripBgImgOp;
 WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
 
@@ -106,8 +109,8 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, HDC hdc_in, HWND 
  * windows/window.c:{WinMain,WndProc}()
  */
 typedef enum WinFripTranspOp {
-    WINFRIP_TRANSP_OP_FOCUS_KILL	= 0,
-    WINFRIP_TRANSP_OP_FOCUS_SET		= 1,
+    WINFRIP_TRANSP_OP_FOCUS_KILL		= 0,
+    WINFRIP_TRANSP_OP_FOCUS_SET			= 1,
 } WinFripTranspOp;
 void winfrip_transp_op(WinFripTranspOp op, HWND hwnd);
 
@@ -120,8 +123,8 @@ void winfrip_debug_init(void);
  * windows/window.c:WndProc()
  */
 typedef enum WinFripGeneralOp {
-    WINFRIP_GENERAL_OP_CONFIG_DIALOG	= 0,
-    WINFRIP_GENERAL_OP_FOCUS_SET	= 1,
+    WINFRIP_GENERAL_OP_CONFIG_DIALOG		= 0,
+    WINFRIP_GENERAL_OP_FOCUS_SET		= 1,
 } WinFripGeneralOp;
 void winfrip_general_op(WinFripGeneralOp op, HWND hwnd, int reconfiguring);
 
@@ -129,15 +132,24 @@ void winfrip_general_op(WinFripGeneralOp op, HWND hwnd, int reconfiguring);
  * windows/window.c:WndProc()
  */
 typedef enum WinFripMouseOp {
-    WINFRIP_MOUSE_OP_MOUSE_EVENT	= 0,
-    WINFRIP_MOUSE_OP_RMB_DOWN		= 1,
-    WINFRIP_MOUSE_OP_WHEEL		= 2,
+    WINFRIP_MOUSE_OP_MOUSE_EVENT		= 0,
+    WINFRIP_MOUSE_OP_RMB_DOWN			= 1,
+    WINFRIP_MOUSE_OP_WHEEL			= 2,
 } WinFripMouseOp;
 WinFripReturn winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam);
 
 /*
  * windows/win{gss,store}.c
  */
+
+/* Public subroutines */
+typedef enum WinFripGeneralStoreBackEnd {
+    WINFRIP_GENERAL_STORE_BACKEND_REGISTRY	= 0,
+    WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL	= 1,
+    WINFRIP_GENERAL_STORE_BACKEND_FILE		= 2,
+} WinFripGeneralStoreBackEnd;
+WinFripGeneralStoreBackEnd winfrip_confstore_backend_get(void);
+void winfrip_confstore_backend_set(WinFripGeneralStoreBackEnd new_backend);
 
 /* Key {creation,open} methods */
 LONG winfrip_confstore_RegCreateKey(HKEY hKey, LPCSTR lpSubKey, PHKEY phkResult);

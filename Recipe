@@ -238,7 +238,7 @@ TERMINAL = terminal wcwidth ldiscucs logging tree234 minibidi
          + config dialog CONF
 
 # {{{ winfrip
-CONFFRIP = winfrip_confstore
+CONFFRIP = winfrip_confstore winfrip_confstore_priv
 FRIPLIBS = gdiplus.lib msimg32.lib shlwapi.lib
 WINFRIP  = winfrip winfrip_bgimg winfrip_general winfrip_mouse winfrip_transp
 	 + winfrip_urls CONFFRIP
