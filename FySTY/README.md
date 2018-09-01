@@ -35,16 +35,15 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 
 ## TODO/wish list
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
-2. **Bug**: original PuTTY code: fix emoji handling (on {paste,type} vs. on display)
-3. **Cleanup**: optimise {{reconf,size} bgimg,confstore} logic, XXX document items, add error messages
-4. **New feature**: Direct{2D,Write} backend, similarly to[[21](#r21)]
-5. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-6. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
-7. **New feature**: ssh:// protocol handler registration, similarly to[[19](#r19)]
-8. **New feature**: ReGIS[[22](#r22)] and/or Sixel[[23](#r23)] terminal graphics support
-9. **New feature**: ephemeral configuration store backend  
+2. **Bug**: original PuTTY code: fix emoji handling
+3. **New feature**: Direct{2D,Write} backend, similarly to[[21](#r21)]
+4. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
+5. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
+6. **New feature**: ssh:// protocol handler registration, similarly to[[19](#r19)]
+7. **New feature**: ReGIS[[22](#r22)] and/or Sixel[[23](#r23)] terminal graphics support
+8. **New feature**: ephemeral configuration store backend  
    Selectable w/ command-line option in plink, pscp, psftp, puttygen, PuTTY & PuTTYtel
-10. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+9. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
 
 ## Rationale
 1. **The “adds bloat”[[2](#r2)][[3](#r3)] “argument”**:  
