@@ -42,8 +42,9 @@ static WinFrippUrlsState winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
 /*
  * XXX document
  */
+static wchar_t *winfripp_urls_buf_w = NULL;
+static size_t winfripp_urls_buf_w_size = 0;
 static wchar_t *winfripp_urls_url_w = NULL;
-static size_t winfripp_urls_url_w_size = 0;
 
 /*
  * XXX document
@@ -59,6 +60,7 @@ static size_t winfripp_urls_matchc_w = 0;
 static BOOL winfripp_init_urls_get_endstart(Terminal *term, pos *pend, pos *pstart, int x, int y);
 static BOOL winfripp_init_urls_get_matchv(char **pmatch_spec_conf, size_t *pmatchc_w, wchar_t ***pmatchv_w);
 static BOOL winfripp_init_urls_get_url(pos hover_end, pos hover_start, wchar_t **phover_url_w, size_t *phover_url_w_size);
+static wchar_t *winfripp_init_urls_unnest(wchar_t *url_w);
 
 /*
  * Private subroutines
@@ -271,6 +273,45 @@ static BOOL winfripp_init_urls_get_url(pos hover_end, pos hover_start, wchar_t *
     return TRUE;
 }
 
+static wchar_t *winfripp_init_urls_unnest(wchar_t *url_w)
+{
+    int foundfl;
+    char *nest_char, *nest_chars;
+    wchar_t *url_char_w, *url_new_w;
+    size_t url_w_len;
+
+
+    WINFRIPP_DEBUG_ASSERT(url_w);
+
+    nest_chars = conf_get_str(conf, CONF_frip_urls_nest_chars);
+    url_w_len = wcslen(url_w);
+
+    for (url_char_w = url_w + (url_w_len ? url_w_len - 1 : 0);
+	 url_char_w >= url_w; url_char_w--)
+    {
+	for (foundfl = 0, nest_char = nest_chars; *nest_char; nest_char++) {
+	    if (*url_char_w == (wchar_t)(*nest_char)) {
+		*url_char_w = '\0'; foundfl = 1;
+	    }
+	}
+	if (!foundfl) {
+	    break;
+	}
+    }
+    for (url_char_w = url_new_w = url_w; *url_char_w; url_char_w++) {
+	for (foundfl = 0, nest_char = nest_chars; *nest_char; nest_char++) {
+	    if (*url_char_w == (wchar_t)(*nest_char)) {
+		url_new_w = url_char_w + 1; foundfl = 1;
+	    }
+	}
+	if (!foundfl) {
+	    break;
+	}
+    }
+
+    return url_new_w;
+}
+
 /*
  * Public subroutines private to FySTY/winfrip*.c
  */
@@ -292,6 +333,9 @@ void winfripp_urls_config_panel(struct controlbox *b)
 		 conf_editbox_handler, I(CONF_frip_urls_match_spec), I(1));
     ctrl_text(s, "Specify multiple match strings by separating them with "
 	      "a single semicolon.", P(WINFRIPP_HELP_CTX));
+    ctrl_editbox(s, "Nesting characters", NO_SHORTCUT, 75, P(WINFRIPP_HELP_CTX),
+		 conf_editbox_handler, I(CONF_frip_urls_nest_chars), I(1));
+    ctrl_text(s, "URLs are purged of leading and/or trailing nesting characters.", P(WINFRIPP_HELP_CTX));
 }
 
 /*
@@ -395,10 +439,10 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
 		 * XXX document
 		*/
 		if (!winfripp_init_urls_get_url(winfripp_urls_end, winfripp_urls_start,
-						&winfripp_urls_url_w, &winfripp_urls_url_w_size)) {
+						&winfripp_urls_buf_w, &winfripp_urls_buf_w_size)) {
 		    WINFRIPP_DEBUG_FAIL();
-		    if (winfripp_urls_url_w) {
-			ZeroMemory(winfripp_urls_url_w, winfripp_urls_url_w_size);
+		    if (winfripp_urls_buf_w) {
+			ZeroMemory(winfripp_urls_buf_w, winfripp_urls_buf_w_size);
 		    }
 		    winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
 		    term_update(term);
@@ -407,7 +451,7 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
 							  &winfripp_urls_matchc_w,
 							  &winfripp_urls_matchv_w)) {
 		    WINFRIPP_DEBUG_FAIL();
-		    ZeroMemory(winfripp_urls_url_w, winfripp_urls_url_w_size);
+		    ZeroMemory(winfripp_urls_buf_w, winfripp_urls_buf_w_size);
 		    winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
 		    term_update(term);
 		    return WINFRIP_RETURN_BREAK;
@@ -416,6 +460,7 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
 		/*
 		 * XXX document
 		 */
+		winfripp_urls_url_w = winfripp_init_urls_unnest(winfripp_urls_buf_w);
 		for (nmatch = 0; nmatch < winfripp_urls_matchc_w; nmatch++) {
 		    if (PathMatchSpecW(winfripp_urls_url_w, winfripp_urls_matchv_w[nmatch])) {
 			winfripp_urls_state = WINFRIPP_URLS_STATE_CLICK;
@@ -423,13 +468,16 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
 			return WINFRIP_RETURN_BREAK;
 		    }
 		}
-		ZeroMemory(winfripp_urls_url_w, winfripp_urls_url_w_size);
+		WINFRIPP_DEBUG_FAIL();
+		ZeroMemory(winfripp_urls_buf_w, winfripp_urls_buf_w_size);
 		winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
+		winfripp_urls_url_w = NULL;
 		term_update(term);
 		return WINFRIP_RETURN_BREAK;
 	    } else {
-		if (winfripp_urls_url_w) {
-		    ZeroMemory(winfripp_urls_url_w, winfripp_urls_url_w_size);
+		WINFRIPP_DEBUG_FAIL();
+		if (winfripp_urls_buf_w) {
+		    ZeroMemory(winfripp_urls_buf_w, winfripp_urls_buf_w_size);
 		}
 		winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
 		term_update(term);
@@ -439,9 +487,11 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
 	    /*
 	     * XXX document
 	     */
+	    WINFRIPP_DEBUGF("ShellExecuteW(\"%S\")", winfripp_urls_url_w);
 	    ShellExecuteW(NULL, L"open", winfripp_urls_url_w, NULL, NULL, SW_SHOWNORMAL);
-	    ZeroMemory(winfripp_urls_url_w, winfripp_urls_url_w_size);
+	    ZeroMemory(winfripp_urls_buf_w, winfripp_urls_buf_w_size);
 	    winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
+	    winfripp_urls_url_w = NULL;
 	    term_update(term);
 	    return WINFRIP_RETURN_BREAK;
 	} else {
