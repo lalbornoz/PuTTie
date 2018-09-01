@@ -35,6 +35,7 @@ void winfrip_config_panel(struct controlbox *b);
     X(INT, NONE, frip_mouse_rmb)											\
     X(INT, NONE, frip_mouse_wheel)											\
     X(STR, NONE, frip_urls_match_spec)											\
+    X(STR, NONE, frip_urls_nest_chars)											\
     X(INT, NONE, frip_transp_custom)											\
     X(INT, NONE, frip_transp_opaque_on)											\
     X(INT, NONE, frip_transp_setting)
@@ -51,6 +52,7 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripMouseRmb", 0, (conf), CONF_frip_mouse_rmb);							\
     gppi((sesskey), "FripMouseWheel", 0, (conf), CONF_frip_mouse_wheel);						\
     gpps((sesskey), "FripUrlsMatchSpec", "*://*;www.*", (conf), CONF_frip_urls_match_spec);				\
+    gpps((sesskey), "FripUrlsNestChars", "<>()[]{}", (conf), CONF_frip_urls_nest_chars);				\
     gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);						\
     gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);					\
     gppi((sesskey), "FripTranspSetting", 0, (conf), CONF_frip_transp_setting);						\
@@ -68,6 +70,7 @@ void winfrip_config_panel(struct controlbox *b);
     write_setting_i((sesskey), "FripMouseRmb", conf_get_int((conf), CONF_frip_mouse_rmb));				\
     write_setting_i((sesskey), "FripMouseWheel", conf_get_int((conf), CONF_frip_mouse_wheel));				\
     write_setting_s((sesskey), "FripUrlsMatchSpec", conf_get_str((conf), CONF_frip_urls_match_spec));			\
+    write_setting_s((sesskey), "FripUrlsNestChars", conf_get_str((conf), CONF_frip_urls_nest_chars));			\
     write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));			\
     write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_transp_opaque_on));			\
     write_setting_i((sesskey), "FripTranspSetting", conf_get_int((conf), CONF_frip_transp_setting));			\
