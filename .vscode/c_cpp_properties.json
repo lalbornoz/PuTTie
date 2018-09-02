@@ -1,0 +1,30 @@
+{
+    "configurations": [
+        {
+            "name": "Cygwin",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "_DEBUG",
+                "_NO_OLDNAMES",
+                "_UNICODE",
+                "_WIN32_IE=0x0500",
+                "_WIN32_WINDOWS=0x0410",
+                "_WIN32_WINNT=0x0500",
+                "_WINDOWS",
+                "DEBUG",
+                "NO_MULTIMON",
+                "UNICODE",
+                "WIN32S_COMPAT",
+                "WINFRIP_DEBUG",
+                "WINVER=0x0500"
+            ],
+            "compilerPath": "C:\\Cygwin64\\bin\\x86_64-w64-mingw32-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
