@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "F:\\Repositories\\FySTY"
+		}
+	],
+	"settings": {
+                "editor.detectIndentation": false,
+                "editor.insertSpaces": false,
+		"editor.tabSize": 8
+	}
+}

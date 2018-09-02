@@ -1,0 +1,56 @@
+{
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"options": {
+		"shell": {
+			"executable": "C:\\Cygwin64\\bin\\sh.exe",
+			"args": ["-c"]
+		}
+	},
+	"tasks": [
+		{
+			"command": "\"FySTY/build.sh -d -m\"",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"label": "Build (debug)",
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceFolder}/FySTY"]
+			},
+			"type": "shell"
+		},
+		{
+			"command": "\"FySTY/build.sh -m\"",
+			"group": "build",
+			"label": "Build (release)",
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceFolder}/FySTY"]
+			},
+			"type": "shell"
+		},
+		{
+			"command": "\"FySTY/build.sh -c -d -m\"",
+			"group": "build",
+			"label": "Rebuild (debug)",
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceFolder}/FySTY"]
+			},
+			"type": "shell"
+		},
+		{
+			"command": "\"FySTY/build.sh -c -m\"",
+			"group": "build",
+			"label": "Rebuild (release)",
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceFolder}/FySTY"]
+			},
+			"type": "shell"
+		}
+	]
+}
