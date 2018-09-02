@@ -4,13 +4,12 @@
 	"version": "2.0.0",
 	"options": {
 		"shell": {
-			"executable": "C:\\Cygwin64\\bin\\sh.exe",
-			"args": ["-c"]
+			"executable": "${workspaceFolder}/FySTY/sh_wrapper.cmd"
 		}
 	},
 	"tasks": [
 		{
-			"command": "\"FySTY/build.sh -d -m\"",
+			"command": "FySTY/build.sh -d -m",
 			"group": {
 				"kind": "build",
 				"isDefault": true
@@ -23,7 +22,7 @@
 			"type": "shell"
 		},
 		{
-			"command": "\"FySTY/build.sh -m\"",
+			"command": "FySTY/build.sh -m",
 			"group": "build",
 			"label": "Build (release)",
 			"problemMatcher": {
@@ -33,7 +32,7 @@
 			"type": "shell"
 		},
 		{
-			"command": "\"FySTY/build.sh -c -d -m\"",
+			"command": "FySTY/build.sh -c -d -m",
 			"group": "build",
 			"label": "Rebuild (debug)",
 			"problemMatcher": {
@@ -43,7 +42,25 @@
 			"type": "shell"
 		},
 		{
-			"command": "\"FySTY/build.sh -c -m\"",
+			"command": "FySTY/build.sh -d -m -i",
+			"label": "Install (debug)",
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceFolder}/FySTY"]
+			},
+			"type": "shell"
+		},
+		{
+			"command": "FySTY/build.sh -m -i",
+			"label": "Install (release)",
+			"problemMatcher": {
+				"base": "$gcc",
+				"fileLocation": ["relative", "${workspaceFolder}/FySTY"]
+			},
+			"type": "shell"
+		},
+		{
+			"command": "FySTY/build.sh -c -m",
 			"group": "build",
 			"label": "Rebuild (release)",
 			"problemMatcher": {
