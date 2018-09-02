@@ -290,7 +290,7 @@ static wchar_t *winfripp_init_urls_unnest(wchar_t *url_w)
 	 url_char_w >= url_w; url_char_w--)
     {
 	for (foundfl = 0, nest_char = nest_chars; *nest_char; nest_char++) {
-	    if (*url_char_w == (wchar_t)(*nest_char)) {
+	    if (!iswprint(*nest_char) || (*url_char_w == (wchar_t)(*nest_char))) {
 		*url_char_w = '\0'; foundfl = 1;
 	    }
 	}
@@ -300,7 +300,7 @@ static wchar_t *winfripp_init_urls_unnest(wchar_t *url_w)
     }
     for (url_char_w = url_new_w = url_w; *url_char_w; url_char_w++) {
 	for (foundfl = 0, nest_char = nest_chars; *nest_char; nest_char++) {
-	    if (*url_char_w == (wchar_t)(*nest_char)) {
+	    if (!iswprint(*nest_char) || (*url_char_w == (wchar_t)(*nest_char))) {
 		url_new_w = url_char_w + 1; foundfl = 1;
 	    }
 	}
