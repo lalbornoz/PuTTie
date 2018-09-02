@@ -42,6 +42,9 @@ build() {
 			_makeflags_extra="${_makeflags_extra:+${_makeflags_extra} }XFLAGS=-DDEBUG XFLAGS+=-DWINFRIP_DEBUG";
 		fi;
 		cd windows;
+		if ! [ -d "../FySTY/${_build_target}" ]; then
+			mkdir -p "../FySTY/${_build_target}";
+		fi;
 		if [ "${_cflag:-0}" -eq 1 ]; then
 			make -f Makefile.mgw ${_makeflags_extra} clean;
 			if [ "${_iflag:-0}" -eq 1 ]; then
