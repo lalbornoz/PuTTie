@@ -5,7 +5,7 @@
 usage() {
 	echo "usage: ${0} [-c] [-d] [-h] [-i] [-m] [-r] [-u] [-U] [[--] make args...]" >&2;
 	echo "       -c.......: make [ ... ] clean before build" >&2;
-	echo "       -d.......: build w/ XFLAGS=-DWINFRIP_DEBUG" >&2;
+	echo "       -d.......: select debug (vs. release) build" >&2;
 	echo "       -h.......: show this screen" >&2;
 	echo "       -i.......: {clean,install} images {pre,post}-build" >&2;
 	echo "       -m.......: select \`mingw' build type" >&2;
@@ -39,7 +39,7 @@ build() {
 	mingw)
 		_makeflags_extra="COMPAT=-DNO_MULTIMON TOOLPATH=x86_64-w64-mingw32-";
 		if [ "${_dflag:-0}" -eq 1 ]; then
-			_makeflags_extra="${_makeflags_extra:+${_makeflags_extra} }XFLAGS=-DDEBUG XFLAGS+=-DWINFRIP_DEBUG";
+			_makeflags_extra="${_makeflags_extra:+${_makeflags_extra} }XFLAGS=-DDEBUG XFLAGS+=-DWINFRIP_DEBUG XFLAGS+=-g3 LDFLAGS+=-g3";
 		fi;
 		cd windows;
 		if ! [ -d "../FySTY/${_build_target}" ]; then
