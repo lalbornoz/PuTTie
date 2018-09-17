@@ -5553,8 +5553,10 @@ void frontend_request_paste(void *frontend, int clipboard)
      * that tells us it's OK to paste.
      */
     DWORD in_threadid; /* required for Win9x */
-    CreateThread(NULL, 0, clipboard_read_threadfunc,
+    HANDLE hThread;
+    hThread = CreateThread(NULL, 0, clipboard_read_threadfunc,
 		 hwnd, 0, &in_threadid);
+    CloseHandle(hThread);
 }
 
 #if 0
