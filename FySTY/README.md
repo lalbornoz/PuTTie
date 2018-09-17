@@ -31,7 +31,8 @@ PuTTY plus *pointless frippery*, tremendous amounts of *bloat*, and sans obnoxio
 4. **Mouse behaviour changes**, similarly to the mintty[[7](#r7)] and PuTTYTray[[11](#r11)] implementations  
    Configurable {de,in}crease font size with \<Shift\> + \<Mouse wheel\>  
    Configurable {normal,inhibit} RMB processing behaviour (for alghazi)
-5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation
+5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation  
+6. Fixes on-clipboard paste thread handle leak present in PuTTY v0.70 and in master.
 
 ## TODO/wish list
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
