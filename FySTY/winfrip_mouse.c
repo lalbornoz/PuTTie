@@ -125,11 +125,9 @@ WinFripReturn winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam)
 		wheel_distance = (short)HIWORD(wParam);
 		if ((wheel_distance > 0) && (font->height < 32)) {
 		    font->height++;
-		    conf_set_fontspec(conf, CONF_font, font);
 		    return WINFRIP_RETURN_BREAK_RESET_WINDOW;
 		} else if ((wheel_distance < 0) && (font->height > 1)) {
 		    font->height--;
-		    conf_set_fontspec(conf, CONF_font, font);
 		    return WINFRIP_RETURN_BREAK_RESET_WINDOW;
 		} else {
 		    WINFRIPP_DEBUG_FAIL();
