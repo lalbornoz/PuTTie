@@ -3719,14 +3719,14 @@ static void do_text_internal(
     }
 
     /* {{{ winfrip */
-    winfrip_bgimg_op(WINFRIP_BGIMG_OP_DRAW, &bgfl, hdc, NULL,
+    winfrip_bgimg_op(WINFRIP_BGIMG_OP_DRAW, &bgfl, wintw_hdc, NULL,
 		     char_width, font_height, len, nbg, rc_width, x, y);
     /* winfrip }}} */
 
     if ((attr & TATTR_COMBINING) || bgfl)
-	SetBkMode(hdc, TRANSPARENT);
+	SetBkMode(wintw_hdc, TRANSPARENT);
     else
-	SetBkMode(hdc, OPAQUE);
+	SetBkMode(wintw_hdc, OPAQUE);
 
     /* Only want the left half of double width lines */
     if (line_box.right > font_width*term->cols+offset_width)
