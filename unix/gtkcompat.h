@@ -33,6 +33,7 @@
 #define g_signal_handler_disconnect gtk_signal_disconnect
 #define g_object_get_data gtk_object_get_data
 #define g_object_set_data gtk_object_set_data
+#define g_object_set_data_full gtk_object_set_data_full
 #define g_object_ref_sink gtk_object_sink
 
 #define GDK_GRAB_SUCCESS GrabSuccess
@@ -52,6 +53,7 @@
 #define gtk_widget_get_parent(w) ((w)->parent)
 #define gtk_widget_set_allocation(w, a) ((w)->allocation = *(a))
 #define gtk_container_get_border_width(c) ((c)->border_width)
+#define gtk_container_get_focus_child(c) ((c)->focus_child)
 #define gtk_bin_get_child(b) ((b)->child)
 #define gtk_color_selection_dialog_get_color_selection(cs) ((cs)->colorsel)
 #define gtk_selection_data_get_target(sd) ((sd)->target)
@@ -78,6 +80,10 @@
 #define gtk_widget_get_mapped(w) GTK_WIDGET_MAPPED(w)
 #define gtk_widget_get_realized(w) GTK_WIDGET_REALIZED(w)
 #define gtk_widget_get_state(w) GTK_WIDGET_STATE(w)
+#define gtk_widget_get_can_focus(w) GTK_WIDGET_CAN_FOCUS(w)
+#define gtk_widget_is_drawable(w) GTK_WIDGET_DRAWABLE(w)
+#define gtk_widget_is_sensitive(w) GTK_WIDGET_IS_SENSITIVE(w)
+#define gtk_widget_has_focus(w) GTK_WIDGET_HAS_FOCUS(w)
 
 /* This is a bit of a bodge because it relies on us only calling this
  * macro as GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), so under
@@ -194,7 +200,7 @@
 #if GTK_CHECK_VERSION(3,0,0)
 #define gtk_hseparator_new() gtk_separator_new(GTK_ORIENTATION_HORIZONTAL)
 /* Fortunately, my hboxes and vboxes never actually set homogeneous to
- * TRUE, so I can just wrap these deprecated constructors with a macro
+ * true, so I can just wrap these deprecated constructors with a macro
  * without also having to arrange a call to gtk_box_set_homogeneous. */
 #define gtk_hbox_new(homogeneous, spacing) \
     gtk_box_new(GTK_ORIENTATION_HORIZONTAL, spacing)

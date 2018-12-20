@@ -83,12 +83,12 @@ gboolean fd_input_func(GIOChannel *source, GIOCondition condition,
      */
     if (condition & G_IO_PRI)
         select_result(sourcefd, 4);
-    if (condition & G_IO_IN)
+    if (condition & (G_IO_IN | G_IO_HUP))
         select_result(sourcefd, 1);
     if (condition & G_IO_OUT)
         select_result(sourcefd, 2);
 
-    return TRUE;
+    return true;
 }
 #else
 void fd_input_func(gpointer data, gint sourcefd, GdkInputCondition condition)
@@ -107,7 +107,7 @@ uxsel_id *uxsel_input_add(int fd, int rwx) {
 
 #if GTK_CHECK_VERSION(2,0,0)
     int flags = 0;
-    if (rwx & 1) flags |= G_IO_IN;
+    if (rwx & 1) flags |= G_IO_IN | G_IO_HUP;
     if (rwx & 2) flags |= G_IO_OUT;
     if (rwx & 4) flags |= G_IO_PRI;
     id->chan = g_io_channel_unix_new(fd);
@@ -173,11 +173,11 @@ static gint timer_trigger(gpointer data)
     }
 
     /*
-     * Returning FALSE means 'don't call this timer again', which
+     * Returning false means 'don't call this timer again', which
      * _should_ be redundant given that we removed it above, but just
-     * in case, return FALSE anyway.
+     * in case, return false anyway.
      */
-    return FALSE;
+    return false;
 }
 
 void timer_change_notify(unsigned long next)
@@ -199,7 +199,7 @@ void timer_change_notify(unsigned long next)
  */
 
 static guint toplevel_callback_idle_id;
-static int idle_fn_scheduled;
+static bool idle_fn_scheduled;
 
 static void notify_toplevel_callback(void *);
 
@@ -215,18 +215,18 @@ static gint idle_toplevel_callback_func(gpointer data)
      */
     if (!toplevel_callback_pending() && idle_fn_scheduled) {
         g_source_remove(toplevel_callback_idle_id);
-        idle_fn_scheduled = FALSE;
+        idle_fn_scheduled = false;
     }
 
-    return TRUE;
+    return true;
 }
 
-static void notify_toplevel_callback(void *frontend)
+static void notify_toplevel_callback(void *vctx)
 {
     if (!idle_fn_scheduled) {
         toplevel_callback_idle_id =
             g_idle_add(idle_toplevel_callback_func, NULL);
-        idle_fn_scheduled = TRUE;
+        idle_fn_scheduled = true;
     }
 }
 

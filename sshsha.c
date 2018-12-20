@@ -13,12 +13,12 @@
  * Core SHA algorithm: processes 16-word blocks into a message digest.
  */
 
-#define rol(x,y) ( ((x) << (y)) | (((uint32)x) >> (32-y)) )
+#define rol(x,y) ( ((x) << (y)) | (((uint32_t)x) >> (32-y)) )
 
 static void sha1_sw(SHA_State * s, const unsigned char *q, int len);
 static void sha1_ni(SHA_State * s, const unsigned char *q, int len);
 
-static void SHA_Core_Init(uint32 h[5])
+static void SHA_Core_Init(uint32_t h[5])
 {
     h[0] = 0x67452301;
     h[1] = 0xefcdab89;
@@ -27,10 +27,10 @@ static void SHA_Core_Init(uint32 h[5])
     h[4] = 0xc3d2e1f0;
 }
 
-void SHATransform(word32 * digest, word32 * block)
+void SHATransform(uint32_t * digest, uint32_t * block)
 {
-    word32 w[80];
-    word32 a, b, c, d, e;
+    uint32_t w[80];
+    uint32_t a, b, c, d, e;
     int t;
 
 #ifdef RANDOM_DIAGNOSTICS
@@ -52,7 +52,7 @@ void SHATransform(word32 * digest, word32 * block)
 	w[t] = block[t];
 
     for (t = 16; t < 80; t++) {
-	word32 tmp = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16];
+	uint32_t tmp = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16];
 	w[t] = rol(tmp, 1);
     }
 
@@ -63,7 +63,7 @@ void SHATransform(word32 * digest, word32 * block)
     e = digest[4];
 
     for (t = 0; t < 20; t++) {
-	word32 tmp =
+	uint32_t tmp =
 	    rol(a, 5) + ((b & c) | (d & ~b)) + e + w[t] + 0x5a827999;
 	e = d;
 	d = c;
@@ -72,7 +72,7 @@ void SHATransform(word32 * digest, word32 * block)
 	a = tmp;
     }
     for (t = 20; t < 40; t++) {
-	word32 tmp = rol(a, 5) + (b ^ c ^ d) + e + w[t] + 0x6ed9eba1;
+	uint32_t tmp = rol(a, 5) + (b ^ c ^ d) + e + w[t] + 0x6ed9eba1;
 	e = d;
 	d = c;
 	c = rol(b, 30);
@@ -80,7 +80,7 @@ void SHATransform(word32 * digest, word32 * block)
 	a = tmp;
     }
     for (t = 40; t < 60; t++) {
-	word32 tmp = rol(a,
+	uint32_t tmp = rol(a,
 			 5) + ((b & c) | (b & d) | (c & d)) + e + w[t] +
 	    0x8f1bbcdc;
 	e = d;
@@ -90,7 +90,7 @@ void SHATransform(word32 * digest, word32 * block)
 	a = tmp;
     }
     for (t = 60; t < 80; t++) {
-	word32 tmp = rol(a, 5) + (b ^ c ^ d) + e + w[t] + 0xca62c1d6;
+	uint32_t tmp = rol(a, 5) + (b ^ c ^ d) + e + w[t] + 0xca62c1d6;
 	e = d;
 	d = c;
 	c = rol(b, 30);
@@ -130,7 +130,7 @@ void SHA_Init(SHA_State * s)
 {
     SHA_Core_Init(s->h);
     s->blkused = 0;
-    s->lenhi = s->lenlo = 0;
+    s->len = 0;
     if (supports_sha_ni())
         s->sha1 = &sha1_ni;
     else
@@ -142,20 +142,18 @@ static void SHA_BinarySink_write(BinarySink *bs, const void *p, size_t len)
 {
     struct SHA_State *s = BinarySink_DOWNCAST(bs, struct SHA_State);
     const unsigned char *q = (const unsigned char *) p;
-    uint32 lenw = len;
-    assert(lenw == len);
 
     /*
      * Update the length field.
      */
-    s->lenlo += lenw;
-    s->lenhi += (s->lenlo < lenw);
+    s->len += len;
+
     (*(s->sha1))(s, q, len);
 }
 
 static void sha1_sw(SHA_State * s, const unsigned char *q, int len)
 {
-    uint32 wordblock[16];
+    uint32_t wordblock[16];
     int i;
 
     if (s->blkused && s->blkused + len < 64) {
@@ -175,10 +173,10 @@ static void sha1_sw(SHA_State * s, const unsigned char *q, int len)
 	    /* Now process the block. Gather bytes big-endian into words */
 	    for (i = 0; i < 16; i++) {
 		wordblock[i] =
-		    (((uint32) s->block[i * 4 + 0]) << 24) |
-		    (((uint32) s->block[i * 4 + 1]) << 16) |
-		    (((uint32) s->block[i * 4 + 2]) << 8) |
-		    (((uint32) s->block[i * 4 + 3]) << 0);
+		    (((uint32_t) s->block[i * 4 + 0]) << 24) |
+		    (((uint32_t) s->block[i * 4 + 1]) << 16) |
+		    (((uint32_t) s->block[i * 4 + 2]) << 8) |
+		    (((uint32_t) s->block[i * 4 + 3]) << 0);
 	    }
 	    SHATransform(s->h, wordblock);
 	    s->blkused = 0;
@@ -193,22 +191,20 @@ void SHA_Final(SHA_State * s, unsigned char *output)
     int i;
     int pad;
     unsigned char c[64];
-    uint32 lenhi, lenlo;
+    uint64_t len;
 
     if (s->blkused >= 56)
 	pad = 56 + 64 - s->blkused;
     else
 	pad = 56 - s->blkused;
 
-    lenhi = (s->lenhi << 3) | (s->lenlo >> (32 - 3));
-    lenlo = (s->lenlo << 3);
+    len = (s->len << 3);
 
     memset(c, 0, pad);
     c[0] = 0x80;
     put_data(s, &c, pad);
 
-    put_uint32(s, lenhi);
-    put_uint32(s, lenlo);
+    put_uint64(s, len);
 
     for (i = 0; i < 5; i++) {
 	output[i * 4] = (s->h[i] >> 24) & 0xFF;
@@ -232,50 +228,51 @@ void SHA_Simple(const void *p, int len, unsigned char *output)
  * Thin abstraction for things where hashes are pluggable.
  */
 
-static void *sha1_init(void)
-{
-    SHA_State *s;
+struct sha1_hash {
+    SHA_State state;
+    ssh_hash hash;
+};
 
-    s = snew(SHA_State);
-    SHA_Init(s);
-    return s;
+static ssh_hash *sha1_new(const struct ssh_hashalg *alg)
+{
+    struct sha1_hash *h = snew(struct sha1_hash);
+    SHA_Init(&h->state);
+    h->hash.vt = alg;
+    BinarySink_DELEGATE_INIT(&h->hash, &h->state);
+    return &h->hash;
 }
 
-static void *sha1_copy(const void *vold)
+static ssh_hash *sha1_copy(ssh_hash *hashold)
 {
-    const SHA_State *old = (const SHA_State *)vold;
-    SHA_State *s;
+    struct sha1_hash *hold, *hnew;
+    ssh_hash *hashnew = sha1_new(hashold->vt);
 
-    s = snew(SHA_State);
-    *s = *old;
-    BinarySink_COPIED(s);
-    return s;
+    hold = container_of(hashold, struct sha1_hash, hash);
+    hnew = container_of(hashnew, struct sha1_hash, hash);
+
+    hnew->state = hold->state;
+    BinarySink_COPIED(&hnew->state);
+
+    return hashnew;
 }
 
-static void sha1_free(void *handle)
+static void sha1_free(ssh_hash *hash)
 {
-    SHA_State *s = handle;
+    struct sha1_hash *h = container_of(hash, struct sha1_hash, hash);
 
-    smemclr(s, sizeof(*s));
-    sfree(s);
+    smemclr(h, sizeof(*h));
+    sfree(h);
 }
 
-static BinarySink *sha1_sink(void *handle)
+static void sha1_final(ssh_hash *hash, unsigned char *output)
 {
-    SHA_State *s = handle;
-    return BinarySink_UPCAST(s);
+    struct sha1_hash *h = container_of(hash, struct sha1_hash, hash);
+    SHA_Final(&h->state, output);
+    sha1_free(hash);
 }
 
-static void sha1_final(void *handle, unsigned char *output)
-{
-    SHA_State *s = handle;
-
-    SHA_Final(s, output);
-    sha1_free(s);
-}
-
-const struct ssh_hash ssh_sha1 = {
-    sha1_init, sha1_copy, sha1_sink, sha1_final, sha1_free, 20, "SHA-1"
+const struct ssh_hashalg ssh_sha1 = {
+    sha1_new, sha1_copy, sha1_final, sha1_free, 20, "SHA-1"
 };
 
 /* ----------------------------------------------------------------------
@@ -283,20 +280,30 @@ const struct ssh_hash ssh_sha1 = {
  * HMAC wrapper on it.
  */
 
-static void *sha1_make_context(void *cipher_ctx)
+struct hmacsha1 {
+    SHA_State sha[3];
+    ssh2_mac mac;
+};
+
+static ssh2_mac *hmacsha1_new(
+    const struct ssh2_macalg *alg, ssh2_cipher *cipher)
 {
-    return snewn(3, SHA_State);
+    struct hmacsha1 *ctx = snew(struct hmacsha1);
+    ctx->mac.vt = alg;
+    BinarySink_DELEGATE_INIT(&ctx->mac, &ctx->sha[2]);
+    return &ctx->mac;
 }
 
-static void sha1_free_context(void *handle)
+static void hmacsha1_free(ssh2_mac *mac)
 {
-    smemclr(handle, 3 * sizeof(SHA_State));
-    sfree(handle);
+    struct hmacsha1 *ctx = container_of(mac, struct hmacsha1, mac);
+    smemclr(ctx, sizeof(*ctx));
+    sfree(ctx);
 }
 
-static void sha1_key_internal(void *handle, const unsigned char *key, int len)
+static void sha1_key_internal(SHA_State *keys,
+                              const unsigned char *key, int len)
 {
-    SHA_State *keys = (SHA_State *)handle;
     unsigned char foo[64];
     int i;
 
@@ -315,111 +322,42 @@ static void sha1_key_internal(void *handle, const unsigned char *key, int len)
     smemclr(foo, 64);		       /* burn the evidence */
 }
 
-static void sha1_key(void *handle, const void *key)
+static void hmacsha1_key(ssh2_mac *mac, const void *key)
 {
-    sha1_key_internal(handle, key, 20);
+    struct hmacsha1 *ctx = container_of(mac, struct hmacsha1, mac);
+    /* Reading the key length out of the ssh2_macalg structure means
+     * this same method can be used for the _buggy variants which use
+     * a shorter key */
+    sha1_key_internal(ctx->sha, key, ctx->mac.vt->keylen);
 }
 
-static void sha1_key_buggy(void *handle, const void *key)
+static void hmacsha1_start(ssh2_mac *mac)
 {
-    sha1_key_internal(handle, key, 16);
+    struct hmacsha1 *ctx = container_of(mac, struct hmacsha1, mac);
+
+    ctx->sha[2] = ctx->sha[0];         /* structure copy */
+    BinarySink_COPIED(&ctx->sha[2]);
 }
 
-static void hmacsha1_start(void *handle)
+static void hmacsha1_genresult(ssh2_mac *mac, unsigned char *hmac)
 {
-    SHA_State *keys = (SHA_State *)handle;
-
-    keys[2] = keys[0];		      /* structure copy */
-    BinarySink_COPIED(&keys[2]);
-}
-
-static BinarySink *hmacsha1_sink(void *handle)
-{
-    SHA_State *keys = (SHA_State *)handle;
-    return BinarySink_UPCAST(&keys[2]);
-}
-
-static void hmacsha1_genresult(void *handle, unsigned char *hmac)
-{
-    SHA_State *keys = (SHA_State *)handle;
+    struct hmacsha1 *ctx = container_of(mac, struct hmacsha1, mac);
     SHA_State s;
     unsigned char intermediate[20];
 
-    s = keys[2];		       /* structure copy */
+    s = ctx->sha[2];                   /* structure copy */
     BinarySink_COPIED(&s);
     SHA_Final(&s, intermediate);
-    s = keys[1];		       /* structure copy */
+    s = ctx->sha[1];                   /* structure copy */
     BinarySink_COPIED(&s);
     put_data(&s, intermediate, 20);
-    SHA_Final(&s, hmac);
+    SHA_Final(&s, intermediate);
+    memcpy(hmac, intermediate, ctx->mac.vt->len);
+    smemclr(intermediate, sizeof(intermediate));
 }
 
-static void sha1_do_hmac(void *handle, const unsigned char *blk, int len,
-			 unsigned long seq, unsigned char *hmac)
-{
-    BinarySink *bs = hmacsha1_sink(handle);
-    hmacsha1_start(handle);
-    put_uint32(bs, seq);
-    put_data(bs, blk, len);
-    hmacsha1_genresult(handle, hmac);
-}
-
-static void sha1_generate(void *handle, void *vblk, int len,
-			  unsigned long seq)
-{
-    unsigned char *blk = (unsigned char *)vblk;
-    sha1_do_hmac(handle, blk, len, seq, blk + len);
-}
-
-static int hmacsha1_verresult(void *handle, unsigned char const *hmac)
-{
-    unsigned char correct[20];
-    hmacsha1_genresult(handle, correct);
-    return smemeq(correct, hmac, 20);
-}
-
-static int sha1_verify(void *handle, const void *vblk, int len,
-		       unsigned long seq)
-{
-    const unsigned char *blk = (const unsigned char *)vblk;
-    unsigned char correct[20];
-    sha1_do_hmac(handle, blk, len, seq, correct);
-    return smemeq(correct, blk + len, 20);
-}
-
-static void hmacsha1_96_genresult(void *handle, unsigned char *hmac)
-{
-    unsigned char full[20];
-    hmacsha1_genresult(handle, full);
-    memcpy(hmac, full, 12);
-}
-
-static void sha1_96_generate(void *handle, void *vblk, int len,
-			     unsigned long seq)
-{
-    unsigned char *blk = (unsigned char *)vblk;
-    unsigned char full[20];
-    sha1_do_hmac(handle, blk, len, seq, full);
-    memcpy(blk + len, full, 12);
-}
-
-static int hmacsha1_96_verresult(void *handle, unsigned char const *hmac)
-{
-    unsigned char correct[20];
-    hmacsha1_genresult(handle, correct);
-    return smemeq(correct, hmac, 12);
-}
-
-static int sha1_96_verify(void *handle, const void *vblk, int len,
-		       unsigned long seq)
-{
-    const unsigned char *blk = (const unsigned char *)vblk;
-    unsigned char correct[20];
-    sha1_do_hmac(handle, blk, len, seq, correct);
-    return smemeq(correct, blk + len, 12);
-}
-
-void hmac_sha1_simple(void *key, int keylen, void *data, int datalen,
+void hmac_sha1_simple(const void *key, int keylen,
+                      const void *data, int datalen,
 		      unsigned char *output) {
     SHA_State states[2];
     unsigned char intermediate[20];
@@ -432,39 +370,33 @@ void hmac_sha1_simple(void *key, int keylen, void *data, int datalen,
     SHA_Final(&states[1], output);
 }
 
-const struct ssh_mac ssh_hmac_sha1 = {
-    sha1_make_context, sha1_free_context, sha1_key,
-    sha1_generate, sha1_verify,
-    hmacsha1_start, hmacsha1_sink, hmacsha1_genresult, hmacsha1_verresult,
+const struct ssh2_macalg ssh_hmac_sha1 = {
+    hmacsha1_new, hmacsha1_free, hmacsha1_key,
+    hmacsha1_start, hmacsha1_genresult,
     "hmac-sha1", "hmac-sha1-etm@openssh.com",
     20, 20,
     "HMAC-SHA1"
 };
 
-const struct ssh_mac ssh_hmac_sha1_96 = {
-    sha1_make_context, sha1_free_context, sha1_key,
-    sha1_96_generate, sha1_96_verify,
-    hmacsha1_start, hmacsha1_sink,
-    hmacsha1_96_genresult, hmacsha1_96_verresult,
+const struct ssh2_macalg ssh_hmac_sha1_96 = {
+    hmacsha1_new, hmacsha1_free, hmacsha1_key,
+    hmacsha1_start, hmacsha1_genresult,
     "hmac-sha1-96", "hmac-sha1-96-etm@openssh.com",
     12, 20,
     "HMAC-SHA1-96"
 };
 
-const struct ssh_mac ssh_hmac_sha1_buggy = {
-    sha1_make_context, sha1_free_context, sha1_key_buggy,
-    sha1_generate, sha1_verify,
-    hmacsha1_start, hmacsha1_sink, hmacsha1_genresult, hmacsha1_verresult,
+const struct ssh2_macalg ssh_hmac_sha1_buggy = {
+    hmacsha1_new, hmacsha1_free, hmacsha1_key,
+    hmacsha1_start, hmacsha1_genresult,
     "hmac-sha1", NULL,
     20, 16,
     "bug-compatible HMAC-SHA1"
 };
 
-const struct ssh_mac ssh_hmac_sha1_96_buggy = {
-    sha1_make_context, sha1_free_context, sha1_key_buggy,
-    sha1_96_generate, sha1_96_verify,
-    hmacsha1_start, hmacsha1_sink,
-    hmacsha1_96_genresult, hmacsha1_96_verresult,
+const struct ssh2_macalg ssh_hmac_sha1_96_buggy = {
+    hmacsha1_new, hmacsha1_free, hmacsha1_key,
+    hmacsha1_start, hmacsha1_genresult,
     "hmac-sha1-96", NULL,
     12, 16,
     "bug-compatible HMAC-SHA1-96"
@@ -504,12 +436,12 @@ const struct ssh_mac ssh_hmac_sha1_96_buggy = {
 #if defined(__clang__) || defined(__GNUC__)
 
 #include <cpuid.h>
-int supports_sha_ni(void)
+bool supports_sha_ni(void)
 {
     unsigned int CPUInfo[4];
     __cpuid(0, CPUInfo[0], CPUInfo[1], CPUInfo[2], CPUInfo[3]);
     if (CPUInfo[0] < 7)
-        return 0;
+        return false;
 
     __cpuid_count(7, 0, CPUInfo[0], CPUInfo[1], CPUInfo[2], CPUInfo[3]);
     return CPUInfo[1] & (1 << 29); /* SHA */
@@ -517,12 +449,12 @@ int supports_sha_ni(void)
 
 #else /* defined(__clang__) || defined(__GNUC__) */
 
-int supports_sha_ni(void)
+bool supports_sha_ni(void)
 {
     unsigned int CPUInfo[4];
     __cpuid(CPUInfo, 0);  
     if (CPUInfo[0] < 7)
-        return 0;
+        return false;
 
     __cpuidex(CPUInfo, 7, 0);
     return CPUInfo[1] & (1 << 29); /* Check SHA */
@@ -754,9 +686,9 @@ static void sha1_ni(SHA_State * s, const unsigned char *q, int len)
     assert(0);
 }
 
-int supports_sha_ni(void)
+bool supports_sha_ni(void)
 {
-    return 0;
+    return false;
 }
 
 #endif  /* COMPILER_SUPPORTS_AES_NI */

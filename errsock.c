@@ -5,47 +5,46 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define DEFINE_PLUG_METHOD_MACROS
 #include "tree234.h"
 #include "putty.h"
 #include "network.h"
 
 typedef struct {
     char *error;
-    Plug plug;
+    Plug *plug;
 
-    const Socket_vtable *sockvt;
+    Socket sock;
 } ErrorSocket;
 
-static Plug sk_error_plug(Socket s, Plug p)
+static Plug *sk_error_plug(Socket *s, Plug *p)
 {
-    ErrorSocket *es = FROMFIELD(s, ErrorSocket, sockvt);
-    Plug ret = es->plug;
+    ErrorSocket *es = container_of(s, ErrorSocket, sock);
+    Plug *ret = es->plug;
     if (p)
 	es->plug = p;
     return ret;
 }
 
-static void sk_error_close(Socket s)
+static void sk_error_close(Socket *s)
 {
-    ErrorSocket *es = FROMFIELD(s, ErrorSocket, sockvt);
+    ErrorSocket *es = container_of(s, ErrorSocket, sock);
 
     sfree(es->error);
     sfree(es);
 }
 
-static const char *sk_error_socket_error(Socket s)
+static const char *sk_error_socket_error(Socket *s)
 {
-    ErrorSocket *es = FROMFIELD(s, ErrorSocket, sockvt);
+    ErrorSocket *es = container_of(s, ErrorSocket, sock);
     return es->error;
 }
 
-static char *sk_error_peer_info(Socket s)
+static SocketPeerInfo *sk_error_peer_info(Socket *s)
 {
     return NULL;
 }
 
-static const Socket_vtable ErrorSocket_sockvt = {
+static const SocketVtable ErrorSocket_sockvt = {
     sk_error_plug,
     sk_error_close,
     NULL /* write */,
@@ -57,11 +56,23 @@ static const Socket_vtable ErrorSocket_sockvt = {
     sk_error_peer_info,
 };
 
-Socket new_error_socket(const char *errmsg, Plug plug)
+static Socket *new_error_socket_internal(char *errmsg, Plug *plug)
 {
     ErrorSocket *es = snew(ErrorSocket);
-    es->sockvt = &ErrorSocket_sockvt;
+    es->sock.vt = &ErrorSocket_sockvt;
     es->plug = plug;
-    es->error = dupstr(errmsg);
-    return &es->sockvt;
+    es->error = errmsg;
+    return &es->sock;
+}
+
+Socket *new_error_socket_fmt(Plug *plug, const char *fmt, ...)
+{
+    va_list ap;
+    char *msg;
+
+    va_start(ap, fmt);
+    msg = dupvprintf(fmt, ap);
+    va_end(ap);
+
+    return new_error_socket_internal(msg, plug);
 }

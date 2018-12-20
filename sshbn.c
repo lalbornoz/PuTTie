@@ -1588,7 +1588,9 @@ Bignum BinarySource_get_mp_ssh1(BinarySource *src)
         return bignum_from_long(0);
     } else {
         Bignum toret = bignum_from_bytes(bytes.ptr, bytes.len);
-        if (bignum_bitcount(toret) != bitc) {
+        /* SSH-1.5 spec says that it's OK for the prefix uint16 to be
+         * _greater_ than the actual number of bits */
+        if (bignum_bitcount(toret) > bitc) {
             src->err = BSE_INVALID;
             freebn(toret);
             toret = bignum_from_long(0);
@@ -1936,20 +1938,19 @@ void diagbn(char *prefix, Bignum md)
     int i, nibbles, morenibbles;
     static const char hex[] = "0123456789ABCDEF";
 
-    debug(("%s0x", prefix ? prefix : ""));
+    debug("%s0x", prefix ? prefix : "");
 
     nibbles = (3 + bignum_bitcount(md)) / 4;
     if (nibbles < 1)
 	nibbles = 1;
     morenibbles = 4 * md[0] - nibbles;
     for (i = 0; i < morenibbles; i++)
-	debug(("-"));
+	debug("-");
     for (i = nibbles; i--;)
-	debug(("%c",
-	       hex[(bignum_byte(md, i / 2) >> (4 * (i % 2))) & 0xF]));
+        debug("%c", hex[(bignum_byte(md, i / 2) >> (4 * (i % 2))) & 0xF]);
 
     if (prefix)
-	debug(("\n"));
+	debug("\n");
 }
 #endif
 
@@ -2083,7 +2084,8 @@ Bignum modinv(Bignum number, Bignum modulus)
 char *bignum_decimal(Bignum x)
 {
     int ndigits, ndigit;
-    int i, iszero;
+    int i;
+    bool iszero;
     BignumInt carry;
     char *ret;
     BignumInt *workspace;
@@ -2128,7 +2130,7 @@ char *bignum_decimal(Bignum x)
     ndigit = ndigits - 1;
     ret[ndigit] = '\0';
     do {
-	iszero = 1;
+	iszero = true;
 	carry = 0;
 	for (i = 0; i < (int)x[0]; i++) {
             /*
@@ -2157,7 +2159,7 @@ char *bignum_decimal(Bignum x)
 	    carry = r;
 
 	    if (workspace[i])
-		iszero = 0;
+		iszero = false;
 	}
 	ret[--ndigit] = (char) (carry + '0');
     } while (!iszero);

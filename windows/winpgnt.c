@@ -50,15 +50,13 @@
 
 #define APPNAME "Pageant"
 
-extern const char ver[];
-
 static HWND keylist;
 static HWND aboutbox;
 static HMENU systray_menu, session_menu;
-static int already_running;
+static bool already_running;
 
 static char *putty_path;
-static int restrict_putty_acl = FALSE;
+static bool restrict_putty_acl = false;
 
 /* CWD for "add key" file requester. */
 static filereq *keypath = NULL;
@@ -87,33 +85,10 @@ void modalfatalbox(const char *fmt, ...)
     exit(1);
 }
 
-/* Un-munge session names out of the registry. */
-static void unmungestr(char *in, char *out, int outlen)
-{
-    while (*in) {
-	if (*in == '%' && in[1] && in[2]) {
-	    int i, j;
+/* Stubs needed to link against misc.c */
+void queue_idempotent_callback(IdempotentCallback *ic) { assert(0); }
 
-	    i = in[1] - '0';
-	    i -= (i > 9 ? 7 : 0);
-	    j = in[2] - '0';
-	    j -= (j > 9 ? 7 : 0);
-
-	    *out++ = (i << 4) + j;
-	    if (!--outlen)
-		return;
-	    in += 3;
-	} else {
-	    *out++ = *in++;
-	    if (!--outlen)
-		return;
-	}
-    }
-    *out = '\0';
-    return;
-}
-
-static int has_security;
+static bool has_security;
 
 struct PassphraseProcStruct {
     char **passphrase;
@@ -219,7 +194,7 @@ static INT_PTR CALLBACK PassphraseProc(HWND hwnd, UINT msg,
 		MoveWindow(hwnd,
 			   (rs.right + rs.left + rd.left - rd.right) / 2,
 			   (rs.bottom + rs.top + rd.top - rd.bottom) / 2,
-			   rd.right - rd.left, rd.bottom - rd.top, TRUE);
+			   rd.right - rd.left, rd.bottom - rd.top, true);
 	}
 
 	SetForegroundWindow(hwnd);
@@ -464,7 +439,7 @@ static void prompt_add_keyfile(void)
     of.lpstrFileTitle = NULL;
     of.lpstrTitle = "Select Private Key File";
     of.Flags = OFN_ALLOWMULTISELECT | OFN_EXPLORER;
-    if (request_file(keypath, &of, TRUE, FALSE)) {
+    if (request_file(keypath, &of, true, false)) {
 	if(strlen(filelist) > of.nFileOffset) {
 	    /* Only one filename returned? */
             Filename *fn = filename_from_str(filelist);
@@ -517,7 +492,7 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
 		MoveWindow(hwnd,
 			   (rs.right + rs.left + rd.left - rd.right) / 2,
 			   (rs.bottom + rs.top + rd.top - rd.bottom) / 2,
-			   rd.right - rd.left, rd.bottom - rd.top, TRUE);
+			   rd.right - rd.left, rd.bottom - rd.top, true);
 	}
 
         if (has_help())
@@ -684,6 +659,7 @@ static void update_sessions(void)
     HKEY hkey;
     TCHAR buf[MAX_PATH + 1];
     MENUITEMINFO mii;
+    strbuf *sb;
 
     int index_key, index_menu;
 
@@ -701,22 +677,25 @@ static void update_sessions(void)
     index_key = 0;
     index_menu = 0;
 
+    sb = strbuf_new();
     while(ERROR_SUCCESS == RegEnumKey(hkey, index_key, buf, MAX_PATH)) {
-	TCHAR session_name[MAX_PATH + 1];
-	unmungestr(buf, session_name, MAX_PATH);
 	if(strcmp(buf, PUTTY_DEFAULT) != 0) {
+            sb->len = 0;
+            unescape_registry_key(buf, sb);
+
 	    memset(&mii, 0, sizeof(mii));
 	    mii.cbSize = sizeof(mii);
 	    mii.fMask = MIIM_TYPE | MIIM_STATE | MIIM_ID;
 	    mii.fType = MFT_STRING;
 	    mii.fState = MFS_ENABLED;
 	    mii.wID = (index_menu * 16) + IDM_SESSIONS_BASE;
-	    mii.dwTypeData = session_name;
-	    InsertMenuItem(session_menu, index_menu, TRUE, &mii);
+	    mii.dwTypeData = sb->s;
+	    InsertMenuItem(session_menu, index_menu, true, &mii);
 	    index_menu++;
 	}
 	index_key++;
     }
+    strbuf_free(sb);
 
     RegCloseKey(hkey);
 
@@ -726,7 +705,7 @@ static void update_sessions(void)
 	mii.fType = MFT_STRING;
 	mii.fState = MFS_GRAYED;
 	mii.dwTypeData = _T("(No sessions)");
-	InsertMenuItem(session_menu, index_menu, TRUE, &mii);
+	InsertMenuItem(session_menu, index_menu, true, &mii);
     }
 }
 
@@ -745,7 +724,7 @@ PSID get_default_sid(void)
     PSECURITY_DESCRIPTOR psd = NULL;
     PSID sid = NULL, copy = NULL, ret = NULL;
 
-    if ((proc = OpenProcess(MAXIMUM_ALLOWED, FALSE,
+    if ((proc = OpenProcess(MAXIMUM_ALLOWED, false,
                             GetCurrentProcessId())) == NULL)
         goto cleanup;
 
@@ -780,7 +759,7 @@ PSID get_default_sid(void)
 struct PageantReply {
     char *buf;
     size_t size, len;
-    int overflowed;
+    bool overflowed;
     BinarySink_IMPLEMENTATION;
 };
 
@@ -792,7 +771,7 @@ static void pageant_reply_BinarySink_write(
         memcpy(rep->buf + rep->len, data, len);
         rep->len += len;
     } else {
-        rep->overflowed = TRUE;
+        rep->overflowed = true;
     }
 }
 
@@ -815,10 +794,10 @@ static char *answer_filemapping_message(const char *mapname)
     reply.buf = NULL;
 
 #ifdef DEBUG_IPC
-    debug(("mapname = \"%s\"\n", mapname));
+    debug("mapname = \"%s\"\n", mapname);
 #endif
 
-    maphandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, mapname);
+    maphandle = OpenFileMapping(FILE_MAP_ALL_ACCESS, false, mapname);
     if (maphandle == NULL || maphandle == INVALID_HANDLE_VALUE) {
         err = dupprintf("OpenFileMapping(\"%s\"): %s",
                         mapname, win_strerror(GetLastError()));
@@ -826,7 +805,7 @@ static char *answer_filemapping_message(const char *mapname)
     }
 
 #ifdef DEBUG_IPC
-    debug(("maphandle = %p\n", maphandle));
+    debug("maphandle = %p\n", maphandle);
 #endif
 
 #ifndef NO_SECURITY
@@ -858,8 +837,8 @@ static char *answer_filemapping_message(const char *mapname)
             ConvertSidToStringSid(mapsid, &theirs);
             ConvertSidToStringSid(expectedsid, &ours);
             ConvertSidToStringSid(expectedsid_bc, &ours2);
-            debug(("got sids:\n  oursnew=%s\n  oursold=%s\n"
-                   "  theirs=%s\n", ours, ours2, theirs));
+            debug("got sids:\n  oursnew=%s\n  oursold=%s\n"
+                  "  theirs=%s\n", ours, ours2, theirs);
             LocalFree(ours);
             LocalFree(ours2);
             LocalFree(theirs);
@@ -875,7 +854,7 @@ static char *answer_filemapping_message(const char *mapname)
 #endif /* NO_SECURITY */
     {
 #ifdef DEBUG_IPC
-        debug(("security APIs not present\n"));
+        debug("security APIs not present\n");
 #endif
     }
 
@@ -887,7 +866,7 @@ static char *answer_filemapping_message(const char *mapname)
     }
 
 #ifdef DEBUG_IPC
-    debug(("mapped address = %p\n", mapaddr));
+    debug("mapped address = %p\n", mapaddr);
 #endif
 
     {
@@ -908,7 +887,7 @@ static char *answer_filemapping_message(const char *mapname)
         mapsize = mbi.RegionSize;
     }
 #ifdef DEBUG_IPC
-    debug(("region size = %zd\n", mapsize));
+    debug("region size = %zd\n", mapsize);
 #endif
     if (mapsize < 5) {
         err = dupstr("mapping smaller than smallest possible request");
@@ -918,14 +897,14 @@ static char *answer_filemapping_message(const char *mapname)
     msglen = GET_32BIT((unsigned char *)mapaddr);
 
 #ifdef DEBUG_IPC
-    debug(("msg length=%08x, msg type=%02x\n",
-           msglen, (unsigned)((unsigned char *) mapaddr)[4]));
+    debug("msg length=%08x, msg type=%02x\n",
+          msglen, (unsigned)((unsigned char *) mapaddr)[4]);
 #endif
 
     reply.buf = (char *)mapaddr + 4;
     reply.size = mapsize - 4;
     reply.len = 0;
-    reply.overflowed = FALSE;
+    reply.overflowed = false;
     BinarySink_INIT(&reply, pageant_reply_BinarySink_write);
 
     if (msglen > mapsize - 4) {
@@ -936,7 +915,7 @@ static char *answer_filemapping_message(const char *mapname)
                            (unsigned char *)mapaddr + 4, msglen, NULL, NULL);
         if (reply.overflowed) {
             reply.len = 0;
-            reply.overflowed = FALSE;
+            reply.overflowed = false;
             pageant_failure_msg(BinarySink_UPCAST(&reply),
                                 "output would overflow message buffer",
                                 NULL, NULL);
@@ -966,7 +945,7 @@ static char *answer_filemapping_message(const char *mapname)
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 				WPARAM wParam, LPARAM lParam)
 {
-    static int menuinprogress;
+    static bool menuinprogress;
     static UINT msgTaskbarCreated = 0;
 
     switch (message) {
@@ -990,21 +969,21 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	    PostMessage(hwnd, WM_SYSTRAY2, cursorpos.x, cursorpos.y);
 	} else if (lParam == WM_LBUTTONDBLCLK) {
 	    /* Run the default menu item. */
-	    UINT menuitem = GetMenuDefaultItem(systray_menu, FALSE, 0);
+	    UINT menuitem = GetMenuDefaultItem(systray_menu, false, 0);
 	    if (menuitem != -1)
 		PostMessage(hwnd, WM_COMMAND, menuitem, 0);
 	}
 	break;
       case WM_SYSTRAY2:
 	if (!menuinprogress) {
-	    menuinprogress = 1;
+	    menuinprogress = true;
 	    update_sessions();
 	    SetForegroundWindow(hwnd);
 	    TrackPopupMenu(systray_menu,
 			   TPM_RIGHTALIGN | TPM_BOTTOMALIGN |
 			   TPM_RIGHTBUTTON,
 			   wParam, lParam, 0, hwnd, NULL);
-	    menuinprogress = 0;
+	    menuinprogress = false;
 	}
 	break;
       case WM_COMMAND:
@@ -1082,7 +1061,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 		    mii.fMask = MIIM_TYPE;
 		    mii.cch = MAX_PATH;
 		    mii.dwTypeData = buf;
-		    GetMenuItemInfo(session_menu, wParam, FALSE, &mii);
+		    GetMenuItemInfo(session_menu, wParam, false, &mii);
                     param[0] = '\0';
                     if (restrict_putty_acl)
                         strcat(param, "&R");
@@ -1116,7 +1095,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             err = answer_filemapping_message(mapname);
             if (err) {
 #ifdef DEBUG_IPC
-                debug(("IPC failed: %s\n", err));
+                debug("IPC failed: %s\n", err);
 #endif
                 sfree(err);
                 return 0;
@@ -1166,7 +1145,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     WNDCLASS wndclass;
     MSG msg;
     const char *command = NULL;
-    int added_keys = 0;
+    bool added_keys = false;
     int argc, i;
     char **argv, **argstart;
 
@@ -1255,7 +1234,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             restrict_process_acl();
         } else if (!strcmp(argv[i], "-restrict-putty-acl") ||
                    !strcmp(argv[i], "-restrict_putty_acl")) {
-            restrict_putty_acl = TRUE;
+            restrict_putty_acl = true;
 	} else if (!strcmp(argv[i], "-c")) {
 	    /*
 	     * If we see `-c', then the rest of the
@@ -1271,7 +1250,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             Filename *fn = filename_from_str(argv[i]);
 	    win_add_keyfile(fn);
             filename_free(fn);
-	    added_keys = TRUE;
+	    added_keys = true;
 	}
     }
 
@@ -1353,7 +1332,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     initial_menuitems_count = GetMenuItemCount(session_menu);
 
     /* Set the default menu item. */
-    SetMenuDefaultItem(systray_menu, IDM_VIEWKEYS, FALSE);
+    SetMenuDefaultItem(systray_menu, IDM_VIEWKEYS, false);
 
     ShowWindow(hwnd, SW_HIDE);
 

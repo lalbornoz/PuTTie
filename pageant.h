@@ -60,10 +60,10 @@ struct RSAKey *pageant_nth_ssh1_key(int i);
 struct ssh2_userkey *pageant_nth_ssh2_key(int i);
 int pageant_count_ssh1_keys(void);
 int pageant_count_ssh2_keys(void);
-int pageant_add_ssh1_key(struct RSAKey *rkey);
-int pageant_add_ssh2_key(struct ssh2_userkey *skey);
-int pageant_delete_ssh1_key(struct RSAKey *rkey);
-int pageant_delete_ssh2_key(struct ssh2_userkey *skey);
+bool pageant_add_ssh1_key(struct RSAKey *rkey);
+bool pageant_add_ssh2_key(struct ssh2_userkey *skey);
+bool pageant_delete_ssh1_key(struct RSAKey *rkey);
+bool pageant_delete_ssh2_key(struct ssh2_userkey *skey);
 
 /*
  * This callback must be provided by the Pageant front end code.
@@ -84,8 +84,8 @@ void keylist_update(void);
  * to.
  */
 struct pageant_listen_state;
-struct pageant_listen_state *pageant_listener_new(Plug *plug);
-void pageant_listener_got_socket(struct pageant_listen_state *pl, Socket sock);
+struct pageant_listen_state *pageant_listener_new(Plug **plug);
+void pageant_listener_got_socket(struct pageant_listen_state *pl, Socket *);
 void pageant_listener_set_logfn(struct pageant_listen_state *pl,
                                 void *logctx, pageant_logfn_t logfn);
 void pageant_listener_free(struct pageant_listen_state *pl);

@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define DEFINE_PLUG_METHOD_MACROS
 #include "tree234.h"
 #include "putty.h"
 #include "network.h"
@@ -15,9 +14,6 @@
 #if !defined NO_SECURITY
 
 #include "winsecur.h"
-
-Socket make_handle_socket(HANDLE send_H, HANDLE recv_H, HANDLE stderr_H,
-                          Plug plug, int overlapped);
 
 typedef struct NamedPipeServerSocket {
     /* Parameters for (repeated) creation of named pipe objects */
@@ -31,24 +27,24 @@ typedef struct NamedPipeServerSocket {
     struct handle *callback_handle;    /* winhandl.c's reference */
 
     /* PuTTY Socket machinery */
-    Plug plug;
+    Plug *plug;
     char *error;
 
-    const Socket_vtable *sockvt;
+    Socket sock;
 } NamedPipeServerSocket;
 
-static Plug sk_namedpipeserver_plug(Socket s, Plug p)
+static Plug *sk_namedpipeserver_plug(Socket *s, Plug *p)
 {
-    NamedPipeServerSocket *ps = FROMFIELD(s, NamedPipeServerSocket, sockvt);
-    Plug ret = ps->plug;
+    NamedPipeServerSocket *ps = container_of(s, NamedPipeServerSocket, sock);
+    Plug *ret = ps->plug;
     if (p)
 	ps->plug = p;
     return ret;
 }
 
-static void sk_namedpipeserver_close(Socket s)
+static void sk_namedpipeserver_close(Socket *s)
 {
-    NamedPipeServerSocket *ps = FROMFIELD(s, NamedPipeServerSocket, sockvt);
+    NamedPipeServerSocket *ps = container_of(s, NamedPipeServerSocket, sock);
 
     if (ps->callback_handle)
         handle_free(ps->callback_handle);
@@ -63,25 +59,25 @@ static void sk_namedpipeserver_close(Socket s)
     sfree(ps);
 }
 
-static const char *sk_namedpipeserver_socket_error(Socket s)
+static const char *sk_namedpipeserver_socket_error(Socket *s)
 {
-    NamedPipeServerSocket *ps = FROMFIELD(s, NamedPipeServerSocket, sockvt);
+    NamedPipeServerSocket *ps = container_of(s, NamedPipeServerSocket, sock);
     return ps->error;
 }
 
-static char *sk_namedpipeserver_peer_info(Socket s)
+static SocketPeerInfo *sk_namedpipeserver_peer_info(Socket *s)
 {
     return NULL;
 }
 
-static int create_named_pipe(NamedPipeServerSocket *ps, int first_instance)
+static bool create_named_pipe(NamedPipeServerSocket *ps, bool first_instance)
 {
     SECURITY_ATTRIBUTES sa;
 
     memset(&sa, 0, sizeof(sa));
     sa.nLength = sizeof(sa);
     sa.lpSecurityDescriptor = ps->psd;
-    sa.bInheritHandle = FALSE;
+    sa.bInheritHandle = false;
 
     ps->pipehandle = CreateNamedPipe
         (/* lpName */
@@ -114,21 +110,15 @@ static int create_named_pipe(NamedPipeServerSocket *ps, int first_instance)
     return ps->pipehandle != INVALID_HANDLE_VALUE;
 }
 
-static Socket named_pipe_accept(accept_ctx_t ctx, Plug plug)
+static Socket *named_pipe_accept(accept_ctx_t ctx, Plug *plug)
 {
     HANDLE conn = (HANDLE)ctx.p;
 
-    return make_handle_socket(conn, conn, NULL, plug, TRUE);
+    return make_handle_socket(conn, conn, NULL, plug, true);
 }
 
-/*
- * Dummy SockAddr type which just holds a named pipe address. Only
- * used for calling plug_log from named_pipe_accept_loop() here.
- */
-SockAddr sk_namedpipe_addr(const char *pipename);
-
 static void named_pipe_accept_loop(NamedPipeServerSocket *ps,
-                                   int got_one_already)
+                                   bool got_one_already)
 {
     while (1) {
         int error;
@@ -137,7 +127,7 @@ static void named_pipe_accept_loop(NamedPipeServerSocket *ps,
         if (got_one_already) {
             /* If we were called with a connection already waiting,
              * skip this step. */
-            got_one_already = FALSE;
+            got_one_already = false;
             error = 0;
         } else {
             /*
@@ -174,7 +164,7 @@ static void named_pipe_accept_loop(NamedPipeServerSocket *ps,
                 CloseHandle(conn);
             }
 
-            if (!create_named_pipe(ps, FALSE)) {
+            if (!create_named_pipe(ps, false)) {
                 error = GetLastError();
             } else {
                 /*
@@ -197,14 +187,14 @@ static void named_pipe_accept_loop(NamedPipeServerSocket *ps,
 static void named_pipe_connect_callback(void *vps)
 {
     NamedPipeServerSocket *ps = (NamedPipeServerSocket *)vps;
-    named_pipe_accept_loop(ps, TRUE);
+    named_pipe_accept_loop(ps, true);
 }
 
 /*
  * This socket type is only used for listening, so it should never
  * be asked to write or flush or set_frozen.
  */
-static const Socket_vtable NamedPipeServerSocket_sockvt = {
+static const SocketVtable NamedPipeServerSocket_sockvt = {
     sk_namedpipeserver_plug,
     sk_namedpipeserver_close,
     NULL /* write */,
@@ -216,10 +206,10 @@ static const Socket_vtable NamedPipeServerSocket_sockvt = {
     sk_namedpipeserver_peer_info,
 };
 
-Socket new_named_pipe_listener(const char *pipename, Plug plug)
+Socket *new_named_pipe_listener(const char *pipename, Plug *plug)
 {
     NamedPipeServerSocket *ret = snew(NamedPipeServerSocket);
-    ret->sockvt = &NamedPipeServerSocket_sockvt;
+    ret->sock.vt = &NamedPipeServerSocket_sockvt;
     ret->plug = plug;
     ret->error = NULL;
     ret->psd = NULL;
@@ -235,21 +225,21 @@ Socket new_named_pipe_listener(const char *pipename, Plug plug)
         goto cleanup;
     }
 
-    if (!create_named_pipe(ret, TRUE)) {
+    if (!create_named_pipe(ret, true)) {
         ret->error = dupprintf("unable to create named pipe '%s': %s",
                                pipename, win_strerror(GetLastError()));
         goto cleanup;
     }
 
     memset(&ret->connect_ovl, 0, sizeof(ret->connect_ovl));
-    ret->connect_ovl.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    ret->connect_ovl.hEvent = CreateEvent(NULL, true, false, NULL);
     ret->callback_handle =
         handle_add_foreign_event(ret->connect_ovl.hEvent,
                                  named_pipe_connect_callback, ret);
-    named_pipe_accept_loop(ret, FALSE);
+    named_pipe_accept_loop(ret, false);
 
   cleanup:
-    return &ret->sockvt;
+    return &ret->sock;
 }
 
 #endif /* !defined NO_SECURITY */

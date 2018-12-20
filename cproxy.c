@@ -9,7 +9,6 @@
 #include <ctype.h>
 #include <string.h>
 
-#define DEFINE_PLUG_METHOD_MACROS
 #include "putty.h"
 #include "ssh.h" /* For MD5 support */
 #include "network.h"
@@ -19,10 +18,10 @@
 static void hmacmd5_chap(const unsigned char *challenge, int challen,
 			 const char *passwd, unsigned char *response)
 {
-    void *hmacmd5_ctx;
+    struct hmacmd5_context *hmacmd5_ctx;
     int pwlen;
 
-    hmacmd5_ctx = hmacmd5_make_context(NULL);
+    hmacmd5_ctx = hmacmd5_make_context();
 
     pwlen = strlen(passwd);
     if (pwlen>64) {

@@ -7,7 +7,6 @@
 #include <assert.h>
 #include <limits.h>
 
-#define DEFINE_PLUG_METHOD_MACROS
 #include "tree234.h"
 #include "putty.h"
 #include "network.h"
@@ -37,13 +36,13 @@ typedef struct HandleSocket {
     /* Data received from stderr_H, if we have one. */
     bufchain stderrdata;
 
-    int defer_close, deferred_close;   /* in case of re-entrance */
+    bool defer_close, deferred_close;   /* in case of re-entrance */
 
     char *error;
 
-    Plug plug;
+    Plug *plug;
 
-    const Socket_vtable *sockvt;
+    Socket sock;
 } HandleSocket;
 
 static int handle_gotdata(struct handle *h, void *data, int len)
@@ -105,21 +104,21 @@ static void handle_sentdata(struct handle *h, int new_backlog)
     plug_sent(hs->plug, new_backlog);
 }
 
-static Plug sk_handle_plug(Socket s, Plug p)
+static Plug *sk_handle_plug(Socket *s, Plug *p)
 {
-    HandleSocket *hs = FROMFIELD(s, HandleSocket, sockvt);
-    Plug ret = hs->plug;
+    HandleSocket *hs = container_of(s, HandleSocket, sock);
+    Plug *ret = hs->plug;
     if (p)
 	hs->plug = p;
     return ret;
 }
 
-static void sk_handle_close(Socket s)
+static void sk_handle_close(Socket *s)
 {
-    HandleSocket *hs = FROMFIELD(s, HandleSocket, sockvt);
+    HandleSocket *hs = container_of(s, HandleSocket, sock);
 
     if (hs->defer_close) {
-        hs->deferred_close = TRUE;
+        hs->deferred_close = true;
         return;
     }
 
@@ -134,14 +133,14 @@ static void sk_handle_close(Socket s)
     sfree(hs);
 }
 
-static int sk_handle_write(Socket s, const void *data, int len)
+static int sk_handle_write(Socket *s, const void *data, int len)
 {
-    HandleSocket *hs = FROMFIELD(s, HandleSocket, sockvt);
+    HandleSocket *hs = container_of(s, HandleSocket, sock);
 
     return handle_write(hs->send_h, data, len);
 }
 
-static int sk_handle_write_oob(Socket s, const void *data, int len)
+static int sk_handle_write_oob(Socket *s, const void *data, int len)
 {
     /*
      * oob data is treated as inband; nasty, but nothing really
@@ -150,16 +149,16 @@ static int sk_handle_write_oob(Socket s, const void *data, int len)
     return sk_handle_write(s, data, len);
 }
 
-static void sk_handle_write_eof(Socket s)
+static void sk_handle_write_eof(Socket *s)
 {
-    HandleSocket *hs = FROMFIELD(s, HandleSocket, sockvt);
+    HandleSocket *hs = container_of(s, HandleSocket, sock);
 
     handle_write_eof(hs->send_h);
 }
 
-static void sk_handle_flush(Socket s)
+static void sk_handle_flush(Socket *s)
 {
-    /* HandleSocket *hs = FROMFIELD(s, HandleSocket, sockvt); */
+    /* HandleSocket *hs = container_of(s, HandleSocket, sock); */
     /* do nothing */
 }
 
@@ -186,12 +185,12 @@ static void handle_socket_unfreeze(void *hsv)
      * Hand it off to the plug. Be careful of re-entrance - that might
      * have the effect of trying to close this socket.
      */
-    hs->defer_close = TRUE;
+    hs->defer_close = true;
     plug_receive(hs->plug, 0, data, len);
     bufchain_consume(&hs->inputdata, len);
-    hs->defer_close = FALSE;
+    hs->defer_close = false;
     if (hs->deferred_close) {
-        sk_handle_close(&hs->sockvt);
+        sk_handle_close(&hs->sock);
         return;
     }
 
@@ -210,9 +209,9 @@ static void handle_socket_unfreeze(void *hsv)
     }
 }
 
-static void sk_handle_set_frozen(Socket s, int is_frozen)
+static void sk_handle_set_frozen(Socket *s, bool is_frozen)
 {
-    HandleSocket *hs = FROMFIELD(s, HandleSocket, sockvt);
+    HandleSocket *hs = container_of(s, HandleSocket, sock);
 
     if (is_frozen) {
         switch (hs->frozen) {
@@ -265,15 +264,15 @@ static void sk_handle_set_frozen(Socket s, int is_frozen)
     }
 }
 
-static const char *sk_handle_socket_error(Socket s)
+static const char *sk_handle_socket_error(Socket *s)
 {
-    HandleSocket *hs = FROMFIELD(s, HandleSocket, sockvt);
+    HandleSocket *hs = container_of(s, HandleSocket, sock);
     return hs->error;
 }
 
-static char *sk_handle_peer_info(Socket s)
+static SocketPeerInfo *sk_handle_peer_info(Socket *s)
 {
-    HandleSocket *hs = FROMFIELD(s, HandleSocket, sockvt);
+    HandleSocket *hs = container_of(s, HandleSocket, sock);
     ULONG pid;
     static HMODULE kernel32_module;
     DECL_WINDOWS_FUNCTION(static, BOOL, GetNamedPipeClientProcessId,
@@ -300,13 +299,19 @@ static char *sk_handle_peer_info(Socket s)
      * to log what we can find out about the client end.
      */
     if (p_GetNamedPipeClientProcessId &&
-        p_GetNamedPipeClientProcessId(hs->send_H, &pid))
-        return dupprintf("process id %lu", (unsigned long)pid);
+        p_GetNamedPipeClientProcessId(hs->send_H, &pid)) {
+        SocketPeerInfo *pi = snew(SocketPeerInfo);
+        pi->addressfamily = ADDRTYPE_LOCAL;
+        pi->addr_text = NULL;
+        pi->port = -1;
+        pi->log_text = dupprintf("process id %lu", (unsigned long)pid);
+        return pi;
+    }
 
     return NULL;
 }
 
-static const Socket_vtable HandleSocket_sockvt = {
+static const SocketVtable HandleSocket_sockvt = {
     sk_handle_plug,
     sk_handle_close,
     sk_handle_write,
@@ -318,14 +323,14 @@ static const Socket_vtable HandleSocket_sockvt = {
     sk_handle_peer_info,
 };
 
-Socket make_handle_socket(HANDLE send_H, HANDLE recv_H, HANDLE stderr_H,
-                          Plug plug, int overlapped)
+Socket *make_handle_socket(HANDLE send_H, HANDLE recv_H, HANDLE stderr_H,
+                           Plug *plug, bool overlapped)
 {
     HandleSocket *hs;
     int flags = (overlapped ? HANDLE_FLAG_OVERLAPPED : 0);
 
     hs = snew(HandleSocket);
-    hs->sockvt = &HandleSocket_sockvt;
+    hs->sock.vt = &HandleSocket_sockvt;
     hs->plug = plug;
     hs->error = NULL;
     hs->frozen = UNFROZEN;
@@ -341,7 +346,7 @@ Socket make_handle_socket(HANDLE send_H, HANDLE recv_H, HANDLE stderr_H,
         hs->stderr_h = handle_input_new(hs->stderr_H, handle_stderr,
                                         hs, flags);
 
-    hs->defer_close = hs->deferred_close = FALSE;
+    hs->defer_close = hs->deferred_close = false;
 
-    return &hs->sockvt;
+    return &hs->sock;
 }

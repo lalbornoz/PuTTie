@@ -17,19 +17,19 @@ struct callback {
 struct callback *cbcurr = NULL, *cbhead = NULL, *cbtail = NULL;
 
 toplevel_callback_notify_fn_t notify_frontend = NULL;
-void *frontend = NULL;
+void *notify_ctx = NULL;
 
 void request_callback_notifications(toplevel_callback_notify_fn_t fn,
-                                    void *fr)
+                                    void *ctx)
 {
     notify_frontend = fn;
-    frontend = fr;
+    notify_ctx = ctx;
 }
 
 static void run_idempotent_callback(void *ctx)
 {
     struct IdempotentCallback *ic = (struct IdempotentCallback *)ctx;
-    ic->queued = FALSE;
+    ic->queued = false;
     ic->fn(ic->ctx);
 }
 
@@ -37,7 +37,7 @@ void queue_idempotent_callback(struct IdempotentCallback *ic)
 {
     if (ic->queued)
         return;
-    ic->queued = TRUE;
+    ic->queued = true;
     queue_toplevel_callback(run_idempotent_callback, ic);
 }
 
@@ -65,6 +65,8 @@ void delete_callbacks_for_context(void *ctx)
 
     cbhead = newhead;
     cbtail = newtail;
+    if (newtail)
+        newtail->next = NULL;
 }
 
 void queue_toplevel_callback(toplevel_callback_fn_t fn, void *ctx)
@@ -87,7 +89,7 @@ void queue_toplevel_callback(toplevel_callback_fn_t fn, void *ctx)
      * callback keeps re-scheduling itself.
      */
     if (notify_frontend && !cbhead && !cbcurr)
-        notify_frontend(frontend);
+        notify_frontend(notify_ctx);
 
     if (cbtail)
         cbtail->next = cb;
@@ -97,9 +99,9 @@ void queue_toplevel_callback(toplevel_callback_fn_t fn, void *ctx)
     cb->next = NULL;
 }
 
-int run_toplevel_callbacks(void)
+bool run_toplevel_callbacks(void)
 {
-    int done_something = FALSE;
+    bool done_something = false;
 
     if (cbhead) {
         /*
@@ -120,12 +122,12 @@ int run_toplevel_callbacks(void)
         sfree(cbcurr);
         cbcurr = NULL;
 
-        done_something = TRUE;
+        done_something = true;
     }
     return done_something;
 }
 
-int toplevel_callback_pending(void)
+bool toplevel_callback_pending(void)
 {
     return cbcurr != NULL || cbhead != NULL;
 }

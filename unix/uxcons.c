@@ -21,18 +21,16 @@
 #include "storage.h"
 #include "ssh.h"
 
-int console_batch_mode = FALSE;
-
-static void *console_logctx = NULL;
+bool console_batch_mode = false;
 
 static struct termios orig_termios_stderr;
-static int stderr_is_a_tty;
+static bool stderr_is_a_tty;
 
 void stderr_tty_init()
 {
     /* Ensure that if stderr is a tty, we can get it back to a sane state. */
     if ((flags & FLAG_STDERR_TTY) && isatty(STDERR_FILENO)) {
-	stderr_is_a_tty = TRUE;
+	stderr_is_a_tty = true;
 	tcgetattr(STDERR_FILENO, &orig_termios_stderr);
     }
 }
@@ -63,16 +61,58 @@ void cleanup_exit(int code)
     exit(code);
 }
 
-void set_busy_status(void *frontend, int status)
+/*
+ * Various error message and/or fatal exit functions.
+ */
+void console_print_error_msg(const char *prefix, const char *msg)
 {
+    struct termios cf;
+    premsg(&cf);
+    fputs(prefix, stderr);
+    fputs(": ", stderr);
+    fputs(msg, stderr);
+    fputc('\n', stderr);
+    fflush(stderr);
+    postmsg(&cf);
 }
 
-void update_specials_menu(void *frontend)
+void console_print_error_msg_fmt_v(
+    const char *prefix, const char *fmt, va_list ap)
 {
+    char *msg = dupvprintf(fmt, ap);
+    console_print_error_msg(prefix, msg);
+    sfree(msg);
 }
 
-void notify_remote_exit(void *frontend)
+void console_print_error_msg_fmt(const char *prefix, const char *fmt, ...)
 {
+    va_list ap;
+    va_start(ap, fmt);
+    console_print_error_msg_fmt_v(prefix, fmt, ap);
+    va_end(ap);
+}
+
+void modalfatalbox(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    console_print_error_msg_fmt_v("FATAL ERROR", fmt, ap);
+    va_end(ap);
+    cleanup_exit(1);
+}
+
+void nonfatal(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    console_print_error_msg_fmt_v("ERROR", fmt, ap);
+    va_end(ap);
+}
+
+void console_connection_fatal(Seat *seat, const char *msg)
+{
+    console_print_error_msg("FATAL ERROR", msg);
+    cleanup_exit(1);
 }
 
 void timer_change_notify(unsigned long next)
@@ -96,7 +136,7 @@ static int block_and_read(int fd, void *buf, size_t len)
 #ifdef EWOULDBLOCK
                (errno == EWOULDBLOCK) ||
 #endif
-               0)) {
+               false)) {
 
         fd_set rfds;
         FD_ZERO(&rfds);
@@ -113,9 +153,10 @@ static int block_and_read(int fd, void *buf, size_t len)
     return ret;
 }
 
-int verify_ssh_host_key(void *frontend, char *host, int port,
-                        const char *keytype, char *keystr, char *fingerprint,
-                        void (*callback)(void *ctx, int result), void *ctx)
+int console_verify_ssh_host_key(
+    Seat *seat, const char *host, int port,
+    const char *keytype, char *keystr, char *fingerprint,
+    void (*callback)(void *ctx, int result), void *ctx)
 {
     int ret;
 
@@ -219,12 +260,9 @@ int verify_ssh_host_key(void *frontend, char *host, int port,
     }
 }
 
-/*
- * Ask whether the selected algorithm is acceptable (since it was
- * below the configured 'warn' threshold).
- */
-int askalg(void *frontend, const char *algtype, const char *algname,
-	   void (*callback)(void *ctx, int result), void *ctx)
+int console_confirm_weak_crypto_primitive(
+    Seat *seat, const char *algtype, const char *algname,
+    void (*callback)(void *ctx, int result), void *ctx)
 {
     static const char msg[] =
 	"The first %s supported by the server is\n"
@@ -270,8 +308,9 @@ int askalg(void *frontend, const char *algtype, const char *algname,
     }
 }
 
-int askhk(void *frontend, const char *algname, const char *betteralgs,
-          void (*callback)(void *ctx, int result), void *ctx)
+int console_confirm_weak_cached_hostkey(
+    Seat *seat, const char *algname, const char *betteralgs,
+    void (*callback)(void *ctx, int result), void *ctx)
 {
     static const char msg[] =
 	"The first host key type we have stored for this server\n"
@@ -327,8 +366,9 @@ int askhk(void *frontend, const char *algname, const char *betteralgs,
  * Ask whether to wipe a session log file before writing to it.
  * Returns 2 for wipe, 1 for append, 0 for cancel (don't log).
  */
-int askappend(void *frontend, Filename *filename,
-	      void (*callback)(void *ctx, int result), void *ctx)
+static int console_askappend(LogPolicy *lp, Filename *filename,
+                             void (*callback)(void *ctx, int result),
+                             void *ctx)
 {
     static const char msgtemplate[] =
 	"The session log file \"%.*s\" already exists.\n"
@@ -405,20 +445,24 @@ void old_keyfile_warning(void)
     postmsg(&cf);
 }
 
-void console_provide_logctx(void *logctx)
+static void console_logging_error(LogPolicy *lp, const char *string)
 {
-    console_logctx = logctx;
+    /* Errors setting up logging are considered important, so they're
+     * displayed to standard error even when not in verbose mode */
+    struct termios cf;
+    premsg(&cf);
+    fprintf(stderr, "%s\n", string);
+    fflush(stderr);
+    postmsg(&cf);
 }
 
-void logevent(void *frontend, const char *string)
+
+static void console_eventlog(LogPolicy *lp, const char *string)
 {
-    struct termios cf;
-    if ((flags & FLAG_STDERR) && (flags & FLAG_VERBOSE))
-        premsg(&cf);
-    if (console_logctx)
-	log_eventlog(console_logctx, string);
-    if ((flags & FLAG_STDERR) && (flags & FLAG_VERBOSE))
-        postmsg(&cf);
+    /* Ordinary Event Log entries are displayed in the same way as
+     * logging errors, but only in verbose mode */
+    if (flags & FLAG_VERBOSE)
+        console_logging_error(lp, string);
 }
 
 /*
@@ -448,11 +492,16 @@ static void console_close(FILE *outfp, int infd)
 
 static void console_prompt_text(FILE *outfp, const char *data, int len)
 {
-    int i;
+    bufchain sanitised;
+    void *vdata;
 
-    for (i = 0; i < len; i++)
-	if ((data[i] & 0x60) || (data[i] == '\n'))
-	    fputc(data[i], outfp);
+    bufchain_init(&sanitised);
+    sanitise_term_data(&sanitised, data, len);
+    while (bufchain_size(&sanitised) > 0) {
+        bufchain_prefix(&sanitised, &vdata, &len);
+        fwrite(vdata, 1, len, outfp);
+        bufchain_consume(&sanitised, len);
+    }
     fflush(outfp);
 }
 
@@ -546,15 +595,7 @@ int console_get_userpass_input(prompts_t *p)
     return 1; /* success */
 }
 
-void frontend_keypress(void *handle)
-{
-    /*
-     * This is nothing but a stub, in console code.
-     */
-    return;
-}
-
-int is_interactive(void)
+bool is_interactive(void)
 {
     return isatty(0);
 }
@@ -566,3 +607,10 @@ int is_interactive(void)
 char *platform_get_x_display(void) {
     return dupstr(getenv("DISPLAY"));
 }
+
+static const LogPolicyVtable default_logpolicy_vt = {
+    console_eventlog,
+    console_askappend,
+    console_logging_error,
+};
+LogPolicy default_logpolicy[1] = {{ &default_logpolicy_vt }};

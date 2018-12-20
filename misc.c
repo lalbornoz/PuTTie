@@ -97,7 +97,7 @@ char ctrlparse(char *s, char **next)
  * various standard string.h functions.
  */
 static const char *host_strchr_internal(const char *s, const char *set,
-                                        int first)
+                                        bool first)
 {
     int brackets = 0;
     const char *ret = NULL;
@@ -123,7 +123,7 @@ static const char *host_strchr_internal(const char *s, const char *set,
 }
 size_t host_strcspn(const char *s, const char *set)
 {
-    const char *answer = host_strchr_internal(s, set, TRUE);
+    const char *answer = host_strchr_internal(s, set, true);
     if (answer)
         return answer - s;
     else
@@ -134,14 +134,14 @@ char *host_strchr(const char *s, int c)
     char set[2];
     set[0] = c;
     set[1] = '\0';
-    return (char *) host_strchr_internal(s, set, TRUE);
+    return (char *) host_strchr_internal(s, set, true);
 }
 char *host_strrchr(const char *s, int c)
 {
     char set[2];
     set[0] = c;
     set[1] = '\0';
-    return (char *) host_strchr_internal(s, set, FALSE);
+    return (char *) host_strchr_internal(s, set, false);
 }
 
 #ifdef TEST_HOST_STRFOO
@@ -216,19 +216,31 @@ char *host_strduptrim(const char *s)
     return dupstr(s);
 }
 
-prompts_t *new_prompts(void *frontend)
+void seat_connection_fatal(Seat *seat, const char *fmt, ...)
+{
+    va_list ap;
+    char *msg;
+
+    va_start(ap, fmt);
+    msg = dupvprintf(fmt, ap);
+    va_end(ap);
+
+    seat->vt->connection_fatal(seat, msg);
+    sfree(msg);                        /* if we return */
+}
+
+prompts_t *new_prompts(void)
 {
     prompts_t *p = snew(prompts_t);
     p->prompts = NULL;
     p->n_prompts = 0;
-    p->frontend = frontend;
     p->data = NULL;
-    p->to_server = TRUE; /* to be on the safe side */
+    p->to_server = true; /* to be on the safe side */
     p->name = p->instruction = NULL;
-    p->name_reqd = p->instr_reqd = FALSE;
+    p->name_reqd = p->instr_reqd = false;
     return p;
 }
-void add_prompt(prompts_t *p, char *promptstr, int echo)
+void add_prompt(prompts_t *p, char *promptstr, bool echo)
 {
     prompt_t *pr = snew(prompt_t);
     pr->prompt = promptstr;
@@ -335,29 +347,6 @@ void burnstr(char *string)             /* sfree(str), only clear it first */
         smemclr(string, strlen(string));
         sfree(string);
     }
-}
-
-int toint(unsigned u)
-{
-    /*
-     * Convert an unsigned to an int, without running into the
-     * undefined behaviour which happens by the strict C standard if
-     * the value overflows. You'd hope that sensible compilers would
-     * do the sensible thing in response to a cast, but actually I
-     * don't trust modern compilers not to do silly things like
-     * assuming that _obviously_ you wouldn't have caused an overflow
-     * and so they can elide an 'if (i < 0)' test immediately after
-     * the cast.
-     *
-     * Sensible compilers ought of course to optimise this entire
-     * function into 'just return the input value'!
-     */
-    if (u <= (unsigned)INT_MAX)
-        return (int)u;
-    else if (u >= (unsigned)INT_MIN)   /* wrap in cast _to_ unsigned is OK */
-        return INT_MIN + (int)(u - (unsigned)INT_MIN);
-    else
-        return INT_MIN; /* fallback; should never occur on binary machines */
 }
 
 int string_length_for_printf(size_t s)
@@ -487,7 +476,7 @@ struct strbuf_impl {
 
 void *strbuf_append(strbuf *buf_o, size_t len)
 {
-    struct strbuf_impl *buf = FROMFIELD(buf_o, struct strbuf_impl, visible);
+    struct strbuf_impl *buf = container_of(buf_o, struct strbuf_impl, visible);
     char *toret;
     if (buf->size < buf->visible.len + len + 1) {
         buf->size = (buf->visible.len + len + 1) * 5 / 4 + 512;
@@ -518,7 +507,7 @@ strbuf *strbuf_new(void)
 }
 void strbuf_free(strbuf *buf_o)
 {
-    struct strbuf_impl *buf = FROMFIELD(buf_o, struct strbuf_impl, visible);
+    struct strbuf_impl *buf = container_of(buf_o, struct strbuf_impl, visible);
     if (buf->visible.s) {
         smemclr(buf->visible.s, buf->size);
         sfree(buf->visible.s);
@@ -527,14 +516,14 @@ void strbuf_free(strbuf *buf_o)
 }
 char *strbuf_to_str(strbuf *buf_o)
 {
-    struct strbuf_impl *buf = FROMFIELD(buf_o, struct strbuf_impl, visible);
+    struct strbuf_impl *buf = container_of(buf_o, struct strbuf_impl, visible);
     char *ret = buf->visible.s;
     sfree(buf);
     return ret;
 }
 void strbuf_catfv(strbuf *buf_o, const char *fmt, va_list ap)
 {
-    struct strbuf_impl *buf = FROMFIELD(buf_o, struct strbuf_impl, visible);
+    struct strbuf_impl *buf = container_of(buf_o, struct strbuf_impl, visible);
     STRBUF_SET_PTR(buf, dupvprintf_inner(buf->visible.s, buf->visible.len,
                                          &buf->size, fmt, ap));
     buf->visible.len += strlen(buf->visible.s + buf->visible.len);
@@ -555,7 +544,7 @@ strbuf *strbuf_new_for_agent_query(void)
 }
 void strbuf_finalise_agent_query(strbuf *buf_o)
 {
-    struct strbuf_impl *buf = FROMFIELD(buf_o, struct strbuf_impl, visible);
+    struct strbuf_impl *buf = container_of(buf_o, struct strbuf_impl, visible);
     assert(buf->visible.len >= 5);
     PUT_32BIT_MSB_FIRST(buf->visible.u, buf->visible.len - 4);
 }
@@ -701,6 +690,7 @@ void bufchain_init(bufchain *ch)
 {
     ch->head = ch->tail = NULL;
     ch->buffersize = 0;
+    ch->ic = NULL;
 }
 
 void bufchain_clear(bufchain *ch)
@@ -752,6 +742,9 @@ void bufchain_add(bufchain *ch, const void *data, int len)
 	    ch->tail = newbuf;
 	}
     }
+
+    if (ch->ic)
+        queue_idempotent_callback(ch->ic);
 }
 
 void bufchain_consume(bufchain *ch, int len)
@@ -810,13 +803,49 @@ void bufchain_fetch_consume(bufchain *ch, void *data, int len)
     bufchain_consume(ch, len);
 }
 
-int bufchain_try_fetch_consume(bufchain *ch, void *data, int len)
+bool bufchain_try_fetch_consume(bufchain *ch, void *data, int len)
 {
     if (ch->buffersize >= len) {
         bufchain_fetch_consume(ch, data, len);
-        return TRUE;
+        return true;
     } else {
-        return FALSE;
+        return false;
+    }
+}
+
+int bufchain_fetch_consume_up_to(bufchain *ch, void *data, int len)
+{
+    if (len > ch->buffersize)
+        len = ch->buffersize;
+    if (len)
+        bufchain_fetch_consume(ch, data, len);
+    return len;
+}
+
+/* ----------------------------------------------------------------------
+ * Sanitise terminal output that we have reason not to trust, e.g.
+ * because it appears in the login banner or password prompt from a
+ * server, which we'd rather not permit to use arbitrary escape
+ * sequences.
+ */
+
+void sanitise_term_data(bufchain *out, const void *vdata, int len)
+{
+    const char *data = (const char *)vdata;
+    int i;
+
+    /*
+     * FIXME: this method of sanitisation is ASCII-centric. It would
+     * be nice to permit SSH banners and the like to contain printable
+     * Unicode, but that would need a lot more complicated code here
+     * (not to mention knowing what character set it should interpret
+     * the data as).
+     */
+    for (i = 0; i < len; i++) {
+        if (data[i] == '\n')
+            bufchain_add(out, "\r\n", 2);
+        else if (data[i] >= ' ' && data[i] < 0x7F)
+            bufchain_add(out, data + i, 1);
     }
 }
 
@@ -829,12 +858,6 @@ int bufchain_try_fetch_consume(bufchain *ch, void *data, int len)
  * we can also replace the allocator with an ElectricFence-like
  * one.
  */
-
-#ifdef MINEFIELD
-void *minefield_c_malloc(size_t size);
-void minefield_c_free(void *p);
-void *minefield_c_realloc(void *p, size_t size);
-#endif
 
 #ifdef MALLOC_LOG
 static FILE *fp = NULL;
@@ -854,102 +877,6 @@ void mlog(char *file, int line)
 	fprintf(fp, "%s:%d: ", file, line);
 }
 #endif
-
-void *safemalloc(size_t n, size_t size)
-{
-    void *p;
-
-    if (n > INT_MAX / size) {
-	p = NULL;
-    } else {
-	size *= n;
-	if (size == 0) size = 1;
-#ifdef MINEFIELD
-	p = minefield_c_malloc(size);
-#else
-	p = malloc(size);
-#endif
-    }
-
-    if (!p) {
-	char str[200];
-#ifdef MALLOC_LOG
-	sprintf(str, "Out of memory! (%s:%d, size=%d)",
-		mlog_file, mlog_line, size);
-	fprintf(fp, "*** %s\n", str);
-	fclose(fp);
-#else
-	strcpy(str, "Out of memory!");
-#endif
-	modalfatalbox("%s", str);
-    }
-#ifdef MALLOC_LOG
-    if (fp)
-	fprintf(fp, "malloc(%d) returns %p\n", size, p);
-#endif
-    return p;
-}
-
-void *saferealloc(void *ptr, size_t n, size_t size)
-{
-    void *p;
-
-    if (n > INT_MAX / size) {
-	p = NULL;
-    } else {
-	size *= n;
-	if (!ptr) {
-#ifdef MINEFIELD
-	    p = minefield_c_malloc(size);
-#else
-	    p = malloc(size);
-#endif
-	} else {
-#ifdef MINEFIELD
-	    p = minefield_c_realloc(ptr, size);
-#else
-	    p = realloc(ptr, size);
-#endif
-	}
-    }
-
-    if (!p) {
-	char str[200];
-#ifdef MALLOC_LOG
-	sprintf(str, "Out of memory! (%s:%d, size=%d)",
-		mlog_file, mlog_line, size);
-	fprintf(fp, "*** %s\n", str);
-	fclose(fp);
-#else
-	strcpy(str, "Out of memory!");
-#endif
-	modalfatalbox("%s", str);
-    }
-#ifdef MALLOC_LOG
-    if (fp)
-	fprintf(fp, "realloc(%p,%d) returns %p\n", ptr, size, p);
-#endif
-    return p;
-}
-
-void safefree(void *ptr)
-{
-    if (ptr) {
-#ifdef MALLOC_LOG
-	if (fp)
-	    fprintf(fp, "free(%p)\n", ptr);
-#endif
-#ifdef MINEFIELD
-	minefield_c_free(ptr);
-#else
-	free(ptr);
-#endif
-    }
-#ifdef MALLOC_LOG
-    else if (fp)
-	fprintf(fp, "freeing null pointer - no action taken\n");
-#endif
-}
 
 /* ----------------------------------------------------------------------
  * Debugging routines.
@@ -971,7 +898,7 @@ void debug_printf(const char *fmt, ...)
 }
 
 
-void debug_memdump(const void *buf, int len, int L)
+void debug_memdump(const void *buf, int len, bool L)
 {
     int i;
     const unsigned char *p = buf;
@@ -1012,7 +939,7 @@ void debug_memdump(const void *buf, int len, int L)
  * Determine whether or not a Conf represents a session which can
  * sensibly be launched right now.
  */
-int conf_launchable(Conf *conf)
+bool conf_launchable(Conf *conf)
 {
     if (conf_get_int(conf, CONF_protocol) == PROT_SERIAL)
 	return conf_get_str(conf, CONF_serline)[0] != 0;
@@ -1070,13 +997,13 @@ void smemclr(void *b, size_t n) {
 
 /*
  * Validate a manual host key specification (either entered in the
- * GUI, or via -hostkey). If valid, we return TRUE, and update 'key'
+ * GUI, or via -hostkey). If valid, we return true, and update 'key'
  * to contain a canonicalised version of the key string in 'key'
  * (which is guaranteed to take up at most as much space as the
  * original version), suitable for putting into the Conf. If not
- * valid, we return FALSE.
+ * valid, we return false.
  */
-int validate_manual_hostkey(char *key)
+bool validate_manual_hostkey(char *key)
 {
     char *p, *q, *r, *s;
 
@@ -1111,7 +1038,7 @@ int validate_manual_hostkey(char *key)
             for (i = 0; i < 16*3 - 1; i++)
                 key[i] = tolower(q[i]);
             key[16*3 - 1] = '\0';
-            return TRUE;
+            return true;
         }
       not_fingerprint:;
 
@@ -1157,15 +1084,15 @@ int validate_manual_hostkey(char *key)
                 goto not_ssh2_blob;    /* sorry */
 
             strcpy(key, q);
-            return TRUE;
+            return true;
         }
       not_ssh2_blob:;
     }
 
-    return FALSE;
+    return false;
 }
 
-int smemeq(const void *av, const void *bv, size_t len)
+bool smemeq(const void *av, const void *bv, size_t len)
 {
     const unsigned char *a = (const unsigned char *)av;
     const unsigned char *b = (const unsigned char *)bv;
@@ -1181,18 +1108,39 @@ int smemeq(const void *av, const void *bv, size_t len)
     return (0x100 - val) >> 8;
 }
 
-ptrlen make_ptrlen(const void *ptr, size_t len)
+int nullstrcmp(const char *a, const char *b)
 {
-    ptrlen pl;
-    pl.ptr = ptr;
-    pl.len = len;
-    return pl;
+    if (a == NULL && b == NULL)
+        return 0;
+    if (a == NULL)
+        return -1;
+    if (b == NULL)
+        return +1;
+    return strcmp(a, b);
 }
 
-int ptrlen_eq_string(ptrlen pl, const char *str)
+bool ptrlen_eq_string(ptrlen pl, const char *str)
 {
     size_t len = strlen(str);
     return (pl.len == len && !memcmp(pl.ptr, str, len));
+}
+
+bool ptrlen_eq_ptrlen(ptrlen pl1, ptrlen pl2)
+{
+    return (pl1.len == pl2.len && !memcmp(pl1.ptr, pl2.ptr, pl1.len));
+}
+
+bool ptrlen_startswith(ptrlen whole, ptrlen prefix, ptrlen *tail)
+{
+    if (whole.len >= prefix.len &&
+        !memcmp(whole.ptr, prefix.ptr, prefix.len)) {
+        if (tail) {
+            tail->ptr = (const char *)whole.ptr + prefix.len;
+            tail->len = whole.len - prefix.len;
+        }
+        return true;
+    }
+    return false;
 }
 
 char *mkstr(ptrlen pl)
@@ -1203,12 +1151,12 @@ char *mkstr(ptrlen pl)
     return p;
 }
 
-int strstartswith(const char *s, const char *t)
+bool strstartswith(const char *s, const char *t)
 {
     return !memcmp(s, t, strlen(t));
 }
 
-int strendswith(const char *s, const char *t)
+bool strendswith(const char *s, const char *t)
 {
     size_t slen = strlen(s), tlen = strlen(t);
     return slen >= tlen && !strcmp(s + (slen - tlen), t);
@@ -1217,7 +1165,6 @@ int strendswith(const char *s, const char *t)
 char *buildinfo(const char *newline)
 {
     strbuf *buf = strbuf_new();
-    extern const char commitid[];      /* in commitid.c */
 
     strbuf_catf(buf, "Build platform: %d-bit %s",
                 (int)(CHAR_BIT * sizeof(void *)),
@@ -1305,4 +1252,41 @@ char *buildinfo(const char *newline)
     strbuf_catf(buf, "%sSource commit: %s", newline, commitid);
 
     return strbuf_to_str(buf);
+}
+
+int nullseat_output(
+    Seat *seat, bool is_stderr, const void *data, int len) { return 0; }
+bool nullseat_eof(Seat *seat) { return true; }
+int nullseat_get_userpass_input(
+    Seat *seat, prompts_t *p, bufchain *input) { return 0; }
+void nullseat_notify_remote_exit(Seat *seat) {}
+void nullseat_connection_fatal(Seat *seat, const char *message) {}
+void nullseat_update_specials_menu(Seat *seat) {}
+char *nullseat_get_ttymode(Seat *seat, const char *mode) { return NULL; }
+void nullseat_set_busy_status(Seat *seat, BusyStatus status) {}
+int nullseat_verify_ssh_host_key(
+    Seat *seat, const char *host, int port,
+    const char *keytype, char *keystr, char *key_fingerprint,
+    void (*callback)(void *ctx, int result), void *ctx) { return 0; }
+int nullseat_confirm_weak_crypto_primitive(
+    Seat *seat, const char *algtype, const char *algname,
+    void (*callback)(void *ctx, int result), void *ctx) { return 0; }
+int nullseat_confirm_weak_cached_hostkey(
+    Seat *seat, const char *algname, const char *betteralgs,
+    void (*callback)(void *ctx, int result), void *ctx) { return 0; }
+bool nullseat_is_never_utf8(Seat *seat) { return false; }
+bool nullseat_is_always_utf8(Seat *seat) { return true; }
+void nullseat_echoedit_update(Seat *seat, bool echoing, bool editing) {}
+const char *nullseat_get_x_display(Seat *seat) { return NULL; }
+bool nullseat_get_windowid(Seat *seat, long *id_out) { return false; }
+bool nullseat_get_window_pixel_size(
+    Seat *seat, int *width, int *height) { return false; }
+
+void sk_free_peer_info(SocketPeerInfo *pi)
+{
+    if (pi) {
+        sfree((char *)pi->addr_text);
+        sfree((char *)pi->log_text);
+        sfree(pi);
+    }
 }
