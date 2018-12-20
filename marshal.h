@@ -26,6 +26,17 @@ struct BinarySink {
      (obj)->binarysink_->binarysink_ = (obj)->binarysink_)
 
 /*
+ * To define a larger structure type as a valid BinarySink in such a
+ * way that it will delegate the write method to some other object,
+ * put 'BinarySink_DELEGATE_IMPLEMENTATION' in its declaration, and
+ * when an instance is set up, use 'BinarySink_DELEGATE_INIT' to point
+ * at the object it wants to delegate to.
+ */
+#define BinarySink_DELEGATE_IMPLEMENTATION BinarySink *binarysink_
+#define BinarySink_DELEGATE_INIT(obj, othersink) \
+    ((obj)->binarysink_ = BinarySink_UPCAST(othersink))
+
+/*
  * The implementing type's write function will want to downcast its
  * 'BinarySink *' parameter back to the more specific type. Also,
  * sometimes you'll want to upcast a pointer to a particular
@@ -65,8 +76,7 @@ struct BinarySink {
  * first parameter of any of these put_* macros.
  */
 
-/* Basic big-endian integer types. uint64 is the structure type
- * defined in int64.h, not the C99 built-in type. */
+/* Basic big-endian integer types. */
 #define put_byte(bs, val) \
     BinarySink_put_byte(BinarySink_UPCAST(bs), val)
 #define put_uint16(bs, val) \
@@ -132,16 +142,17 @@ struct BinarySink {
 void BinarySink_put_data(BinarySink *, const void *data, size_t len);
 void BinarySink_put_padding(BinarySink *, size_t len, unsigned char padbyte);
 void BinarySink_put_byte(BinarySink *, unsigned char);
-void BinarySink_put_bool(BinarySink *, int);
+void BinarySink_put_bool(BinarySink *, bool);
 void BinarySink_put_uint16(BinarySink *, unsigned long);
 void BinarySink_put_uint32(BinarySink *, unsigned long);
+void BinarySink_put_uint64(BinarySink *, uint64_t);
 void BinarySink_put_string(BinarySink *, const void *data, size_t len);
 void BinarySink_put_stringpl(BinarySink *, ptrlen);
 void BinarySink_put_stringz(BinarySink *, const char *str);
 struct strbuf;
 void BinarySink_put_stringsb(BinarySink *, struct strbuf *);
 void BinarySink_put_asciz(BinarySink *, const char *str);
-int BinarySink_put_pstring(BinarySink *, const char *str);
+bool BinarySink_put_pstring(BinarySink *, const char *str);
 
 /* ---------------------------------------------------------------------- */
 
@@ -263,9 +274,10 @@ struct BinarySource {
 
 ptrlen BinarySource_get_data(BinarySource *, size_t);
 unsigned char BinarySource_get_byte(BinarySource *);
-int BinarySource_get_bool(BinarySource *);
+bool BinarySource_get_bool(BinarySource *);
 unsigned BinarySource_get_uint16(BinarySource *);
 unsigned long BinarySource_get_uint32(BinarySource *);
+uint64_t BinarySource_get_uint64(BinarySource *);
 ptrlen BinarySource_get_string(BinarySource *);
 const char *BinarySource_get_asciz(BinarySource *);
 ptrlen BinarySource_get_pstring(BinarySource *);

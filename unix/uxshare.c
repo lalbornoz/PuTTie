@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #include <sys/file.h>
 
-#define DEFINE_PLUG_METHOD_MACROS
 #include "tree234.h"
 #include "putty.h"
 #include "network.h"
@@ -23,12 +22,6 @@
 #define CONNSHARE_SOCKETDIR_PREFIX "/tmp/putty-connshare"
 #define SALT_FILENAME "salt"
 #define SALT_SIZE 64
-
-/*
- * Functions provided by uxnet.c to help connection sharing.
- */
-SockAddr unix_sock_addr(const char *path);
-Socket new_unix_listener(SockAddr listenaddr, Plug plug);
 
 static char *make_parentdir_name(void)
 {
@@ -249,13 +242,13 @@ static char *make_dirname(const char *pi_name, char **logtext)
 }
 
 int platform_ssh_share(const char *pi_name, Conf *conf,
-                       Plug downplug, Plug upplug, Socket *sock,
+                       Plug *downplug, Plug *upplug, Socket **sock,
                        char **logtext, char **ds_err, char **us_err,
-                       int can_upstream, int can_downstream)
+                       bool can_upstream, bool can_downstream)
 {
     char *dirname, *lockname, *sockname, *err;
     int lockfd;
-    Socket retsock;
+    Socket *retsock;
 
     /*
      * Sort out what we're going to call the directory in which we
@@ -303,7 +296,8 @@ int platform_ssh_share(const char *pi_name, Conf *conf,
 
     if (can_downstream) {
         retsock = new_connection(unix_sock_addr(sockname),
-                                 "", 0, 0, 1, 0, 0, downplug, conf);
+                                 "", 0, false, true, false, false,
+                                 downplug, conf);
         if (sk_socket_error(retsock) == NULL) {
             sfree(*logtext);
             *logtext = sockname;

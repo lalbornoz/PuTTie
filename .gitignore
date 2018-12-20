@@ -38,10 +38,12 @@
 /puttyapp
 /ptermapp
 /osxlaunch
+/uppity
 /unix/PuTTY.app
 /unix/Pterm.app
 /fuzzterm
 /testbn
+/testzlib
 /cgtest
 /*.DSA
 /*.RSA

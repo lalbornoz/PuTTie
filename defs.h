@@ -12,16 +12,19 @@
 #define PUTTY_DEFS_H
 
 #include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
 
-#ifndef FALSE
-#define FALSE 0
-#endif
-#ifndef TRUE
-#define TRUE 1
+#if defined _MSC_VER && _MSC_VER < 1800
+/* Work around lack of inttypes.h in older MSVC */
+#define PRIx32 "x"
+#define PRIu64 "I64u"
+#define SCNu64 "I64u"
+#else
+#include <inttypes.h>
 #endif
 
 typedef struct conf_tag Conf;
-typedef struct backend_tag Backend;
 typedef struct terminal_tag Terminal;
 
 typedef struct Filename Filename;
@@ -33,25 +36,55 @@ typedef struct strbuf strbuf;
 
 struct RSAKey;
 
-#include <stdint.h>
-typedef uint32_t uint32;
-
 typedef struct BinarySink BinarySink;
 typedef struct BinarySource BinarySource;
 
-typedef struct SockAddr_tag *SockAddr;
+typedef struct IdempotentCallback IdempotentCallback;
 
-typedef struct Socket_vtable Socket_vtable;
-typedef struct Plug_vtable Plug_vtable;
+typedef struct SockAddr SockAddr;
 
-/* Note indirection: for historical reasons (it used to be closer to
- * the OS socket type), the type that most code uses for a socket is
- * 'Socket', not 'Socket *'. So an implementation of Socket or Plug
- * has a 'const Socket *' field for the vtable pointer, and the
- * 'Socket' type returned to client code is a pointer to _that_ in
- * turn. */
-typedef const Socket_vtable **Socket;
-typedef const Plug_vtable **Plug;
+typedef struct Socket Socket;
+typedef struct Plug Plug;
+typedef struct SocketPeerInfo SocketPeerInfo;
+
+typedef struct Backend Backend;
+typedef struct BackendVtable BackendVtable;
+
+typedef struct Ldisc_tag Ldisc;
+typedef struct LogContext LogContext;
+typedef struct LogPolicy LogPolicy;
+typedef struct LogPolicyVtable LogPolicyVtable;
+
+typedef struct Seat Seat;
+typedef struct SeatVtable SeatVtable;
+
+typedef struct TermWin TermWin;
+typedef struct TermWinVtable TermWinVtable;
+
+typedef struct Ssh Ssh;
+
+typedef struct SftpServer SftpServer;
+typedef struct SftpServerVtable SftpServerVtable;
+
+typedef struct Channel Channel;
+typedef struct SshChannel SshChannel;
+typedef struct mainchan mainchan;
+
+typedef struct ssh_sharing_state ssh_sharing_state;
+typedef struct ssh_sharing_connstate ssh_sharing_connstate;
+typedef struct share_channel share_channel;
+
+typedef struct PortFwdManager PortFwdManager;
+typedef struct PortFwdRecord PortFwdRecord;
+typedef struct ConnectionLayer ConnectionLayer;
+
+typedef struct dlgparam dlgparam;
+
+typedef struct settings_w settings_w;
+typedef struct settings_r settings_r;
+typedef struct settings_e settings_e;
+
+typedef struct SessionSpecial SessionSpecial;
 
 /*
  * A small structure wrapping up a (pointer, length) pair so that it
@@ -64,6 +97,9 @@ typedef struct ptrlen {
 
 typedef struct logblank_t logblank_t;
 
+typedef struct BinaryPacketProtocol BinaryPacketProtocol;
+typedef struct PacketProtocolLayer PacketProtocolLayer;
+
 /* Do a compile-time type-check of 'to_check' (without evaluating it),
  * as a side effect of returning the value 'to_return'. Note that
  * although this macro double-*expands* to_return, it always
@@ -73,8 +109,14 @@ typedef struct logblank_t logblank_t;
 
 /* Return a pointer to the object of structure type 'type' whose field
  * with name 'field' is pointed at by 'object'. */
-#define FROMFIELD(object, type, field)                                  \
+#define container_of(object, type, field)                               \
     TYPECHECK(object == &((type *)0)->field,                            \
               ((type *)(((char *)(object)) - offsetof(type, field))))
+
+#if defined __GNUC__ || defined __clang__
+#define NORETURN __attribute__((__noreturn__))
+#else
+#define NORETURN
+#endif
 
 #endif /* PUTTY_DEFS_H */

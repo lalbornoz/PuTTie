@@ -88,7 +88,7 @@ https://wiki.gnome.org/Projects/GTK%2B/OSX/Bundling has some links.
 
 char *x_get_default(const char *key) { return NULL; }
 
-const int buildinfo_gtk_relevant = TRUE;
+const bool buildinfo_gtk_relevant = true;
 
 #if !GTK_CHECK_VERSION(3,0,0)
 /* This front end only works in GTK 3. If that's not what we've got,
@@ -99,15 +99,13 @@ int main(int argc, char **argv)
     fprintf(stderr, "GtkApplication frontend doesn't work pre-GTK3\n");
     return 1;
 }
-GtkWidget *make_gtk_toplevel_window(void *frontend) { return NULL; }
+GtkWidget *make_gtk_toplevel_window(GtkFrontend *frontend) { return NULL; }
 void launch_duplicate_session(Conf *conf) {}
 void launch_new_session(void) {}
 void launch_saved_session(const char *str) {}
 void session_window_closed(void) {}
 void window_setup_error(const char *errmsg) {}
 #else /* GTK_CHECK_VERSION(3,0,0) */
-
-extern const int use_event_log;
 
 static void startup(GApplication *app, gpointer user_data)
 {
@@ -204,7 +202,7 @@ WIN_ACTION_LIST(WIN_ACTION_ENTRY)
 };
 
 static GtkApplication *app;
-GtkWidget *make_gtk_toplevel_window(void *frontend)
+GtkWidget *make_gtk_toplevel_window(GtkFrontend *frontend)
 {
     GtkWidget *win = gtk_application_window_new(app);
     g_action_map_add_action_entries(G_ACTION_MAP(win),
@@ -216,7 +214,6 @@ GtkWidget *make_gtk_toplevel_window(void *frontend)
 
 void launch_duplicate_session(Conf *conf)
 {
-    extern const int dup_check_launchable;
     assert(!dup_check_launchable || conf_launchable(conf));
     g_application_hold(G_APPLICATION(app));
     new_session_window(conf_copy(conf), NULL);
@@ -275,7 +272,7 @@ void window_setup_error(const char *errmsg)
     create_message_box(NULL, "Error creating session window", errmsg,
                        string_width("Some sort of fiddly error message that "
                                     "might be technical"),
-                       TRUE, &buttons_ok, window_setup_error_callback, NULL);
+                       true, &buttons_ok, window_setup_error_callback, NULL);
 }
 
 static void activate(GApplication *app,
@@ -315,15 +312,11 @@ int main(int argc, char **argv)
 {
     int status;
 
-    {
-        /* Call the function in ux{putty,pterm}.c to do app-type
-         * specific setup */
-        extern void setup(int);
-        setup(FALSE);     /* FALSE means we are not a one-session process */
-    }
+    /* Call the function in ux{putty,pterm}.c to do app-type
+     * specific setup */
+    setup(false);     /* false means we are not a one-session process */
 
     if (argc > 1) {
-        extern char *pty_osx_envrestore_prefix;
         pty_osx_envrestore_prefix = argv[--argc];
     }
 

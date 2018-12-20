@@ -42,33 +42,7 @@
 #include <assert.h>
 
 #include "defs.h"
-
-#ifdef ZLIB_STANDALONE
-
-/*
- * This module also makes a handy zlib decoding tool for when
- * you're picking apart Zip files or PDFs or PNGs. If you compile
- * it with ZLIB_STANDALONE defined, it builds on its own and
- * becomes a command-line utility.
- * 
- * Therefore, here I provide a self-contained implementation of the
- * macros required from the rest of the PuTTY sources.
- */
-#define snew(type) ( (type *) malloc(sizeof(type)) )
-#define snewn(n, type) ( (type *) malloc((n) * sizeof(type)) )
-#define sresize(x, n, type) ( (type *) realloc((x), (n) * sizeof(type)) )
-#define sfree(x) ( free((x)) )
-
-#ifndef FALSE
-#define FALSE 0
-#endif
-#ifndef TRUE
-#define TRUE 1
-#endif
-
-#else
 #include "ssh.h"
-#endif
 
 /* ----------------------------------------------------------------------
  * Basic LZ77 code. This bit is designed modularly, so it could be
@@ -93,11 +67,11 @@ static int lz77_init(struct LZ77Context *ctx);
 /*
  * Supply data to be compressed. Will update the private fields of
  * the LZ77Context, and will call literal() and match() to output.
- * If `compress' is FALSE, it will never emit a match, but will
+ * If `compress' is false, it will never emit a match, but will
  * instead call literal() for everything.
  */
 static void lz77_compress(struct LZ77Context *ctx,
-			  unsigned char *data, int len, int compress);
+			  const unsigned char *data, int len);
 
 /*
  * Modifiable parameters.
@@ -139,7 +113,7 @@ struct LZ77InternalContext {
     int npending;
 };
 
-static int lz77_hash(unsigned char *data)
+static int lz77_hash(const unsigned char *data)
 {
     return (257 * data[0] + 263 * data[1] + 269 * data[2]) % HASHMAX;
 }
@@ -202,7 +176,7 @@ static void lz77_advance(struct LZ77InternalContext *st,
 #define CHARAT(k) ( (k)<0 ? st->data[(st->winpos+k)&(WINSIZE-1)] : data[k] )
 
 static void lz77_compress(struct LZ77Context *ctx,
-			  unsigned char *data, int len, int compress)
+			  const unsigned char *data, int len)
 {
     struct LZ77InternalContext *st = ctx->ictx;
     int i, distance, off, nmatch, matchlen, advance;
@@ -241,8 +215,7 @@ static void lz77_compress(struct LZ77Context *ctx,
     deferchr = '\0';
     while (len > 0) {
 
-	/* Don't even look for a match, if we're not compressing. */
-	if (compress && len >= HASHCHARS) {
+	if (len >= HASHCHARS) {
 	    /*
 	     * Hash the next few characters.
 	     */
@@ -373,7 +346,7 @@ struct Outbuf {
     int outlen, outsize;
     unsigned long outbits;
     int noutbits;
-    int firstblock;
+    bool firstblock;
 };
 
 static void outbits(struct Outbuf *out, unsigned long bits, int nbits)
@@ -600,38 +573,47 @@ static void zlib_match(struct LZ77Context *ectx, int distance, int len)
     }
 }
 
-void *zlib_compress_init(void)
+struct ssh_zlib_compressor {
+    struct LZ77Context ectx;
+    ssh_compressor sc;
+};
+
+ssh_compressor *zlib_compress_init(void)
 {
     struct Outbuf *out;
-    struct LZ77Context *ectx = snew(struct LZ77Context);
+    struct ssh_zlib_compressor *comp = snew(struct ssh_zlib_compressor);
 
-    lz77_init(ectx);
-    ectx->literal = zlib_literal;
-    ectx->match = zlib_match;
+    lz77_init(&comp->ectx);
+    comp->sc.vt = &ssh_zlib;
+    comp->ectx.literal = zlib_literal;
+    comp->ectx.match = zlib_match;
 
     out = snew(struct Outbuf);
     out->outbits = out->noutbits = 0;
-    out->firstblock = 1;
-    ectx->userdata = out;
+    out->firstblock = true;
+    comp->ectx.userdata = out;
 
-    return ectx;
+    return &comp->sc;
 }
 
-void zlib_compress_cleanup(void *handle)
+void zlib_compress_cleanup(ssh_compressor *sc)
 {
-    struct LZ77Context *ectx = (struct LZ77Context *)handle;
-    sfree(ectx->userdata);
-    sfree(ectx->ictx);
-    sfree(ectx);
+    struct ssh_zlib_compressor *comp =
+        container_of(sc, struct ssh_zlib_compressor, sc);
+    sfree(comp->ectx.userdata);
+    sfree(comp->ectx.ictx);
+    sfree(comp);
 }
 
-void zlib_compress_block(void *handle, unsigned char *block, int len,
+void zlib_compress_block(ssh_compressor *sc,
+                         const unsigned char *block, int len,
                          unsigned char **outblock, int *outlen,
                          int minlen)
 {
-    struct LZ77Context *ectx = (struct LZ77Context *)handle;
-    struct Outbuf *out = (struct Outbuf *) ectx->userdata;
-    int in_block;
+    struct ssh_zlib_compressor *comp =
+        container_of(sc, struct ssh_zlib_compressor, sc);
+    struct Outbuf *out = (struct Outbuf *) comp->ectx.userdata;
+    bool in_block;
 
     out->outbuf = NULL;
     out->outlen = out->outsize = 0;
@@ -643,11 +625,11 @@ void zlib_compress_block(void *handle, unsigned char *block, int len,
      */
     if (out->firstblock) {
 	outbits(out, 0x9C78, 16);
-	out->firstblock = 0;
+	out->firstblock = false;
 
-	in_block = FALSE;
+	in_block = false;
     } else
-	in_block = TRUE;
+	in_block = true;
 
     if (!in_block) {
         /*
@@ -662,7 +644,7 @@ void zlib_compress_block(void *handle, unsigned char *block, int len,
     /*
      * Do the compression.
      */
-    lz77_compress(ectx, block, len, TRUE);
+    lz77_compress(&comp->ectx, block, len);
 
     /*
      * End the block (by transmitting code 256, which is
@@ -875,9 +857,11 @@ struct zlib_decompress_ctx {
     int winpos;
     unsigned char *outblk;
     int outlen, outsize;
+
+    ssh_decompressor dc;
 };
 
-void *zlib_decompress_init(void)
+ssh_decompressor *zlib_decompress_init(void)
 {
     struct zlib_decompress_ctx *dctx = snew(struct zlib_decompress_ctx);
     unsigned char lengths[288];
@@ -895,12 +879,14 @@ void *zlib_decompress_init(void)
     dctx->nbits = 0;
     dctx->winpos = 0;
 
-    return dctx;
+    dctx->dc.vt = &ssh_zlib;
+    return &dctx->dc;
 }
 
-void zlib_decompress_cleanup(void *handle)
+void zlib_decompress_cleanup(ssh_decompressor *dc)
 {
-    struct zlib_decompress_ctx *dctx = (struct zlib_decompress_ctx *)handle;
+    struct zlib_decompress_ctx *dctx =
+        container_of(dc, struct zlib_decompress_ctx, dc);
 
     if (dctx->currlentable && dctx->currlentable != dctx->staticlentable)
 	zlib_freetable(&dctx->currlentable);
@@ -958,10 +944,12 @@ static void zlib_emit_char(struct zlib_decompress_ctx *dctx, int c)
 
 #define EATBITS(n) ( dctx->nbits -= (n), dctx->bits >>= (n) )
 
-int zlib_decompress_block(void *handle, unsigned char *block, int len,
-			  unsigned char **outblock, int *outlen)
+bool zlib_decompress_block(ssh_decompressor *dc,
+                           const unsigned char *block, int len,
+                           unsigned char **outblock, int *outlen)
 {
-    struct zlib_decompress_ctx *dctx = (struct zlib_decompress_ctx *)handle;
+    struct zlib_decompress_ctx *dctx =
+        container_of(dc, struct zlib_decompress_ctx, dc);
     const coderecord *rec;
     int code, blktype, rep, dist, nlen, header;
     static const unsigned char lenlenmap[] = {
@@ -1199,97 +1187,16 @@ int zlib_decompress_block(void *handle, unsigned char *block, int len,
   finished:
     *outblock = dctx->outblk;
     *outlen = dctx->outlen;
-    return 1;
+    return true;
 
   decode_error:
     sfree(dctx->outblk);
     *outblock = dctx->outblk = NULL;
     *outlen = 0;
-    return 0;
+    return false;
 }
 
-#ifdef ZLIB_STANDALONE
-
-#include <stdio.h>
-#include <string.h>
-
-int main(int argc, char **argv)
-{
-    unsigned char buf[16], *outbuf;
-    int ret, outlen;
-    void *handle;
-    int noheader = FALSE, opts = TRUE;
-    char *filename = NULL;
-    FILE *fp;
-
-    while (--argc) {
-        char *p = *++argv;
-
-        if (p[0] == '-' && opts) {
-            if (!strcmp(p, "-d"))
-                noheader = TRUE;
-            else if (!strcmp(p, "--"))
-                opts = FALSE;          /* next thing is filename */
-            else {
-                fprintf(stderr, "unknown command line option '%s'\n", p);
-                return 1;
-            }
-        } else if (!filename) {
-            filename = p;
-        } else {
-            fprintf(stderr, "can only handle one filename\n");
-            return 1;
-        }
-    }
-
-    handle = zlib_decompress_init();
-
-    if (noheader) {
-        /*
-         * Provide missing zlib header if -d was specified.
-         */
-        zlib_decompress_block(handle, "\x78\x9C", 2, &outbuf, &outlen);
-        assert(outlen == 0);
-    }
-
-    if (filename)
-        fp = fopen(filename, "rb");
-    else
-        fp = stdin;
-
-    if (!fp) {
-        assert(filename);
-        fprintf(stderr, "unable to open '%s'\n", filename);
-        return 1;
-    }
-
-    while (1) {
-	ret = fread(buf, 1, sizeof(buf), fp);
-	if (ret <= 0)
-	    break;
-	zlib_decompress_block(handle, buf, ret, &outbuf, &outlen);
-        if (outbuf) {
-            if (outlen)
-                fwrite(outbuf, 1, outlen, stdout);
-            sfree(outbuf);
-        } else {
-            fprintf(stderr, "decoding error\n");
-            fclose(fp);
-            return 1;
-        }
-    }
-
-    zlib_decompress_cleanup(handle);
-
-    if (filename)
-        fclose(fp);
-
-    return 0;
-}
-
-#else
-
-const struct ssh_compress ssh_zlib = {
+const struct ssh_compression_alg ssh_zlib = {
     "zlib",
     "zlib@openssh.com", /* delayed version */
     zlib_compress_init,
@@ -1300,5 +1207,3 @@ const struct ssh_compress ssh_zlib = {
     zlib_decompress_block,
     "zlib (RFC1950)"
 };
-
-#endif

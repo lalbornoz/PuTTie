@@ -258,25 +258,41 @@ GTKMAIN  = gtkmain cmdline
 NONSSH   = telnet raw rlogin ldisc pinger
 
 # SSH back end (putty, plink, pscp, psftp).
-SSH      = ssh ssh1bpp ssh2bpp ssh2bpp-bare ssh1censor ssh2censor
-	 + sshcrc sshdes sshmd5 sshrsa sshrand sshsha sshblowf
-         + sshdh sshcrcda sshpubk sshzlib sshdss x11fwd portfwd
-         + sshaes sshccp sshsh256 sshsh512 sshbn wildcard pinger ssharcf
-         + sshgssc pgssapi sshshare sshecc aqsync marshal nullplug
+SSHCOMMON = sshcommon sshrand
+         + sshverstring sshcrc sshdes sshmd5 sshrsa sshsha sshblowf
+         + sshdh sshcrcda sshpubk sshzlib sshdss ssharcf
+         + sshaes sshccp sshsh256 sshsh512 sshbn sshmac marshal nullplug
+         + sshgssc pgssapi sshecc wildcard ssh1censor ssh2censor ssh2bpp
+	 + ssh2transport ssh2transhk ssh2connection portfwd x11fwd
+         + ssh1connection ssh1bpp
+SSH      = SSHCOMMON ssh ssh2bpp-bare
+         + ssh1login ssh2userauth
+         + pinger
+         + sshshare aqsync agentf
+         + mainchan ssh2kex-client ssh2connection-client ssh1connection-client
 WINSSH   = SSH winnoise wincapi winpgntc wingss winshare winnps winnpc
          + winhsock errsock
 UXSSH    = SSH uxnoise uxagentc uxgss uxshare
 
 # SFTP implementation (pscp, psftp).
-SFTP     = sftp int64 logging cmdline
+SFTP     = sftp sftpcommon logging cmdline
 
 # Miscellaneous objects appearing in all the utilities, or all the
 # network ones, or the Unix or Windows subsets of those in turn.
-MISC     = misc marshal
-MISCNET  = timing callback MISC version settings tree234 proxy CONF be_misc
+MISC     = misc marshal memory
+MISCNETCOMMON = timing callback MISC version tree234 CONF
+MISCNET  = MISCNETCOMMON be_misc settings proxy
 WINMISC  = MISCNET winstore winnet winhandl cmdline windefs winmisc winproxy
          + wintime winhsock errsock winsecur winucs miscucs CONFFRIP
-UXMISC   = MISCNET uxstore uxsel uxnet uxpeer uxmisc uxproxy time
+UXMISCCOMMON = MISCNETCOMMON uxstore uxsel uxnet uxpeer uxmisc time
+         + uxfdsock errsock
+UXMISC   = MISCNET UXMISCCOMMON uxproxy
+
+# SSH server.
+SSHSERVER = SSHCOMMON sshserver settings be_none logging ssh2kex-server
+         + ssh2userauth-server sshrsag sshprime ssh2connection-server
+         + sesschan sftpcommon sftpserver proxy cproxy ssh1login-server
+         + ssh1connection-server scpserver
 
 # import.c and dependencies, for PuTTYgen-like utilities that have to
 # load foreign key files.
@@ -329,13 +345,13 @@ puttygen : [G] winpgen sshrsag sshdssg sshprime sshdes sshbn sshmd5 version
 
 pterm    : [X] GTKTERM uxmisc misc ldisc settings uxpty uxsel BE_NONE uxstore
          + uxsignal CHARSET cmdline uxpterm version time xpmpterm xpmptcfg
-	 + nogss GTKMAIN
+	 + nogss memory GTKMAIN
 putty    : [X] GTKTERM uxmisc misc ldisc settings uxsel U_BE_ALL uxstore
          + uxsignal CHARSET uxputty NONSSH UXSSH UXMISC ux_x11 xpmputty
-         + xpmpucfg GTKMAIN
+         + xpmpucfg memory GTKMAIN
 puttytel : [X] GTKTERM uxmisc misc ldisc settings uxsel U_BE_NOSSH
 	 + uxstore uxsignal CHARSET uxputty NONSSH UXMISC xpmputty xpmpucfg
-	 + nogss GTKMAIN
+	 + nogss memory GTKMAIN
 
 plink    : [U] uxplink uxcons NONSSH UXSSH U_BE_ALL logging UXMISC uxsignal
          + ux_x11 noterm uxnogtk sessprep cmdline
@@ -353,20 +369,24 @@ psftp    : [U] psftp uxsftp uxcons UXSSH BE_SSH SFTP wildcard UXMISC uxnogtk
 pageant  : [X] uxpgnt uxagentc aqsync pageant sshrsa sshpubk sshdes sshbn
 	 + sshmd5 version tree234 misc sshaes sshsha sshdss sshsh256 sshsh512
 	 + sshecc CONF uxsignal nocproxy nogss be_none x11fwd ux_x11 uxcons
-	 + gtkask gtkmisc nullplug UXMISC
+         + gtkask gtkmisc nullplug logging UXMISC uxagentsock memory
 
 ptermapp : [XT] GTKTERM uxmisc misc ldisc settings uxpty uxsel BE_NONE uxstore
          + uxsignal CHARSET uxpterm version time xpmpterm xpmptcfg
-         + nogss gtkapp nocmdline
+         + nogss gtkapp nocmdline memory
 puttyapp : [XT] GTKTERM uxmisc misc ldisc settings uxsel U_BE_ALL uxstore
          + uxsignal CHARSET uxputty NONSSH UXSSH UXMISC ux_x11 xpmputty
-         + xpmpucfg gtkapp nocmdline
+         + xpmpucfg gtkapp nocmdline memory
 osxlaunch : [UT] osxlaunch
 
 fuzzterm : [UT] UXTERM CHARSET misc version uxmisc uxucs fuzzterm time settings
-	 + uxstore be_none uxnogtk
+	 + uxstore be_none uxnogtk memory
 testbn   : [UT] testbn sshbn MISC version CONF tree234 uxmisc uxnogtk
 testbn   : [C] testbn sshbn MISC version CONF tree234 winmisc LIBS
+testzlib : [UT] testzlib sshzlib memory
+
+uppity   : [UT] uxserver SSHSERVER UXMISC uxsignal uxnoise uxgss uxnogtk
+         + uxpty uxsftpserver ux_x11 uxagentsock
 
 # ----------------------------------------------------------------------
 # On Windows, provide a means of removing local test binaries that we

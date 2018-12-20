@@ -25,75 +25,23 @@
 
 #define MAX_STDIN_BACKLOG 4096
 
-static void *logctx;
+static LogContext *logctx;
 
 static struct termios orig_termios;
 
-void modalfatalbox(const char *p, ...)
+void cmdline_error(const char *fmt, ...)
 {
-    struct termios cf;
     va_list ap;
-    premsg(&cf);
-    fprintf(stderr, "FATAL ERROR: ");
-    va_start(ap, p);
-    vfprintf(stderr, p, ap);
+    va_start(ap, fmt);
+    console_print_error_msg_fmt_v("plink", fmt, ap);
     va_end(ap);
-    fputc('\n', stderr);
-    postmsg(&cf);
-    if (logctx) {
-        log_free(logctx);
-        logctx = NULL;
-    }
-    cleanup_exit(1);
-}
-void nonfatal(const char *p, ...)
-{
-    struct termios cf;
-    va_list ap;
-    premsg(&cf);
-    fprintf(stderr, "ERROR: ");
-    va_start(ap, p);
-    vfprintf(stderr, p, ap);
-    va_end(ap);
-    fputc('\n', stderr);
-    postmsg(&cf);
-}
-void connection_fatal(void *frontend, const char *p, ...)
-{
-    struct termios cf;
-    va_list ap;
-    premsg(&cf);
-    fprintf(stderr, "FATAL ERROR: ");
-    va_start(ap, p);
-    vfprintf(stderr, p, ap);
-    va_end(ap);
-    fputc('\n', stderr);
-    postmsg(&cf);
-    if (logctx) {
-        log_free(logctx);
-        logctx = NULL;
-    }
-    cleanup_exit(1);
-}
-void cmdline_error(const char *p, ...)
-{
-    struct termios cf;
-    va_list ap;
-    premsg(&cf);
-    fprintf(stderr, "plink: ");
-    va_start(ap, p);
-    vfprintf(stderr, p, ap);
-    va_end(ap);
-    fputc('\n', stderr);
-    postmsg(&cf);
     exit(1);
 }
 
-static int local_tty = FALSE; /* do we have a local tty? */
+static bool local_tty = false; /* do we have a local tty? */
 
-static Backend *back;
-static void *backhandle;
-static Conf *conf;
+static Backend *backend;
+Conf *conf;
 
 /*
  * Default settings that are specific to Unix plink.
@@ -105,6 +53,11 @@ char *platform_default_s(const char *name)
     if (!strcmp(name, "SerialLine"))
 	return dupstr("/dev/ttyS0");
     return NULL;
+}
+
+bool platform_default_b(const char *name, bool def)
+{
+    return def;
 }
 
 int platform_default_i(const char *name, int def)
@@ -129,11 +82,11 @@ char *x_get_default(const char *key)
 {
     return NULL;		       /* this is a stub */
 }
-int term_ldisc(Terminal *term, int mode)
+bool term_ldisc(Terminal *term, int mode)
 {
-    return FALSE;
+    return false;
 }
-void frontend_echoedit_update(void *frontend, int echo, int edit)
+static void plink_echoedit_update(Seat *seat, bool echo, bool edit)
 {
     /* Update stdin read mode to reflect changes in line discipline. */
     struct termios mode;
@@ -159,7 +112,7 @@ void frontend_echoedit_update(void *frontend, int echo, int edit)
 	mode.c_cc[VMIN] = 1;
 	mode.c_cc[VTIME] = 0;
 	/* FIXME: perhaps what we do with IXON/IXOFF should be an
-	 * argument to frontend_echoedit_update(), to allow
+	 * argument to the echoedit_update() method, to allow
 	 * implementation of SSH-2 "xon-xoff" and Rlogin's
 	 * equivalent? */
 	mode.c_iflag &= ~IXON;
@@ -191,7 +144,7 @@ static char *get_ttychar(struct termios *t, int index)
     return dupprintf("^<%d>", c);
 }
 
-char *get_ttymode(void *frontend, const char *mode)
+static char *plink_get_ttymode(Seat *seat, const char *mode)
 {
     /*
      * Propagate appropriate terminal modes from the local terminal,
@@ -207,7 +160,7 @@ char *get_ttymode(void *frontend, const char *mode)
 #define GET_BOOL(ourname, uxname, uxmemb, transform) \
     do { \
 	if (strcmp(mode, ourname) == 0) { \
-	    int b = (orig_termios.uxmemb & uxname) != 0; \
+	    bool b = (orig_termios.uxmemb & uxname) != 0; \
 	    transform; \
 	    return dupprintf("%d", b); \
 	} \
@@ -372,7 +325,7 @@ void cleanup_termios(void)
 bufchain stdout_data, stderr_data;
 enum { EOF_NO, EOF_PENDING, EOF_SENT } outgoingeof;
 
-int try_output(int is_stderr)
+int try_output(bool is_stderr)
 {
     bufchain *chain = (is_stderr ? &stderr_data : &stdout_data);
     int fd = (is_stderr ? STDERR_FILENO : STDOUT_FILENO);
@@ -380,7 +333,7 @@ int try_output(int is_stderr)
     int sendlen, ret;
 
     if (bufchain_size(chain) > 0) {
-        int prev_nonblock = nonblock(fd);
+        bool prev_nonblock = nonblock(fd);
         do {
             bufchain_prefix(chain, &senddata, &sendlen);
             ret = write(fd, senddata, sendlen);
@@ -401,38 +354,27 @@ int try_output(int is_stderr)
     return bufchain_size(&stdout_data) + bufchain_size(&stderr_data);
 }
 
-int from_backend(void *frontend_handle, int is_stderr,
-                 const void *data, int len)
+static int plink_output(Seat *seat, bool is_stderr, const void *data, int len)
 {
     if (is_stderr) {
 	bufchain_add(&stderr_data, data, len);
-	return try_output(TRUE);
+	return try_output(true);
     } else {
         assert(outgoingeof == EOF_NO);
 	bufchain_add(&stdout_data, data, len);
-	return try_output(FALSE);
+	return try_output(false);
     }
 }
 
-int from_backend_untrusted(void *frontend_handle, const void *data, int len)
-{
-    /*
-     * No "untrusted" output should get here (the way the code is
-     * currently, it's all diverted by FLAG_STDERR).
-     */
-    assert(!"Unexpected call to from_backend_untrusted()");
-    return 0; /* not reached */
-}
-
-int from_backend_eof(void *frontend_handle)
+static bool plink_eof(Seat *seat)
 {
     assert(outgoingeof == EOF_NO);
     outgoingeof = EOF_PENDING;
-    try_output(FALSE);
-    return FALSE;   /* do not respond to incoming EOF with outgoing */
+    try_output(false);
+    return false;   /* do not respond to incoming EOF with outgoing */
 }
 
-int get_userpass_input(prompts_t *p, bufchain *input)
+static int plink_get_userpass_input(Seat *seat, prompts_t *p, bufchain *input)
 {
     int ret;
     ret = cmdline_get_passwd_input(p);
@@ -440,6 +382,26 @@ int get_userpass_input(prompts_t *p, bufchain *input)
 	ret = console_get_userpass_input(p);
     return ret;
 }
+
+static const SeatVtable plink_seat_vt = {
+    plink_output,
+    plink_eof,
+    plink_get_userpass_input,
+    nullseat_notify_remote_exit,
+    console_connection_fatal,
+    nullseat_update_specials_menu,
+    plink_get_ttymode,
+    nullseat_set_busy_status,
+    console_verify_ssh_host_key,
+    console_confirm_weak_crypto_primitive,
+    console_confirm_weak_cached_hostkey,
+    nullseat_is_never_utf8,
+    plink_echoedit_update,
+    nullseat_get_x_display,
+    nullseat_get_windowid,
+    nullseat_get_window_pixel_size,
+};
+static Seat plink_seat[1] = {{ &plink_seat_vt }};
 
 /*
  * Handle data from a local tty in PARMRK format.
@@ -459,13 +421,13 @@ static void from_tty(void *vbuf, unsigned len)
 		} else {
 		    q = memchr(p, '\xff', end - p);
 		    if (q == NULL) q = end;
-		    back->send(backhandle, p, q - p);
+                    backend_send(backend, p, q - p);
 		    p = q;
 		}
 		break;
 	    case FF:
 		if (*p == '\xff') {
-		    back->send(backhandle, p, 1);
+                    backend_send(backend, p, 1);
 		    p++;
 		    state = NORMAL;
 		} else if (*p == '\0') {
@@ -475,7 +437,7 @@ static void from_tty(void *vbuf, unsigned len)
 		break;
 	    case FF00:
 		if (*p == '\0') {
-		    back->special(backhandle, TS_BRK);
+                    backend_special(backend, SS_BRK, 0);
 		} else {
 		    /* 
 		     * Pretend that PARMRK wasn't set.  This involves
@@ -494,11 +456,11 @@ static void from_tty(void *vbuf, unsigned len)
 			if (!(orig_termios.c_iflag & IGNPAR)) {
 			    /* PE/FE get passed on as NUL. */
 			    *p = 0;
-			    back->send(backhandle, p, 1);
+                            backend_send(backend, p, 1);
 			}
 		    } else {
 			/* INPCK not set.  Assume we got a parity error. */
-			back->send(backhandle, p, 1);
+                        backend_send(backend, p, 1);
 		    }
 		}
 		p++;
@@ -589,26 +551,27 @@ static void version(void)
 
 void frontend_net_error_pending(void) {}
 
-const int share_can_be_downstream = TRUE;
-const int share_can_be_upstream = TRUE;
+const bool share_can_be_downstream = true;
+const bool share_can_be_upstream = true;
 
-const int buildinfo_gtk_relevant = FALSE;
+const bool buildinfo_gtk_relevant = false;
 
 int main(int argc, char **argv)
 {
-    int sending;
+    bool sending;
     int *fdlist;
     int fd;
-    int i, fdcount, fdsize, fdstate;
+    int i, fdsize, fdstate;
     int exitcode;
-    int errors;
-    int use_subsystem = 0;
-    int just_test_share_exists = FALSE;
+    bool errors;
+    bool use_subsystem = false;
+    bool just_test_share_exists = false;
     unsigned long now;
     struct winsize size;
+    const struct BackendVtable *backvt;
 
     fdlist = NULL;
-    fdcount = fdsize = 0;
+    fdsize = 0;
     /*
      * Initialise port and protocol to sensible defaults. (These
      * will be overridden by more or less anything.)
@@ -620,7 +583,7 @@ int main(int argc, char **argv)
     bufchain_init(&stderr_data);
     outgoingeof = EOF_NO;
 
-    flags = FLAG_STDERR | FLAG_STDERR_TTY;
+    flags = FLAG_STDERR_TTY;
     cmdline_tooltype |=
         (TOOLTYPE_HOST_ARG |
          TOOLTYPE_HOST_ARG_CAN_BE_SESSION |
@@ -633,20 +596,20 @@ int main(int argc, char **argv)
      */
     conf = conf_new();
     do_defaults(NULL, conf);
-    loaded_session = FALSE;
+    loaded_session = false;
     default_protocol = conf_get_int(conf, CONF_protocol);
     default_port = conf_get_int(conf, CONF_port);
-    errors = 0;
+    errors = false;
     {
 	/*
 	 * Override the default protocol if PLINK_PROTOCOL is set.
 	 */
 	char *p = getenv("PLINK_PROTOCOL");
 	if (p) {
-	    const Backend *b = backend_from_name(p);
-	    if (b) {
-		default_protocol = b->protocol;
-		default_port = b->default_port;
+            const struct BackendVtable *vt = backend_vt_from_name(p);
+            if (vt) {
+                default_protocol = vt->protocol;
+                default_port = vt->default_port;
 		conf_set_int(conf, CONF_protocol, default_protocol);
 		conf_set_int(conf, CONF_port, default_port);
 	    }
@@ -659,16 +622,16 @@ int main(int argc, char **argv)
         if (ret == -2) {
             fprintf(stderr,
                     "plink: option \"%s\" requires an argument\n", p);
-            errors = 1;
+            errors = true;
         } else if (ret == 2) {
             --argc, ++argv;
         } else if (ret == 1) {
             continue;
         } else if (!strcmp(p, "-batch")) {
-            console_batch_mode = 1;
+            console_batch_mode = true;
         } else if (!strcmp(p, "-s")) {
             /* Save status to write to conf later. */
-            use_subsystem = 1;
+            use_subsystem = true;
         } else if (!strcmp(p, "-V") || !strcmp(p, "--version")) {
             version();
         } else if (!strcmp(p, "--help")) {
@@ -681,13 +644,13 @@ int main(int argc, char **argv)
             if (argc <= 1) {
                 fprintf(stderr,
                         "plink: option \"-o\" requires an argument\n");
-                errors = 1;
+                errors = true;
             } else {
                 --argc;
                 provide_xrm_string(*++argv);
             }
         } else if (!strcmp(p, "-shareexists")) {
-            just_test_share_exists = TRUE;
+            just_test_share_exists = true;
         } else if (!strcmp(p, "-fuzznet")) {
             conf_set_int(conf, CONF_proxy_type, PROXY_FUZZ);
             conf_set_str(conf, CONF_proxy_telnet_command, "%host");
@@ -716,12 +679,12 @@ int main(int argc, char **argv)
             /* change trailing blank to NUL */
             conf_set_str(conf, CONF_remote_cmd, command);
             conf_set_str(conf, CONF_remote_cmd2, "");
-            conf_set_int(conf, CONF_nopty, TRUE);  /* command => no tty */
+            conf_set_bool(conf, CONF_nopty, true);  /* command => no tty */
 
             break;		       /* done with cmdline */
         } else {
             fprintf(stderr, "plink: unknown option \"%s\"\n", p);
-            errors = 1;
+            errors = true;
 	}
     }
 
@@ -755,7 +718,7 @@ int main(int argc, char **argv)
      * Apply subsystem status.
      */
     if (use_subsystem)
-        conf_set_int(conf, CONF_ssh_subsys, TRUE);
+        conf_set_bool(conf, CONF_ssh_subsys, true);
 
     if (!*conf_get_str(conf, CONF_remote_cmd) &&
 	!*conf_get_str(conf, CONF_remote_cmd2) &&
@@ -766,8 +729,8 @@ int main(int argc, char **argv)
      * Select protocol. This is farmed out into a table in a
      * separate file to enable an ssh-free variant.
      */
-    back = backend_from_proto(conf_get_int(conf, CONF_protocol));
-    if (back == NULL) {
+    backvt = backend_vt_from_proto(conf_get_int(conf, CONF_protocol));
+    if (!backvt) {
 	fprintf(stderr,
 		"Internal fault: Unsupported protocol found\n");
 	return 1;
@@ -811,19 +774,19 @@ int main(int argc, char **argv)
      * the "simple" flag.
      */
     if (conf_get_int(conf, CONF_protocol) == PROT_SSH &&
-	!conf_get_int(conf, CONF_x11_forward) &&
-	!conf_get_int(conf, CONF_agentfwd) &&
+	!conf_get_bool(conf, CONF_x11_forward) &&
+	!conf_get_bool(conf, CONF_agentfwd) &&
 	!conf_get_str_nthstrkey(conf, CONF_portfwd, 0))
-	conf_set_int(conf, CONF_ssh_simple, TRUE);
+	conf_set_bool(conf, CONF_ssh_simple, true);
 
     if (just_test_share_exists) {
-        if (!back->test_for_upstream) {
+        if (!backvt->test_for_upstream) {
             fprintf(stderr, "Connection sharing not supported for connection "
-                    "type '%s'\n", back->name);
+                    "type '%s'\n", backvt->name);
             return 1;
         }
-        if (back->test_for_upstream(conf_get_str(conf, CONF_host),
-                                    conf_get_int(conf, CONF_port), conf))
+        if (backvt->test_for_upstream(conf_get_str(conf, CONF_host),
+                                      conf_get_int(conf, CONF_port), conf))
             return 0;
         else
             return 1;
@@ -832,30 +795,28 @@ int main(int argc, char **argv)
     /*
      * Start up the connection.
      */
-    logctx = log_init(NULL, conf);
-    console_provide_logctx(logctx);
+    logctx = log_init(default_logpolicy, conf);
     {
 	const char *error;
 	char *realhost;
 	/* nodelay is only useful if stdin is a terminal device */
-	int nodelay = conf_get_int(conf, CONF_tcp_nodelay) && isatty(0);
+	bool nodelay = conf_get_bool(conf, CONF_tcp_nodelay) && isatty(0);
 
 	/* This is a good place for a fuzzer to fork us. */
 #ifdef __AFL_HAVE_MANUAL_CONTROL
 	__AFL_INIT();
 #endif
 
-	error = back->init(NULL, &backhandle, conf,
-			   conf_get_str(conf, CONF_host),
-			   conf_get_int(conf, CONF_port),
-			   &realhost, nodelay,
-			   conf_get_int(conf, CONF_tcp_keepalives));
+        error = backend_init(backvt, plink_seat, &backend, logctx, conf,
+                             conf_get_str(conf, CONF_host),
+                             conf_get_int(conf, CONF_port),
+                             &realhost, nodelay,
+                             conf_get_bool(conf, CONF_tcp_keepalives));
 	if (error) {
 	    fprintf(stderr, "Unable to open connection:\n%s\n", error);
 	    return 1;
 	}
-	back->provide_logctx(backhandle, logctx);
-	ldisc_create(conf, NULL, back, backhandle, NULL);
+        ldisc_create(conf, NULL, backend, plink_seat);
 	sfree(realhost);
     }
 
@@ -866,8 +827,8 @@ int main(int argc, char **argv)
      */
     local_tty = (tcgetattr(STDIN_FILENO, &orig_termios) == 0);
     atexit(cleanup_termios);
-    frontend_echoedit_update(NULL, 1, 1);
-    sending = FALSE;
+    seat_echoedit_update(plink_seat, 1, 1);
+    sending = false;
     now = GETTICKCOUNT();
 
     while (1) {
@@ -885,9 +846,9 @@ int main(int argc, char **argv)
 	FD_SET_MAX(signalpipe[0], maxfd, rset);
 
 	if (!sending &&
-	    back->connected(backhandle) &&
-	    back->sendok(backhandle) &&
-	    back->sendbuffer(backhandle) < MAX_STDIN_BACKLOG) {
+            backend_connected(backend) &&
+            backend_sendok(backend) &&
+            backend_sendbuffer(backend) < MAX_STDIN_BACKLOG) {
 	    /* If we're OK to send, then try to read from stdin. */
 	    FD_SET_MAX(STDIN_FILENO, maxfd, rset);
 	}
@@ -917,7 +878,7 @@ int main(int argc, char **argv)
 	 * Add all currently open fds to the select sets, and store
 	 * them in fdlist as well.
 	 */
-	fdcount = 0;
+	int fdcount = 0;
 	for (fd = first_fd(&fdstate, &rwx); fd >= 0;
 	     fd = next_fd(&fdstate, &rwx)) {
 	    fdlist[fdcount++] = fd;
@@ -988,46 +949,46 @@ int main(int argc, char **argv)
 		/* ignore error */;
 	    /* ignore its value; it'll be `x' */
 	    if (ioctl(STDIN_FILENO, TIOCGWINSZ, (void *)&size) >= 0)
-		back->size(backhandle, size.ws_col, size.ws_row);
+                backend_size(backend, size.ws_col, size.ws_row);
 	}
 
 	if (FD_ISSET(STDIN_FILENO, &rset)) {
 	    char buf[4096];
 	    int ret;
 
-	    if (back->connected(backhandle)) {
+            if (backend_connected(backend)) {
 		ret = read(STDIN_FILENO, buf, sizeof(buf));
 		if (ret < 0) {
 		    perror("stdin: read");
 		    exit(1);
 		} else if (ret == 0) {
-		    back->special(backhandle, TS_EOF);
-		    sending = FALSE;   /* send nothing further after this */
+                    backend_special(backend, SS_EOF, 0);
+		    sending = false;   /* send nothing further after this */
 		} else {
 		    if (local_tty)
 			from_tty(buf, ret);
 		    else
-			back->send(backhandle, buf, ret);
+                        backend_send(backend, buf, ret);
 		}
 	    }
 	}
 
 	if (FD_ISSET(STDOUT_FILENO, &wset)) {
-	    back->unthrottle(backhandle, try_output(FALSE));
+            backend_unthrottle(backend, try_output(false));
 	}
 
 	if (FD_ISSET(STDERR_FILENO, &wset)) {
-	    back->unthrottle(backhandle, try_output(TRUE));
+            backend_unthrottle(backend, try_output(true));
 	}
 
         run_toplevel_callbacks();
 
-	if (!back->connected(backhandle) &&
+        if (!backend_connected(backend) &&
 	    bufchain_size(&stdout_data) == 0 &&
 	    bufchain_size(&stderr_data) == 0)
 	    break;		       /* we closed the connection */
     }
-    exitcode = back->exitcode(backhandle);
+    exitcode = backend_exitcode(backend);
     if (exitcode < 0) {
 	fprintf(stderr, "Remote process exit code unavailable\n");
 	exitcode = 1;		       /* this is an error condition */

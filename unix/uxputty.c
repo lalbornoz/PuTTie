@@ -20,7 +20,7 @@
 /*
  * Stubs to avoid uxpty.c needing to be linked in.
  */
-const int use_pty_argv = FALSE;
+const bool use_pty_argv = false;
 char **pty_argv;		       /* never used */
 char *pty_osx_envrestore_prefix;
 
@@ -37,22 +37,23 @@ void cleanup_exit(int code)
     exit(code);
 }
 
-Backend *select_backend(Conf *conf)
+const struct BackendVtable *select_backend(Conf *conf)
 {
-    Backend *back = backend_from_proto(conf_get_int(conf, CONF_protocol));
-    assert(back != NULL);
-    return back;
+    const struct BackendVtable *vt =
+        backend_vt_from_proto(conf_get_int(conf, CONF_protocol));
+    assert(vt != NULL);
+    return vt;
 }
 
 void initial_config_box(Conf *conf, post_dialog_fn_t after, void *afterctx)
 {
     char *title = dupcat(appname, " Configuration", NULL);
-    create_config_box(title, conf, FALSE, 0, after, afterctx);
+    create_config_box(title, conf, false, 0, after, afterctx);
     sfree(title);
 }
 
-const int use_event_log = 1, new_session = 1, saved_sessions = 1;
-const int dup_check_launchable = 1;
+const bool use_event_log = true, new_session = true, saved_sessions = true;
+const bool dup_check_launchable = true;
 
 char *make_default_wintitle(char *hostname)
 {
@@ -72,10 +73,10 @@ char *platform_get_x_display(void) {
     return dupstr(display);
 }
 
-const int share_can_be_downstream = TRUE;
-const int share_can_be_upstream = TRUE;
+const bool share_can_be_downstream = true;
+const bool share_can_be_upstream = true;
 
-void setup(int single)
+void setup(bool single)
 {
     sk_init();
     flags = FLAG_VERBOSE | FLAG_INTERACTIVE;
@@ -83,9 +84,10 @@ void setup(int single)
     default_protocol = be_default_protocol;
     /* Find the appropriate default port. */
     {
-	Backend *b = backend_from_proto(default_protocol);
+        const struct BackendVtable *vt =
+            backend_vt_from_proto(default_protocol);
 	default_port = 0; /* illegal */
-	if (b)
-	    default_port = b->default_port;
+        if (vt)
+            default_port = vt->default_port;
     }
 }

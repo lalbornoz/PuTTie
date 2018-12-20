@@ -11,9 +11,7 @@
 #include "storage.h"
 #include "ssh.h"
 
-int console_batch_mode = FALSE;
-
-static void *console_logctx = NULL;
+bool console_batch_mode = false;
 
 /*
  * Clean up and exit.
@@ -30,21 +28,65 @@ void cleanup_exit(int code)
     exit(code);
 }
 
-void set_busy_status(void *frontend, int status)
+/*
+ * Various error message and/or fatal exit functions.
+ */
+void console_print_error_msg(const char *prefix, const char *msg)
 {
+    fputs(prefix, stderr);
+    fputs(": ", stderr);
+    fputs(msg, stderr);
+    fputc('\n', stderr);
+    fflush(stderr);
 }
 
-void notify_remote_exit(void *frontend)
+void console_print_error_msg_fmt_v(
+    const char *prefix, const char *fmt, va_list ap)
 {
+    char *msg = dupvprintf(fmt, ap);
+    console_print_error_msg(prefix, msg);
+    sfree(msg);
+}
+
+void console_print_error_msg_fmt(const char *prefix, const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    console_print_error_msg_fmt_v(prefix, fmt, ap);
+    va_end(ap);
+}
+
+void modalfatalbox(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    console_print_error_msg_fmt_v("FATAL ERROR", fmt, ap);
+    va_end(ap);
+    cleanup_exit(1);
+}
+
+void nonfatal(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    console_print_error_msg_fmt_v("ERROR", fmt, ap);
+    va_end(ap);
+}
+
+void console_connection_fatal(Seat *seat, const char *msg)
+{
+    console_print_error_msg("FATAL ERROR", msg);
+    cleanup_exit(1);
 }
 
 void timer_change_notify(unsigned long next)
 {
 }
 
-int verify_ssh_host_key(void *frontend, char *host, int port,
-                        const char *keytype, char *keystr, char *fingerprint,
-                        void (*callback)(void *ctx, int result), void *ctx)
+int console_verify_ssh_host_key(
+    Seat *seat, const char *host, int port,
+    const char *keytype, char *keystr, char *fingerprint,
+    void (*callback)(void *ctx, int result), void *ctx)
 {
     int ret;
     HANDLE hin;
@@ -147,16 +189,9 @@ int verify_ssh_host_key(void *frontend, char *host, int port,
     }
 }
 
-void update_specials_menu(void *frontend)
-{
-}
-
-/*
- * Ask whether the selected algorithm is acceptable (since it was
- * below the configured 'warn' threshold).
- */
-int askalg(void *frontend, const char *algtype, const char *algname,
-	   void (*callback)(void *ctx, int result), void *ctx)
+int console_confirm_weak_crypto_primitive(
+    Seat *seat, const char *algtype, const char *algname,
+    void (*callback)(void *ctx, int result), void *ctx)
 {
     HANDLE hin;
     DWORD savemode, i;
@@ -196,8 +231,9 @@ int askalg(void *frontend, const char *algtype, const char *algname,
     }
 }
 
-int askhk(void *frontend, const char *algname, const char *betteralgs,
-          void (*callback)(void *ctx, int result), void *ctx)
+int console_confirm_weak_cached_hostkey(
+    Seat *seat, const char *algname, const char *betteralgs,
+    void (*callback)(void *ctx, int result), void *ctx)
 {
     HANDLE hin;
     DWORD savemode, i;
@@ -247,8 +283,9 @@ int askhk(void *frontend, const char *algname, const char *betteralgs,
  * Ask whether to wipe a session log file before writing to it.
  * Returns 2 for wipe, 1 for append, 0 for cancel (don't log).
  */
-int askappend(void *frontend, Filename *filename,
-	      void (*callback)(void *ctx, int result), void *ctx)
+static int console_askappend(LogPolicy *lp, Filename *filename,
+                             void (*callback)(void *ctx, int result),
+                             void *ctx)
 {
     HANDLE hin;
     DWORD savemode, i;
@@ -335,21 +372,35 @@ void pgp_fingerprints(void)
 	  "  " PGP_PREV_MASTER_KEY_FP "\n", stdout);
 }
 
-void console_provide_logctx(void *logctx)
+static void console_logging_error(LogPolicy *lp, const char *string)
 {
-    console_logctx = logctx;
+    /* Ordinary Event Log entries are displayed in the same way as
+     * logging errors, but only in verbose mode */
+    fprintf(stderr, "%s\n", string);
+    fflush(stderr);
 }
 
-void logevent(void *frontend, const char *string)
+static void console_eventlog(LogPolicy *lp, const char *string)
 {
-    log_eventlog(console_logctx, string);
+    /* Ordinary Event Log entries are displayed in the same way as
+     * logging errors, but only in verbose mode */
+    if (flags & FLAG_VERBOSE)
+        console_logging_error(lp, string);
 }
 
 static void console_data_untrusted(HANDLE hout, const char *data, int len)
 {
     DWORD dummy;
-    /* FIXME: control-character filtering */
-    WriteFile(hout, data, len, &dummy, NULL);
+    bufchain sanitised;
+    void *vdata;
+
+    bufchain_init(&sanitised);
+    sanitise_term_data(&sanitised, data, len);
+    while (bufchain_size(&sanitised) > 0) {
+        bufchain_prefix(&sanitised, &vdata, &len);
+        WriteFile(hout, vdata, len, &dummy, NULL);
+        bufchain_consume(&sanitised, len);
+    }
 }
 
 int console_get_userpass_input(prompts_t *p)
@@ -430,14 +481,11 @@ int console_get_userpass_input(prompts_t *p)
         len = 0;
         while (1) {
             DWORD ret = 0;
-            BOOL r;
 
             prompt_ensure_result_size(pr, len * 5 / 4 + 512);
 
-            r = ReadFile(hin, pr->result + len, pr->resultsize - len - 1,
-                         &ret, NULL);
-
-            if (!r || ret == 0) {
+            if (!ReadFile(hin, pr->result + len, pr->resultsize - len - 1,
+                          &ret, NULL) || ret == 0) {
                 len = -1;
                 break;
             }
@@ -467,10 +515,9 @@ int console_get_userpass_input(prompts_t *p)
     return 1; /* success */
 }
 
-void frontend_keypress(void *handle)
-{
-    /*
-     * This is nothing but a stub, in console code.
-     */
-    return;
-}
+static const LogPolicyVtable default_logpolicy_vt = {
+    console_eventlog,
+    console_askappend,
+    console_logging_error,
+};
+LogPolicy default_logpolicy[1] = {{ &default_logpolicy_vt }};

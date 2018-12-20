@@ -42,14 +42,14 @@ void BinarySource_get_rsa_ssh1_priv(
     rsa->private_exponent = get_mp_ssh1(src);
 }
 
-int rsa_ssh1_encrypt(unsigned char *data, int length, struct RSAKey *key)
+bool rsa_ssh1_encrypt(unsigned char *data, int length, struct RSAKey *key)
 {
     Bignum b1, b2;
     int i;
     unsigned char *p;
 
     if (key->bytes < length + 4)
-	return 0;		       /* RSA key too short! */
+	return false;                  /* RSA key too short! */
 
     memmove(data + key->bytes - length, data, length);
     data[0] = 0;
@@ -74,7 +74,7 @@ int rsa_ssh1_encrypt(unsigned char *data, int length, struct RSAKey *key)
     freebn(b1);
     freebn(b2);
 
-    return 1;
+    return true;
 }
 
 /*
@@ -285,6 +285,42 @@ Bignum rsa_ssh1_decrypt(Bignum input, struct RSAKey *key)
     return rsa_privkey_op(input, key);
 }
 
+bool rsa_ssh1_decrypt_pkcs1(Bignum input, struct RSAKey *key, strbuf *outbuf)
+{
+    strbuf *data = strbuf_new();
+    bool success = false;
+    BinarySource src[1];
+
+    {
+        Bignum *b = rsa_ssh1_decrypt(input, key);
+        int i;
+        for (i = (bignum_bitcount(key->modulus) + 7) / 8; i-- > 0 ;) {
+            put_byte(data, bignum_byte(b, i));
+        }
+        freebn(b);
+    }
+
+    BinarySource_BARE_INIT(src, data->u, data->len);
+
+    /* Check PKCS#1 formatting prefix */
+    if (get_byte(src) != 0) goto out;
+    if (get_byte(src) != 2) goto out;
+    while (1) {
+        unsigned char byte = get_byte(src);
+        if (get_err(src)) goto out;
+        if (byte == 0)
+            break;
+    }
+
+    /* Everything else is the payload */
+    success = true;
+    put_data(outbuf, get_ptr(src), get_avail(src));
+
+  out:
+    strbuf_free(data);
+    return success;
+}
+
 int rsastr_len(struct RSAKey *key)
 {
     Bignum md, ex;
@@ -355,7 +391,7 @@ char *rsa_ssh1_fingerprint(struct RSAKey *key)
  * data. We also check the private data itself: we ensure that p >
  * q and that iqmp really is the inverse of q mod p.
  */
-int rsa_verify(struct RSAKey *key)
+bool rsa_verify(struct RSAKey *key)
 {
     Bignum n, ed, pm1, qm1;
     int cmp;
@@ -365,7 +401,7 @@ int rsa_verify(struct RSAKey *key)
     cmp = bignum_cmp(n, key->modulus);
     freebn(n);
     if (cmp != 0)
-	return 0;
+	return false;
 
     /* e * d must be congruent to 1, modulo (p-1) and modulo (q-1). */
     pm1 = copybn(key->p);
@@ -375,7 +411,7 @@ int rsa_verify(struct RSAKey *key)
     cmp = bignum_cmp(ed, One);
     freebn(ed);
     if (cmp != 0)
-	return 0;
+	return false;
 
     qm1 = copybn(key->q);
     decbn(qm1);
@@ -384,7 +420,7 @@ int rsa_verify(struct RSAKey *key)
     cmp = bignum_cmp(ed, One);
     freebn(ed);
     if (cmp != 0)
-	return 0;
+	return false;
 
     /*
      * Ensure p > q.
@@ -402,7 +438,7 @@ int rsa_verify(struct RSAKey *key)
 	freebn(key->iqmp);
 	key->iqmp = modinv(key->q, key->p);
         if (!key->iqmp)
-            return 0;
+            return false;
     }
 
     /*
@@ -412,9 +448,9 @@ int rsa_verify(struct RSAKey *key)
     cmp = bignum_cmp(n, One);
     freebn(n);
     if (cmp != 0)
-	return 0;
+	return false;
 
-    return 1;
+    return true;
 }
 
 void rsa_ssh1_public_blob(BinarySink *bs, struct RSAKey *key,
@@ -484,7 +520,7 @@ static ssh_key *rsa2_new_pub(const ssh_keyalg *self, ptrlen data)
 	return NULL;
 
     rsa = snew(struct RSAKey);
-    rsa->sshk = &ssh_rsa;
+    rsa->sshk.vt = &ssh_rsa;
     rsa->exponent = get_mp_ssh2(src);
     rsa->modulus = get_mp_ssh2(src);
     rsa->private_exponent = NULL;
@@ -501,14 +537,14 @@ static ssh_key *rsa2_new_pub(const ssh_keyalg *self, ptrlen data)
 
 static void rsa2_freekey(ssh_key *key)
 {
-    struct RSAKey *rsa = FROMFIELD(key, struct RSAKey, sshk);
+    struct RSAKey *rsa = container_of(key, struct RSAKey, sshk);
     freersakey(rsa);
     sfree(rsa);
 }
 
 static char *rsa2_cache_str(ssh_key *key)
 {
-    struct RSAKey *rsa = FROMFIELD(key, struct RSAKey, sshk);
+    struct RSAKey *rsa = container_of(key, struct RSAKey, sshk);
     char *p;
     int len;
 
@@ -520,7 +556,7 @@ static char *rsa2_cache_str(ssh_key *key)
 
 static void rsa2_public_blob(ssh_key *key, BinarySink *bs)
 {
-    struct RSAKey *rsa = FROMFIELD(key, struct RSAKey, sshk);
+    struct RSAKey *rsa = container_of(key, struct RSAKey, sshk);
 
     put_stringz(bs, "ssh-rsa");
     put_mp_ssh2(bs, rsa->exponent);
@@ -529,7 +565,7 @@ static void rsa2_public_blob(ssh_key *key, BinarySink *bs)
 
 static void rsa2_private_blob(ssh_key *key, BinarySink *bs)
 {
-    struct RSAKey *rsa = FROMFIELD(key, struct RSAKey, sshk);
+    struct RSAKey *rsa = container_of(key, struct RSAKey, sshk);
 
     put_mp_ssh2(bs, rsa->private_exponent);
     put_mp_ssh2(bs, rsa->p);
@@ -548,7 +584,7 @@ static ssh_key *rsa2_new_priv(const ssh_keyalg *self,
     if (!sshk)
         return NULL;
 
-    rsa = FROMFIELD(sshk, struct RSAKey, sshk);
+    rsa = container_of(sshk, struct RSAKey, sshk);
     BinarySource_BARE_INIT(src, priv.ptr, priv.len);
     rsa->private_exponent = get_mp_ssh2(src);
     rsa->p = get_mp_ssh2(src);
@@ -569,7 +605,7 @@ static ssh_key *rsa2_new_priv_openssh(const ssh_keyalg *self,
     struct RSAKey *rsa;
 
     rsa = snew(struct RSAKey);
-    rsa->sshk = &ssh_rsa;
+    rsa->sshk.vt = &ssh_rsa;
     rsa->comment = NULL;
 
     rsa->modulus = get_mp_ssh2(src);
@@ -589,7 +625,7 @@ static ssh_key *rsa2_new_priv_openssh(const ssh_keyalg *self,
 
 static void rsa2_openssh_blob(ssh_key *key, BinarySink *bs)
 {
-    struct RSAKey *rsa = FROMFIELD(key, struct RSAKey, sshk);
+    struct RSAKey *rsa = container_of(key, struct RSAKey, sshk);
 
     put_mp_ssh2(bs, rsa->modulus);
     put_mp_ssh2(bs, rsa->exponent);
@@ -609,7 +645,7 @@ static int rsa2_pubkey_bits(const ssh_keyalg *self, ptrlen pub)
     if (!sshk)
         return -1;
 
-    rsa = FROMFIELD(sshk, struct RSAKey, sshk);
+    rsa = container_of(sshk, struct RSAKey, sshk);
     ret = bignum_bitcount(rsa->modulus);
     rsa2_freekey(&rsa->sshk);
 
@@ -640,20 +676,37 @@ static int rsa2_pubkey_bits(const ssh_keyalg *self, ptrlen pub)
  *    iso(1) identified-organization(3) oiw(14) secsig(3)
  *    algorithms(2) 26 }
  */
-static const unsigned char asn1_weird_stuff[] = {
+static const unsigned char sha1_asn1_prefix[] = {
     0x00, 0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2B,
     0x0E, 0x03, 0x02, 0x1A, 0x05, 0x00, 0x04, 0x14,
 };
 
-#define ASN1_LEN ( (int) sizeof(asn1_weird_stuff) )
+/*
+ * Two more similar pieces of ASN.1 used for signatures using SHA-256
+ * and SHA-512, in the same format but differing only in various
+ * length fields and OID.
+ */
+static const unsigned char sha256_asn1_prefix[] = {
+    0x00, 0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60,
+    0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01,
+    0x05, 0x00, 0x04, 0x20,
+};
+static const unsigned char sha512_asn1_prefix[] = {
+    0x00, 0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60,
+    0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03,
+    0x05, 0x00, 0x04, 0x40,
+};
 
-static int rsa2_verify(ssh_key *key, ptrlen sig, ptrlen data)
+#define SHA1_ASN1_PREFIX_LEN sizeof(sha1_asn1_prefix)
+
+static bool rsa2_verify(ssh_key *key, ptrlen sig, ptrlen data)
 {
-    struct RSAKey *rsa = FROMFIELD(key, struct RSAKey, sshk);
+    struct RSAKey *rsa = container_of(key, struct RSAKey, sshk);
     BinarySource src[1];
     ptrlen type, in_pl;
     Bignum in, out;
-    int bytes, i, j, ret;
+    int bytes, i, j;
+    bool toret;
     unsigned char hash[20];
 
     BinarySource_BARE_INIT(src, sig.ptr, sig.len);
@@ -670,64 +723,89 @@ static int rsa2_verify(ssh_key *key, ptrlen sig, ptrlen data)
      */
     in_pl = get_string(src);
     if (get_err(src) || !ptrlen_eq_string(type, "ssh-rsa"))
-	return 0;
+	return false;
 
     in = bignum_from_bytes(in_pl.ptr, in_pl.len);
     out = modpow(in, rsa->exponent, rsa->modulus);
     freebn(in);
 
-    ret = 1;
+    toret = true;
 
     bytes = (bignum_bitcount(rsa->modulus)+7) / 8;
     /* Top (partial) byte should be zero. */
     if (bignum_byte(out, bytes - 1) != 0)
-	ret = 0;
+	toret = false;
     /* First whole byte should be 1. */
     if (bignum_byte(out, bytes - 2) != 1)
-	ret = 0;
+	toret = false;
     /* Most of the rest should be FF. */
-    for (i = bytes - 3; i >= 20 + ASN1_LEN; i--) {
+    for (i = bytes - 3; i >= 20 + SHA1_ASN1_PREFIX_LEN; i--) {
 	if (bignum_byte(out, i) != 0xFF)
-	    ret = 0;
+	    toret = false;
     }
-    /* Then we expect to see the asn1_weird_stuff. */
-    for (i = 20 + ASN1_LEN - 1, j = 0; i >= 20; i--, j++) {
-	if (bignum_byte(out, i) != asn1_weird_stuff[j])
-	    ret = 0;
+    /* Then we expect to see the sha1_asn1_prefix. */
+    for (i = 20 + SHA1_ASN1_PREFIX_LEN - 1, j = 0; i >= 20; i--, j++) {
+	if (bignum_byte(out, i) != sha1_asn1_prefix[j])
+	    toret = false;
     }
     /* Finally, we expect to see the SHA-1 hash of the signed data. */
     SHA_Simple(data.ptr, data.len, hash);
     for (i = 19, j = 0; i >= 0; i--, j++) {
 	if (bignum_byte(out, i) != hash[j])
-	    ret = 0;
+	    toret = false;
     }
     freebn(out);
 
-    return ret;
+    return toret;
 }
 
 static void rsa2_sign(ssh_key *key, const void *data, int datalen,
-                      BinarySink *bs)
+                      unsigned flags, BinarySink *bs)
 {
-    struct RSAKey *rsa = FROMFIELD(key, struct RSAKey, sshk);
+    struct RSAKey *rsa = container_of(key, struct RSAKey, sshk);
     unsigned char *bytes;
     int nbytes;
-    unsigned char hash[20];
+    unsigned char hash[64];
     Bignum in, out;
     int i, j;
+    const struct ssh_hashalg *halg;
+    ssh_hash *h;
+    const unsigned char *asn1_prefix;
+    unsigned asn1_prefix_size;
+    const char *sign_alg_name;
 
-    SHA_Simple(data, datalen, hash);
+    if (flags & SSH_AGENT_RSA_SHA2_256) {
+        halg = &ssh_sha256;
+        asn1_prefix = sha256_asn1_prefix;
+        asn1_prefix_size = sizeof(sha256_asn1_prefix);
+        sign_alg_name = "rsa-sha2-256";
+    } else if (flags & SSH_AGENT_RSA_SHA2_512) {
+        halg = &ssh_sha512;
+        asn1_prefix = sha512_asn1_prefix;
+        asn1_prefix_size = sizeof(sha512_asn1_prefix);
+        sign_alg_name = "rsa-sha2-512";
+    } else {
+        halg = &ssh_sha1;
+        asn1_prefix = sha1_asn1_prefix;
+        asn1_prefix_size = sizeof(sha1_asn1_prefix);
+        sign_alg_name = "ssh-rsa";
+    }
+
+    h = ssh_hash_new(halg);
+    put_data(h, data, datalen);
+    ssh_hash_final(h, hash);
 
     nbytes = (bignum_bitcount(rsa->modulus) - 1) / 8;
-    assert(1 <= nbytes - 20 - ASN1_LEN);
+    assert(1 <= nbytes - halg->hlen - asn1_prefix_size);
     bytes = snewn(nbytes, unsigned char);
 
     bytes[0] = 1;
-    for (i = 1; i < nbytes - 20 - ASN1_LEN; i++)
+    for (i = 1; i < nbytes - halg->hlen - asn1_prefix_size; i++)
 	bytes[i] = 0xFF;
-    for (i = nbytes - 20 - ASN1_LEN, j = 0; i < nbytes - 20; i++, j++)
-	bytes[i] = asn1_weird_stuff[j];
-    for (i = nbytes - 20, j = 0; i < nbytes; i++, j++)
+    for (i = nbytes - halg->hlen - asn1_prefix_size, j = 0;
+         i < nbytes - halg->hlen; i++, j++)
+	bytes[i] = asn1_prefix[j];
+    for (i = nbytes - halg->hlen, j = 0; i < nbytes; i++, j++)
 	bytes[i] = hash[j];
 
     in = bignum_from_bytes(bytes, nbytes);
@@ -736,7 +814,7 @@ static void rsa2_sign(ssh_key *key, const void *data, int datalen,
     out = rsa_privkey_op(in, rsa);
     freebn(in);
 
-    put_stringz(bs, "ssh-rsa");
+    put_stringz(bs, sign_alg_name);
     nbytes = (bignum_bitcount(out) + 7) / 8;
     put_uint32(bs, nbytes);
     for (i = 0; i < nbytes; i++)
@@ -763,6 +841,7 @@ const ssh_keyalg ssh_rsa = {
     "ssh-rsa",
     "rsa2",
     NULL,
+    SSH_AGENT_RSA_SHA2_256 | SSH_AGENT_RSA_SHA2_512,
 };
 
 struct RSAKey *ssh_rsakex_newkey(const void *data, int len)
@@ -770,7 +849,7 @@ struct RSAKey *ssh_rsakex_newkey(const void *data, int len)
     ssh_key *sshk = rsa2_new_pub(&ssh_rsa, make_ptrlen(data, len));
     if (!sshk)
         return NULL;
-    return FROMFIELD(sshk, struct RSAKey, sshk);
+    return container_of(sshk, struct RSAKey, sshk);
 }
 
 void ssh_rsakex_freekey(struct RSAKey *key)
@@ -783,7 +862,7 @@ int ssh_rsakex_klen(struct RSAKey *rsa)
     return bignum_bitcount(rsa->modulus);
 }
 
-static void oaep_mask(const struct ssh_hash *h, void *seed, int seedlen,
+static void oaep_mask(const struct ssh_hashalg *h, void *seed, int seedlen,
 		      void *vdata, int datalen)
 {
     unsigned char *data = (unsigned char *)vdata;
@@ -791,16 +870,14 @@ static void oaep_mask(const struct ssh_hash *h, void *seed, int seedlen,
 
     while (datalen > 0) {
         int i, max = (datalen > h->hlen ? h->hlen : datalen);
-        void *s;
-        BinarySink *bs;
+        ssh_hash *s;
         unsigned char hash[SSH2_KEX_MAX_HASH_LEN];
 
 	assert(h->hlen <= SSH2_KEX_MAX_HASH_LEN);
-        s = h->init();
-        bs = h->sink(s);
-        put_data(bs, seed, seedlen);
-        put_uint32(bs, count);
-        h->final(s, hash);
+        s = ssh_hash_new(h);
+        put_data(s, seed, seedlen);
+        put_uint32(s, count);
+        ssh_hash_final(s, hash);
         count++;
 
         for (i = 0; i < max; i++)
@@ -811,7 +888,8 @@ static void oaep_mask(const struct ssh_hash *h, void *seed, int seedlen,
     }
 }
 
-void ssh_rsakex_encrypt(const struct ssh_hash *h, unsigned char *in, int inlen,
+void ssh_rsakex_encrypt(const struct ssh_hashalg *h,
+                        unsigned char *in, int inlen,
                         unsigned char *out, int outlen, struct RSAKey *rsa)
 {
     Bignum b1, b2;
@@ -866,7 +944,10 @@ void ssh_rsakex_encrypt(const struct ssh_hash *h, unsigned char *in, int inlen,
         out[i + 1] = random_byte();
     /* At position 1+HLEN, the data block DB, consisting of: */
     /* The hash of the label (we only support an empty label here) */
-    h->final(h->init(), out + HLEN + 1);
+    {
+        ssh_hash *s = ssh_hash_new(h);
+        ssh_hash_final(s, out + HLEN + 1);
+    }
     /* A bunch of zero octets */
     memset(out + 2*HLEN + 1, 0, outlen - (2*HLEN + 1));
     /* A single 1 octet, followed by the input message data. */
@@ -901,12 +982,88 @@ void ssh_rsakex_encrypt(const struct ssh_hash *h, unsigned char *in, int inlen,
      */
 }
 
+Bignum ssh_rsakex_decrypt(const struct ssh_hashalg *h, ptrlen ciphertext,
+                          struct RSAKey *rsa)
+{
+    Bignum b1, b2;
+    int outlen, i;
+    unsigned char *out;
+    unsigned char labelhash[64];
+    ssh_hash *hash;
+    BinarySource src[1];
+    const int HLEN = h->hlen;
+
+    /*
+     * Decryption side of the RSA key exchange operation.
+     */
+
+    /* The length of the encrypted data should be exactly the length
+     * in octets of the RSA modulus.. */
+    outlen = (7 + bignum_bitcount(rsa->modulus)) / 8;
+    if (ciphertext.len != outlen)
+        return NULL;
+
+    /* Do the RSA decryption, and extract the result into a byte array. */
+    b1 = bignum_from_bytes(ciphertext.ptr, ciphertext.len);
+    b2 = rsa_privkey_op(b1, rsa);
+    out = snewn(outlen, unsigned char);
+    for (i = 0; i < outlen; i++)
+        out[i] = bignum_byte(b2, outlen-1-i);
+    freebn(b1);
+    freebn(b2);
+
+    /* Do the OAEP masking operations, in the reverse order from encryption */
+    oaep_mask(h, out+HLEN+1, outlen-HLEN-1, out+1, HLEN);
+    oaep_mask(h, out+1, HLEN, out+HLEN+1, outlen-HLEN-1);
+
+    /* Check the leading byte is zero. */
+    if (out[0] != 0) {
+        sfree(out);
+        return NULL;
+    }
+    /* Check the label hash at position 1+HLEN */
+    assert(HLEN <= lenof(labelhash));
+    hash = ssh_hash_new(h);
+    ssh_hash_final(hash, labelhash);
+    if (memcmp(out + HLEN + 1, labelhash, HLEN)) {
+        sfree(out);
+        return NULL;
+    }
+    /* Expect zero bytes followed by a 1 byte */
+    for (i = 1 + 2 * HLEN; i < outlen; i++) {
+        if (out[i] == 1) {
+            i++;  /* skip over the 1 byte */
+            break;
+        } else if (out[i] != 1) {
+            sfree(out);
+            return NULL;
+        }
+    }
+    /* And what's left is the input message data, which should be
+     * encoded as an ordinary SSH-2 mpint. */
+    BinarySource_BARE_INIT(src, out + i, outlen - i);
+    b1 = get_mp_ssh2(src);
+    sfree(out);
+    if (get_err(src) || get_avail(src) != 0) {
+        freebn(b1);
+        return NULL;
+    }
+
+    /* Success! */
+    return b1;
+}
+
+static const struct ssh_rsa_kex_extra ssh_rsa_kex_extra_sha1 = { 1024 };
+static const struct ssh_rsa_kex_extra ssh_rsa_kex_extra_sha256 = { 2048 };
+
 static const struct ssh_kex ssh_rsa_kex_sha1 = {
-    "rsa1024-sha1", NULL, KEXTYPE_RSA, &ssh_sha1, NULL,
+    "rsa1024-sha1", NULL, KEXTYPE_RSA,
+    &ssh_sha1, &ssh_rsa_kex_extra_sha1,
 };
 
 static const struct ssh_kex ssh_rsa_kex_sha256 = {
-    "rsa2048-sha256", NULL, KEXTYPE_RSA, &ssh_sha256, NULL,
+    "rsa2048-sha256", NULL, KEXTYPE_RSA,
+    &ssh_sha256, &ssh_rsa_kex_extra_sha256,
 };
 
 static const struct ssh_kex *const rsa_kex_list[] = {

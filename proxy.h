@@ -18,16 +18,16 @@ typedef struct ProxySocket ProxySocket;
 struct ProxySocket {
     const char *error;
 
-    Socket sub_socket;
-    Plug plug;
-    SockAddr remote_addr;
+    Socket *sub_socket;
+    Plug *plug;
+    SockAddr *remote_addr;
     int remote_port;
 
     bufchain pending_output_data;
     bufchain pending_oob_output_data;
-    int pending_flush;
+    bool pending_flush;
     bufchain pending_input_data;
-    int pending_eof;
+    bool pending_eof;
 
 #define PROXY_STATE_NEW    -1
 #define PROXY_STATE_ACTIVE  0
@@ -37,10 +37,10 @@ struct ProxySocket {
 		* of the initialization/setup/negotiation with the
 		* proxy server.
 		*/
-    int freeze; /* should we freeze the underlying socket when
-		 * we are done with the proxy negotiation? this
-		 * simply caches the value of sk_set_frozen calls.
-		 */
+    bool freeze; /* should we freeze the underlying socket when
+                  * we are done with the proxy negotiation? this
+                  * simply caches the value of sk_set_frozen calls.
+                  */
 
 #define PROXY_CHANGE_NEW      -1
 #define PROXY_CHANGE_CLOSING   0
@@ -64,10 +64,10 @@ struct ProxySocket {
     /* closing */
     const char *closing_error_msg;
     int closing_error_code;
-    int closing_calling_back;
+    bool closing_calling_back;
 
     /* receive */
-    int receive_urgent;
+    bool receive_urgent;
     char *receive_data;
     int receive_len;
 
@@ -87,8 +87,8 @@ struct ProxySocket {
     int chap_current_attribute;
     int chap_current_datalen;
 
-    const Socket_vtable *sockvt;
-    const Plug_vtable *plugvt;
+    Socket sock;
+    Plug plugimpl;
 };
 
 extern void proxy_activate (ProxySocket *);
@@ -102,7 +102,7 @@ extern int proxy_socks5_negotiate (ProxySocket *, int);
  * This may be reused by local-command proxies on individual
  * platforms.
  */
-char *format_telnet_command(SockAddr addr, int port, Conf *conf);
+char *format_telnet_command(SockAddr *addr, int port, Conf *conf);
 
 /*
  * These are implemented in cproxy.c or nocproxy.c, depending on
