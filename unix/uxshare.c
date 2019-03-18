@@ -116,9 +116,7 @@ static char *make_dirname(const char *pi_name, char **logtext)
             /*
              * Invent some random data.
              */
-            for (i = 0; i < SALT_SIZE; i++) {
-                saltbuf[i] = random_byte();
-            }
+            random_read(saltbuf, SALT_SIZE);
             ret = write(saltfd, saltbuf, SALT_SIZE);
             /* POSIX atomicity guarantee: because we wrote less than
              * PIPE_BUF bytes, the write either completed in full or
@@ -211,14 +209,13 @@ static char *make_dirname(const char *pi_name, char **logtext)
          * identifier to produce our actual socket name.
          */
         {
-            SHA256_State sha;
             unsigned char digest[32];
             char retbuf[65];
 
-            SHA256_Init(&sha);
-            put_string(&sha, saltbuf, SALT_SIZE);
-            put_stringz(&sha, pi_name);
-            SHA256_Final(&sha, digest);
+            ssh_hash *h = ssh_hash_new(&ssh_sha256);
+            put_string(h, saltbuf, SALT_SIZE);
+            put_stringz(h, pi_name);
+            ssh_hash_final(h, digest);
 
             /*
              * And make it printable.

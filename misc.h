@@ -11,8 +11,10 @@
 
 #include <stdio.h>		       /* for FILE * */
 #include <stdarg.h>		       /* for va_list */
+#include <stdlib.h>                    /* for abort */
 #include <time.h>                      /* for struct tm */
 #include <limits.h>                    /* for INT_MAX/MIN */
+#include <assert.h>                    /* for assert (obviously) */
 
 unsigned long parse_blocksize(const char *bs);
 char ctrlparse(char *s, char **next);
@@ -32,14 +34,26 @@ char *dupprintf(const char *fmt, ...)
 char *dupvprintf(const char *fmt, va_list ap);
 void burnstr(char *string);
 
+/*
+ * The visible part of a strbuf structure. There's a surrounding
+ * implementation struct in misc.c, which isn't exposed to client
+ * code.
+ */
 struct strbuf {
     char *s;
     unsigned char *u;
-    int len;
+    size_t len;
     BinarySink_IMPLEMENTATION;
-    /* (also there's a surrounding implementation struct in misc.c) */
 };
+
+/* strbuf constructors: strbuf_new_nm and strbuf_new differ in that a
+ * strbuf constructed using the _nm version will resize itself by
+ * alloc/copy/smemclr/free instead of realloc. Use that version for
+ * data sensitive enough that it's worth costing performance to
+ * avoid copies of it lingering in process memory. */
 strbuf *strbuf_new(void);
+strbuf *strbuf_new_nm(void);
+
 void strbuf_free(strbuf *buf);
 void *strbuf_append(strbuf *buf, size_t len);
 char *strbuf_to_str(strbuf *buf); /* does free buf, but you must free result */
@@ -93,22 +107,35 @@ int base64_decode_atom(const char *atom, unsigned char *out);
 struct bufchain_granule;
 struct bufchain_tag {
     struct bufchain_granule *head, *tail;
-    int buffersize;		       /* current amount of buffered data */
+    size_t buffersize;           /* current amount of buffered data */
+
+    void (*queue_idempotent_callback)(IdempotentCallback *ic);
     IdempotentCallback *ic;
 };
 
 void bufchain_init(bufchain *ch);
 void bufchain_clear(bufchain *ch);
-int bufchain_size(bufchain *ch);
-void bufchain_add(bufchain *ch, const void *data, int len);
-void bufchain_prefix(bufchain *ch, void **data, int *len);
-void bufchain_consume(bufchain *ch, int len);
-void bufchain_fetch(bufchain *ch, void *data, int len);
-void bufchain_fetch_consume(bufchain *ch, void *data, int len);
-bool bufchain_try_fetch_consume(bufchain *ch, void *data, int len);
-int bufchain_fetch_consume_up_to(bufchain *ch, void *data, int len);
-
-void sanitise_term_data(bufchain *out, const void *vdata, int len);
+size_t bufchain_size(bufchain *ch);
+void bufchain_add(bufchain *ch, const void *data, size_t len);
+ptrlen bufchain_prefix(bufchain *ch);
+void bufchain_consume(bufchain *ch, size_t len);
+void bufchain_fetch(bufchain *ch, void *data, size_t len);
+void bufchain_fetch_consume(bufchain *ch, void *data, size_t len);
+bool bufchain_try_fetch_consume(bufchain *ch, void *data, size_t len);
+size_t bufchain_fetch_consume_up_to(bufchain *ch, void *data, size_t len);
+void bufchain_set_callback_inner(
+    bufchain *ch, IdempotentCallback *ic,
+    void (*queue_idempotent_callback)(IdempotentCallback *ic));
+static inline void bufchain_set_callback(bufchain *ch, IdempotentCallback *ic)
+{
+    extern void queue_idempotent_callback(struct IdempotentCallback *ic);
+    /* Wrapper that puts in the standard queue_idempotent_callback
+     * function. Lives here rather than in utils.c so that standalone
+     * programs can use the bufchain facility without this optional
+     * callback feature and not need to provide a stub of
+     * queue_idempotent_callback. */
+    bufchain_set_callback_inner(ch, ic, queue_idempotent_callback);
+}
 
 bool validate_manual_hostkey(char *key);
 
@@ -140,7 +167,9 @@ static inline ptrlen ptrlen_from_strbuf(strbuf *sb)
 
 bool ptrlen_eq_string(ptrlen pl, const char *str);
 bool ptrlen_eq_ptrlen(ptrlen pl1, ptrlen pl2);
+int ptrlen_strcmp(ptrlen pl1, ptrlen pl2);
 bool ptrlen_startswith(ptrlen whole, ptrlen prefix, ptrlen *tail);
+bool ptrlen_endswith(ptrlen whole, ptrlen suffix, ptrlen *tail);
 char *mkstr(ptrlen pl);
 int string_length_for_printf(size_t);
 /* Derive two printf arguments from a ptrlen, suitable for "%.*s" */
@@ -152,6 +181,8 @@ int string_length_for_printf(size_t);
  * string. */
 #define PTRLEN_LITERAL(stringlit) \
     TYPECHECK("" stringlit "", make_ptrlen(stringlit, sizeof(stringlit)-1))
+/* Make a ptrlen out of a constant byte array. */
+#define PTRLEN_FROM_CONST_BYTES(a) make_ptrlen(a, sizeof(a))
 
 /* Wipe sensitive data out of memory that's about to be freed. Simpler
  * than memset because we don't need the fill char parameter; also
@@ -167,7 +198,28 @@ void smemclr(void *b, size_t len);
  * hinted at by the 'eq' in the name. */
 bool smemeq(const void *av, const void *bv, size_t len);
 
+/* Encode a single UTF-8 character. Assumes that illegal characters
+ * (such as things in the surrogate range, or > 0x10FFFF) have already
+ * been removed. */
+size_t encode_utf8(void *output, unsigned long ch);
+
 char *buildinfo(const char *newline);
+
+/*
+ * A function you can put at points in the code where execution should
+ * never reach in the first place. Better than assert(false), or even
+ * assert(false && "some explanatory message"), because some compilers
+ * don't interpret assert(false) as a declaration of unreachability,
+ * so they may still warn about pointless things like some variable
+ * not being initialised on the unreachable code path.
+ *
+ * I follow the assertion with a call to abort() just in case someone
+ * compiles with -DNDEBUG, and I wrap that abort inside my own
+ * function labelled NORETURN just in case some unusual kind of system
+ * header wasn't foresighted enough to label abort() itself that way.
+ */
+static inline NORETURN void unreachable_internal(void) { abort(); }
+#define unreachable(msg) (assert(false && msg), unreachable_internal())
 
 /*
  * Debugging functions.
@@ -186,12 +238,12 @@ char *buildinfo(const char *newline);
 void debug_printf(const char *fmt, ...);
 void debug_memdump(const void *buf, int len, bool L);
 #define debug(...) (debug_printf(__VA_ARGS__))
-#define dmemdump(buf,len) debug_memdump (buf, len, false);
-#define dmemdumpl(buf,len) debug_memdump (buf, len, true);
+#define dmemdump(buf,len) (debug_memdump(buf, len, false))
+#define dmemdumpl(buf,len) (debug_memdump(buf, len, true))
 #else
-#define debug(...)
-#define dmemdump(buf,len)
-#define dmemdumpl(buf,len)
+#define debug(...) ((void)0)
+#define dmemdump(buf,len) ((void)0)
+#define dmemdumpl(buf,len) ((void)0)
 #endif
 
 #ifndef lenof
@@ -205,93 +257,141 @@ void debug_memdump(const void *buf, int len, bool L);
 #define max(x,y) ( (x) > (y) ? (x) : (y) )
 #endif
 
-#define GET_64BIT_LSB_FIRST(cp) \
-  (((uint64_t)(unsigned char)(cp)[0]) | \
-  ((uint64_t)(unsigned char)(cp)[1] << 8) | \
-  ((uint64_t)(unsigned char)(cp)[2] << 16) | \
-  ((uint64_t)(unsigned char)(cp)[3] << 24) | \
-  ((uint64_t)(unsigned char)(cp)[4] << 32) | \
-  ((uint64_t)(unsigned char)(cp)[5] << 40) | \
-  ((uint64_t)(unsigned char)(cp)[6] << 48) | \
-  ((uint64_t)(unsigned char)(cp)[7] << 56))
+static inline uint64_t GET_64BIT_LSB_FIRST(const void *vp)
+{
+    const uint8_t *p = (const uint8_t *)vp;
+    return (((uint64_t)p[0]      ) | ((uint64_t)p[1] <<  8) |
+            ((uint64_t)p[2] << 16) | ((uint64_t)p[3] << 24) |
+            ((uint64_t)p[4] << 32) | ((uint64_t)p[5] << 40) |
+            ((uint64_t)p[6] << 48) | ((uint64_t)p[7] << 56));
+}
 
-#define PUT_64BIT_LSB_FIRST(cp, value) ( \
-  (cp)[0] = (unsigned char)(value), \
-  (cp)[1] = (unsigned char)((value) >> 8), \
-  (cp)[2] = (unsigned char)((value) >> 16), \
-  (cp)[3] = (unsigned char)((value) >> 24), \
-  (cp)[4] = (unsigned char)((value) >> 32), \
-  (cp)[5] = (unsigned char)((value) >> 40), \
-  (cp)[6] = (unsigned char)((value) >> 48), \
-  (cp)[7] = (unsigned char)((value) >> 56) )
+static inline void PUT_64BIT_LSB_FIRST(void *vp, uint64_t value)
+{
+    uint8_t *p = (uint8_t *)vp;
+    p[0] = value;
+    p[1] = (value) >> 8;
+    p[2] = (value) >> 16;
+    p[3] = (value) >> 24;
+    p[4] = (value) >> 32;
+    p[5] = (value) >> 40;
+    p[6] = (value) >> 48;
+    p[7] = (value) >> 56;
+}
 
-#define GET_32BIT_LSB_FIRST(cp) \
-  (((uint32_t)(unsigned char)(cp)[0]) | \
-  ((uint32_t)(unsigned char)(cp)[1] << 8) | \
-  ((uint32_t)(unsigned char)(cp)[2] << 16) | \
-  ((uint32_t)(unsigned char)(cp)[3] << 24))
+static inline uint32_t GET_32BIT_LSB_FIRST(const void *vp)
+{
+    const uint8_t *p = (const uint8_t *)vp;
+    return (((uint32_t)p[0]      ) | ((uint32_t)p[1] <<  8) |
+            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24));
+}
 
-#define PUT_32BIT_LSB_FIRST(cp, value) ( \
-  (cp)[0] = (unsigned char)(value), \
-  (cp)[1] = (unsigned char)((value) >> 8), \
-  (cp)[2] = (unsigned char)((value) >> 16), \
-  (cp)[3] = (unsigned char)((value) >> 24) )
+static inline void PUT_32BIT_LSB_FIRST(void *vp, uint32_t value)
+{
+    uint8_t *p = (uint8_t *)vp;
+    p[0] = value;
+    p[1] = (value) >> 8;
+    p[2] = (value) >> 16;
+    p[3] = (value) >> 24;
+}
 
-#define GET_16BIT_LSB_FIRST(cp) \
-  (((unsigned long)(unsigned char)(cp)[0]) | \
-  ((unsigned long)(unsigned char)(cp)[1] << 8))
+static inline uint16_t GET_16BIT_LSB_FIRST(const void *vp)
+{
+    const uint8_t *p = (const uint8_t *)vp;
+    return (((uint16_t)p[0]      ) | ((uint16_t)p[1] <<  8));
+}
 
-#define PUT_16BIT_LSB_FIRST(cp, value) ( \
-  (cp)[0] = (unsigned char)(value), \
-  (cp)[1] = (unsigned char)((value) >> 8) )
+static inline void PUT_16BIT_LSB_FIRST(void *vp, uint16_t value)
+{
+    uint8_t *p = (uint8_t *)vp;
+    p[0] = value;
+    p[1] = (value) >> 8;
+}
 
-#define GET_32BIT_MSB_FIRST(cp) \
-  (((uint32_t)(unsigned char)(cp)[0] << 24) | \
-  ((uint32_t)(unsigned char)(cp)[1] << 16) | \
-  ((uint32_t)(unsigned char)(cp)[2] << 8) | \
-  ((uint32_t)(unsigned char)(cp)[3]))
+static inline uint64_t GET_64BIT_MSB_FIRST(const void *vp)
+{
+    const uint8_t *p = (const uint8_t *)vp;
+    return (((uint64_t)p[7]      ) | ((uint64_t)p[6] <<  8) |
+            ((uint64_t)p[5] << 16) | ((uint64_t)p[4] << 24) |
+            ((uint64_t)p[3] << 32) | ((uint64_t)p[2] << 40) |
+            ((uint64_t)p[1] << 48) | ((uint64_t)p[0] << 56));
+}
 
-#define GET_32BIT(cp) GET_32BIT_MSB_FIRST(cp)
+static inline void PUT_64BIT_MSB_FIRST(void *vp, uint64_t value)
+{
+    uint8_t *p = (uint8_t *)vp;
+    p[7] = value;
+    p[6] = (value) >> 8;
+    p[5] = (value) >> 16;
+    p[4] = (value) >> 24;
+    p[3] = (value) >> 32;
+    p[2] = (value) >> 40;
+    p[1] = (value) >> 48;
+    p[0] = (value) >> 56;
+}
 
-#define PUT_32BIT_MSB_FIRST(cp, value) ( \
-  (cp)[0] = (unsigned char)((value) >> 24), \
-  (cp)[1] = (unsigned char)((value) >> 16), \
-  (cp)[2] = (unsigned char)((value) >> 8), \
-  (cp)[3] = (unsigned char)(value) )
+static inline uint32_t GET_32BIT_MSB_FIRST(const void *vp)
+{
+    const uint8_t *p = (const uint8_t *)vp;
+    return (((uint32_t)p[3]      ) | ((uint32_t)p[2] <<  8) |
+            ((uint32_t)p[1] << 16) | ((uint32_t)p[0] << 24));
+}
 
-#define PUT_32BIT(cp, value) PUT_32BIT_MSB_FIRST(cp, value)
+static inline void PUT_32BIT_MSB_FIRST(void *vp, uint32_t value)
+{
+    uint8_t *p = (uint8_t *)vp;
+    p[3] = value;
+    p[2] = (value) >> 8;
+    p[1] = (value) >> 16;
+    p[0] = (value) >> 24;
+}
 
-#define GET_64BIT_MSB_FIRST(cp) \
-  (((uint64_t)(unsigned char)(cp)[0] << 56) | \
-  ((uint64_t)(unsigned char)(cp)[1] << 48) | \
-  ((uint64_t)(unsigned char)(cp)[2] << 40) | \
-  ((uint64_t)(unsigned char)(cp)[3] << 32) | \
-  ((uint64_t)(unsigned char)(cp)[4] << 24) | \
-  ((uint64_t)(unsigned char)(cp)[5] << 16) | \
-  ((uint64_t)(unsigned char)(cp)[6] << 8) | \
-  ((uint64_t)(unsigned char)(cp)[7]))
+static inline uint16_t GET_16BIT_MSB_FIRST(const void *vp)
+{
+    const uint8_t *p = (const uint8_t *)vp;
+    return (((uint16_t)p[1]      ) | ((uint16_t)p[0] <<  8));
+}
 
-#define PUT_64BIT_MSB_FIRST(cp, value) ( \
-  (cp)[0] = (unsigned char)((value) >> 56), \
-  (cp)[1] = (unsigned char)((value) >> 48), \
-  (cp)[2] = (unsigned char)((value) >> 40), \
-  (cp)[3] = (unsigned char)((value) >> 32), \
-  (cp)[4] = (unsigned char)((value) >> 24), \
-  (cp)[5] = (unsigned char)((value) >> 16), \
-  (cp)[6] = (unsigned char)((value) >> 8), \
-  (cp)[7] = (unsigned char)(value) )
-
-#define GET_16BIT_MSB_FIRST(cp) \
-  (((unsigned long)(unsigned char)(cp)[0] << 8) | \
-  ((unsigned long)(unsigned char)(cp)[1]))
-
-#define PUT_16BIT_MSB_FIRST(cp, value) ( \
-  (cp)[0] = (unsigned char)((value) >> 8), \
-  (cp)[1] = (unsigned char)(value) )
+static inline void PUT_16BIT_MSB_FIRST(void *vp, uint16_t value)
+{
+    uint8_t *p = (uint8_t *)vp;
+    p[1] = value;
+    p[0] = (value) >> 8;
+}
 
 /* Replace NULL with the empty string, permitting an idiom in which we
  * get a string (pointer,length) pair that might be NULL,0 and can
  * then safely say things like printf("%.*s", length, NULLTOEMPTY(ptr)) */
-#define NULLTOEMPTY(s) ((s)?(s):"")
+static inline const char *NULLTOEMPTY(const char *s)
+{
+    return s ? s : "";
+}
+
+/* StripCtrlChars, defined in stripctrl.c: an adapter you can put on
+ * the front of one BinarySink and which functions as one in turn.
+ * Interprets its input as a stream of multibyte characters in the
+ * system locale, and removes any that are not either printable
+ * characters or newlines. */
+struct StripCtrlChars {
+    BinarySink_IMPLEMENTATION;
+    /* and this is contained in a larger structure */
+};
+StripCtrlChars *stripctrl_new(
+    BinarySink *bs_out, bool permit_cr, wchar_t substitution);
+StripCtrlChars *stripctrl_new_term_fn(
+    BinarySink *bs_out, bool permit_cr, wchar_t substitution,
+    Terminal *term, unsigned long (*translate)(
+        Terminal *, term_utf8_decode *, unsigned char));
+#define stripctrl_new_term(bs, cr, sub, term) \
+    stripctrl_new_term_fn(bs, cr, sub, term, term_translate)
+void stripctrl_retarget(StripCtrlChars *sccpub, BinarySink *new_bs_out);
+void stripctrl_reset(StripCtrlChars *sccpub);
+void stripctrl_free(StripCtrlChars *sanpub);
+void stripctrl_enable_line_limiting(StripCtrlChars *sccpub);
+char *stripctrl_string_ptrlen(StripCtrlChars *sccpub, ptrlen str);
+static inline char *stripctrl_string(StripCtrlChars *sccpub, const char *str)
+{
+    return stripctrl_string_ptrlen(sccpub, ptrlen_from_asciz(str));
+}
 
 #endif

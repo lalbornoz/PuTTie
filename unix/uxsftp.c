@@ -13,9 +13,6 @@
 #include <errno.h>
 #include <assert.h>
 #include <glob.h>
-#ifndef HAVE_NO_SYS_SELECT_H
-#include <sys/select.h>
-#endif
 
 #include "putty.h"
 #include "ssh.h"
@@ -98,7 +95,7 @@ char *psftp_lcd(char *dir)
 char *psftp_getcwd(void)
 {
     char *buffer, *ret;
-    int size = 256;
+    size_t size = 256;
 
     buffer = snewn(size, char);
     while (1) {
@@ -113,8 +110,7 @@ char *psftp_getcwd(void)
 	 * Otherwise, ERANGE was returned, meaning the buffer
 	 * wasn't big enough.
 	 */
-	size = size * 3 / 2;
-	buffer = sresize(buffer, size, char);
+        sgrowarray(buffer, size, size);
     }
 }
 
@@ -311,14 +307,16 @@ struct DirHandle {
     DIR *dir;
 };
 
-DirHandle *open_directory(const char *name)
+DirHandle *open_directory(const char *name, const char **errmsg)
 {
     DIR *dir;
     DirHandle *ret;
 
     dir = opendir(name);
-    if (!dir)
+    if (!dir) {
+        *errmsg = strerror(errno);
 	return NULL;
+    }
 
     ret = snew(DirHandle);
     ret->dir = dir;
@@ -435,7 +433,10 @@ bool create_directory(const char *name)
 
 char *dir_file_cat(const char *dir, const char *file)
 {
-    return dupcat(dir, "/", file, NULL);
+    ptrlen dir_pl = ptrlen_from_asciz(dir);
+    return dupcat(
+        dir, ptrlen_endswith(dir_pl, PTRLEN_LITERAL("/"), NULL) ? "" : "/",
+        file, NULL);
 }
 
 /*
@@ -444,15 +445,17 @@ char *dir_file_cat(const char *dir, const char *file)
  */
 static int ssh_sftp_do_select(bool include_stdin, bool no_fds_ok)
 {
-    fd_set rset, wset, xset;
-    int i, fdsize, *fdlist;
-    int fd, fdcount, fdstate, rwx, ret, maxfd;
+    int i, *fdlist;
+    size_t fdsize;
+    int fd, fdcount, fdstate, rwx, ret;
     unsigned long now = GETTICKCOUNT();
     unsigned long next;
     bool done_something = false;
 
     fdlist = NULL;
     fdsize = 0;
+
+    pollwrapper *pw = pollwrap_new();
 
     do {
 
@@ -461,19 +464,13 @@ static int ssh_sftp_do_select(bool include_stdin, bool no_fds_ok)
 	for (fd = first_fd(&fdstate, &rwx); fd >= 0;
 	     fd = next_fd(&fdstate, &rwx)) i++;
 
-	if (i < 1 && !no_fds_ok)
+	if (i < 1 && !no_fds_ok && !toplevel_callback_pending())
 	    return -1;		       /* doom */
 
 	/* Expand the fdlist buffer if necessary. */
-	if (i > fdsize) {
-	    fdsize = i + 16;
-	    fdlist = sresize(fdlist, fdsize, int);
-	}
+        sgrowarray(fdlist, fdsize, i);
 
-	FD_ZERO(&rset);
-	FD_ZERO(&wset);
-	FD_ZERO(&xset);
-	maxfd = 0;
+        pollwrap_clear(pw);
 
 	/*
 	 * Add all currently open fds to the select sets, and store
@@ -483,29 +480,20 @@ static int ssh_sftp_do_select(bool include_stdin, bool no_fds_ok)
 	for (fd = first_fd(&fdstate, &rwx); fd >= 0;
 	     fd = next_fd(&fdstate, &rwx)) {
 	    fdlist[fdcount++] = fd;
-	    if (rwx & 1)
-		FD_SET_MAX(fd, maxfd, rset);
-	    if (rwx & 2)
-		FD_SET_MAX(fd, maxfd, wset);
-	    if (rwx & 4)
-		FD_SET_MAX(fd, maxfd, xset);
+            pollwrap_add_fd_rwx(pw, fd, rwx);
 	}
 
 	if (include_stdin)
-	    FD_SET_MAX(0, maxfd, rset);
+	    pollwrap_add_fd_rwx(pw, 0, SELECT_R);
 
         if (toplevel_callback_pending()) {
-            struct timeval tv;
-            tv.tv_sec = 0;
-            tv.tv_usec = 0;
-            ret = select(maxfd, &rset, &wset, &xset, &tv);
+            ret = pollwrap_poll_instant(pw);
             if (ret == 0)
                 done_something |= run_toplevel_callbacks();
         } else if (run_timers(now, &next)) {
             do {
                 unsigned long then;
                 long ticks;
-                struct timeval tv;
 
 		then = now;
 		now = GETTICKCOUNT();
@@ -513,46 +501,54 @@ static int ssh_sftp_do_select(bool include_stdin, bool no_fds_ok)
 		    ticks = 0;
 		else
 		    ticks = next - now;
-		tv.tv_sec = ticks / 1000;
-		tv.tv_usec = ticks % 1000 * 1000;
-                ret = select(maxfd, &rset, &wset, &xset, &tv);
-                if (ret == 0)
+
+                bool overflow = false;
+                if (ticks > INT_MAX) {
+                    ticks = INT_MAX;
+                    overflow = true;
+                }
+
+                ret = pollwrap_poll_timeout(pw, ticks);
+                if (ret == 0 && !overflow)
                     now = next;
                 else
                     now = GETTICKCOUNT();
             } while (ret < 0 && errno == EINTR);
         } else {
             do {
-                ret = select(maxfd, &rset, &wset, &xset, NULL);
+                ret = pollwrap_poll_endless(pw);
             } while (ret < 0 && errno == EINTR);
         }
     } while (ret == 0 && !done_something);
 
     if (ret < 0) {
-	perror("select");
+	perror("poll");
 	exit(1);
     }
 
     for (i = 0; i < fdcount; i++) {
 	fd = fdlist[i];
+        int rwx = pollwrap_get_fd_rwx(pw, fd);
 	/*
 	 * We must process exceptional notifications before
 	 * ordinary readability ones, or we may go straight
 	 * past the urgent marker.
 	 */
-	if (FD_ISSET(fd, &xset))
-	    select_result(fd, 4);
-	if (FD_ISSET(fd, &rset))
-	    select_result(fd, 1);
-	if (FD_ISSET(fd, &wset))
-	    select_result(fd, 2);
+	if (rwx & SELECT_X)
+	    select_result(fd, SELECT_X);
+	if (rwx & SELECT_R)
+	    select_result(fd, SELECT_R);
+	if (rwx & SELECT_W)
+	    select_result(fd, SELECT_W);
     }
 
     sfree(fdlist);
 
     run_toplevel_callbacks();
 
-    return FD_ISSET(0, &rset) ? 1 : 0;
+    int toret = pollwrap_check_fd_rwx(pw, 0, SELECT_R) ? 1 : 0;
+    pollwrap_free(pw);
+    return toret;
 }
 
 /*
@@ -569,7 +565,8 @@ int ssh_sftp_loop_iteration(void)
 char *ssh_sftp_get_cmdline(const char *prompt, bool no_fds_ok)
 {
     char *buf;
-    int buflen, bufsize, ret;
+    size_t buflen, bufsize;
+    int ret;
 
     fputs(prompt, stdout);
     fflush(stdout);
@@ -585,10 +582,7 @@ char *ssh_sftp_get_cmdline(const char *prompt, bool no_fds_ok)
 	    return NULL;	       /* woop woop */
 	}
 	if (ret > 0) {
-	    if (buflen >= bufsize) {
-		bufsize = buflen + 512;
-		buf = sresize(buf, bufsize, char);
-	    }
+            sgrowarray(buf, bufsize, buflen);
 	    ret = read(0, buf+buflen, 1);
 	    if (ret < 0) {
 		perror("read");

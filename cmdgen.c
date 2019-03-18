@@ -102,10 +102,6 @@ char *x_get_default(const char *key)
 void sk_cleanup(void)
 {
 }
-void queue_idempotent_callback(IdempotentCallback *ic)
-{
-    assert(0);
-}
 
 void showversion(void)
 {
@@ -224,8 +220,8 @@ int main(int argc, char **argv)
     bool errs = false, nogo = false;
     int intype = SSH_KEYTYPE_UNOPENABLE;
     int sshver = 0;
-    struct ssh2_userkey *ssh2key = NULL;
-    struct RSAKey *ssh1key = NULL;
+    ssh2_userkey *ssh2key = NULL;
+    RSAKey *ssh1key = NULL;
     strbuf *ssh2blob = NULL;
     char *ssh2alg = NULL;
     char *old_passphrase = NULL, *new_passphrase = NULL;
@@ -594,7 +590,7 @@ int main(int argc, char **argv)
 
 	  case SSH_KEYTYPE_OPENSSH_AUTO:
           default:
-            assert(0 && "Should never see these types on an input file");
+            unreachable("Should never see these types on an input file");
 	}
     }
 
@@ -686,43 +682,43 @@ int main(int argc, char **argv)
 	else
 	    strftime(default_comment, 30, "rsa-key-%Y%m%d", &tm);
 
-	random_ref();
 	entropy = get_random_data(bits / 8, random_device);
 	if (!entropy) {
 	    fprintf(stderr, "puttygen: failed to collect entropy, "
 		    "could not generate key\n");
 	    return 1;
 	}
-	random_add_heavynoise(entropy, bits / 8);
+	random_setup_special();
+        random_reseed(make_ptrlen(entropy, bits / 8));
 	smemclr(entropy, bits/8);
 	sfree(entropy);
 
 	if (keytype == DSA) {
 	    struct dss_key *dsskey = snew(struct dss_key);
 	    dsa_generate(dsskey, bits, progressfn, &prog);
-	    ssh2key = snew(struct ssh2_userkey);
+	    ssh2key = snew(ssh2_userkey);
 	    ssh2key->key = &dsskey->sshk;
 	    ssh1key = NULL;
         } else if (keytype == ECDSA) {
-            struct ec_key *ec = snew(struct ec_key);
-            ec_generate(ec, bits, progressfn, &prog);
-            ssh2key = snew(struct ssh2_userkey);
-            ssh2key->key = &ec->sshk;
+            struct ecdsa_key *ek = snew(struct ecdsa_key);
+            ecdsa_generate(ek, bits, progressfn, &prog);
+            ssh2key = snew(ssh2_userkey);
+            ssh2key->key = &ek->sshk;
             ssh1key = NULL;
         } else if (keytype == ED25519) {
-            struct ec_key *ec = snew(struct ec_key);
-            ec_edgenerate(ec, bits, progressfn, &prog);
-            ssh2key = snew(struct ssh2_userkey);
-            ssh2key->key = &ec->sshk;
+            struct eddsa_key *ek = snew(struct eddsa_key);
+            eddsa_generate(ek, bits, progressfn, &prog);
+            ssh2key = snew(ssh2_userkey);
+            ssh2key->key = &ek->sshk;
             ssh1key = NULL;
 	} else {
-	    struct RSAKey *rsakey = snew(struct RSAKey);
+	    RSAKey *rsakey = snew(RSAKey);
 	    rsa_generate(rsakey, bits, progressfn, &prog);
 	    rsakey->comment = NULL;
 	    if (keytype == RSA1) {
 		ssh1key = rsakey;
 	    } else {
-		ssh2key = snew(struct ssh2_userkey);
+		ssh2key = snew(ssh2_userkey);
 		ssh2key->key = &rsakey->sshk;
 	    }
 	}
@@ -757,6 +753,7 @@ int main(int argc, char **argv)
 		prompts_t *p = new_prompts();
 		int ret;
 		p->to_server = false;
+		p->from_server = false;
 		p->name = dupstr("SSH key passphrase");
 		add_prompt(p, dupstr("Enter passphrase to load key: "), false);
 		ret = console_get_userpass_input(p);
@@ -779,7 +776,7 @@ int main(int argc, char **argv)
 
 	  case SSH_KEYTYPE_SSH1:
           case SSH_KEYTYPE_SSH1_PUBLIC:
-	    ssh1key = snew(struct RSAKey);
+	    ssh1key = snew(RSAKey);
 	    if (!load_encrypted) {
 		strbuf *blob;
                 BinarySource src[1];
@@ -821,6 +818,7 @@ int main(int argc, char **argv)
                         bits = -1;
                 } else {
                     strbuf_free(ssh2blob);
+                    ssh2blob = NULL;
                 }
                 sfree(ssh2alg);
 	    } else {
@@ -851,7 +849,7 @@ int main(int argc, char **argv)
 	    break;
 
 	  default:
-	    assert(0);
+	    unreachable("bad input key type");
 	}
 
 	if (error) {
@@ -892,6 +890,7 @@ int main(int argc, char **argv)
 	int ret;
 
 	p->to_server = false;
+	p->from_server = false;
 	p->name = dupstr("New SSH key passphrase");
 	add_prompt(p, dupstr("Enter passphrase to save key: "), false);
 	add_prompt(p, dupstr("Re-enter passphrase to verify: "), false);
@@ -1005,7 +1004,7 @@ int main(int argc, char **argv)
 		} else {
 		    assert(ssh2blob);
 		    fingerprint = ssh2_fingerprint_blob(
-                        ssh2blob->s, ssh2blob->len);
+                        ptrlen_from_strbuf(ssh2blob));
 		}
 	    }
 
@@ -1044,7 +1043,7 @@ int main(int argc, char **argv)
             real_outtype = SSH_KEYTYPE_SSHCOM;
             break;
           default:
-            assert(0 && "control flow goof");
+            unreachable("control flow goof");
         }
 	ret = export_ssh2(outfilename, real_outtype, ssh2key, new_passphrase);
 	if (!ret) {
@@ -1067,12 +1066,18 @@ int main(int argc, char **argv)
 	sfree(new_passphrase);
     }
 
-    if (ssh1key)
+    if (ssh1key) {
 	freersakey(ssh1key);
+    }
     if (ssh2key) {
+	sfree(ssh2key->comment);
 	ssh_key_free(ssh2key->key);
 	sfree(ssh2key);
     }
+    sfree(origcomment);
+    if (infilename)
+        filename_free(infilename);
+    filename_free(outfilename);
 
     return 0;
 }

@@ -42,11 +42,15 @@ struct BinaryPacketProtocol {
     bool expect_close;
 };
 
-#define ssh_bpp_handle_input(bpp) ((bpp)->vt->handle_input(bpp))
-#define ssh_bpp_handle_output(bpp) ((bpp)->vt->handle_output(bpp))
-#define ssh_bpp_new_pktout(bpp, type) ((bpp)->vt->new_pktout(type))
-#define ssh_bpp_queue_disconnect(bpp, msg, cat) \
-    ((bpp)->vt->queue_disconnect(bpp, msg, cat))
+static inline void ssh_bpp_handle_input(BinaryPacketProtocol *bpp)
+{ bpp->vt->handle_input(bpp); }
+static inline void ssh_bpp_handle_output(BinaryPacketProtocol *bpp)
+{ bpp->vt->handle_output(bpp); }
+static inline PktOut *ssh_bpp_new_pktout(BinaryPacketProtocol *bpp, int type)
+{ return bpp->vt->new_pktout(type); }
+static inline void ssh_bpp_queue_disconnect(BinaryPacketProtocol *bpp,
+                                            const char *msg, int category)
+{ bpp->vt->queue_disconnect(bpp, msg, category); }
 
 /* ssh_bpp_free is more than just a macro wrapper on the vtable; it
  * does centralised parts of the freeing too. */
@@ -54,7 +58,7 @@ void ssh_bpp_free(BinaryPacketProtocol *bpp);
 
 BinaryPacketProtocol *ssh1_bpp_new(LogContext *logctx);
 void ssh1_bpp_new_cipher(BinaryPacketProtocol *bpp,
-                         const struct ssh1_cipheralg *cipher,
+                         const ssh_cipheralg *cipher,
                          const void *session_key);
 /* This is only called from outside the BPP in server mode; in client
  * mode the BPP detects compression start time automatically by
@@ -80,38 +84,60 @@ bool ssh2_bpp_check_unimplemented(BinaryPacketProtocol *bpp, PktIn *pktin);
  * purposes of triggering an SSH-2 rekey when either one gets over a
  * configured limit. In each direction, the flag 'running' indicates
  * that we haven't hit the limit yet, and 'remaining' tracks how much
- * longer until we do. The macro DTS_CONSUME subtracts a given amount
- * from the counter in a particular direction, and evaluates to a
- * boolean indicating whether the limit has been hit.
+ * longer until we do. The function dts_consume() subtracts a given
+ * amount from the counter in a particular direction, and sets
+ * 'expired' if the limit has been hit.
  *
  * The limit is sticky: once 'running' has flipped to false,
  * 'remaining' is no longer decremented, so it shouldn't dangerously
  * wrap round.
  */
-struct DataTransferStats {
-    struct {
-        bool running;
-        unsigned long remaining;
-    } in, out;
+struct DataTransferStatsDirection {
+    bool running, expired;
+    unsigned long remaining;
 };
-#define DTS_CONSUME(stats, direction, size)             \
-    ((stats)->direction.running &&                      \
-     (stats)->direction.remaining <= (size) ?           \
-     ((stats)->direction.running = false, true) :       \
-     ((stats)->direction.remaining -= (size), false))
+struct DataTransferStats {
+    struct DataTransferStatsDirection in, out;
+};
+static inline void dts_consume(struct DataTransferStatsDirection *s,
+                               unsigned long size_consumed)
+{
+    if (s->running) {
+        if (s->remaining <= size_consumed) {
+            s->running = false;
+            s->expired = true;
+        } else {
+            s->remaining -= size_consumed;
+        }
+    }
+}
+static inline void dts_reset(struct DataTransferStatsDirection *s,
+                             unsigned long starting_size)
+{
+    s->expired = false;
+    s->remaining = starting_size;
+    /*
+     * The semantics of setting CONF_ssh_rekey_data to zero are to
+     * disable data-volume based rekeying completely. So if the
+     * starting size is actually zero, we don't set 'running' to true
+     * in the first place, which means we won't ever set the expired
+     * flag.
+     */
+    s->running = (starting_size != 0);
+}
 
 BinaryPacketProtocol *ssh2_bpp_new(
     LogContext *logctx, struct DataTransferStats *stats, bool is_server);
 void ssh2_bpp_new_outgoing_crypto(
     BinaryPacketProtocol *bpp,
-    const struct ssh2_cipheralg *cipher, const void *ckey, const void *iv,
-    const struct ssh2_macalg *mac, bool etm_mode, const void *mac_key,
-    const struct ssh_compression_alg *compression, bool delayed_compression);
+    const ssh_cipheralg *cipher, const void *ckey, const void *iv,
+    const ssh2_macalg *mac, bool etm_mode, const void *mac_key,
+    const ssh_compression_alg *compression, bool delayed_compression);
 void ssh2_bpp_new_incoming_crypto(
     BinaryPacketProtocol *bpp,
-    const struct ssh2_cipheralg *cipher, const void *ckey, const void *iv,
-    const struct ssh2_macalg *mac, bool etm_mode, const void *mac_key,
-    const struct ssh_compression_alg *compression, bool delayed_compression);
+    const ssh_cipheralg *cipher, const void *ckey, const void *iv,
+    const ssh2_macalg *mac, bool etm_mode, const void *mac_key,
+    const ssh_compression_alg *compression, bool delayed_compression);
 
 /*
  * A query method specific to the interface between ssh2transport and

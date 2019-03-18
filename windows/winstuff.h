@@ -24,6 +24,7 @@
 #endif
 
 #include "defs.h"
+#include "marshal.h"
 
 #include "tree234.h"
 
@@ -40,7 +41,11 @@
 struct Filename {
     char *path;
 };
-#define f_open(filename, mode, isprivate) ( fopen((filename)->path, (mode)) )
+static inline FILE *f_open(const Filename *filename, const char *mode,
+                           bool isprivate)
+{
+    return fopen(filename->path, mode);
+}
 
 struct FontSpec {
     char *name;
@@ -100,14 +105,6 @@ struct FontSpec *fontspec_new(
 #define BOXFLAGS DLGWINDOWEXTRA
 #define BOXRESULT (DLGWINDOWEXTRA + sizeof(LONG_PTR))
 #define DF_END 0x0001
-
-#ifdef __WINE__
-#define NO_SECUREZEROMEMORY            /* winelib doesn't have this */
-#endif
-
-#ifndef NO_SECUREZEROMEMORY
-#define PLATFORM_HAS_SMEMCLR /* inhibit cross-platform one in misc.c */
-#endif
 
 #ifndef __WINE__
 /* Up-to-date Windows headers warn that the unprefixed versions of
@@ -184,9 +181,7 @@ struct FontSpec *fontspec_new(
 #define JUMPLISTREG_ERROR_VALUEWRITE_FAILURE 4
 #define JUMPLISTREG_ERROR_INVALID_VALUE 5
 
-#define PUTTY_HELP_FILE "putty.hlp"
 #define PUTTY_CHM_FILE "putty.chm"
-#define PUTTY_HELP_CONTENTS "putty.cnt"
 
 #define GETTICKCOUNT GetTickCount
 #define CURSORBLINK GetCaretBlinkTime()
@@ -231,6 +226,7 @@ void shutdown_help(void);
 bool has_help(void);
 void launch_help(HWND hwnd, const char *topic);
 void quit_help(HWND hwnd);
+int has_embedded_chm(void);            /* 1 = yes, 0 = no, -1 = N/A */
 
 /*
  * The terminal and logging context are notionally local to the
@@ -576,6 +572,8 @@ GLOBAL bool restricted_acl;
 void escape_registry_key(const char *in, strbuf *out);
 void unescape_registry_key(const char *in, strbuf *out);
 
+bool is_console_handle(HANDLE);
+
 /* A few pieces of up-to-date Windows API definition needed for older
  * compilers. */
 #ifndef LOAD_LIBRARY_SEARCH_SYSTEM32
@@ -611,22 +609,30 @@ void init_ucs(Conf *, struct unicode_data *);
 #define HANDLE_FLAG_IGNOREEOF 2
 #define HANDLE_FLAG_UNITBUFFER 4
 struct handle;
-typedef int (*handle_inputfn_t)(struct handle *h, void *data, int len);
-typedef void (*handle_outputfn_t)(struct handle *h, int new_backlog);
+typedef size_t (*handle_inputfn_t)(
+    struct handle *h, const void *data, size_t len, int err);
+typedef void (*handle_outputfn_t)(
+    struct handle *h, size_t new_backlog, int err);
 struct handle *handle_input_new(HANDLE handle, handle_inputfn_t gotdata,
 				void *privdata, int flags);
 struct handle *handle_output_new(HANDLE handle, handle_outputfn_t sentdata,
 				 void *privdata, int flags);
-int handle_write(struct handle *h, const void *data, int len);
+size_t handle_write(struct handle *h, const void *data, size_t len);
 void handle_write_eof(struct handle *h);
 HANDLE *handle_get_events(int *nevents);
 void handle_free(struct handle *h);
 void handle_got_event(HANDLE event);
-void handle_unthrottle(struct handle *h, int backlog);
-int handle_backlog(struct handle *h);
+void handle_unthrottle(struct handle *h, size_t backlog);
+size_t handle_backlog(struct handle *h);
 void *handle_get_privdata(struct handle *h);
 struct handle *handle_add_foreign_event(HANDLE event,
                                         void (*callback)(void *), void *ctx);
+/* Analogue of stdio_sink in marshal.h, for a Windows handle */
+struct handle_sink {
+    struct handle *h;
+    BinarySink_IMPLEMENTATION;
+};
+void handle_sink_init(handle_sink *sink, struct handle *h);
 
 /*
  * winpgntc.c needs to schedule callbacks for asynchronous agent
@@ -693,15 +699,7 @@ char *get_jumplist_registry_entries(void);
 #define CLIPUI_DEFAULT_MOUSE CLIPUI_EXPLICIT
 #define CLIPUI_DEFAULT_INS CLIPUI_EXPLICIT
 
-#ifdef MINEFIELD
-/*
- * Definitions for Minefield, PuTTY's own Windows-specific malloc
- * debugger in the style of Electric Fence. Implemented in winmisc.c,
- * and referred to by the main malloc wrappers in memory.c.
- */
-void *minefield_c_malloc(size_t size);
-void minefield_c_free(void *p);
-void *minefield_c_realloc(void *p, size_t size);
-#endif
+/* In winmisc.c */
+char *registry_get_string(HKEY root, const char *path, const char *leaf);
 
 #endif

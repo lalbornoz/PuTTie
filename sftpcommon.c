@@ -15,18 +15,12 @@ static void sftp_pkt_BinarySink_write(
     BinarySink *bs, const void *data, size_t length)
 {
     struct sftp_packet *pkt = BinarySink_DOWNCAST(bs, struct sftp_packet);
-    unsigned newlen;
 
     assert(length <= 0xFFFFFFFFU - pkt->length);
 
-    newlen = pkt->length + length;
-    if (pkt->maxlen < newlen) {
-	pkt->maxlen = newlen * 5 / 4 + 256;
-	pkt->data = sresize(pkt->data, pkt->maxlen, char);
-    }
-
+    sgrowarrayn_nm(pkt->data, pkt->maxlen, pkt->length, length);
     memcpy(pkt->data + pkt->length, data, length);
-    pkt->length = newlen;
+    pkt->length += length;
 }
 
 struct sftp_packet *sftp_pkt_init(int type)
@@ -111,7 +105,7 @@ void sftp_pkt_free(struct sftp_packet *pkt)
 
 void sftp_send_prepare(struct sftp_packet *pkt)
 {
-    PUT_32BIT(pkt->data, pkt->length - 4);
+    PUT_32BIT_MSB_FIRST(pkt->data, pkt->length - 4);
     if (pkt->length >= 5) {
         /* Rewrite the type code, in case the caller changed its mind
          * about pkt->type since calling sftp_pkt_init */

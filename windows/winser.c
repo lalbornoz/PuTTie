@@ -40,10 +40,11 @@ static void serial_terminate(Serial *serial)
     }
 }
 
-static int serial_gotdata(struct handle *h, void *data, int len)
+static size_t serial_gotdata(
+    struct handle *h, const void *data, size_t len, int err)
 {
     Serial *serial = (Serial *)handle_get_privdata(h);
-    if (len <= 0) {
+    if (err || len == 0) {
 	const char *error_msg;
 
 	/*
@@ -53,7 +54,7 @@ static int serial_gotdata(struct handle *h, void *data, int len)
 	 * pipes or some other non-serial device, in which case EOF
 	 * may become meaningful here.
 	 */
-	if (len == 0)
+        if (!err)
 	    error_msg = "End of file reading from serial device";
 	else
 	    error_msg = "Error reading from serial device";
@@ -66,16 +67,16 @@ static int serial_gotdata(struct handle *h, void *data, int len)
 
 	seat_connection_fatal(serial->seat, "%s", error_msg);
 
-	return 0;		       /* placate optimiser */
+	return 0;
     } else {
 	return seat_stdout(serial->seat, data, len);
     }
 }
 
-static void serial_sentdata(struct handle *h, int new_backlog)
+static void serial_sentdata(struct handle *h, size_t new_backlog, int err)
 {
     Serial *serial = (Serial *)handle_get_privdata(h);
-    if (new_backlog < 0) {
+    if (err) {
 	const char *error_msg = "Error writing to serial device";
 
 	serial_terminate(serial);
@@ -200,6 +201,9 @@ static const char *serial_init(Seat *seat, Backend **backend_handle,
     const char *err;
     char *serline;
 
+    /* No local authentication phase in this protocol */
+    seat_set_trust_status(seat, false);
+
     serial = snew(Serial);
     serial->port = INVALID_HANDLE_VALUE;
     serial->out = serial->in = NULL;
@@ -294,7 +298,7 @@ static void serial_reconfig(Backend *be, Conf *conf)
 /*
  * Called to send data down the serial connection.
  */
-static int serial_send(Backend *be, const char *buf, int len)
+static size_t serial_send(Backend *be, const char *buf, size_t len)
 {
     Serial *serial = container_of(be, Serial, backend);
 
@@ -308,7 +312,7 @@ static int serial_send(Backend *be, const char *buf, int len)
 /*
  * Called to query the current sendability status.
  */
-static int serial_sendbuffer(Backend *be)
+static size_t serial_sendbuffer(Backend *be)
 {
     Serial *serial = container_of(be, Serial, backend);
     return serial->bufsize;
@@ -385,7 +389,7 @@ static bool serial_sendok(Backend *be)
     return true;
 }
 
-static void serial_unthrottle(Backend *be, int backlog)
+static void serial_unthrottle(Backend *be, size_t backlog)
 {
     Serial *serial = container_of(be, Serial, backend);
     if (serial->in)

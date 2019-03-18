@@ -33,6 +33,9 @@ void cmdline_error(const char *fmt, ...)
 
 HANDLE inhandle, outhandle, errhandle;
 struct handle *stdin_handle, *stdout_handle, *stderr_handle;
+handle_sink stdout_hs, stderr_hs;
+StripCtrlChars *stdout_scc, *stderr_scc;
+BinarySink *stdout_bs, *stderr_bs;
 DWORD orig_console_mode;
 
 WSAEVENT netevent;
@@ -61,13 +64,11 @@ static void plink_echoedit_update(Seat *seat, bool echo, bool edit)
     SetConsoleMode(inhandle, mode);
 }
 
-static int plink_output(Seat *seat, bool is_stderr, const void *data, int len)
+static size_t plink_output(
+    Seat *seat, bool is_stderr, const void *data, size_t len)
 {
-    if (is_stderr) {
-	handle_write(stderr_handle, data, len);
-    } else {
-	handle_write(stdout_handle, data, len);
-    }
+    BinarySink *bs = is_stderr ? stderr_bs : stdout_bs;
+    put_data(bs, data, len);
 
     return handle_backlog(stdout_handle) + handle_backlog(stderr_handle);
 }
@@ -104,6 +105,8 @@ static const SeatVtable plink_seat_vt = {
     nullseat_get_x_display,
     nullseat_get_windowid,
     nullseat_get_window_pixel_size,
+    console_stripctrl_new,
+    console_set_trust_status,
 };
 static Seat plink_seat[1] = {{ &plink_seat_vt }};
 
@@ -164,6 +167,12 @@ static void usage(void)
     printf("  -share    enable use of connection sharing\n");
     printf("  -hostkey aa:bb:cc:...\n");
     printf("            manually specify a host key (may be repeated)\n");
+    printf("  -sanitise-stderr, -sanitise-stdout, "
+           "-no-sanitise-stderr, -no-sanitise-stdout\n");
+    printf("            do/don't strip control chars from standard "
+           "output/error\n");
+    printf("  -no-antispoof   omit anti-spoofing prompt after "
+           "authentication\n");
     printf("  -m file   read remote command(s) from file\n");
     printf("  -s        remote command is an SSH subsystem (SSH-2 only)\n");
     printf("  -N        don't start a shell/command (SSH-2 only)\n");
@@ -205,14 +214,11 @@ char *do_select(SOCKET skt, bool startup)
     return NULL;
 }
 
-int stdin_gotdata(struct handle *h, void *data, int len)
+size_t stdin_gotdata(struct handle *h, const void *data, size_t len, int err)
 {
-    if (len < 0) {
-	/*
-	 * Special case: report read error.
-	 */
+    if (err) {
 	char buf[4096];
-	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, -len, 0,
+	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, err, 0,
 		      buf, lenof(buf), NULL);
 	buf[lenof(buf)-1] = '\0';
 	if (buf[strlen(buf)-1] == '\n')
@@ -220,7 +226,8 @@ int stdin_gotdata(struct handle *h, void *data, int len)
 	fprintf(stderr, "Unable to read from standard input: %s\n", buf);
 	cleanup_exit(0);
     }
-    noise_ultralight(len);
+
+    noise_ultralight(NOISE_SOURCE_IOLEN, len);
     if (backend_connected(backend)) {
 	if (len > 0) {
             return backend_send(backend, data, len);
@@ -232,14 +239,11 @@ int stdin_gotdata(struct handle *h, void *data, int len)
 	return 0;
 }
 
-void stdouterr_sent(struct handle *h, int new_backlog)
+void stdouterr_sent(struct handle *h, size_t new_backlog, int err)
 {
-    if (new_backlog < 0) {
-	/*
-	 * Special case: report write error.
-	 */
+    if (err) {
 	char buf[4096];
-	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, -new_backlog, 0,
+	FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, err, 0,
 		      buf, lenof(buf), NULL);
 	buf[lenof(buf)-1] = '\0';
 	if (buf[strlen(buf)-1] == '\n')
@@ -248,6 +252,7 @@ void stdouterr_sent(struct handle *h, int new_backlog)
 		(h == stdout_handle ? "output" : "error"), buf);
 	cleanup_exit(0);
     }
+
     if (backend_connected(backend)) {
         backend_unthrottle(backend, (handle_backlog(stdout_handle) +
                                      handle_backlog(stderr_handle)));
@@ -261,11 +266,12 @@ int main(int argc, char **argv)
 {
     bool sending;
     SOCKET *sklist;
-    int skcount, sksize;
+    size_t skcount, sksize;
     int exitcode;
     bool errors;
     bool use_subsystem = false;
     bool just_test_share_exists = false;
+    enum TriState sanitise_stdout = AUTO, sanitise_stderr = AUTO;
     unsigned long now, next, then;
     const struct BackendVtable *vt;
 
@@ -337,33 +343,36 @@ int main(int argc, char **argv)
             exit(1);
         } else if (!strcmp(p, "-shareexists")) {
             just_test_share_exists = true;
+        } else if (!strcmp(p, "-sanitise-stdout") ||
+                   !strcmp(p, "-sanitize-stdout")) {
+            sanitise_stdout = FORCE_ON;
+        } else if (!strcmp(p, "-no-sanitise-stdout") ||
+                   !strcmp(p, "-no-sanitize-stdout")) {
+            sanitise_stdout = FORCE_OFF;
+        } else if (!strcmp(p, "-sanitise-stderr") ||
+                   !strcmp(p, "-sanitize-stderr")) {
+            sanitise_stderr = FORCE_ON;
+        } else if (!strcmp(p, "-no-sanitise-stderr") ||
+                   !strcmp(p, "-no-sanitize-stderr")) {
+            sanitise_stderr = FORCE_OFF;
+        } else if (!strcmp(p, "-no-antispoof")) {
+            console_antispoof_prompt = false;
 	} else if (*p != '-') {
-            char *command;
-            int cmdlen, cmdsize;
-            cmdlen = cmdsize = 0;
-            command = NULL;
+            strbuf *cmdbuf = strbuf_new();
 
-            while (argc) {
-                while (*p) {
-                    if (cmdlen >= cmdsize) {
-                        cmdsize = cmdlen + 512;
-                        command = sresize(command, cmdsize, char);
-                    }
-                    command[cmdlen++]=*p++;
-                }
-                if (cmdlen >= cmdsize) {
-                    cmdsize = cmdlen + 512;
-                    command = sresize(command, cmdsize, char);
-                }
-                command[cmdlen++]=' '; /* always add trailing space */
-                if (--argc) p = *++argv;
+            while (argc > 0) {
+                if (cmdbuf->len > 0)
+                    put_byte(cmdbuf, ' '); /* add space separator */
+                put_datapl(cmdbuf, ptrlen_from_asciz(p));
+                if (--argc > 0)
+                    p = *++argv;
             }
-            if (cmdlen) command[--cmdlen]='\0';
-            /* change trailing blank to NUL */
-            conf_set_str(conf, CONF_remote_cmd, command);
+
+            conf_set_str(conf, CONF_remote_cmd, cmdbuf->s);
             conf_set_str(conf, CONF_remote_cmd2, "");
             conf_set_bool(conf, CONF_nopty, true);  /* command => no tty */
 
+            strbuf_free(cmdbuf);
             break;		       /* done with cmdline */
         } else {
             fprintf(stderr, "plink: unknown option \"%s\"\n", p);
@@ -485,6 +494,37 @@ int main(int argc, char **argv)
      */
     stdout_handle = handle_output_new(outhandle, stdouterr_sent, NULL, 0);
     stderr_handle = handle_output_new(errhandle, stdouterr_sent, NULL, 0);
+    handle_sink_init(&stdout_hs, stdout_handle);
+    handle_sink_init(&stderr_hs, stderr_handle);
+    stdout_bs = BinarySink_UPCAST(&stdout_hs);
+    stderr_bs = BinarySink_UPCAST(&stderr_hs);
+
+    /*
+     * Decide whether to sanitise control sequences out of standard
+     * output and standard error.
+     *
+     * If we weren't given a command-line override, we do this if (a)
+     * the fd in question is pointing at a console, and (b) we aren't
+     * trying to allocate a terminal as part of the session.
+     *
+     * (Rationale: the risk of control sequences is that they cause
+     * confusion when sent to a local console, so if there isn't one,
+     * no problem. Also, if we allocate a remote terminal, then we
+     * sent a terminal type, i.e. we told it what kind of escape
+     * sequences we _like_, i.e. we were expecting to receive some.)
+     */
+    if (sanitise_stdout == FORCE_ON ||
+        (sanitise_stdout == AUTO && is_console_handle(outhandle) &&
+         conf_get_bool(conf, CONF_nopty))) {
+        stdout_scc = stripctrl_new(stdout_bs, true, L'\0');
+        stdout_bs = BinarySink_UPCAST(stdout_scc);
+    }
+    if (sanitise_stderr == FORCE_ON ||
+        (sanitise_stderr == AUTO && is_console_handle(errhandle) &&
+         conf_get_bool(conf, CONF_nopty))) {
+        stderr_scc = stripctrl_new(stderr_bs, true, L'\0');
+        stderr_bs = BinarySink_UPCAST(stderr_scc);
+    }
 
     main_thread_id = GetCurrentThreadId();
 
@@ -545,10 +585,7 @@ int main(int argc, char **argv)
 		 socket = next_socket(&socketstate)) i++;
 
 	    /* Expand the buffer if necessary. */
-	    if (i > sksize) {
-		sksize = i + 16;
-		sklist = sresize(sklist, sksize, SOCKET);
-	    }
+            sgrowarray(sklist, sksize, i);
 
 	    /* Retrieve the sockets into sklist. */
 	    skcount = 0;
@@ -574,8 +611,7 @@ int main(int argc, char **argv)
                     };
                     int e;
 
-		    noise_ultralight(socket);
-		    noise_ultralight(things.lNetworkEvents);
+		    noise_ultralight(NOISE_SOURCE_IOID, socket);
 
                     for (e = 0; e < lenof(eventtypes); e++)
                         if (things.lNetworkEvents & eventtypes[e].mask) {

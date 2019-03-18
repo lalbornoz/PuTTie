@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "putty.h"
+#include "mpint.h"
 #include "ssh.h"
 #include "sshbpp.h"
 #include "sshppl.h"
@@ -229,18 +230,11 @@ PktOut *ssh_new_packet(void)
     return pkt;
 }
 
-static void ssh_pkt_ensure(PktOut *pkt, int length)
-{
-    if (pkt->maxlen < length) {
-        pkt->maxlen = length + 256;
-        pkt->data = sresize(pkt->data, pkt->maxlen, unsigned char);
-    }
-}
 static void ssh_pkt_adddata(PktOut *pkt, const void *data, int len)
 {
+    sgrowarrayn_nm(pkt->data, pkt->maxlen, pkt->length, len);
+    memcpy(pkt->data + pkt->length, data, len);
     pkt->length += len;
-    ssh_pkt_ensure(pkt, pkt->length);
-    memcpy(pkt->data + pkt->length - len, data, len);
 }
 
 static void ssh_pkt_BinarySink_write(BinarySink *bs,
@@ -261,7 +255,8 @@ void ssh_free_pktout(PktOut *pkt)
  */
 
 static void zombiechan_free(Channel *chan);
-static int zombiechan_send(Channel *chan, bool is_stderr, const void *, int);
+static size_t zombiechan_send(
+    Channel *chan, bool is_stderr, const void *, size_t);
 static void zombiechan_set_input_wanted(Channel *chan, bool wanted);
 static void zombiechan_do_nothing(Channel *chan);
 static void zombiechan_open_failure(Channel *chan, const char *);
@@ -317,8 +312,8 @@ static void zombiechan_open_failure(Channel *chan, const char *errtext)
     assert(chan->vt == &zombiechan_channelvt);
 }
 
-static int zombiechan_send(Channel *chan, bool is_stderr,
-                           const void *data, int length)
+static size_t zombiechan_send(Channel *chan, bool is_stderr,
+                              const void *data, size_t length)
 {
     assert(chan->vt == &zombiechan_channelvt);
     return 0;
@@ -341,12 +336,12 @@ static bool zombiechan_want_close(Channel *chan, bool sent_eof, bool rcvd_eof)
 
 void chan_remotely_opened_confirmation(Channel *chan)
 {
-    assert(0 && "this channel type should never receive OPEN_CONFIRMATION");
+    unreachable("this channel type should never receive OPEN_CONFIRMATION");
 }
 
 void chan_remotely_opened_failure(Channel *chan, const char *errtext)
 {
-    assert(0 && "this channel type should never receive OPEN_FAILURE");
+    unreachable("this channel type should never receive OPEN_FAILURE");
 }
 
 bool chan_default_want_close(
@@ -434,7 +429,7 @@ bool chan_no_change_window_size(
 
 void chan_no_request_response(Channel *chan, bool success)
 {
-    assert(0 && "this channel type should never send a want-reply request");
+    unreachable("this channel type should never send a want-reply request");
 }
 
 /* ----------------------------------------------------------------------
@@ -555,7 +550,7 @@ struct ssh_ttymodes get_ttymodes_from_conf(Seat *seat, Conf *conf)
                     ival = (atoi(sval) != 0);
                 break;
               default:
-                assert(0 && "Bad mode->type");
+                unreachable("Bad mode->type");
             }
 
             modes.have_mode[mode->opcode] = true;
@@ -809,7 +804,7 @@ void ssh_ppl_user_output_string_and_free(PacketProtocolLayer *ppl, char *text)
     /* Messages sent via this function are from the SSH layer, not
      * from the server-side process, so they always have the stderr
      * flag set. */
-    seat_stderr(ppl->seat, text, strlen(text));
+    seat_stderr_pl(ppl->seat, ptrlen_from_asciz(text));
     sfree(text);
 }
 
@@ -821,7 +816,11 @@ void ssh_ppl_user_output_string_and_free(PacketProtocolLayer *ppl, char *text)
 static void ssh_bpp_input_raw_data_callback(void *context)
 {
     BinaryPacketProtocol *bpp = (BinaryPacketProtocol *)context;
+    Ssh *ssh = bpp->ssh;               /* in case bpp is about to get freed */
     ssh_bpp_handle_input(bpp);
+    /* If we've now cleared enough backlog on the input connection, we
+     * may need to unfreeze it. */
+    ssh_conn_processed_data(ssh);
 }
 
 static void ssh_bpp_output_packet_callback(void *context)
@@ -1005,18 +1004,16 @@ bool ssh1_common_filter_queue(PacketProtocolLayer *ppl)
 
 void ssh1_compute_session_id(
     unsigned char *session_id, const unsigned char *cookie,
-    struct RSAKey *hostkey, struct RSAKey *servkey)
+    RSAKey *hostkey, RSAKey *servkey)
 {
-    struct MD5Context md5c;
-    int i;
+    ssh_hash *hash = ssh_hash_new(&ssh_md5);
 
-    MD5Init(&md5c);
-    for (i = (bignum_bitcount(hostkey->modulus) + 7) / 8; i-- ;)
-        put_byte(&md5c, bignum_byte(hostkey->modulus, i));
-    for (i = (bignum_bitcount(servkey->modulus) + 7) / 8; i-- ;)
-        put_byte(&md5c, bignum_byte(servkey->modulus, i));
-    put_data(&md5c, cookie, 8);
-    MD5Final(session_id, &md5c);
+    for (size_t i = (mp_get_nbits(hostkey->modulus) + 7) / 8; i-- ;)
+        put_byte(hash, mp_get_byte(hostkey->modulus, i));
+    for (size_t i = (mp_get_nbits(servkey->modulus) + 7) / 8; i-- ;)
+        put_byte(hash, mp_get_byte(servkey->modulus, i));
+    put_data(hash, cookie, 8);
+    ssh_hash_final(hash, session_id);
 }
 
 /* ----------------------------------------------------------------------

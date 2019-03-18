@@ -28,7 +28,7 @@ typedef struct UnixSftpServer UnixSftpServer;
 struct UnixSftpServer {
     unsigned *fdseqs;
     bool *fdsopen;
-    int fdsize;
+    size_t fdsize;
 
     tree234 *dirhandles;
     int last_dirhandle_index;
@@ -58,7 +58,6 @@ static int uss_dirhandle_cmp(void *av, void *bv)
 
 static SftpServer *uss_new(const SftpServerVtable *vt)
 {
-    int i;
     UnixSftpServer *uss = snew(UnixSftpServer);
 
     memset(uss, 0, sizeof(UnixSftpServer));
@@ -66,8 +65,7 @@ static SftpServer *uss_new(const SftpServerVtable *vt)
     uss->dirhandles = newtree234(uss_dirhandle_cmp);
     uss->srv.vt = vt;
 
-    for (i = 0; i < lenof(uss->handlekey); i++)
-        uss->handlekey[i] = random_byte();
+    random_read(uss->handlekey, sizeof(uss->handlekey));
 
     return &uss->srv;
 }
@@ -76,9 +74,8 @@ static void uss_free(SftpServer *srv)
 {
     UnixSftpServer *uss = container_of(srv, UnixSftpServer, srv);
     struct uss_dirhandle *udh;
-    int i;
 
-    for (i = 0; i < uss->fdsize; i++)
+    for (size_t i = 0; i < uss->fdsize; i++)
         if (uss->fdsopen[i])
             close(i);
     sfree(uss->fdseqs);
@@ -95,8 +92,8 @@ static void uss_return_handle_raw(
     UnixSftpServer *uss, SftpReplyBuilder *reply, int index, unsigned seq)
 {
     unsigned char handlebuf[8];
-    PUT_32BIT(handlebuf, index);
-    PUT_32BIT(handlebuf + 4, seq);
+    PUT_32BIT_MSB_FIRST(handlebuf, index);
+    PUT_32BIT_MSB_FIRST(handlebuf + 4, seq);
     des_encrypt_xdmauth(uss->handlekey, handlebuf, 8);
     fxp_reply_handle(reply, make_ptrlen(handlebuf, 8));
 }
@@ -110,8 +107,8 @@ static bool uss_decode_handle(
         return false;
     memcpy(handlebuf, handle.ptr, 8);
     des_decrypt_xdmauth(uss->handlekey, handlebuf, 8);
-    *index = toint(GET_32BIT(handlebuf));
-    *seq = GET_32BIT(handlebuf + 4);
+    *index = toint(GET_32BIT_MSB_FIRST(handlebuf));
+    *seq = GET_32BIT_MSB_FIRST(handlebuf + 4);
     return true;
 }
 
@@ -120,9 +117,8 @@ static void uss_return_new_handle(
 {
     assert(fd >= 0);
     if (fd >= uss->fdsize) {
-        int old_size = uss->fdsize;
-        uss->fdsize = fd * 5 / 4 + 32;
-        uss->fdseqs = sresize(uss->fdseqs, uss->fdsize, unsigned);
+        size_t old_size = uss->fdsize;
+        sgrowarray(uss->fdseqs, uss->fdsize, fd);
         uss->fdsopen = sresize(uss->fdsopen, uss->fdsize, bool);
         while (old_size < uss->fdsize) {
             uss->fdseqs[old_size] = 0;
@@ -652,8 +648,9 @@ static void uss_readdir(SftpServer *srv, SftpReplyBuilder *reply,
                 tm = *localtime(&st.st_mtime);
 
                 longnamebuf = dupprintf(
-                    "%s %3u %-8s %-8s %8"PRIu64" %.3s %2d %02d:%02d %s",
-                    perms, (unsigned)st.st_nlink, user, group, st.st_size,
+                    "%s %3u %-8s %-8s %8"PRIuMAX" %.3s %2d %02d:%02d %s",
+                    perms, (unsigned)st.st_nlink, user, group,
+                    (uintmax_t)st.st_size,
                     (&"JanFebMarAprMayJunJulAugSepOctNovDec"[3*tm.tm_mon]),
                     tm.tm_mday, tm.tm_hour, tm.tm_min, de->d_name);
                 longname = ptrlen_from_asciz(longnamebuf);

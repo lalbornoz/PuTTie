@@ -38,7 +38,7 @@ struct sftp_packet *sftp_recv(void)
     if (!sftp_recvdata(x, 4))
 	return NULL;
 
-    pkt = sftp_recv_prepare(GET_32BIT(x));
+    pkt = sftp_recv_prepare(GET_32BIT_MSB_FIRST(x));
 
     if (!sftp_recvdata(pkt->data, pkt->length)) {
 	sftp_pkt_free(pkt);
@@ -213,8 +213,7 @@ static int fxp_got_status(struct sftp_packet *pktin)
 	    fxp_error_message = "malformed FXP_STATUS packet";
 	    fxp_errtype = -1;
 	} else {
-	    if (fxp_errtype < 0 ||
-		fxp_errtype >= sizeof(messages) / sizeof(*messages))
+	    if (fxp_errtype < 0 || fxp_errtype >= lenof(messages))
 		fxp_error_message = "unknown error code";
 	    else
 		fxp_error_message = messages[fxp_errtype];

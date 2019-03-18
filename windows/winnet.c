@@ -60,7 +60,7 @@ struct NetSocket {
                            * notification while we were frozen */
     bool localhost_only;               /* for listening sockets */
     char oobdata[1];
-    int sending_oob;
+    size_t sending_oob;
     bool oobinline, nodelay, keepalive, privport;
     enum { EOF_NO, EOF_PENDING, EOF_SENT } outgoingeof;
     SockAddr *addr;
@@ -784,7 +784,7 @@ void sk_addrcopy(SockAddr *addr, char *buf)
 	    memcpy(buf, &((struct sockaddr_in6 *)step.ai->ai_addr)->sin6_addr,
 		   sizeof(struct in6_addr));
 	else
-	    assert(false);
+	    unreachable("bad address family in sk_addrcopy");
     } else
 #endif
     if (family == AF_INET) {
@@ -832,8 +832,8 @@ static void sk_net_flush(Socket *s)
 }
 
 static void sk_net_close(Socket *s);
-static int sk_net_write(Socket *s, const void *data, int len);
-static int sk_net_write_oob(Socket *s, const void *data, int len);
+static size_t sk_net_write(Socket *s, const void *data, size_t len);
+static size_t sk_net_write_oob(Socket *s, const void *data, size_t len);
 static void sk_net_write_eof(Socket *s);
 static void sk_net_set_frozen(Socket *s, bool is_frozen);
 static const char *sk_net_socket_error(Socket *s);
@@ -1337,6 +1337,8 @@ static void sk_net_close(Socket *sock)
     if (s->child)
 	sk_net_close(&s->child->sock);
 
+    bufchain_clear(&s->output_data);
+
     del234(sktree, s);
     do_select(s->s, false);
     p_closesocket(s->s);
@@ -1375,8 +1377,9 @@ void try_send(NetSocket *s)
     while (s->sending_oob || bufchain_size(&s->output_data) > 0) {
 	int nsent;
 	DWORD err;
-	void *data;
-	int len, urgentflag;
+	const void *data;
+	size_t len;
+        int urgentflag;
 
 	if (s->sending_oob) {
 	    urgentflag = MSG_OOB;
@@ -1384,10 +1387,13 @@ void try_send(NetSocket *s)
 	    data = &s->oobdata;
 	} else {
 	    urgentflag = 0;
-	    bufchain_prefix(&s->output_data, &data, &len);
+            ptrlen bufdata = bufchain_prefix(&s->output_data);
+            data = bufdata.ptr;
+            len = bufdata.len;
 	}
+        len = min(len, INT_MAX);       /* WinSock send() takes an int */
 	nsent = p_send(s->s, data, len, urgentflag);
-	noise_ultralight(nsent);
+	noise_ultralight(NOISE_SOURCE_IOLEN, nsent);
 	if (nsent <= 0) {
 	    err = (nsent < 0 ? p_WSAGetLastError() : 0);
 	    if ((err < WSABASEERR && nsent < 0) || err == WSAEWOULDBLOCK) {
@@ -1441,7 +1447,7 @@ void try_send(NetSocket *s)
     }
 }
 
-static int sk_net_write(Socket *sock, const void *buf, int len)
+static size_t sk_net_write(Socket *sock, const void *buf, size_t len)
 {
     NetSocket *s = container_of(sock, NetSocket, sock);
 
@@ -1461,7 +1467,7 @@ static int sk_net_write(Socket *sock, const void *buf, int len)
     return bufchain_size(&s->output_data);
 }
 
-static int sk_net_write_oob(Socket *sock, const void *buf, int len)
+static size_t sk_net_write_oob(Socket *sock, const void *buf, size_t len)
 {
     NetSocket *s = container_of(sock, NetSocket, sock);
 
@@ -1538,7 +1544,7 @@ void select_result(WPARAM wParam, LPARAM lParam)
 	return;
     }
 
-    noise_ultralight(lParam);
+    noise_ultralight(NOISE_SOURCE_IOID, wParam);
 
     switch (WSAGETSELECTEVENT(lParam)) {
       case FD_CONNECT:
@@ -1582,7 +1588,7 @@ void select_result(WPARAM wParam, LPARAM lParam)
 	    atmark = true;
 
 	ret = p_recv(s->s, buf, sizeof(buf), 0);
-	noise_ultralight(ret);
+	noise_ultralight(NOISE_SOURCE_IOLEN, ret);
 	if (ret < 0) {
 	    err = p_WSAGetLastError();
 	    if (err == WSAEWOULDBLOCK) {
@@ -1605,7 +1611,7 @@ void select_result(WPARAM wParam, LPARAM lParam)
 	 * end with type==2 (urgent data).
 	 */
 	ret = p_recv(s->s, buf, sizeof(buf), MSG_OOB);
-	noise_ultralight(ret);
+	noise_ultralight(NOISE_SOURCE_IOLEN, ret);
 	if (ret <= 0) {
             int err = p_WSAGetLastError();
 	    plug_closing(s->plug, winsock_error_string(err), err, 0);
@@ -1810,18 +1816,10 @@ int net_service_lookup(char *service)
 
 char *get_hostname(void)
 {
-    int len = 128;
-    char *hostname = NULL;
-    do {
-	len *= 2;
-	hostname = sresize(hostname, len, char);
-	if (p_gethostname(hostname, len) < 0) {
-	    sfree(hostname);
-	    hostname = NULL;
-	    break;
-	}
-    } while (strlen(hostname) >= (size_t)(len-1));
-    return hostname;
+    char hostbuf[256]; /* MSDN docs for gethostname() promise this is enough */
+    if (p_gethostname(hostbuf, sizeof(hostbuf)) < 0)
+        return NULL;
+    return dupstr(hostbuf);
 }
 
 SockAddr *platform_get_x11_unix_address(const char *display, int displaynum,

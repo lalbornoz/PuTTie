@@ -304,14 +304,12 @@ SshChannel *ssh2_session_open(ConnectionLayer *cl, Channel *chan)
 SshChannel *ssh2_serverside_x11_open(
     ConnectionLayer *cl, Channel *chan, const SocketPeerInfo *pi)
 {
-    assert(false && "Should never be called in the client");
-    return 0;                          /* placate optimiser */
+    unreachable("Should never be called in the client");
 }
 
 SshChannel *ssh2_serverside_agent_open(ConnectionLayer *cl, Channel *chan)
 {
-    assert(false && "Should never be called in the client");
-    return 0;                          /* placate optimiser */
+    unreachable("Should never be called in the client");
 }
 
 static void ssh2_channel_response(
@@ -358,19 +356,19 @@ bool ssh2channel_start_subsystem(
 
 void ssh2channel_send_exit_status(SshChannel *sc, int status)
 {
-    assert(false && "Should never be called in the client");
+    unreachable("Should never be called in the client");
 }
 
 void ssh2channel_send_exit_signal(
     SshChannel *sc, ptrlen signame, bool core_dumped, ptrlen msg)
 {
-    assert(false && "Should never be called in the client");
+    unreachable("Should never be called in the client");
 }
 
 void ssh2channel_send_exit_signal_numeric(
     SshChannel *sc, int signum, bool core_dumped, ptrlen msg)
 {
-    assert(false && "Should never be called in the client");
+    unreachable("Should never be called in the client");
 }
 
 void ssh2channel_request_x11_forwarding(
@@ -475,4 +473,9 @@ void ssh2channel_send_terminal_size_change(SshChannel *sc, int w, int h)
     put_uint32(pktout, 0);	       /* pixel width */
     put_uint32(pktout, 0);	       /* pixel height */
     pq_push(s->ppl.out_pq, pktout);
+}
+
+bool ssh2_connection_need_antispoof_prompt(struct ssh2_connection_state *s)
+{
+    return !seat_set_trust_status(s->ppl.seat, false);
 }

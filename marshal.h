@@ -3,6 +3,8 @@
 
 #include "defs.h"
 
+#include <stdio.h>
+
 /*
  * A sort of 'abstract base class' or 'interface' or 'trait' which is
  * the common feature of all types that want to accept data formatted
@@ -31,10 +33,16 @@ struct BinarySink {
  * put 'BinarySink_DELEGATE_IMPLEMENTATION' in its declaration, and
  * when an instance is set up, use 'BinarySink_DELEGATE_INIT' to point
  * at the object it wants to delegate to.
+ *
+ * In such a delegated structure, you might sometimes want to have the
+ * delegation stop being valid (e.g. it might be delegating to an
+ * object that only sometimes exists). You can null out the delegate
+ * pointer using BinarySink_DELEGATE_CLEAR.
  */
 #define BinarySink_DELEGATE_IMPLEMENTATION BinarySink *binarysink_
 #define BinarySink_DELEGATE_INIT(obj, othersink) \
     ((obj)->binarysink_ = BinarySink_UPCAST(othersink))
+#define BinarySink_DELEGATE_CLEAR(obj) ((obj)->binarysink_ = NULL)
 
 /*
  * The implementing type's write function will want to downcast its
@@ -128,6 +136,8 @@ struct BinarySink {
  * rest of these macros. */
 #define put_data(bs, val, len) \
     BinarySink_put_data(BinarySink_UPCAST(bs), val, len)
+#define put_datapl(bs, pl) \
+    BinarySink_put_datapl(BinarySink_UPCAST(bs), pl)
 
 /*
  * The underlying real C functions that implement most of those
@@ -140,6 +150,7 @@ struct BinarySink {
  * declaration(s) of their other parameter type(s) are in scope.
  */
 void BinarySink_put_data(BinarySink *, const void *data, size_t len);
+void BinarySink_put_datapl(BinarySink *, ptrlen);
 void BinarySink_put_padding(BinarySink *, size_t len, unsigned char padbyte);
 void BinarySink_put_byte(BinarySink *, unsigned char);
 void BinarySink_put_bool(BinarySink *, bool);
@@ -153,6 +164,8 @@ struct strbuf;
 void BinarySink_put_stringsb(BinarySink *, struct strbuf *);
 void BinarySink_put_asciz(BinarySink *, const char *str);
 bool BinarySink_put_pstring(BinarySink *, const char *str);
+void BinarySink_put_mp_ssh1(BinarySink *bs, mp_int *x);
+void BinarySink_put_mp_ssh2(BinarySink *bs, mp_int *x);
 
 /* ---------------------------------------------------------------------- */
 
@@ -195,7 +208,7 @@ struct BinarySource {
      * types.
      *
      * If the usual return value is dynamically allocated (e.g. a
-     * Bignum, or a normal C 'char *' string), then the error value is
+     * bignum, or a normal C 'char *' string), then the error value is
      * also dynamic in the same way. So you have to free exactly the
      * same set of things whether or not there was a decoding error,
      * which simplifies exit paths - for example, you could call a big
@@ -216,19 +229,25 @@ struct BinarySource {
  * Implementation macros, similar to BinarySink.
  */
 #define BinarySource_IMPLEMENTATION BinarySource binarysource_[1]
-#define BinarySource_INIT__(obj, data_, len_)    \
-    ((obj)->data = (data_),                             \
-     (obj)->len = (len_),                               \
-     (obj)->pos = 0,                                    \
-     (obj)->err = BSE_NO_ERROR,                         \
-     (obj)->binarysource_ = (obj))
-#define BinarySource_BARE_INIT(obj, data_, len_)                \
+static inline void BinarySource_INIT__(BinarySource *src, ptrlen data)
+{
+    src->data = data.ptr;
+    src->len = data.len;
+    src->pos = 0;
+    src->err = BSE_NO_ERROR;
+    src->binarysource_ = src;
+}
+#define BinarySource_BARE_INIT_PL(obj, pl)                      \
     TYPECHECK(&(obj)->binarysource_ == (BinarySource **)0,      \
-              BinarySource_INIT__(obj, data_, len_))
-#define BinarySource_INIT(obj, data_, len_)                             \
+              BinarySource_INIT__(obj, pl))
+#define BinarySource_BARE_INIT(obj, data_, len_)                \
+    BinarySource_BARE_INIT_PL(obj, make_ptrlen(data_, len_))
+#define BinarySource_INIT_PL(obj, pl)                                   \
     TYPECHECK(&(obj)->binarysource_ == (BinarySource (*)[1])0,          \
-              BinarySource_INIT__(BinarySource_UPCAST(obj), data_, len_))
-#define BinarySource_DOWNCAST(object, type)                               \
+              BinarySource_INIT__(BinarySource_UPCAST(obj), pl))
+#define BinarySource_INIT(obj, data_, len_)             \
+    BinarySource_INIT_PL(obj, make_ptrlen(data_, len_))
+#define BinarySource_DOWNCAST(object, type)                             \
     TYPECHECK((object) == ((type *)0)->binarysource_,                     \
               ((type *)(((char *)(object)) - offsetof(type, binarysource_))))
 #define BinarySource_UPCAST(object)                                       \
@@ -281,5 +300,24 @@ uint64_t BinarySource_get_uint64(BinarySource *);
 ptrlen BinarySource_get_string(BinarySource *);
 const char *BinarySource_get_asciz(BinarySource *);
 ptrlen BinarySource_get_pstring(BinarySource *);
+mp_int *BinarySource_get_mp_ssh1(BinarySource *src);
+mp_int *BinarySource_get_mp_ssh2(BinarySource *src);
+
+/*
+ * A couple of useful standard BinarySink implementations, which live
+ * as sensibly here as anywhere else: one that makes a BinarySink
+ * whose effect is to write to a stdio stream, and one whose effect is
+ * to append to a bufchain.
+ */
+struct stdio_sink {
+    FILE *fp;
+    BinarySink_IMPLEMENTATION;
+};
+struct bufchain_sink {
+    bufchain *ch;
+    BinarySink_IMPLEMENTATION;
+};
+void stdio_sink_init(stdio_sink *sink, FILE *fp);
+void bufchain_sink_init(bufchain_sink *sink, bufchain *ch);
 
 #endif /* PUTTY_MARSHAL_H */

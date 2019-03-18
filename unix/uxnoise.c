@@ -82,7 +82,6 @@ void noise_get_heavy(void (*func) (void *, int))
     }
 
     read_random_seed(func);
-    random_save_seed();
 }
 
 void random_save_seed(void)
@@ -98,17 +97,6 @@ void random_save_seed(void)
 }
 
 /*
- * This function is called every time the random pool needs
- * stirring, and will acquire the system time.
- */
-void noise_get_light(void (*func) (void *, int))
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    func(&tv, sizeof(tv));
-}
-
-/*
  * This function is called on a timer, and grabs as much changeable
  * system data as it can quickly get its hands on.
  */
@@ -121,16 +109,16 @@ void noise_regular(void)
 
     if ((fd = open("/proc/meminfo", O_RDONLY)) >= 0) {
 	while ( (ret = read(fd, buf, sizeof(buf))) > 0)
-	    random_add_noise(buf, ret);
+	    random_add_noise(NOISE_SOURCE_MEMINFO, buf, ret);
 	close(fd);
     }
     if ((fd = open("/proc/stat", O_RDONLY)) >= 0) {
 	while ( (ret = read(fd, buf, sizeof(buf))) > 0)
-	    random_add_noise(buf, ret);
+	    random_add_noise(NOISE_SOURCE_STAT, buf, ret);
 	close(fd);
     }
     getrusage(RUSAGE_SELF, &rusage);
-    random_add_noise(&rusage, sizeof(rusage));
+    random_add_noise(NOISE_SOURCE_RUSAGE, &rusage, sizeof(rusage));
 }
 
 /*
@@ -138,10 +126,17 @@ void noise_regular(void)
  * will add the current time to the noise pool. It gets the scan
  * code or mouse position passed in, and adds that too.
  */
-void noise_ultralight(unsigned long data)
+void noise_ultralight(NoiseSourceId id, unsigned long data)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    random_add_noise(&tv, sizeof(tv));
-    random_add_noise(&data, sizeof(data));
+    random_add_noise(NOISE_SOURCE_TIME, &tv, sizeof(tv));
+    random_add_noise(id, &data, sizeof(data));
+}
+
+uint64_t prng_reseed_time_ms(void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }

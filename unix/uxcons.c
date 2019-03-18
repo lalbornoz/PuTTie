@@ -13,9 +13,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/time.h>
-#ifndef HAVE_NO_SYS_SELECT_H
-#include <sys/select.h>
-#endif
 
 #include "putty.h"
 #include "storage.h"
@@ -122,12 +119,13 @@ void timer_change_notify(unsigned long next)
 /*
  * Wrapper around Unix read(2), suitable for use on a file descriptor
  * that's been set into nonblocking mode. Handles EAGAIN/EWOULDBLOCK
- * by means of doing a one-fd select and then trying again; all other
- * errors (including errors from select) are returned to the caller.
+ * by means of doing a one-fd poll and then trying again; all other
+ * errors (including errors from poll) are returned to the caller.
  */
 static int block_and_read(int fd, void *buf, size_t len)
 {
     int ret;
+    pollwrapper *pw = pollwrap_new();
 
     while ((ret = read(fd, buf, len)) < 0 && (
 #ifdef EAGAIN
@@ -138,18 +136,18 @@ static int block_and_read(int fd, void *buf, size_t len)
 #endif
                false)) {
 
-        fd_set rfds;
-        FD_ZERO(&rfds);
-        FD_SET(fd, &rfds);
+        pollwrap_clear(pw);
+        pollwrap_add_fd_rwx(pw, fd, SELECT_R);
         do {
-            ret = select(fd+1, &rfds, NULL, NULL, NULL);
+            ret = pollwrap_poll_endless(pw);
         } while (ret < 0 && errno == EINTR);
         assert(ret != 0);
         if (ret < 0)
             return ret;
-        assert(FD_ISSET(fd, &rfds));
+        assert(pollwrap_check_fd_rwx(pw, fd, SELECT_R));
     }
 
+    pollwrap_free(pw);
     return ret;
 }
 
@@ -416,6 +414,29 @@ static int console_askappend(LogPolicy *lp, Filename *filename,
 	return 0;
 }
 
+bool console_antispoof_prompt = true;
+bool console_set_trust_status(Seat *seat, bool trusted)
+{
+    if (console_batch_mode || !is_interactive() || !console_antispoof_prompt) {
+        /*
+         * In batch mode, we don't need to worry about the server
+         * mimicking our interactive authentication, because the user
+         * already knows not to expect any.
+         *
+         * If standard input isn't connected to a terminal, likewise,
+         * because even if the server did send a spoof authentication
+         * prompt, the user couldn't respond to it via the terminal
+         * anyway.
+         *
+         * We also vacuously return success if the user has purposely
+         * disabled the antispoof prompt.
+         */
+        return true;
+    }
+
+    return false;
+}
+
 /*
  * Warn about the obsolescent key file format.
  * 
@@ -465,6 +486,12 @@ static void console_eventlog(LogPolicy *lp, const char *string)
         console_logging_error(lp, string);
 }
 
+StripCtrlChars *console_stripctrl_new(
+    Seat *seat, BinarySink *bs_out, SeatInteractionContext sic)
+{
+    return stripctrl_new(bs_out, false, 0);
+}
+
 /*
  * Special functions to read and print to the console for password
  * prompts and the like. Uses /dev/tty or stdin/stderr, in that order
@@ -490,18 +517,9 @@ static void console_close(FILE *outfp, int infd)
         fclose(outfp);             /* will automatically close infd too */
 }
 
-static void console_prompt_text(FILE *outfp, const char *data, int len)
+static void console_write(FILE *outfp, ptrlen data)
 {
-    bufchain sanitised;
-    void *vdata;
-
-    bufchain_init(&sanitised);
-    sanitise_term_data(&sanitised, data, len);
-    while (bufchain_size(&sanitised) > 0) {
-        bufchain_prefix(&sanitised, &vdata, &len);
-        fwrite(vdata, 1, len, outfp);
-        bufchain_consume(&sanitised, len);
-    }
+    fwrite(data.ptr, 1, data.len, outfp);
     fflush(outfp);
 }
 
@@ -530,17 +548,17 @@ int console_get_userpass_input(prompts_t *p)
      */
     /* We only print the `name' caption if we have to... */
     if (p->name_reqd && p->name) {
-	size_t l = strlen(p->name);
-	console_prompt_text(outfp, p->name, l);
-	if (p->name[l-1] != '\n')
-	    console_prompt_text(outfp, "\n", 1);
+	ptrlen plname = ptrlen_from_asciz(p->name);
+	console_write(outfp, plname);
+        if (!ptrlen_endswith(plname, PTRLEN_LITERAL("\n"), NULL))
+	    console_write(outfp, PTRLEN_LITERAL("\n"));
     }
     /* ...but we always print any `instruction'. */
     if (p->instruction) {
-	size_t l = strlen(p->instruction);
-	console_prompt_text(outfp, p->instruction, l);
-	if (p->instruction[l-1] != '\n')
-	    console_prompt_text(outfp, "\n", 1);
+	ptrlen plinst = ptrlen_from_asciz(p->instruction);
+	console_write(outfp, plinst);
+        if (!ptrlen_endswith(plinst, PTRLEN_LITERAL("\n"), NULL))
+	    console_write(outfp, PTRLEN_LITERAL("\n"));
     }
 
     for (curr_prompt = 0; curr_prompt < p->n_prompts; curr_prompt++) {
@@ -558,7 +576,7 @@ int console_get_userpass_input(prompts_t *p)
 	    newmode.c_lflag |= ECHO;
 	tcsetattr(infd, TCSANOW, &newmode);
 
-	console_prompt_text(outfp, pr->prompt, strlen(pr->prompt));
+	console_write(outfp, ptrlen_from_asciz(pr->prompt));
 
         len = 0;
         while (1) {
@@ -580,7 +598,7 @@ int console_get_userpass_input(prompts_t *p)
 	tcsetattr(infd, TCSANOW, &oldmode);
 
 	if (!pr->echo)
-	    console_prompt_text(outfp, "\n", 1);
+            console_write(outfp, PTRLEN_LITERAL("\n"));
 
         if (len < 0) {
             console_close(outfp, infd);

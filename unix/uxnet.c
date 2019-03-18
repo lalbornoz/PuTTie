@@ -69,7 +69,7 @@ struct NetSocket {
     bool frozen; /* this causes readability notifications to be ignored */
     bool localhost_only;               /* for listening sockets */
     char oobdata[1];
-    int sending_oob;
+    size_t sending_oob;
     bool oobpending;        /* is there OOB data available to read? */
     bool oobinline;
     enum { EOF_NO, EOF_PENDING, EOF_SENT } outgoingeof;
@@ -195,7 +195,7 @@ SockAddr *sk_namelookup(const char *host, char **canonicalname, int address_fami
     struct hostent *h = NULL;
     int n;
 #endif
-    strbuf *realhost;
+    strbuf *realhost = strbuf_new();
 
     /* Clear the structure and default to IPv4. */
     memset(ret, 0, sizeof(SockAddr));
@@ -225,7 +225,6 @@ SockAddr *sk_namelookup(const char *host, char **canonicalname, int address_fami
     }
     ret->superfamily = IP;
 
-    realhost = strbuf_new();
     if (ret->ais->ai_canonname != NULL)
 	strbuf_catf(realhost, "%s", ret->ais->ai_canonname);
     else
@@ -454,7 +453,7 @@ void sk_addrcopy(SockAddr *addr, char *buf)
 	memcpy(buf, &((struct sockaddr_in6 *)step.ai->ai_addr)->sin6_addr,
 	       sizeof(struct in6_addr));
     else
-	assert(false);
+	unreachable("bad address family in sk_addrcopy");
 #else
     struct in_addr a;
 
@@ -501,8 +500,8 @@ static void sk_net_flush(Socket *s)
 }
 
 static void sk_net_close(Socket *s);
-static int sk_net_write(Socket *s, const void *data, int len);
-static int sk_net_write_oob(Socket *s, const void *data, int len);
+static size_t sk_net_write(Socket *s, const void *data, size_t len);
+static size_t sk_net_write_oob(Socket *s, const void *data, size_t len);
 static void sk_net_write_eof(Socket *s);
 static void sk_net_set_frozen(Socket *s, bool is_frozen);
 static SocketPeerInfo *sk_net_peer_info(Socket *s);
@@ -723,7 +722,7 @@ static int try_connect(NetSocket *sock)
 	break;
 
       default:
-	assert(0 && "unknown address family");
+	unreachable("unknown address family");
 	exit(1); /* XXX: GCC doesn't understand assert() on some systems. */
     }
 
@@ -1016,6 +1015,8 @@ static void sk_net_close(Socket *sock)
     if (s->child)
         sk_net_close(&s->child->sock);
 
+    bufchain_clear(&s->output_data);
+
     del234(sktree, s);
     if (s->s >= 0) {
         uxsel_del(s->s);
@@ -1023,6 +1024,7 @@ static void sk_net_close(Socket *sock)
     }
     if (s->addr)
         sk_addr_free(s->addr);
+    delete_callbacks_for_context(s);
     sfree(s);
 }
 
@@ -1109,8 +1111,9 @@ void try_send(NetSocket *s)
     while (s->sending_oob || bufchain_size(&s->output_data) > 0) {
 	int nsent;
 	int err;
-	void *data;
-	int len, urgentflag;
+	const void *data;
+	size_t len;
+        int urgentflag;
 
 	if (s->sending_oob) {
 	    urgentflag = MSG_OOB;
@@ -1118,10 +1121,12 @@ void try_send(NetSocket *s)
 	    data = &s->oobdata;
 	} else {
 	    urgentflag = 0;
-	    bufchain_prefix(&s->output_data, &data, &len);
+            ptrlen bufdata = bufchain_prefix(&s->output_data);
+            data = bufdata.ptr;
+            len = bufdata.len;
 	}
 	nsent = send(s->s, data, len, urgentflag);
-	noise_ultralight(nsent);
+	noise_ultralight(NOISE_SOURCE_IOLEN, nsent);
 	if (nsent <= 0) {
 	    err = (nsent < 0 ? errno : 0);
 	    if (err == EWOULDBLOCK) {
@@ -1184,7 +1189,7 @@ void try_send(NetSocket *s)
     uxsel_tell(s);
 }
 
-static int sk_net_write(Socket *sock, const void *buf, int len)
+static size_t sk_net_write(Socket *sock, const void *buf, size_t len)
 {
     NetSocket *s = container_of(sock, NetSocket, sock);
 
@@ -1210,7 +1215,7 @@ static int sk_net_write(Socket *sock, const void *buf, int len)
     return bufchain_size(&s->output_data);
 }
 
-static int sk_net_write_oob(Socket *sock, const void *buf, int len)
+static size_t sk_net_write_oob(Socket *sock, const void *buf, size_t len)
 {
     NetSocket *s = container_of(sock, NetSocket, sock);
 
@@ -1275,10 +1280,10 @@ static void net_select_result(int fd, int event)
     if (!s)
 	return;		       /* boggle */
 
-    noise_ultralight(event);
+    noise_ultralight(NOISE_SOURCE_IOID, fd);
 
     switch (event) {
-      case 4:			       /* exceptional */
+      case SELECT_X:                   /* exceptional */
 	if (!s->oobinline) {
 	    /*
 	     * On a non-oobinline socket, this indicates that we
@@ -1287,7 +1292,7 @@ static void net_select_result(int fd, int event)
 	     * type==2 (urgent data).
 	     */
 	    ret = recv(s->s, buf, sizeof(buf), MSG_OOB);
-	    noise_ultralight(ret);
+	    noise_ultralight(NOISE_SOURCE_IOLEN, ret);
 	    if (ret <= 0) {
                 plug_closing(s->plug,
 			     ret == 0 ? "Internal networking trouble" :
@@ -1315,7 +1320,7 @@ static void net_select_result(int fd, int event)
 	 */
 	s->oobpending = true;
         break;
-      case 1: 			       /* readable; also acceptance */
+      case SELECT_R:                   /* readable; also acceptance */
 	if (s->listener) {
 	    /*
 	     * On a listening socket, the readability event means a
@@ -1370,7 +1375,7 @@ static void net_select_result(int fd, int event)
 	    atmark = true;
 
 	ret = recv(s->s, buf, s->oobpending ? 1 : sizeof(buf), 0);
-	noise_ultralight(ret);
+	noise_ultralight(NOISE_SOURCE_IOLEN, ret);
 	if (ret < 0) {
 	    if (errno == EWOULDBLOCK) {
 		break;
@@ -1395,10 +1400,10 @@ static void net_select_result(int fd, int event)
 	    plug_receive(s->plug, atmark ? 0 : 1, buf, ret);
 	}
 	break;
-      case 2:			       /* writable */
+      case SELECT_W:                   /* writable */
 	if (!s->connected) {
 	    /*
-	     * select() reports a socket as _writable_ when an
+	     * select/poll reports a socket as _writable_ when an
 	     * asynchronous connect() attempt either completes or
 	     * fails. So first we must find out which.
 	     */
@@ -1449,7 +1454,7 @@ static void net_select_result(int fd, int event)
             s->writable = true;
 	    uxsel_tell(s);
 	} else {
-	    int bufsize_before, bufsize_after;
+	    size_t bufsize_before, bufsize_after;
 	    s->writable = true;
 	    bufsize_before = s->sending_oob + bufchain_size(&s->output_data);
 	    try_send(s);
@@ -1554,14 +1559,14 @@ static void uxsel_tell(NetSocket *s)
     int rwx = 0;
     if (!s->pending_error) {
         if (s->listener) {
-            rwx |= 1;                  /* read == accept */
+            rwx |= SELECT_R;           /* read == accept */
         } else {
             if (!s->connected)
-                rwx |= 2;              /* write == connect */
+                rwx |= SELECT_W;       /* write == connect */
             if (s->connected && !s->frozen && !s->incomingeof)
-                rwx |= 1 | 4;          /* read, except */
+                rwx |= SELECT_R | SELECT_X;
             if (bufchain_size(&s->output_data))
-                rwx |= 2;              /* write */
+                rwx |= SELECT_W;
         }
     }
     uxsel_set(s->s, rwx, net_select_result);
@@ -1579,18 +1584,16 @@ int net_service_lookup(char *service)
 
 char *get_hostname(void)
 {
-    int len = 128;
+    size_t size = 0;
     char *hostname = NULL;
     do {
-	len *= 2;
-	hostname = sresize(hostname, len, char);
-	if ((gethostname(hostname, len) < 0) &&
-	    (errno != ENAMETOOLONG)) {
+        sgrowarray(hostname, size, size);
+	if ((gethostname(hostname, size) < 0) && (errno != ENAMETOOLONG)) {
 	    sfree(hostname);
 	    hostname = NULL;
 	    break;
 	}
-    } while (strlen(hostname) >= len-1);
+    } while (strlen(hostname) >= size-1);
     return hostname;
 }
 
