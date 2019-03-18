@@ -38,7 +38,7 @@ struct server {
     Conf *conf;
     ssh_key *const *hostkeys;
     int nhostkeys;
-    struct RSAKey *hostkey1;
+    RSAKey *hostkey1;
     AuthPolicy *authpolicy;
     const SftpServerVtable *sftpserver_vt;
 
@@ -76,6 +76,7 @@ void share_setup_x11_channel(ssh_sharing_connstate *cs, share_channel *chan,
 Channel *agentf_new(SshChannel *c) { return NULL; }
 bool agent_exists(void) { return false; }
 void ssh_got_exitcode(Ssh *ssh, int exitcode) {}
+void ssh_check_frozen(Ssh *ssh) {}
 
 mainchan *mainchan_new(
     PacketProtocolLayer *ppl, ConnectionLayer *cl, Conf *conf,
@@ -112,6 +113,8 @@ static const SeatVtable server_seat_vt = {
     nullseat_get_x_display,
     nullseat_get_windowid,
     nullseat_get_window_pixel_size,
+    nullseat_stripctrl_new,
+    nullseat_set_trust_status,
 };
 
 static void server_socket_log(Plug *plug, int type, SockAddr *addr, int port,
@@ -133,7 +136,8 @@ static void server_closing(Plug *plug, const char *error_msg, int error_code,
     }
 }
 
-static void server_receive(Plug *plug, int urgent, char *data, int len)
+static void server_receive(
+    Plug *plug, int urgent, const char *data, size_t len)
 {
     server *srv = container_of(plug, server, plug);
 
@@ -147,7 +151,7 @@ static void server_receive(Plug *plug, int urgent, char *data, int len)
         queue_idempotent_callback(&srv->bpp->ic_in_raw);
 }
 
-static void server_sent(Plug *plug, int bufsize)
+static void server_sent(Plug *plug, size_t bufsize)
 {
 #ifdef FIXME
     server *srv = container_of(plug, server, plug);
@@ -201,6 +205,13 @@ void ssh_throttle_conn(Ssh *ssh, int adjust)
     }
 }
 
+void ssh_conn_processed_data(Ssh *ssh)
+{
+    /* FIXME: we could add the same check_frozen_state system as we
+     * have in ssh.c, but because that was originally added to work
+     * around a peculiarity of the GUI event loop, I haven't yet. */
+}
+
 static const PlugVtable ssh_server_plugvt = {
     server_socket_log,
     server_closing,
@@ -211,7 +222,7 @@ static const PlugVtable ssh_server_plugvt = {
 
 Plug *ssh_server_plug(
     Conf *conf, ssh_key *const *hostkeys, int nhostkeys,
-    struct RSAKey *hostkey1, AuthPolicy *authpolicy, LogPolicy *logpolicy,
+    RSAKey *hostkey1, AuthPolicy *authpolicy, LogPolicy *logpolicy,
     const SftpServerVtable *sftpserver_vt)
 {
     server *srv = snew(server);
@@ -298,7 +309,7 @@ static void server_connect_bpp(server *srv)
     srv->bpp->ssh = &srv->ssh;
     srv->bpp->in_raw = &srv->in_raw;
     srv->bpp->out_raw = &srv->out_raw;
-    srv->bpp->out_raw->ic = &srv->ic_out_raw;
+    bufchain_set_callback(srv->bpp->out_raw, &srv->ic_out_raw);
     srv->bpp->pls = &srv->pls;
     srv->bpp->logctx = srv->logctx;
     srv->bpp->remote_bugs = srv->remote_bugs;
@@ -325,17 +336,16 @@ static void server_bpp_output_raw_data_callback(void *vctx)
         return;
 
     while (bufchain_size(&srv->out_raw) > 0) {
-        void *data;
-        int len, backlog;
+        size_t backlog;
 
-        bufchain_prefix(&srv->out_raw, &data, &len);
+        ptrlen data = bufchain_prefix(&srv->out_raw);
 
         if (srv->logctx)
-            log_packet(srv->logctx, PKT_OUTGOING, -1, NULL, data, len,
+            log_packet(srv->logctx, PKT_OUTGOING, -1, NULL, data.ptr, data.len,
                        0, NULL, NULL, 0, NULL);
-        backlog = sk_write(srv->socket, data, len);
+        backlog = sk_write(srv->socket, data.ptr, data.len);
 
-        bufchain_consume(&srv->out_raw, len);
+        bufchain_consume(&srv->out_raw, data.len);
 
         if (backlog > SSH_MAX_BACKLOG) {
 #ifdef FIXME

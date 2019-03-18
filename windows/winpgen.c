@@ -60,9 +60,6 @@ void nonfatal(const char *fmt, ...)
     sfree(stuff);
 }
 
-/* Stubs needed to link against misc.c */
-void queue_idempotent_callback(IdempotentCallback *ic) { assert(0); }
-
 /* ----------------------------------------------------------------------
  * Progress report code. This is really horrible :-)
  */
@@ -347,9 +344,10 @@ struct rsa_key_thread_params {
     int curve_bits;                    /* bits in elliptic curve (ECDSA) */
     keytype keytype;
     union {
-        struct RSAKey *key;
+        RSAKey *key;
         struct dss_key *dsskey;
-        struct ec_key *eckey;
+        struct ecdsa_key *eckey;
+        struct eddsa_key *edkey;
     };
 };
 static DWORD WINAPI generate_key_thread(void *param)
@@ -364,9 +362,10 @@ static DWORD WINAPI generate_key_thread(void *param)
     if (params->keytype == DSA)
 	dsa_generate(params->dsskey, params->key_bits, progress_update, &prog);
     else if (params->keytype == ECDSA)
-        ec_generate(params->eckey, params->curve_bits, progress_update, &prog);
+        ecdsa_generate(params->eckey, params->curve_bits,
+                       progress_update, &prog);
     else if (params->keytype == ED25519)
-        ec_edgenerate(params->eckey, 256, progress_update, &prog);
+        eddsa_generate(params->edkey, 256, progress_update, &prog);
     else
 	rsa_generate(params->key, params->key_bits, progress_update, &prog);
 
@@ -385,12 +384,13 @@ struct MainDlgState {
     bool ssh2;
     keytype keytype;
     char **commentptr;		       /* points to key.comment or ssh2key.comment */
-    struct ssh2_userkey ssh2key;
+    ssh2_userkey ssh2key;
     unsigned *entropy;
     union {
-        struct RSAKey key;
+        RSAKey key;
         struct dss_key dsskey;
-        struct ec_key eckey;
+        struct ecdsa_key eckey;
+        struct eddsa_key edkey;
     };
     HMENU filemenu, keymenu, cvtmenu;
 };
@@ -402,7 +402,7 @@ static void hidemany(HWND hwnd, const int *ids, bool hideit)
     }
 }
 
-static void setupbigedit1(HWND hwnd, int id, int idstatic, struct RSAKey *key)
+static void setupbigedit1(HWND hwnd, int id, int idstatic, RSAKey *key)
 {
     char *buffer = ssh1_pubkey_str(key);
     SetDlgItemText(hwnd, id, buffer);
@@ -412,7 +412,7 @@ static void setupbigedit1(HWND hwnd, int id, int idstatic, struct RSAKey *key)
 }
 
 static void setupbigedit2(HWND hwnd, int id, int idstatic,
-			  struct ssh2_userkey *key)
+			  ssh2_userkey *key)
 {
     char *buffer = ssh2_pubkey_openssh_str(key);
     SetDlgItemText(hwnd, id, buffer);
@@ -648,8 +648,8 @@ void load_key_file(HWND hwnd, struct MainDlgState *state,
     int ret;
     const char *errmsg = NULL;
     char *comment;
-    struct RSAKey newkey1;
-    struct ssh2_userkey *newkey2 = NULL;
+    RSAKey newkey1;
+    ssh2_userkey *newkey2 = NULL;
 
     type = realtype = key_type(filename);
     if (type != SSH_KEYTYPE_SSH1 &&
@@ -1044,7 +1044,8 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
 		/*
 		 * Seed the entropy pool
 		 */
-		random_add_heavynoise(state->entropy, state->entropy_size);
+                random_reseed(
+                    make_ptrlen(state->entropy, state->entropy_size));
 		smemclr(state->entropy, state->entropy_size);
 		sfree(state->entropy);
 		state->collecting_entropy = false;
@@ -1165,52 +1166,59 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                 else
                     raw_entropy_required = 256;
 
+                /* Bound the entropy collection above by the amount of
+                 * data we can actually fit into the PRNG. Any more
+                 * than that and it's doing no more good. */
+                if (raw_entropy_required > random_seed_bits())
+                    raw_entropy_required = random_seed_bits();
+
                 raw_entropy_buf = snewn(raw_entropy_required, unsigned char);
                 if (win_read_random(raw_entropy_buf, raw_entropy_required)) {
                     /*
-                     * If we can get the entropy we need from
-                     * CryptGenRandom, just do that, and go straight
-                     * to the key-generation phase.
+                     * If we can get entropy from CryptGenRandom, use
+                     * it. But CryptGenRandom isn't a kernel-level
+                     * CPRNG (according to Wikipedia), and papers have
+                     * been published cryptanalysing it. So we'll
+                     * still do manual entropy collection; we'll just
+                     * do it _as well_ as this.
                      */
-                    random_add_heavynoise(raw_entropy_buf,
-                                          raw_entropy_required);
-                    start_generating_key(hwnd, state);
-                } else {
-                    /*
-                     * Manual entropy input, by making the user wave
-                     * the mouse over the window a lot.
-                     *
-                     * My brief statistical tests on mouse movements
-                     * suggest that there are about 2.5 bits of
-                     * randomness in the x position, 2.5 in the y
-                     * position, and 1.7 in the message time, making
-                     * 5.7 bits of unpredictability per mouse
-                     * movement. However, other people have told me
-                     * it's far less than that, so I'm going to be
-                     * stupidly cautious and knock that down to a nice
-                     * round 2. With this method, we require two words
-                     * per mouse movement, so with 2 bits per mouse
-                     * movement we expect 2 bits every 2 words, i.e.
-                     * the number of _words_ of mouse data we want to
-                     * collect is just the same as the number of
-                     * _bits_ of entropy we want.
-                     */
-                    state->entropy_required = raw_entropy_required;
-
-                    ui_set_state(hwnd, state, 1);
-                    SetDlgItemText(hwnd, IDC_GENERATING, entropy_msg);
-                    state->key_exists = false;
-                    state->collecting_entropy = true;
-
-                    state->entropy_got = 0;
-                    state->entropy_size = (state->entropy_required *
-                                           sizeof(unsigned));
-                    state->entropy = snewn(state->entropy_required, unsigned);
-
-                    SendDlgItemMessage(hwnd, IDC_PROGRESS, PBM_SETRANGE, 0,
-                                       MAKELPARAM(0, state->entropy_required));
-                    SendDlgItemMessage(hwnd, IDC_PROGRESS, PBM_SETPOS, 0, 0);
+                    random_reseed(
+                        make_ptrlen(raw_entropy_buf, raw_entropy_required));
                 }
+
+                /*
+                 * Manual entropy input, by making the user wave the
+                 * mouse over the window a lot.
+                 *
+                 * My brief statistical tests on mouse movements
+                 * suggest that there are about 2.5 bits of randomness
+                 * in the x position, 2.5 in the y position, and 1.7
+                 * in the message time, making 5.7 bits of
+                 * unpredictability per mouse movement. However, other
+                 * people have told me it's far less than that, so I'm
+                 * going to be stupidly cautious and knock that down
+                 * to a nice round 2. With this method, we require two
+                 * words per mouse movement, so with 2 bits per mouse
+                 * movement we expect 2 bits every 2 words, i.e. the
+                 * number of _words_ of mouse data we want to collect
+                 * is just the same as the number of _bits_ of entropy
+                 * we want.
+                 */
+                state->entropy_required = raw_entropy_required;
+
+                ui_set_state(hwnd, state, 1);
+                SetDlgItemText(hwnd, IDC_GENERATING, entropy_msg);
+                state->key_exists = false;
+                state->collecting_entropy = true;
+
+                state->entropy_got = 0;
+                state->entropy_size = (state->entropy_required *
+                                       sizeof(unsigned));
+                state->entropy = snewn(state->entropy_required, unsigned);
+
+                SendDlgItemMessage(hwnd, IDC_PROGRESS, PBM_SETRANGE, 0,
+                                   MAKELPARAM(0, state->entropy_required));
+                SendDlgItemMessage(hwnd, IDC_PROGRESS, PBM_SETPOS, 0, 0);
 
                 smemclr(raw_entropy_buf, raw_entropy_required);
                 sfree(raw_entropy_buf);
@@ -1401,7 +1409,7 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
             } else if (state->keytype == ECDSA) {
                 state->ssh2key.key = &state->eckey.sshk;
             } else if (state->keytype == ED25519) {
-                state->ssh2key.key = &state->eckey.sshk;
+                state->ssh2key.key = &state->edkey.sshk;
 	    } else {
 		state->ssh2key.key = &state->key.sshk;
 	    }
@@ -1583,7 +1591,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	}
     }
 
-    random_ref();
+    random_setup_special();
     ret = DialogBox(hinst, MAKEINTRESOURCE(201), NULL, MainDlgProc) != IDOK;
 
     cleanup_exit(ret);

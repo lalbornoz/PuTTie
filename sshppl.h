@@ -59,14 +59,20 @@ struct PacketProtocolLayer {
     unsigned remote_bugs;
 };
 
-#define ssh_ppl_process_queue(ppl) ((ppl)->vt->process_queue(ppl))
-#define ssh_ppl_get_specials(ppl, add, ctx) \
-    ((ppl)->vt->get_specials(ppl, add, ctx))
-#define ssh_ppl_special_cmd(ppl, code, arg) \
-    ((ppl)->vt->special_cmd(ppl, code, arg))
-#define ssh_ppl_want_user_input(ppl) ((ppl)->vt->want_user_input(ppl))
-#define ssh_ppl_got_user_input(ppl) ((ppl)->vt->got_user_input(ppl))
-#define ssh_ppl_reconfigure(ppl, conf) ((ppl)->vt->reconfigure(ppl, conf))
+static inline void ssh_ppl_process_queue(PacketProtocolLayer *ppl)
+{ ppl->vt->process_queue(ppl); }
+static inline bool ssh_ppl_get_specials(
+    PacketProtocolLayer *ppl, add_special_fn_t add_special, void *ctx)
+{ return ppl->vt->get_specials(ppl, add_special, ctx); }
+static inline void ssh_ppl_special_cmd(
+    PacketProtocolLayer *ppl, SessionSpecialCode code, int arg)
+{ ppl->vt->special_cmd(ppl, code, arg); }
+static inline bool ssh_ppl_want_user_input(PacketProtocolLayer *ppl)
+{ return ppl->vt->want_user_input(ppl); }
+static inline void ssh_ppl_got_user_input(PacketProtocolLayer *ppl)
+{ ppl->vt->got_user_input(ppl); }
+static inline void ssh_ppl_reconfigure(PacketProtocolLayer *ppl, Conf *conf)
+{ ppl->vt->reconfigure(ppl, conf); }
 
 /* ssh_ppl_free is more than just a macro wrapper on the vtable; it
  * does centralised parts of the freeing too. */
@@ -150,7 +156,7 @@ bool ssh1_common_get_specials(PacketProtocolLayer *, add_special_fn_t, void *);
 bool ssh1_common_filter_queue(PacketProtocolLayer *ppl);
 void ssh1_compute_session_id(
     unsigned char *session_id, const unsigned char *cookie,
-    struct RSAKey *hostkey, struct RSAKey *servkey);
+    RSAKey *hostkey, RSAKey *servkey);
 
 /* Method used by the SSH server */
 void ssh2_transport_provide_hostkeys(PacketProtocolLayer *ssh2_transport_ptr,

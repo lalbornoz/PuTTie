@@ -27,7 +27,7 @@ bool agent_exists(void)
 
 void agent_cancel_query(agent_pending_query *q)
 {
-    assert(0 && "Windows agent queries are never asynchronous!");
+    unreachable("Windows agent queries are never asynchronous!");
 }
 
 agent_pending_query *agent_query(
@@ -109,7 +109,7 @@ agent_pending_query *agent_query(
      */
     id = SendMessage(hwnd, WM_COPYDATA, (WPARAM) NULL, (LPARAM) &cds);
     if (id > 0) {
-	retlen = 4 + GET_32BIT(p);
+	retlen = 4 + GET_32BIT_MSB_FIRST(p);
 	ret = snewn(retlen, unsigned char);
 	if (ret) {
 	    memcpy(ret, p, retlen);

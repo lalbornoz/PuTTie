@@ -85,9 +85,6 @@ void modalfatalbox(const char *fmt, ...)
     exit(1);
 }
 
-/* Stubs needed to link against misc.c */
-void queue_idempotent_callback(IdempotentCallback *ic) { assert(0); }
-
 static bool has_security;
 
 struct PassphraseProcStruct {
@@ -259,8 +256,8 @@ void old_keyfile_warning(void)
  */
 void keylist_update(void)
 {
-    struct RSAKey *rkey;
-    struct ssh2_userkey *skey;
+    RSAKey *rkey;
+    ssh2_userkey *skey;
     int i;
 
     if (keylist) {
@@ -475,8 +472,8 @@ static void prompt_add_keyfile(void)
 static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
 				WPARAM wParam, LPARAM lParam)
 {
-    struct RSAKey *rkey;
-    struct ssh2_userkey *skey;
+    RSAKey *rkey;
+    ssh2_userkey *skey;
 
     switch (msg) {
       case WM_INITDIALOG:
@@ -894,7 +891,7 @@ static char *answer_filemapping_message(const char *mapname)
         goto cleanup;
     }
 
-    msglen = GET_32BIT((unsigned char *)mapaddr);
+    msglen = GET_32BIT_MSB_FIRST((unsigned char *)mapaddr);
 
 #ifdef DEBUG_IPC
     debug("msg length=%08x, msg type=%02x\n",
@@ -928,7 +925,7 @@ static char *answer_filemapping_message(const char *mapname)
     }
 
     /* Write in the initial length field, and we're done. */
-    PUT_32BIT(((unsigned char *)mapaddr), reply.len);
+    PUT_32BIT_MSB_FIRST(((unsigned char *)mapaddr), reply.len);
 
   cleanup:
     /* expectedsid has the lifetime of the program, so we don't free it */

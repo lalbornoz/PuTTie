@@ -52,7 +52,7 @@ void uxsel_input_remove(uxsel_id *id) { }
  */
 void random_save_seed(void) {}
 void random_destroy_seed(void) {}
-void noise_ultralight(unsigned long data) {}
+void noise_ultralight(NoiseSourceId id, unsigned long data) {}
 char *platform_default_s(const char *name) { return NULL; }
 bool platform_default_b(const char *name, bool def) { return def; }
 int platform_default_i(const char *name, int def) { return def; }
@@ -155,8 +155,8 @@ void chan_no_request_response(Channel *chan, bool success) {}
  */
 static void x11_log(Plug *p, int type, SockAddr *addr, int port,
 		    const char *error_msg, int error_code) {}
-static void x11_receive(Plug *plug, int urgent, char *data, int len) {}
-static void x11_sent(Plug *plug, int bufsize) {}
+static void x11_receive(Plug *plug, int urgent, const char *data, size_t len) {}
+static void x11_sent(Plug *plug, size_t bufsize) {}
 static void x11_closing(Plug *plug, const char *error_msg, int error_code,
 			bool calling_back)
 {
@@ -201,7 +201,7 @@ void pageant_print_env(int pid)
                socketname, pid);
         break;
       case SHELL_AUTO:
-        assert(0 && "Can't get here");
+        unreachable("SHELL_AUTO should have been eliminated by now");
         break;
     }
 }
@@ -328,6 +328,7 @@ static char *askpass_tty(const char *prompt)
     int ret;
     prompts_t *p = new_prompts();
     p->to_server = false;
+    p->from_server = false;
     p->name = dupstr("Pageant passphrase prompt");
     add_prompt(p, dupcat(prompt, ": ", (const char *)NULL), false);
     ret = console_get_userpass_input(p);
@@ -681,7 +682,7 @@ void run_client(void)
 
                 if (key->ssh_version == 1) {
                     BinarySource src[1];
-                    struct RSAKey rkey;
+                    RSAKey rkey;
 
                     BinarySource_BARE_INIT(src, key->blob->u, key->blob->len);
                     memset(&rkey, 0, sizeof(rkey));
@@ -708,7 +709,7 @@ void run_client(void)
             }
             break;
           default:
-            assert(0 && "Invalid client action found");
+            unreachable("Invalid client action found");
         }
     }
 
@@ -734,7 +735,8 @@ void run_agent(void)
     unsigned long now;
     int *fdlist;
     int fd;
-    int i, fdsize, fdstate;
+    int i, fdstate;
+    size_t fdsize;
     int termination_pid = -1;
     bool errors = false;
     Conf *conf;
@@ -860,20 +862,17 @@ void run_agent(void)
 
     now = GETTICKCOUNT();
 
+    pollwrapper *pw = pollwrap_new();
+
     while (!time_to_die) {
-	fd_set rset, wset, xset;
-	int maxfd;
 	int rwx;
 	int ret;
         unsigned long next;
 
-	FD_ZERO(&rset);
-	FD_ZERO(&wset);
-	FD_ZERO(&xset);
-	maxfd = 0;
+        pollwrap_clear(pw);
 
         if (signalpipe[0] >= 0) {
-            FD_SET_MAX(signalpipe[0], maxfd, rset);
+            pollwrap_add_fd_rwx(pw, signalpipe[0], SELECT_R);
         }
 
 	/* Count the currently active fds. */
@@ -882,36 +881,24 @@ void run_agent(void)
 	     fd = next_fd(&fdstate, &rwx)) i++;
 
 	/* Expand the fdlist buffer if necessary. */
-	if (i > fdsize) {
-	    fdsize = i + 16;
-	    fdlist = sresize(fdlist, fdsize, int);
-	}
+        sgrowarray(fdlist, fdsize, i);
 
 	/*
-	 * Add all currently open fds to the select sets, and store
-	 * them in fdlist as well.
+	 * Add all currently open fds to pw, and store them in fdlist
+	 * as well.
 	 */
 	int fdcount = 0;
 	for (fd = first_fd(&fdstate, &rwx); fd >= 0;
 	     fd = next_fd(&fdstate, &rwx)) {
 	    fdlist[fdcount++] = fd;
-	    if (rwx & 1)
-		FD_SET_MAX(fd, maxfd, rset);
-	    if (rwx & 2)
-		FD_SET_MAX(fd, maxfd, wset);
-	    if (rwx & 4)
-		FD_SET_MAX(fd, maxfd, xset);
+            pollwrap_add_fd_rwx(pw, fd, rwx);
 	}
 
         if (toplevel_callback_pending()) {
-            struct timeval tv;
-            tv.tv_sec = 0;
-            tv.tv_usec = 0;
-            ret = select(maxfd, &rset, &wset, &xset, &tv);
+            ret = pollwrap_poll_instant(pw);
         } else if (run_timers(now, &next)) {
             unsigned long then;
             long ticks;
-            struct timeval tv;
 
             then = now;
             now = GETTICKCOUNT();
@@ -919,22 +906,27 @@ void run_agent(void)
                 ticks = 0;
             else
                 ticks = next - now;
-            tv.tv_sec = ticks / 1000;
-            tv.tv_usec = ticks % 1000 * 1000;
-            ret = select(maxfd, &rset, &wset, &xset, &tv);
-            if (ret == 0)
+
+            bool overflow = false;
+            if (ticks > INT_MAX) {
+                ticks = INT_MAX;
+                overflow = true;
+            }
+
+            ret = pollwrap_poll_timeout(pw, ticks);
+            if (ret == 0 && !overflow)
                 now = next;
             else
                 now = GETTICKCOUNT();
         } else {
-            ret = select(maxfd, &rset, &wset, &xset, NULL);
+            ret = pollwrap_poll_endless(pw);
         }
 
         if (ret < 0 && errno == EINTR)
             continue;
 
 	if (ret < 0) {
-	    perror("select");
+	    perror("poll");
 	    exit(1);
 	}
 
@@ -954,20 +946,22 @@ void run_agent(void)
 
 	for (i = 0; i < fdcount; i++) {
 	    fd = fdlist[i];
+            int rwx = pollwrap_get_fd_rwx(pw, fd);
             /*
              * We must process exceptional notifications before
              * ordinary readability ones, or we may go straight
              * past the urgent marker.
              */
-	    if (FD_ISSET(fd, &xset))
-		select_result(fd, 4);
-	    if (FD_ISSET(fd, &rset))
-		select_result(fd, 1);
-	    if (FD_ISSET(fd, &wset))
-		select_result(fd, 2);
+	    if (rwx & SELECT_X)
+		select_result(fd, SELECT_X);
+	    if (rwx & SELECT_R)
+		select_result(fd, SELECT_R);
+	    if (rwx & SELECT_W)
+		select_result(fd, SELECT_W);
 	}
 
-        if (signalpipe[0] >= 0 && FD_ISSET(signalpipe[0], &rset)) {
+        if (signalpipe[0] >= 0 &&
+            pollwrap_check_fd_rwx(pw, signalpipe[0], SELECT_R)) {
             char c[1];
             if (read(signalpipe[0], c, 1) <= 0)
                 /* ignore error */;

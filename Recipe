@@ -65,9 +65,7 @@
 #
 #  - COMPAT=/DNO_HTMLHELP (Windows only)
 #      Disables PuTTY's use of <htmlhelp.h>, which is not available
-#      with some development environments. The resulting binary
-#      will only look for an old-style WinHelp file (.HLP/.CNT), and
-#      will ignore any .CHM file.
+#      with some development environments.
 #
 #      If you don't have this header, you may be able to use the copy
 #      supplied with HTML Help Workshop.
@@ -139,6 +137,14 @@ libversion_a_CFLAGS += -DSOURCE_COMMIT=\"`git --git-dir=$(srcdir)/.git rev-parse
 empty.h: $(allsources)
 	echo '/* Empty file touched by automake makefile to force rebuild of version.o */' >$@
 endif
+
+# Run the cryptsuite tests as part of 'make check'. Override
+# PUTTY_TESTCRYPT so that cryptsuite will take the testcrypt binary
+# from the build directory instead of the source directory, in case
+# this is an out-of-tree build.
+check-local: testcrypt
+	PUTTY_TESTCRYPT=./testcrypt $(srcdir)/test/cryptsuite.py
+
 !end
 !begin >empty.h
 /* Empty file touched by automake makefile to force rebuild of version.o */
@@ -234,7 +240,7 @@ CFLAGS += -DWINVER=0x0500 -D_WIN32_WINDOWS=0x0410 -D_WIN32_WINNT=0x0500
 CONF     = conf marshal
 
 # Terminal emulator and its (platform-independent) dependencies.
-TERMINAL = terminal wcwidth ldiscucs logging tree234 minibidi
+TERMINAL = terminal stripctrl wcwidth ldiscucs logging tree234 minibidi
          + config dialog CONF
 
 # {{{ winfrip
@@ -258,11 +264,17 @@ GTKMAIN  = gtkmain cmdline
 NONSSH   = telnet raw rlogin ldisc pinger
 
 # SSH back end (putty, plink, pscp, psftp).
-SSHCOMMON = sshcommon sshrand
-         + sshverstring sshcrc sshdes sshmd5 sshrsa sshsha sshblowf
-         + sshdh sshcrcda sshpubk sshzlib sshdss ssharcf
-         + sshaes sshccp sshsh256 sshsh512 sshbn sshmac marshal nullplug
-         + sshgssc pgssapi sshecc wildcard ssh1censor ssh2censor ssh2bpp
+ARITH    = mpint ecc
+SSHCRYPTO = ARITH sshmd5 sshsha sshsh256 sshsh512
+	 + sshrsa sshdss sshecc
+         + sshdes sshblowf sshaes sshccp ssharcf
+         + sshdh sshcrc sshcrcda sshauxcrypt
+         + sshhmac
+SSHCOMMON = sshcommon sshprng sshrand SSHCRYPTO
+         + sshverstring
+         + sshpubk sshzlib
+         + sshmac marshal nullplug
+         + sshgssc pgssapi wildcard ssh1censor ssh2censor ssh2bpp
 	 + ssh2transport ssh2transhk ssh2connection portfwd x11fwd
          + ssh1connection ssh1bpp
 SSH      = SSHCOMMON ssh ssh2bpp-bare
@@ -279,14 +291,14 @@ SFTP     = sftp sftpcommon logging cmdline
 
 # Miscellaneous objects appearing in all the utilities, or all the
 # network ones, or the Unix or Windows subsets of those in turn.
-MISC     = misc marshal memory
+MISC     = misc utils marshal memory stripctrl wcwidth
 MISCNETCOMMON = timing callback MISC version tree234 CONF
 MISCNET  = MISCNETCOMMON be_misc settings proxy
 WINMISC  = MISCNET winstore winnet winhandl cmdline windefs winmisc winproxy
-         + wintime winhsock errsock winsecur winucs miscucs CONFFRIP
-UXMISCCOMMON = MISCNETCOMMON uxstore uxsel uxnet uxpeer uxmisc time
+         + wintime winhsock errsock winsecur winucs miscucs winmiscs CONFFRIP
+UXMISCCOMMON = MISCNETCOMMON uxstore uxsel uxpoll uxnet uxpeer uxmisc time
          + uxfdsock errsock
-UXMISC   = MISCNET UXMISCCOMMON uxproxy
+UXMISC   = MISCNET UXMISCCOMMON uxproxy uxutils
 
 # SSH server.
 SSHSERVER = SSHCOMMON sshserver settings be_none logging ssh2kex-server
@@ -327,63 +339,70 @@ U_BE_NOSSH = be_nos_s uxser nocproxy
 putty    : [G] GUITERM NONSSH WINSSH W_BE_ALL WINMISC winx11 putty.res LIBS FRIPLIBS
 puttytel : [G] GUITERM NONSSH W_BE_NOSSH WINMISC puttytel.res nogss LIBS FRIPLIBS
 plink    : [C] winplink wincons NONSSH WINSSH W_BE_ALL logging WINMISC
-         + winx11 plink.res winnojmp sessprep noterm LIBS
+         + winx11 plink.res winnojmp sessprep noterm winnohlp LIBS
 pscp     : [C] pscp winsftp wincons WINSSH BE_SSH SFTP wildcard WINMISC
-         + pscp.res winnojmp LIBS
+         + pscp.res winnojmp winnohlp LIBS
 psftp    : [C] psftp winsftp wincons WINSSH BE_SSH SFTP wildcard WINMISC
-         + psftp.res winnojmp LIBS
+         + psftp.res winnojmp winnohlp LIBS
 
-pageant  : [G] winpgnt pageant sshrsa sshpubk sshdes sshbn sshmd5 version
+pageant  : [G] winpgnt pageant sshrsa sshpubk sshdes ARITH sshmd5 version
 	 + tree234 MISC sshaes sshsha winsecur winpgntc aqsync sshdss sshsh256
-	 + sshsh512 winutils sshecc winmisc winhelp conf pageant.res LIBS
+	 + sshsh512 winutils sshecc winmisc winmiscs winhelp conf pageant.res
+	 + sshauxcrypt sshhmac LIBS
 
-puttygen : [G] winpgen sshrsag sshdssg sshprime sshdes sshbn sshmd5 version
+puttygen : [G] winpgen sshrsag sshdssg sshprime sshdes ARITH sshmd5 version
          + sshrand winnoise sshsha winstore MISC winctrls sshrsa sshdss winmisc
          + sshpubk sshaes sshsh256 sshsh512 IMPORT winutils puttygen.res
-         + tree234 notiming winhelp winnojmp CONF LIBS wintime sshecc
-         + sshecdsag winsecur CONFFRIP
+         + tree234 notiming winhelp winnojmp CONF LIBS wintime sshecc sshprng
+         + sshecdsag sshauxcrypt sshhmac winsecur winmiscs CONFFRIP
 
 pterm    : [X] GTKTERM uxmisc misc ldisc settings uxpty uxsel BE_NONE uxstore
          + uxsignal CHARSET cmdline uxpterm version time xpmpterm xpmptcfg
-	 + nogss memory GTKMAIN
+	 + nogss utils memory GTKMAIN
 putty    : [X] GTKTERM uxmisc misc ldisc settings uxsel U_BE_ALL uxstore
          + uxsignal CHARSET uxputty NONSSH UXSSH UXMISC ux_x11 xpmputty
-         + xpmpucfg memory GTKMAIN
+         + xpmpucfg utils memory GTKMAIN
 puttytel : [X] GTKTERM uxmisc misc ldisc settings uxsel U_BE_NOSSH
 	 + uxstore uxsignal CHARSET uxputty NONSSH UXMISC xpmputty xpmpucfg
-	 + nogss memory GTKMAIN
+	 + nogss utils memory GTKMAIN
 
 plink    : [U] uxplink uxcons NONSSH UXSSH U_BE_ALL logging UXMISC uxsignal
          + ux_x11 noterm uxnogtk sessprep cmdline
 
-PUTTYGEN_UNIX = sshrsag sshdssg sshprime sshdes sshbn sshmd5 version
+PUTTYGEN_UNIX = sshrsag sshdssg sshprime sshdes ARITH sshmd5 version sshprng
          + sshrand uxnoise sshsha MISC sshrsa sshdss uxcons uxstore uxmisc
          + sshpubk sshaes sshsh256 sshsh512 IMPORT puttygen.res time tree234
-         + uxgen notiming CONF sshecc sshecdsag uxnogtk
+         + uxgen notiming CONF sshecc sshecdsag uxnogtk sshauxcrypt sshhmac
+         + uxpoll
 puttygen : [U] cmdgen PUTTYGEN_UNIX
 cgtest   : [UT] cgtest PUTTYGEN_UNIX
 
 pscp     : [U] pscp uxsftp uxcons UXSSH BE_SSH SFTP wildcard UXMISC uxnogtk
 psftp    : [U] psftp uxsftp uxcons UXSSH BE_SSH SFTP wildcard UXMISC uxnogtk
 
-pageant  : [X] uxpgnt uxagentc aqsync pageant sshrsa sshpubk sshdes sshbn
+pageant  : [X] uxpgnt uxagentc aqsync pageant sshrsa sshpubk sshdes ARITH
 	 + sshmd5 version tree234 misc sshaes sshsha sshdss sshsh256 sshsh512
 	 + sshecc CONF uxsignal nocproxy nogss be_none x11fwd ux_x11 uxcons
-         + gtkask gtkmisc nullplug logging UXMISC uxagentsock memory
+         + gtkask gtkmisc nullplug logging UXMISC uxagentsock utils memory
+	 + sshauxcrypt sshhmac
 
 ptermapp : [XT] GTKTERM uxmisc misc ldisc settings uxpty uxsel BE_NONE uxstore
          + uxsignal CHARSET uxpterm version time xpmpterm xpmptcfg
-         + nogss gtkapp nocmdline memory
+         + nogss gtkapp nocmdline utils memory
 puttyapp : [XT] GTKTERM uxmisc misc ldisc settings uxsel U_BE_ALL uxstore
          + uxsignal CHARSET uxputty NONSSH UXSSH UXMISC ux_x11 xpmputty
-         + xpmpucfg gtkapp nocmdline memory
+         + xpmpucfg gtkapp nocmdline utils memory
 osxlaunch : [UT] osxlaunch
 
-fuzzterm : [UT] UXTERM CHARSET misc version uxmisc uxucs fuzzterm time settings
+fuzzterm : [UT] UXTERM CHARSET MISC version uxmisc uxucs fuzzterm time settings
 	 + uxstore be_none uxnogtk memory
-testbn   : [UT] testbn sshbn MISC version CONF tree234 uxmisc uxnogtk
-testbn   : [C] testbn sshbn MISC version CONF tree234 winmisc LIBS
-testzlib : [UT] testzlib sshzlib memory
+testcrypt : [UT] testcrypt SSHCRYPTO sshprng sshprime marshal utils
+          + memory tree234 uxutils
+testcrypt : [C] testcrypt SSHCRYPTO sshprng sshprime marshal utils
+          + memory tree234 winmiscs
+testsc    : [UT] testsc SSHCRYPTO marshal utils memory tree234 wildcard
+          + sshmac uxutils
+testzlib : [UT] testzlib sshzlib utils marshal memory
 
 uppity   : [UT] uxserver SSHSERVER UXMISC uxsignal uxnoise uxgss uxnogtk
          + uxpty uxsftpserver ux_x11 uxagentsock
@@ -394,9 +413,9 @@ uppity   : [UT] uxserver SSHSERVER UXMISC uxsignal uxnoise uxgss uxnogtk
 # in the first place, so that we find out about build breakage early.)
 !begin vc
 cleantestprogs:
-	-del $(BUILDDIR)testbn.exe
+	-del $(BUILDDIR)testcrypt.exe
 !end
 !begin clangcl
 cleantestprogs:
-	-rm -f $(BUILDDIR)testbn.exe
+	-rm -f $(BUILDDIR)testcrypt.exe
 !end

@@ -396,8 +396,8 @@ static void ssh1mainchan_hint_channel_is_simple(SshChannel *sc)
 {
 }
 
-static int ssh1mainchan_write(
-    SshChannel *sc, bool is_stderr, const void *data, int len)
+static size_t ssh1mainchan_write(
+    SshChannel *sc, bool is_stderr, const void *data, size_t len)
 {
     struct ssh1_connection_state *s =
         container_of(sc, struct ssh1_connection_state, mainchan_sc);
@@ -519,12 +519,10 @@ struct ssh_rportfwd *ssh1_rportfwd_alloc(
 SshChannel *ssh1_serverside_x11_open(
     ConnectionLayer *cl, Channel *chan, const SocketPeerInfo *pi)
 {
-    assert(false && "Should never be called in the client");
-    return NULL;
+    unreachable("Should never be called in the client");
 }
 
 SshChannel *ssh1_serverside_agent_open(ConnectionLayer *cl, Channel *chan)
 {
-    assert(false && "Should never be called in the client");
-    return NULL;
+    unreachable("Should never be called in the client");
 }

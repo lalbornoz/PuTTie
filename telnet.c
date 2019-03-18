@@ -182,11 +182,10 @@ struct Telnet {
 
     bool echoing, editing;
     bool activated;
-    int bufsize;
+    size_t bufsize;
     bool in_synch;
-    int sb_opt, sb_len;
-    unsigned char *sb_buf;
-    int sb_size;
+    int sb_opt;
+    strbuf *sb_buf;
     bool session_started;
 
     enum {
@@ -206,10 +205,9 @@ struct Telnet {
 
 #define SB_DELTA 1024
 
-static void c_write(Telnet *telnet, const void *buf, int len)
+static void c_write(Telnet *telnet, const void *buf, size_t len)
 {
-    int backlog;
-    backlog = seat_stdout(telnet->seat, buf, len);
+    size_t backlog = seat_stdout(telnet->seat, buf, len);
     sk_set_frozen(telnet->s, backlog > TELNET_MAX_BACKLOG);
 }
 
@@ -364,7 +362,7 @@ static void process_subneg(Telnet *telnet)
 
     switch (telnet->sb_opt) {
       case TELOPT_TSPEED:
-	if (telnet->sb_len == 1 && telnet->sb_buf[0] == TELQUAL_SEND) {
+	if (telnet->sb_buf->len == 1 && telnet->sb_buf->u[0] == TELQUAL_SEND) {
 	    char *termspeed = conf_get_str(telnet->conf, CONF_termspeed);
 	    b = snewn(20 + strlen(termspeed), unsigned char);
 	    b[0] = IAC;
@@ -383,7 +381,7 @@ static void process_subneg(Telnet *telnet)
             logevent(telnet->logctx, "server:\tSB TSPEED <something weird>");
 	break;
       case TELOPT_TTYPE:
-	if (telnet->sb_len == 1 && telnet->sb_buf[0] == TELQUAL_SEND) {
+	if (telnet->sb_buf->len == 1 && telnet->sb_buf->u[0] == TELQUAL_SEND) {
 	    char *termtype = conf_get_str(telnet->conf, CONF_termtype);
 	    b = snewn(20 + strlen(termtype), unsigned char);
 	    b[0] = IAC;
@@ -406,8 +404,8 @@ static void process_subneg(Telnet *telnet)
 	break;
       case TELOPT_OLD_ENVIRON:
       case TELOPT_NEW_ENVIRON:
-	p = telnet->sb_buf;
-	q = p + telnet->sb_len;
+	p = telnet->sb_buf->u;
+	q = p + telnet->sb_buf->len;
 	if (p < q && *p == TELQUAL_SEND) {
 	    p++;
             logeventf(telnet->logctx, "server:\tSB %s SEND",
@@ -506,18 +504,9 @@ static void process_subneg(Telnet *telnet)
     }
 }
 
-static void do_telnet_read(Telnet *telnet, char *buf, int len)
+static void do_telnet_read(Telnet *telnet, const char *buf, size_t len)
 {
-    char *outbuf = NULL;
-    int outbuflen = 0, outbufsize = 0;
-
-#define ADDTOBUF(c) do { \
-    if (outbuflen >= outbufsize) { \
-	outbufsize = outbuflen + 256; \
-        outbuf = sresize(outbuf, outbufsize, char); \
-    } \
-    outbuf[outbuflen++] = (c); \
-} while (0)
+    strbuf *outbuf = strbuf_new_nm();
 
     while (len--) {
 	int c = (unsigned char) *buf++;
@@ -531,7 +520,7 @@ static void do_telnet_read(Telnet *telnet, char *buf, int len)
 		telnet->state = SEENIAC;
 	    else {
 		if (!telnet->in_synch)
-		    ADDTOBUF(c);
+		    put_byte(outbuf, c);
 
 #if 1
 		/* I can't get the F***ing winsock to insert the urgent IAC
@@ -568,7 +557,7 @@ static void do_telnet_read(Telnet *telnet, char *buf, int len)
 	    } else {
 		/* ignore everything else; print it if it's IAC */
 		if (c == IAC) {
-		    ADDTOBUF(c);
+		    put_byte(outbuf, c);
 		}
 		telnet->state = TOP_LEVEL;
 	    }
@@ -591,7 +580,7 @@ static void do_telnet_read(Telnet *telnet, char *buf, int len)
 	    break;
 	  case SEENSB:
 	    telnet->sb_opt = c;
-	    telnet->sb_len = 0;
+	    telnet->sb_buf->len = 0;
 	    telnet->state = SUBNEGOT;
 	    break;
 	  case SUBNEGOT:
@@ -599,12 +588,7 @@ static void do_telnet_read(Telnet *telnet, char *buf, int len)
 		telnet->state = SUBNEG_IAC;
 	    else {
 	      subneg_addchar:
-		if (telnet->sb_len >= telnet->sb_size) {
-		    telnet->sb_size += SB_DELTA;
-		    telnet->sb_buf = sresize(telnet->sb_buf, telnet->sb_size,
-					     unsigned char);
-		}
-		telnet->sb_buf[telnet->sb_len++] = c;
+		put_byte(telnet->sb_buf, c);
 		telnet->state = SUBNEGOT;	/* in case we came here by goto */
 	    }
 	    break;
@@ -617,11 +601,16 @@ static void do_telnet_read(Telnet *telnet, char *buf, int len)
 	    }
 	    break;
 	}
+
+        if (outbuf->len >= 4096) {
+            c_write(telnet, outbuf->u, outbuf->len);
+            outbuf->len = 0;
+        }
     }
 
-    if (outbuflen)
-	c_write(telnet, outbuf, outbuflen);
-    sfree(outbuf);
+    if (outbuf->len)
+	c_write(telnet, outbuf->u, outbuf->len);
+    strbuf_free(outbuf);
 }
 
 static void telnet_log(Plug *plug, int type, SockAddr *addr, int port,
@@ -658,7 +647,8 @@ static void telnet_closing(Plug *plug, const char *error_msg, int error_code,
     /* Otherwise, the remote side closed the connection normally. */
 }
 
-static void telnet_receive(Plug *plug, int urgent, char *data, int len)
+static void telnet_receive(
+    Plug *plug, int urgent, const char *data, size_t len)
 {
     Telnet *telnet = container_of(plug, Telnet, plug);
     if (urgent)
@@ -667,7 +657,7 @@ static void telnet_receive(Plug *plug, int urgent, char *data, int len)
     do_telnet_read(telnet, data, len);
 }
 
-static void telnet_sent(Plug *plug, int bufsize)
+static void telnet_sent(Plug *plug, size_t bufsize)
 {
     Telnet *telnet = container_of(plug, Telnet, plug);
     telnet->bufsize = bufsize;
@@ -699,6 +689,9 @@ static const char *telnet_init(Seat *seat, Backend **backend_handle,
     char *loghost;
     int addressfamily;
 
+    /* No local authentication phase in this protocol */
+    seat_set_trust_status(seat, false);
+
     telnet = snew(Telnet);
     telnet->plug.vt = &Telnet_plugvt;
     telnet->backend.vt = &telnet_backend;
@@ -708,8 +701,7 @@ static const char *telnet_init(Seat *seat, Backend **backend_handle,
     telnet->echoing = true;
     telnet->editing = true;
     telnet->activated = false;
-    telnet->sb_buf = NULL;
-    telnet->sb_size = 0;
+    telnet->sb_buf = strbuf_new();
     telnet->seat = seat;
     telnet->logctx = logctx;
     telnet->term_width = conf_get_int(telnet->conf, CONF_width);
@@ -795,7 +787,7 @@ static void telnet_free(Backend *be)
 {
     Telnet *telnet = container_of(be, Telnet, backend);
 
-    sfree(telnet->sb_buf);
+    strbuf_free(telnet->sb_buf);
     if (telnet->s)
 	sk_close(telnet->s);
     if (telnet->pinger)
@@ -819,7 +811,7 @@ static void telnet_reconfig(Backend *be, Conf *conf)
 /*
  * Called to send data down the Telnet connection.
  */
-static int telnet_send(Backend *be, const char *buf, int len)
+static size_t telnet_send(Backend *be, const char *buf, size_t len)
 {
     Telnet *telnet = container_of(be, Telnet, backend);
     unsigned char *p, *end;
@@ -854,7 +846,7 @@ static int telnet_send(Backend *be, const char *buf, int len)
 /*
  * Called to query the current socket sendability status.
  */
-static int telnet_sendbuffer(Backend *be)
+static size_t telnet_sendbuffer(Backend *be)
 {
     Telnet *telnet = container_of(be, Telnet, backend);
     return telnet->bufsize;
@@ -1013,7 +1005,7 @@ static bool telnet_sendok(Backend *be)
     return true;
 }
 
-static void telnet_unthrottle(Backend *be, int backlog)
+static void telnet_unthrottle(Backend *be, size_t backlog)
 {
     Telnet *telnet = container_of(be, Telnet, backend);
     sk_set_frozen(telnet->s, backlog > TELNET_MAX_BACKLOG);

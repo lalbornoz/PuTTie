@@ -345,7 +345,7 @@ enum {
     CIPHER_MAX			       /* no. ciphers (inc warn) */
 };
 
-enum {
+enum TriState {
     /*
      * Several different bits of the PuTTY configuration seem to be
      * three-way settings whose values are `always yes', `always
@@ -507,9 +507,9 @@ struct BackendVtable {
     /* Pass in a replacement configuration. */
     void (*reconfig) (Backend *be, Conf *conf);
     /* send() returns the current amount of buffered data. */
-    int (*send) (Backend *be, const char *buf, int len);
+    size_t (*send) (Backend *be, const char *buf, size_t len);
     /* sendbuffer() does the same thing but without attempting a send */
-    int (*sendbuffer) (Backend *be);
+    size_t (*sendbuffer) (Backend *be);
     void (*size) (Backend *be, int width, int height);
     void (*special) (Backend *be, SessionSpecialCode code, int arg);
     const SessionSpecial *(*get_specials) (Backend *be);
@@ -522,7 +522,7 @@ struct BackendVtable {
     bool (*ldisc_option_state) (Backend *be, int);
     void (*provide_ldisc) (Backend *be, Ldisc *ldisc);
     /* Tells the back end that the front end  buffer is clearing. */
-    void (*unthrottle) (Backend *be, int bufsize);
+    void (*unthrottle) (Backend *be, size_t bufsize);
     int (*cfg_info) (Backend *be);
 
     /* Only implemented in the SSH protocol: check whether a
@@ -534,23 +534,39 @@ struct BackendVtable {
     int default_port;
 };
 
-#define backend_init(vt, seat, out, logctx, conf, host, port, rhost, nd, ka) \
-    ((vt)->init(seat, out, logctx, conf, host, port, rhost, nd, ka))
-#define backend_free(be) ((be)->vt->free(be))
-#define backend_reconfig(be, conf) ((be)->vt->reconfig(be, conf))
-#define backend_send(be, buf, len) ((be)->vt->send(be, buf, len))
-#define backend_sendbuffer(be) ((be)->vt->sendbuffer(be))
-#define backend_size(be, w, h) ((be)->vt->size(be, w, h))
-#define backend_special(be, code, arg) ((be)->vt->special(be, code, arg))
-#define backend_get_specials(be) ((be)->vt->get_specials(be))
-#define backend_connected(be) ((be)->vt->connected(be))
-#define backend_exitcode(be) ((be)->vt->exitcode(be))
-#define backend_sendok(be) ((be)->vt->sendok(be))
-#define backend_ldisc_option_state(be, opt) \
-    ((be)->vt->ldisc_option_state(be, opt))
-#define backend_provide_ldisc(be, ldisc) ((be)->vt->provide_ldisc(be, ldisc))
-#define backend_unthrottle(be, bufsize) ((be)->vt->unthrottle(be, bufsize))
-#define backend_cfg_info(be) ((be)->vt->cfg_info(be))
+static inline const char *backend_init(
+    const BackendVtable *vt, Seat *seat, Backend **out, LogContext *logctx,
+    Conf *conf, const char *host, int port, char **rhost, bool nd, bool ka)
+{ return vt->init(seat, out, logctx, conf, host, port, rhost, nd, ka); }
+static inline void backend_free(Backend *be)
+{ be->vt->free(be); }
+static inline void backend_reconfig(Backend *be, Conf *conf)
+{ be->vt->reconfig(be, conf); }
+static inline size_t backend_send(Backend *be, const char *buf, size_t len)
+{ return be->vt->send(be, buf, len); }
+static inline size_t backend_sendbuffer(Backend *be)
+{ return be->vt->sendbuffer(be); }
+static inline void backend_size(Backend *be, int width, int height)
+{ be->vt->size(be, width, height); }
+static inline void backend_special(
+    Backend *be, SessionSpecialCode code, int arg)
+{ be->vt->special(be, code, arg); }
+static inline const SessionSpecial *backend_get_specials(Backend *be)
+{ return be->vt->get_specials(be); }
+static inline bool backend_connected(Backend *be)
+{ return be->vt->connected(be); }
+static inline int backend_exitcode(Backend *be)
+{ return be->vt->exitcode(be); }
+static inline bool backend_sendok(Backend *be)
+{ return be->vt->sendok(be); }
+static inline bool backend_ldisc_option_state(Backend *be, int state)
+{ return be->vt->ldisc_option_state(be, state); }
+static inline void backend_provide_ldisc(Backend *be, Ldisc *ldisc)
+{ be->vt->provide_ldisc(be, ldisc); }
+static inline void backend_unthrottle(Backend *be, size_t bufsize)
+{ be->vt->unthrottle(be, bufsize); }
+static inline int backend_cfg_info(Backend *be)
+{ return be->vt->cfg_info(be); }
 
 extern const struct BackendVtable *const backends[];
 
@@ -647,12 +663,22 @@ typedef struct {
      * sufficient).
      */
     bool to_server;
+
+    /*
+     * Indicates whether the prompts originated _at_ the server, so
+     * that the front end can display some kind of trust sigil that
+     * distinguishes (say) a legit private-key passphrase prompt from
+     * a fake one sent by a malicious server.
+     */
+    bool from_server;
+
     char *name;		/* Short description, perhaps for dialog box title */
     bool name_reqd;     /* Display of `name' required or optional? */
     char *instruction;	/* Long description, maybe with embedded newlines */
     bool instr_reqd;    /* Display of `instruction' required or optional? */
     size_t n_prompts;   /* May be zero (in which case display the foregoing,
                          * if any, and return success) */
+    size_t prompts_size; /* allocated storage capacity for prompts[] */
     prompt_t **prompts;
     void *data;		/* slot for housekeeping data, managed by
 			 * seat_get_userpass_input(); initially NULL */
@@ -727,6 +753,10 @@ typedef enum BusyStatus {
                      * suspended */
 } BusyStatus;
 
+typedef enum SeatInteractionContext {
+    SIC_BANNER, SIC_KI_PROMPTS
+} SeatInteractionContext;
+
 /*
  * Data type 'Seat', which is an API intended to contain essentially
  * everything that a back end might need to talk to its client for:
@@ -746,7 +776,7 @@ struct SeatVtable {
      *
      * The return value is the current size of the output backlog.
      */
-    int (*output)(Seat *seat, bool is_stderr, const void *data, int len);
+    size_t (*output)(Seat *seat, bool is_stderr, const void *data, size_t len);
 
     /*
      * Called when the back end wants to indicate that EOF has arrived
@@ -917,38 +947,74 @@ struct SeatVtable {
      * true.
      */
     bool (*get_window_pixel_size)(Seat *seat, int *width, int *height);
+
+    /*
+     * Return a StripCtrlChars appropriate for sanitising untrusted
+     * terminal data (e.g. SSH banners, prompts) being sent to the
+     * user of this seat. May return NULL if no sanitisation is
+     * needed.
+     */
+    StripCtrlChars *(*stripctrl_new)(
+        Seat *seat, BinarySink *bs_out, SeatInteractionContext sic);
+
+    /*
+     * Set the seat's current idea of where output is coming from.
+     * True means that output is being generated by our own code base
+     * (and hence, can be trusted if it's asking you for secrets such
+     * as your passphrase); false means output is coming from the
+     * server.
+     *
+     * Returns true if the seat has a way to indicate this
+     * distinction. Returns false if not, in which case the backend
+     * should use a fallback defence against spoofing of PuTTY's local
+     * prompts by malicious servers.
+     */
+    bool (*set_trust_status)(Seat *seat, bool trusted);
 };
 
-#define seat_output(seat, is_stderr, data, len) \
-    ((seat)->vt->output(seat, is_stderr, data, len))
-#define seat_eof(seat) \
-    ((seat)->vt->eof(seat))
-#define seat_get_userpass_input(seat, p, input) \
-    ((seat)->vt->get_userpass_input(seat, p, input))
-#define seat_notify_remote_exit(seat) \
-    ((seat)->vt->notify_remote_exit(seat))
-#define seat_update_specials_menu(seat) \
-    ((seat)->vt->update_specials_menu(seat))
-#define seat_get_ttymode(seat, mode) \
-    ((seat)->vt->get_ttymode(seat, mode))
-#define seat_set_busy_status(seat, status) \
-    ((seat)->vt->set_busy_status(seat, status))
-#define seat_verify_ssh_host_key(seat, h, p, typ, str, fp, cb, ctx) \
-    ((seat)->vt->verify_ssh_host_key(seat, h, p, typ, str, fp, cb, ctx))
-#define seat_confirm_weak_crypto_primitive(seat, typ, alg, cb, ctx) \
-    ((seat)->vt->confirm_weak_crypto_primitive(seat, typ, alg, cb, ctx))
-#define seat_confirm_weak_cached_hostkey(seat, alg, better, cb, ctx) \
-    ((seat)->vt->confirm_weak_cached_hostkey(seat, alg, better, cb, ctx))
-#define seat_is_utf8(seat) \
-    ((seat)->vt->is_utf8(seat))
-#define seat_echoedit_update(seat, echoing, editing) \
-    ((seat)->vt->echoedit_update(seat, echoing, editing))
-#define seat_get_x_display(seat) \
-    ((seat)->vt->get_x_display(seat))
-#define seat_get_windowid(seat, out) \
-    ((seat)->vt->get_windowid(seat, out))
-#define seat_get_window_pixel_size(seat, width, height) \
-    ((seat)->vt->get_window_pixel_size(seat, width, height))
+static inline size_t seat_output(
+    Seat *seat, bool err, const void *data, size_t len)
+{ return seat->vt->output(seat, err, data, len); }
+static inline bool seat_eof(Seat *seat)
+{ return seat->vt->eof(seat); }
+static inline int seat_get_userpass_input(
+    Seat *seat, prompts_t *p, bufchain *input)
+{ return seat->vt->get_userpass_input(seat, p, input); }
+static inline void seat_notify_remote_exit(Seat *seat)
+{ seat->vt->notify_remote_exit(seat); }
+static inline void seat_update_specials_menu(Seat *seat)
+{ seat->vt->update_specials_menu(seat); }
+static inline char *seat_get_ttymode(Seat *seat, const char *mode)
+{ return seat->vt->get_ttymode(seat, mode); }
+static inline void seat_set_busy_status(Seat *seat, BusyStatus status)
+{ seat->vt->set_busy_status(seat, status); }
+static inline int seat_verify_ssh_host_key(
+    Seat *seat, const char *h, int p, const char *ktyp, char *kstr,
+    char *fp, void (*cb)(void *ctx, int result), void *ctx)
+{ return seat->vt->verify_ssh_host_key(seat, h, p, ktyp, kstr, fp, cb, ctx); }
+static inline int seat_confirm_weak_crypto_primitive(
+    Seat *seat, const char *atyp, const char *aname,
+    void (*cb)(void *ctx, int result), void *ctx)
+{ return seat->vt->confirm_weak_crypto_primitive(seat, atyp, aname, cb, ctx); }
+static inline int seat_confirm_weak_cached_hostkey(
+    Seat *seat, const char *aname, const char *better,
+    void (*cb)(void *ctx, int result), void *ctx)
+{ return seat->vt->confirm_weak_cached_hostkey(seat, aname, better, cb, ctx); }
+static inline bool seat_is_utf8(Seat *seat)
+{ return seat->vt->is_utf8(seat); }
+static inline void seat_echoedit_update(Seat *seat, bool ec, bool ed)
+{ seat->vt->echoedit_update(seat, ec, ed); }
+static inline const char *seat_get_x_display(Seat *seat)
+{ return seat->vt->get_x_display(seat); }
+static inline bool seat_get_windowid(Seat *seat, long *id_out)
+{ return seat->vt->get_windowid(seat, id_out); }
+static inline bool seat_get_window_pixel_size(Seat *seat, int *w, int *h)
+{ return seat->vt->get_window_pixel_size(seat, w, h); }
+static inline StripCtrlChars *seat_stripctrl_new(
+    Seat *seat, BinarySink *bs, SeatInteractionContext sic)
+{ return seat->vt->stripctrl_new(seat, bs, sic); }
+static inline bool seat_set_trust_status(Seat *seat, bool trusted)
+{ return  seat->vt->set_trust_status(seat, trusted); }
 
 /* Unlike the seat's actual method, the public entry point
  * seat_connection_fatal is a wrapper function with a printf-like API,
@@ -956,10 +1022,14 @@ struct SeatVtable {
 void seat_connection_fatal(Seat *seat, const char *fmt, ...);
 
 /* Handy aliases for seat_output which set is_stderr to a fixed value. */
-#define seat_stdout(seat, data, len) \
-    seat_output(seat, false, data, len)
-#define seat_stderr(seat, data, len) \
-    seat_output(seat, true, data, len)
+static inline size_t seat_stdout(Seat *seat, const void *data, size_t len)
+{ return seat_output(seat, false, data, len); }
+static inline size_t seat_stdout_pl(Seat *seat, ptrlen data)
+{ return seat_output(seat, false, data.ptr, data.len); }
+static inline size_t seat_stderr(Seat *seat, const void *data, size_t len)
+{ return seat_output(seat, true, data, len); }
+static inline size_t seat_stderr_pl(Seat *seat, ptrlen data)
+{ return seat_output(seat, true, data.ptr, data.len); }
 
 /*
  * Stub methods for seat implementations that want to use the obvious
@@ -968,7 +1038,8 @@ void seat_connection_fatal(Seat *seat, const char *fmt, ...);
  * These are generally obvious, except for is_utf8, where you might
  * plausibly want to return either fixed answer 'no' or 'yes'.
  */
-int nullseat_output(Seat *seat, bool is_stderr, const void *data, int len);
+size_t nullseat_output(
+    Seat *seat, bool is_stderr, const void *data, size_t len);
 bool nullseat_eof(Seat *seat);
 int nullseat_get_userpass_input(Seat *seat, prompts_t *p, bufchain *input);
 void nullseat_notify_remote_exit(Seat *seat);
@@ -992,6 +1063,10 @@ void nullseat_echoedit_update(Seat *seat, bool echoing, bool editing);
 const char *nullseat_get_x_display(Seat *seat);
 bool nullseat_get_windowid(Seat *seat, long *id_out);
 bool nullseat_get_window_pixel_size(Seat *seat, int *width, int *height);
+StripCtrlChars *nullseat_stripctrl_new(
+        Seat *seat, BinarySink *bs_out, SeatInteractionContext sic);
+bool nullseat_set_trust_status(Seat *seat, bool trusted);
+bool nullseat_set_trust_status_vacuously(Seat *seat, bool trusted);
 
 /*
  * Seat functions provided by the platform's console-application
@@ -1009,6 +1084,9 @@ int console_confirm_weak_crypto_primitive(
 int console_confirm_weak_cached_hostkey(
     Seat *seat, const char *algname, const char *betteralgs,
     void (*callback)(void *ctx, int result), void *ctx);
+StripCtrlChars *console_stripctrl_new(
+        Seat *seat, BinarySink *bs_out, SeatInteractionContext sic);
+bool console_set_trust_status(Seat *seat, bool trusted);
 
 /*
  * Other centralised seat functions.
@@ -1044,6 +1122,10 @@ struct TermWinVtable {
      * redraw it in different colours). */
     void (*draw_cursor)(TermWin *, int x, int y, wchar_t *text, int len,
                         unsigned long attrs, int line_attrs, truecolour tc);
+    /* Draw the sigil indicating that a line of text has come from
+     * PuTTY itself rather than the far end (defence against end-of-
+     * authentication spoofing) */
+    void (*draw_trust_sigil)(TermWin *, int x, int y);
     int (*char_width)(TermWin *, int uc);
     void (*free_draw_ctx)(TermWin *);
 
@@ -1086,60 +1168,68 @@ struct TermWinVtable {
     bool (*is_utf8)(TermWin *);
 };
 
-#define win_setup_draw_ctx(win) \
-    ((win)->vt->setup_draw_ctx(win))
-#define win_draw_text(win, x, y, text, len, attrs, lattrs, tc) \
-    ((win)->vt->draw_text(win, x, y, text, len, attrs, lattrs, tc))
-#define win_draw_cursor(win, x, y, text, len, attrs, lattrs, tc) \
-    ((win)->vt->draw_cursor(win, x, y, text, len, attrs, lattrs, tc))
-#define win_char_width(win, uc) \
-    ((win)->vt->char_width(win, uc))
-#define win_free_draw_ctx(win) \
-    ((win)->vt->free_draw_ctx(win))
-#define win_set_cursor_pos(win, x, y) \
-    ((win)->vt->set_cursor_pos(win, x, y))
-#define win_set_raw_mouse_mode(win, enable) \
-    ((win)->vt->set_raw_mouse_mode(win, enable))
-#define win_set_scrollbar(win, total, start, page) \
-    ((win)->vt->set_scrollbar(win, total, start, page))
-#define win_bell(win, mode) \
-    ((win)->vt->bell(win, mode))
-#define win_clip_write(win, clipboard, text, attrs, colours, len, desel) \
-    ((win)->vt->clip_write(win, clipboard, text, attrs, colours, len, desel))
-#define win_clip_request_paste(win, clipboard) \
-    ((win)->vt->clip_request_paste(win, clipboard))
-#define win_refresh(win) \
-    ((win)->vt->refresh(win))
-#define win_request_resize(win, w, h) \
-    ((win)->vt->request_resize(win, w, h))
-#define win_set_title(win, title) \
-    ((win)->vt->set_title(win, title))
-#define win_set_icon_title(win, ititle) \
-    ((win)->vt->set_icon_title(win, ititle))
-#define win_set_minimised(win, minimised) \
-    ((win)->vt->set_minimised(win, minimised))
-#define win_is_minimised(win) \
-    ((win)->vt->is_minimised(win))
-#define win_set_maximised(win, maximised) \
-    ((win)->vt->set_maximised(win, maximised))
-#define win_move(win, x, y) \
-    ((win)->vt->move(win, x, y))
-#define win_set_zorder(win, top) \
-    ((win)->vt->set_zorder(win, top))
-#define win_palette_get(win, n, r, g, b) \
-    ((win)->vt->palette_get(win, n, r, g, b))
-#define win_palette_set(win, n, r, g, b) \
-    ((win)->vt->palette_set(win, n, r, g, b))
-#define win_palette_reset(win) \
-    ((win)->vt->palette_reset(win))
-#define win_get_pos(win, x, y) \
-    ((win)->vt->get_pos(win, x, y))
-#define win_get_pixels(win, x, y) \
-    ((win)->vt->get_pixels(win, x, y))
-#define win_get_title(win, icon) \
-    ((win)->vt->get_title(win, icon))
-#define win_is_utf8(win) \
-    ((win)->vt->is_utf8(win))
+static inline bool win_setup_draw_ctx(TermWin *win)
+{ return win->vt->setup_draw_ctx(win); }
+static inline void win_draw_text(
+    TermWin *win, int x, int y, wchar_t *text, int len,
+    unsigned long attrs, int line_attrs, truecolour tc)
+{ win->vt->draw_text(win, x, y, text, len, attrs, line_attrs, tc); }
+static inline void win_draw_cursor(
+    TermWin *win, int x, int y, wchar_t *text, int len,
+    unsigned long attrs, int line_attrs, truecolour tc)
+{ win->vt->draw_cursor(win, x, y, text, len, attrs, line_attrs, tc); }
+static inline void win_draw_trust_sigil(TermWin *win, int x, int y)
+{ win->vt->draw_trust_sigil(win, x, y); }
+static inline int win_char_width(TermWin *win, int uc)
+{ return win->vt->char_width(win, uc); }
+static inline void win_free_draw_ctx(TermWin *win)
+{ win->vt->free_draw_ctx(win); }
+static inline void win_set_cursor_pos(TermWin *win, int x, int y)
+{ win->vt->set_cursor_pos(win, x, y); }
+static inline void win_set_raw_mouse_mode(TermWin *win, bool enable)
+{ win->vt->set_raw_mouse_mode(win, enable); }
+static inline void win_set_scrollbar(TermWin *win, int t, int s, int p)
+{ win->vt->set_scrollbar(win, t, s, p); }
+static inline void win_bell(TermWin *win, int mode)
+{ win->vt->bell(win, mode); }
+static inline void win_clip_write(
+    TermWin *win, int clipboard, wchar_t *text, int *attrs,
+    truecolour *colours, int len, bool deselect)
+{ win->vt->clip_write(win, clipboard, text, attrs, colours, len, deselect); }
+static inline void win_clip_request_paste(TermWin *win, int clipboard)
+{ win->vt->clip_request_paste(win, clipboard); }
+static inline void win_refresh(TermWin *win)
+{ win->vt->refresh(win); }
+static inline void win_request_resize(TermWin *win, int w, int h)
+{ win->vt->request_resize(win, w, h); }
+static inline void win_set_title(TermWin *win, const char *title)
+{ win->vt->set_title(win, title); }
+static inline void win_set_icon_title(TermWin *win, const char *icontitle)
+{ win->vt->set_icon_title(win, icontitle); }
+static inline void win_set_minimised(TermWin *win, bool minimised)
+{ win->vt->set_minimised(win, minimised); }
+static inline bool win_is_minimised(TermWin *win)
+{ return win->vt->is_minimised(win); }
+static inline void win_set_maximised(TermWin *win, bool maximised)
+{ win->vt->set_maximised(win, maximised); }
+static inline void win_move(TermWin *win, int x, int y)
+{ win->vt->move(win, x, y); }
+static inline void win_set_zorder(TermWin *win, bool top)
+{ win->vt->set_zorder(win, top); }
+static inline bool win_palette_get(TermWin *win, int n, int *r, int *g, int *b)
+{ return win->vt->palette_get(win, n, r, g, b); }
+static inline void win_palette_set(TermWin *win, int n, int r, int g, int b)
+{ win->vt->palette_set(win, n, r, g, b); }
+static inline void win_palette_reset(TermWin *win)
+{ win->vt->palette_reset(win); }
+static inline void win_get_pos(TermWin *win, int *x, int *y)
+{ win->vt->get_pos(win, x, y); }
+static inline void win_get_pixels(TermWin *win, int *x, int *y)
+{ win->vt->get_pixels(win, x, y); }
+static inline const char *win_get_title(TermWin *win, bool icon)
+{ return win->vt->get_title(win, icon); }
+static inline bool win_is_utf8(TermWin *win)
+{ return win->vt->is_utf8(win); }
 
 /*
  * Global functions not specific to a connection instance.
@@ -1463,25 +1553,49 @@ FontSpec *fontspec_deserialise(BinarySource *src);
 /*
  * Exports from noise.c.
  */
+typedef enum NoiseSourceId {
+    NOISE_SOURCE_TIME,
+    NOISE_SOURCE_IOID,
+    NOISE_SOURCE_IOLEN,
+    NOISE_SOURCE_KEY,
+    NOISE_SOURCE_MOUSEBUTTON,
+    NOISE_SOURCE_MOUSEPOS,
+    NOISE_SOURCE_MEMINFO,
+    NOISE_SOURCE_STAT,
+    NOISE_SOURCE_RUSAGE,
+    NOISE_SOURCE_FGWINDOW,
+    NOISE_SOURCE_CAPTURE,
+    NOISE_SOURCE_CLIPBOARD,
+    NOISE_SOURCE_QUEUE,
+    NOISE_SOURCE_CURSORPOS,
+    NOISE_SOURCE_THREADTIME,
+    NOISE_SOURCE_PROCTIME,
+    NOISE_SOURCE_PERFCOUNT,
+    NOISE_MAX_SOURCES
+} NoiseSourceId;
 void noise_get_heavy(void (*func) (void *, int));
 void noise_get_light(void (*func) (void *, int));
 void noise_regular(void);
-void noise_ultralight(unsigned long data);
+void noise_ultralight(NoiseSourceId id, unsigned long data);
 void random_save_seed(void);
 void random_destroy_seed(void);
 
 /*
  * Exports from settings.c.
+ *
+ * load_settings() and do_defaults() return false if the provided
+ * session name didn't actually exist. But they still fill in the
+ * provided Conf with _something_.
  */
 const struct BackendVtable *backend_vt_from_name(const char *name);
 const struct BackendVtable *backend_vt_from_proto(int proto);
 char *get_remote_username(Conf *conf); /* dynamically allocated */
 char *save_settings(const char *section, Conf *conf);
 void save_open_settings(settings_w *sesskey, Conf *conf);
-void load_settings(const char *section, Conf *conf);
+bool load_settings(const char *section, Conf *conf);
 void load_open_settings(settings_r *sesskey, Conf *conf);
 void get_sesslist(struct sesslist *, bool allocate);
-void do_defaults(const char *, Conf *);
+bool do_defaults(const char *, Conf *);
 void registry_cleanup(void);
 
 /*
@@ -1533,12 +1647,13 @@ void term_reconfig(Terminal *, Conf *);
 void term_request_copy(Terminal *, const int *clipboards, int n_clipboards);
 void term_request_paste(Terminal *, int clipboard);
 void term_seen_key_event(Terminal *); 
-int term_data(Terminal *, bool is_stderr, const void *data, int len);
+size_t term_data(Terminal *, bool is_stderr, const void *data, size_t len);
 void term_provide_backend(Terminal *term, Backend *backend);
 void term_provide_logctx(Terminal *term, LogContext *logctx);
 void term_set_focus(Terminal *term, bool has_focus);
 char *term_get_ttymode(Terminal *term, const char *mode);
 int term_get_userpass_input(Terminal *term, prompts_t *p, bufchain *input);
+void term_set_trust_status(Terminal *term, bool trusted);
 
 typedef enum SmallKeypadKey {
     SKK_HOME, SKK_END, SKK_INSERT, SKK_DELETE, SKK_PGUP, SKK_PGDN,
@@ -1592,9 +1707,15 @@ struct LogPolicyVtable {
 struct LogPolicy {
     const LogPolicyVtable *vt;
 };
-#define lp_eventlog(lp, event) ((lp)->vt->eventlog(lp, event))
-#define lp_askappend(lp, fn, cb, ctx) ((lp)->vt->askappend(lp, fn, cb, ctx))
-#define lp_logging_error(lp, event) ((lp)->vt->logging_error(lp, event))
+
+static inline void lp_eventlog(LogPolicy *lp, const char *event)
+{ lp->vt->eventlog(lp, event); }
+static inline int lp_askappend(
+    LogPolicy *lp, Filename *filename,
+    void (*callback)(void *ctx, int result), void *ctx)
+{ return lp->vt->askappend(lp, filename, callback, ctx); }
+static inline void lp_logging_error(LogPolicy *lp, const char *event)
+{ lp->vt->logging_error(lp, event); }
 
 LogContext *log_init(LogPolicy *lp, Conf *conf);
 void log_free(LogContext *logctx);
@@ -1621,7 +1742,7 @@ struct logblank_t {
     int type;
 };
 void log_packet(LogContext *logctx, int direction, int type,
-		const char *texttype, const void *data, int len,
+		const char *texttype, const void *data, size_t len,
 		int n_blanks, const struct logblank_t *blanks,
 		const unsigned long *sequence,
                 unsigned downstream_id, const char *additional_log_text);
@@ -1680,8 +1801,8 @@ void luni_send(Ldisc *, const wchar_t * widebuf, int len, bool interactive);
  * Exports from sshrand.c.
  */
 
-void random_add_noise(void *noise, int length);
-int random_byte(void);
+void random_add_noise(NoiseSourceId source, const void *noise, int length);
+void random_read(void *buf, size_t size);
 void random_get_savedata(void **data, int *len);
 extern int random_active;
 /* The random number subsystem is activated if at least one other entity
@@ -1689,6 +1810,14 @@ extern int random_active;
  * calls random_ref on startup and random_unref on shutdown. */
 void random_ref(void);
 void random_unref(void);
+/* random_setup_special is used by PuTTYgen. It makes an extra-big
+ * random number generator. */
+void random_setup_special();
+/* Manually drop a random seed into the random number generator, e.g.
+ * just before generating a key. */
+void random_reseed(ptrlen seed);
+/* Limit on how much entropy is worth putting into the generator (bits). */
+size_t random_seed_bits(void);
 
 /*
  * Exports from pinger.c.
@@ -1804,7 +1933,7 @@ bool have_ssh_host_key(const char *host, int port, const char *keytype);
  * Exports from console frontends (wincons.c, uxcons.c)
  * that aren't equivalents to things in windlg.c et al.
  */
-extern bool console_batch_mode;
+extern bool console_batch_mode, console_antispoof_prompt;
 int console_get_userpass_input(prompts_t *p);
 bool is_interactive(void);
 void console_print_error_msg(const char *prefix, const char *msg);
@@ -1821,7 +1950,7 @@ printer_enum *printer_start_enum(int *nprinters);
 char *printer_get_name(printer_enum *, int);
 void printer_finish_enum(printer_enum *);
 printer_job *printer_start_job(char *printer);
-void printer_job_data(printer_job *, void *, int);
+void printer_job_data(printer_job *, const void *, size_t);
 void printer_finish_job(printer_job *);
 
 /*
@@ -1875,9 +2004,10 @@ void setup_config_box(struct controlbox *b, bool midsession,
 /*
  * Exports from minibidi.c.
  */
+#define BIDI_CHAR_INDEX_NONE ((unsigned short)-1)
 typedef struct bidi_char {
     unsigned int origwc, wc;
-    unsigned short index;
+    unsigned short index, nchars;
 } bidi_char;
 int do_bidi(bidi_char *line, int count);
 int do_shape(bidi_char *line, bidi_char *to, int count);
@@ -1965,7 +2095,7 @@ bool open_for_write_would_lose_data(const Filename *fn);
  * The reason for this is that an OS's system clock might not agree
  * exactly with the timing mechanisms it supplies to wait for a
  * given interval. I'll illustrate this by the simple example of
- * Unix Plink, which uses timeouts to select() in a way which for
+ * Unix Plink, which uses timeouts to poll() in a way which for
  * these purposes can simply be considered to be a wait() function.
  * Suppose, for the sake of argument, that this wait() function
  * tends to return early by 1%. Then a possible sequence of actions
@@ -2037,12 +2167,12 @@ unsigned long timing_last_clock(void);
  * instead request notifications when a callback is available, so that
  * it knows to ask its delegate event loop to do the same thing. Also,
  * if a front end needs to know whether a callback is pending without
- * actually running it (e.g. so as to put a zero timeout on a select()
+ * actually running it (e.g. so as to put a zero timeout on a poll()
  * call) then it can call toplevel_callback_pending(), which will
  * return true if at least one callback is in the queue.
  *
  * run_toplevel_callbacks() returns true if it ran any actual code.
- * This can be used as a means of speculatively terminating a select
+ * This can be used as a means of speculatively terminating a poll
  * loop, as in PSFTP, for example - if a callback has run then perhaps
  * it might have done whatever the loop's caller was waiting for.
  */
@@ -2084,10 +2214,12 @@ void request_callback_notifications(toplevel_callback_notify_fn_t notify,
 #endif
 
 /* SURROGATE PAIR */
+#ifndef HIGH_SURROGATE_START /* in some toolchains <winnls.h> defines these */
 #define HIGH_SURROGATE_START 0xd800
 #define HIGH_SURROGATE_END 0xdbff
 #define LOW_SURROGATE_START 0xdc00
 #define LOW_SURROGATE_END 0xdfff
+#endif
 
 /* These macros exist in the Windows API, so the environment may
  * provide them. If not, define them in terms of the above. */

@@ -11,10 +11,10 @@
 
 struct ssh2_bpp_direction {
     unsigned long sequence;
-    ssh2_cipher *cipher;
+    ssh_cipher *cipher;
     ssh2_mac *mac;
     bool etm_mode;
-    const struct ssh_compression_alg *pending_compression;
+    const ssh_compression_alg *pending_compression;
 };
 
 struct ssh2_bpp_state {
@@ -67,54 +67,69 @@ BinaryPacketProtocol *ssh2_bpp_new(
     return &s->bpp;
 }
 
+static void ssh2_bpp_free_outgoing_crypto(struct ssh2_bpp_state *s)
+{
+    /*
+     * We must free the MAC before the cipher, because sometimes the
+     * MAC is not actually separately allocated but just a different
+     * facet of the same object as the cipher, in which case
+     * ssh2_mac_free does nothing and ssh_cipher_free does the actual
+     * freeing. So if we freed the cipher first and then tried to
+     * dereference the MAC's vtable pointer to find out how to free
+     * that too, we'd be accessing freed memory.
+     */
+    if (s->out.mac)
+        ssh2_mac_free(s->out.mac);
+    if (s->out.cipher)
+        ssh_cipher_free(s->out.cipher);
+    if (s->out_comp)
+        ssh_compressor_free(s->out_comp);
+}
+
+static void ssh2_bpp_free_incoming_crypto(struct ssh2_bpp_state *s)
+{
+    /* As above, take care to free in.mac before in.cipher */
+    if (s->in.mac)
+        ssh2_mac_free(s->in.mac);
+    if (s->in.cipher)
+        ssh_cipher_free(s->in.cipher);
+    if (s->in_decomp)
+        ssh_decompressor_free(s->in_decomp);
+}
+
 static void ssh2_bpp_free(BinaryPacketProtocol *bpp)
 {
     struct ssh2_bpp_state *s = container_of(bpp, struct ssh2_bpp_state, bpp);
     sfree(s->buf);
-    if (s->out.cipher)
-        ssh2_cipher_free(s->out.cipher);
-    if (s->out.mac)
-        ssh2_mac_free(s->out.mac);
-    if (s->out_comp)
-        ssh_compressor_free(s->out_comp);
-    if (s->in.cipher)
-        ssh2_cipher_free(s->in.cipher);
-    if (s->in.mac)
-        ssh2_mac_free(s->in.mac);
-    if (s->in_decomp)
-        ssh_decompressor_free(s->in_decomp);
+    ssh2_bpp_free_outgoing_crypto(s);
+    ssh2_bpp_free_incoming_crypto(s);
     sfree(s->pktin);
     sfree(s);
 }
 
 void ssh2_bpp_new_outgoing_crypto(
     BinaryPacketProtocol *bpp,
-    const struct ssh2_cipheralg *cipher, const void *ckey, const void *iv,
-    const struct ssh2_macalg *mac, bool etm_mode, const void *mac_key,
-    const struct ssh_compression_alg *compression, bool delayed_compression)
+    const ssh_cipheralg *cipher, const void *ckey, const void *iv,
+    const ssh2_macalg *mac, bool etm_mode, const void *mac_key,
+    const ssh_compression_alg *compression, bool delayed_compression)
 {
     struct ssh2_bpp_state *s;
     assert(bpp->vt == &ssh2_bpp_vtable);
     s = container_of(bpp, struct ssh2_bpp_state, bpp);
 
-    if (s->out.cipher)
-        ssh2_cipher_free(s->out.cipher);
-    if (s->out.mac)
-        ssh2_mac_free(s->out.mac);
-    if (s->out_comp)
-        ssh_compressor_free(s->out_comp);
+    ssh2_bpp_free_outgoing_crypto(s);
 
     if (cipher) {
-        s->out.cipher = ssh2_cipher_new(cipher);
-        ssh2_cipher_setkey(s->out.cipher, ckey);
-        ssh2_cipher_setiv(s->out.cipher, iv);
+        s->out.cipher = ssh_cipher_new(cipher);
+        ssh_cipher_setkey(s->out.cipher, ckey);
+        ssh_cipher_setiv(s->out.cipher, iv);
 
         s->cbc_ignore_workaround = (
-            (ssh2_cipher_alg(s->out.cipher)->flags & SSH_CIPHER_IS_CBC) &&
+            (ssh_cipher_alg(s->out.cipher)->flags & SSH_CIPHER_IS_CBC) &&
             !(s->bpp.remote_bugs & BUG_CHOKES_ON_SSH2_IGNORE));
 
         bpp_logevent("Initialised %s outbound encryption",
-                     ssh2_cipher_alg(s->out.cipher)->text_name);
+                     ssh_cipher_alg(s->out.cipher)->text_name);
     } else {
         s->out.cipher = NULL;
         s->cbc_ignore_workaround = false;
@@ -122,13 +137,13 @@ void ssh2_bpp_new_outgoing_crypto(
     s->out.etm_mode = etm_mode;
     if (mac) {
         s->out.mac = ssh2_mac_new(mac, s->out.cipher);
-        mac->setkey(s->out.mac, mac_key);
+        ssh2_mac_setkey(s->out.mac, make_ptrlen(mac_key, mac->keylen));
 
         bpp_logevent("Initialised %s outbound MAC algorithm%s%s",
-                     ssh2_mac_alg(s->out.mac)->text_name,
+                     ssh2_mac_text_name(s->out.mac),
                      etm_mode ? " (in ETM mode)" : "",
                      (s->out.cipher &&
-                      ssh2_cipher_alg(s->out.cipher)->required_mac ?
+                      ssh_cipher_alg(s->out.cipher)->required_mac ?
                       " (required by cipher)" : ""));
     } else {
         s->out.mac = NULL;
@@ -156,41 +171,36 @@ void ssh2_bpp_new_outgoing_crypto(
 
 void ssh2_bpp_new_incoming_crypto(
     BinaryPacketProtocol *bpp,
-    const struct ssh2_cipheralg *cipher, const void *ckey, const void *iv,
-    const struct ssh2_macalg *mac, bool etm_mode, const void *mac_key,
-    const struct ssh_compression_alg *compression, bool delayed_compression)
+    const ssh_cipheralg *cipher, const void *ckey, const void *iv,
+    const ssh2_macalg *mac, bool etm_mode, const void *mac_key,
+    const ssh_compression_alg *compression, bool delayed_compression)
 {
     struct ssh2_bpp_state *s;
     assert(bpp->vt == &ssh2_bpp_vtable);
     s = container_of(bpp, struct ssh2_bpp_state, bpp);
 
-    if (s->in.cipher)
-        ssh2_cipher_free(s->in.cipher);
-    if (s->in.mac)
-        ssh2_mac_free(s->in.mac);
-    if (s->in_decomp)
-        ssh_decompressor_free(s->in_decomp);
+    ssh2_bpp_free_incoming_crypto(s);
 
     if (cipher) {
-        s->in.cipher = ssh2_cipher_new(cipher);
-        ssh2_cipher_setkey(s->in.cipher, ckey);
-        ssh2_cipher_setiv(s->in.cipher, iv);
+        s->in.cipher = ssh_cipher_new(cipher);
+        ssh_cipher_setkey(s->in.cipher, ckey);
+        ssh_cipher_setiv(s->in.cipher, iv);
 
         bpp_logevent("Initialised %s inbound encryption",
-                     ssh2_cipher_alg(s->in.cipher)->text_name);
+                     ssh_cipher_alg(s->in.cipher)->text_name);
     } else {
         s->in.cipher = NULL;
     }
     s->in.etm_mode = etm_mode;
     if (mac) {
         s->in.mac = ssh2_mac_new(mac, s->in.cipher);
-        mac->setkey(s->in.mac, mac_key);
+        ssh2_mac_setkey(s->in.mac, make_ptrlen(mac_key, mac->keylen));
 
         bpp_logevent("Initialised %s inbound MAC algorithm%s%s",
-                     ssh2_mac_alg(s->in.mac)->text_name,
+                     ssh2_mac_text_name(s->in.mac),
                      etm_mode ? " (in ETM mode)" : "",
                      (s->in.cipher &&
-                      ssh2_cipher_alg(s->in.cipher)->required_mac ?
+                      ssh_cipher_alg(s->in.cipher)->required_mac ?
                       " (required by cipher)" : ""));
     } else {
         s->in.mac = NULL;
@@ -259,6 +269,7 @@ static void ssh2_bpp_enable_pending_compression(struct ssh2_bpp_state *s)
                           s->bpp.input_eof);                            \
         if (!success)                                                   \
             goto eof;                                                   \
+        ssh_check_frozen(s->bpp.ssh);                                   \
     } while (0)
 
 #define userauth_range(pkttype) ((unsigned)((pkttype) - 50) < 20)
@@ -273,7 +284,7 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
         s->maxlen = 0;
         s->length = 0;
         if (s->in.cipher)
-            s->cipherblk = ssh2_cipher_alg(s->in.cipher)->blksize;
+            s->cipherblk = ssh_cipher_alg(s->in.cipher)->blksize;
         else
             s->cipherblk = 8;
         if (s->cipherblk < 8)
@@ -281,7 +292,7 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
         s->maclen = s->in.mac ? ssh2_mac_alg(s->in.mac)->len : 0;
 
         if (s->in.cipher &&
-            (ssh2_cipher_alg(s->in.cipher)->flags & SSH_CIPHER_IS_CBC) &&
+            (ssh_cipher_alg(s->in.cipher)->flags & SSH_CIPHER_IS_CBC) &&
             s->in.mac && !s->in.etm_mode) {
             /*
              * When dealing with a CBC-mode cipher, we want to avoid the
@@ -323,8 +334,8 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
                 BPP_READ(s->buf + (s->packetlen + s->maclen), s->cipherblk);
                 /* Decrypt one more block (a little further back in
                  * the stream). */
-                ssh2_cipher_decrypt(s->in.cipher,
-                                    s->buf + s->packetlen, s->cipherblk);
+                ssh_cipher_decrypt(s->in.cipher,
+                                   s->buf + s->packetlen, s->cipherblk);
 
                 /* Feed that block to the MAC. */
                 put_data(s->in.mac,
@@ -333,7 +344,7 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
 
                 /* See if that gives us a valid packet. */
                 if (ssh2_mac_verresult(s->in.mac, s->buf + s->packetlen) &&
-                    ((s->len = toint(GET_32BIT(s->buf))) ==
+                    ((s->len = toint(GET_32BIT_MSB_FIRST(s->buf))) ==
                      s->packetlen-4))
                     break;
                 if (s->packetlen >= (long)OUR_V2_PACKETLIMIT) {
@@ -366,16 +377,16 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
             BPP_READ(s->buf, 4);
 
             /* Cipher supports length decryption, so do it */
-            if (s->in.cipher && (ssh2_cipher_alg(s->in.cipher)->flags &
+            if (s->in.cipher && (ssh_cipher_alg(s->in.cipher)->flags &
                                  SSH_CIPHER_SEPARATE_LENGTH)) {
                 /* Keep the packet the same though, so the MAC passes */
                 unsigned char len[4];
                 memcpy(len, s->buf, 4);
-                ssh2_cipher_decrypt_length(
+                ssh_cipher_decrypt_length(
                     s->in.cipher, len, 4, s->in.sequence);
-                s->len = toint(GET_32BIT(len));
+                s->len = toint(GET_32BIT_MSB_FIRST(len));
             } else {
-                s->len = toint(GET_32BIT(s->buf));
+                s->len = toint(GET_32BIT_MSB_FIRST(s->buf));
             }
 
             /*
@@ -420,7 +431,7 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
 
             /* Decrypt everything between the length field and the MAC. */
             if (s->in.cipher)
-                ssh2_cipher_decrypt(
+                ssh_cipher_decrypt(
                     s->in.cipher, s->data + 4, s->packetlen - 4);
         } else {
             if (s->bufsize < s->cipherblk) {
@@ -435,13 +446,12 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
             BPP_READ(s->buf, s->cipherblk);
 
             if (s->in.cipher)
-                ssh2_cipher_decrypt(
-                    s->in.cipher, s->buf, s->cipherblk);
+                ssh_cipher_decrypt(s->in.cipher, s->buf, s->cipherblk);
 
             /*
              * Now get the length figure.
              */
-            s->len = toint(GET_32BIT(s->buf));
+            s->len = toint(GET_32BIT_MSB_FIRST(s->buf));
 
             /*
              * _Completely_ silly lengths should be stomped on before they
@@ -478,7 +488,7 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
 
             /* Decrypt everything _except_ the MAC. */
             if (s->in.cipher)
-                ssh2_cipher_decrypt(
+                ssh_cipher_decrypt(
                     s->in.cipher,
                     s->data + s->cipherblk, s->packetlen - s->cipherblk);
 
@@ -505,7 +515,7 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
 
         s->length = s->payload + 5;
 
-        DTS_CONSUME(s->stats, in, s->packetlen);
+        dts_consume(&s->stats->in, s->packetlen);
 
         s->pktin->sequence = s->in.sequence++;
 
@@ -635,6 +645,13 @@ static void ssh2_bpp_handle_input(BinaryPacketProtocol *bpp)
     }
 
   eof:
+    /*
+     * We've seen EOF. But we might have pushed stuff on the outgoing
+     * packet queue first, and that stuff _might_ include a DISCONNECT
+     * message, in which case we'd like to use that as the diagnostic.
+     * So first wait for the queue to have been processed.
+     */
+    crMaybeWaitUntilV(!pq_peek(&s->bpp.in_pq));
     if (!s->bpp.expect_close) {
         ssh_remote_error(s->bpp.ssh,
                          "Remote side unexpectedly closed network connection");
@@ -674,7 +691,7 @@ static void ssh2_bpp_format_packet_inner(struct ssh2_bpp_state *s, PktOut *pkt)
                    pkt->downstream_id, pkt->additional_log_text);
     }
 
-    cipherblk = s->out.cipher ? ssh2_cipher_alg(s->out.cipher)->blksize : 8;
+    cipherblk = s->out.cipher ? ssh_cipher_alg(s->out.cipher)->blksize : 8;
     cipherblk = cipherblk < 8 ? 8 : cipherblk;  /* or 8 if blksize < 8 */
 
     if (s->out_comp) {
@@ -717,15 +734,16 @@ static void ssh2_bpp_format_packet_inner(struct ssh2_bpp_state *s, PktOut *pkt)
     maclen = s->out.mac ? ssh2_mac_alg(s->out.mac)->len : 0;
     origlen = pkt->length;
     for (i = 0; i < padding; i++)
-        put_byte(pkt, random_byte());
+        put_byte(pkt, 0);              /* make space for random padding */
+    random_read(pkt->data + origlen, padding);
     pkt->data[4] = padding;
-    PUT_32BIT(pkt->data, origlen + padding - 4);
+    PUT_32BIT_MSB_FIRST(pkt->data, origlen + padding - 4);
 
     /* Encrypt length if the scheme requires it */
     if (s->out.cipher &&
-        (ssh2_cipher_alg(s->out.cipher)->flags & SSH_CIPHER_SEPARATE_LENGTH)) {
-        ssh2_cipher_encrypt_length(s->out.cipher, pkt->data, 4,
-                                   s->out.sequence);
+        (ssh_cipher_alg(s->out.cipher)->flags & SSH_CIPHER_SEPARATE_LENGTH)) {
+        ssh_cipher_encrypt_length(s->out.cipher, pkt->data, 4,
+                                  s->out.sequence);
     }
 
     put_padding(pkt, maclen, 0);
@@ -735,8 +753,8 @@ static void ssh2_bpp_format_packet_inner(struct ssh2_bpp_state *s, PktOut *pkt)
          * OpenSSH-defined encrypt-then-MAC protocol.
          */
         if (s->out.cipher)
-            ssh2_cipher_encrypt(s->out.cipher,
-                                pkt->data + 4, origlen + padding - 4);
+            ssh_cipher_encrypt(s->out.cipher,
+                               pkt->data + 4, origlen + padding - 4);
         ssh2_mac_generate(s->out.mac, pkt->data, origlen + padding,
                           s->out.sequence);
     } else {
@@ -747,13 +765,12 @@ static void ssh2_bpp_format_packet_inner(struct ssh2_bpp_state *s, PktOut *pkt)
             ssh2_mac_generate(s->out.mac, pkt->data, origlen + padding,
                               s->out.sequence);
         if (s->out.cipher)
-            ssh2_cipher_encrypt(s->out.cipher, pkt->data, origlen + padding);
+            ssh_cipher_encrypt(s->out.cipher, pkt->data, origlen + padding);
     }
 
     s->out.sequence++;       /* whether or not we MACed */
 
-    DTS_CONSUME(s->stats, out, origlen + padding);
-
+    dts_consume(&s->stats->out, origlen + padding);
 }
 
 static void ssh2_bpp_format_packet(struct ssh2_bpp_state *s, PktOut *pkt)
@@ -781,7 +798,7 @@ static void ssh2_bpp_format_packet(struct ssh2_bpp_state *s, PktOut *pkt)
         int block, length;
         PktOut *ignore_pkt;
 
-        block = s->out.cipher ? ssh2_cipher_alg(s->out.cipher)->blksize : 0;
+        block = s->out.cipher ? ssh_cipher_alg(s->out.cipher)->blksize : 0;
         if (block < 8)
             block = 8;
         length = pkt->length;
@@ -811,8 +828,10 @@ static void ssh2_bpp_format_packet(struct ssh2_bpp_state *s, PktOut *pkt)
 
             ignore_pkt = ssh2_bpp_new_pktout(SSH2_MSG_IGNORE);
             put_uint32(ignore_pkt, length);
-            while (length-- > 0)
-                put_byte(ignore_pkt, random_byte());
+            size_t origlen = ignore_pkt->length;
+            for (size_t i = 0; i < length; i++)
+                put_byte(ignore_pkt, 0);  /* make space for random padding */
+            random_read(ignore_pkt->data + origlen, length);
             ssh2_bpp_format_packet_inner(s, ignore_pkt);
             bufchain_add(s->bpp.out_raw, ignore_pkt->data, ignore_pkt->length);
             ssh_free_pktout(ignore_pkt);
@@ -864,7 +883,7 @@ static void ssh2_bpp_handle_output(BinaryPacketProtocol *bpp)
          * from out_raw).
          */
         if (bufchain_size(s->bpp.out_raw) <
-            (ssh2_cipher_alg(s->out.cipher)->blksize +
+            (ssh_cipher_alg(s->out.cipher)->blksize +
              ssh2_mac_alg(s->out.mac)->len)) {
             /*
              * There's less data in out_raw than the MAC size plus the

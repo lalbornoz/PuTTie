@@ -63,7 +63,7 @@ char *psftp_lcd(char *dir)
 char *psftp_getcwd(void)
 {
     char *ret = snewn(256, char);
-    int len = GetCurrentDirectory(256, ret);
+    size_t len = GetCurrentDirectory(256, ret);
     if (len > 256)
 	ret = sresize(ret, len, char);
     GetCurrentDirectory(len, ret);
@@ -266,7 +266,7 @@ struct DirHandle {
     char *name;
 };
 
-DirHandle *open_directory(const char *name)
+DirHandle *open_directory(const char *name, const char **errmsg)
 {
     HANDLE h;
     WIN32_FIND_DATA fdat;
@@ -276,8 +276,10 @@ DirHandle *open_directory(const char *name)
     /* Enumerate files in dir `foo'. */
     findfile = dupcat(name, "/*", NULL);
     h = FindFirstFile(findfile, &fdat);
-    if (h == INVALID_HANDLE_VALUE)
+    if (h == INVALID_HANDLE_VALUE) {
+        *errmsg = win_strerror(GetLastError());
 	return NULL;
+    }
     sfree(findfile);
 
     ret = snew(DirHandle);
@@ -449,7 +451,11 @@ bool create_directory(const char *name)
 
 char *dir_file_cat(const char *dir, const char *file)
 {
-    return dupcat(dir, "\\", file, NULL);
+    ptrlen dir_pl = ptrlen_from_asciz(dir);
+    return dupcat(
+        dir, (ptrlen_endswith(dir_pl, PTRLEN_LITERAL("\\"), NULL) ||
+              ptrlen_endswith(dir_pl, PTRLEN_LITERAL("/"), NULL)) ? "" : "\\",
+        file, NULL);
 }
 
 /* ----------------------------------------------------------------------
@@ -576,8 +582,7 @@ int do_eventsel_loop(HANDLE other_event)
 		};
 		int e;
 
-		noise_ultralight(socket);
-		noise_ultralight(things.lNetworkEvents);
+		noise_ultralight(NOISE_SOURCE_IOID, socket);
 
 		for (e = 0; e < lenof(eventtypes); e++)
 		    if (things.lNetworkEvents & eventtypes[e].mask) {

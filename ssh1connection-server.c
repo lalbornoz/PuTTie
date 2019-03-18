@@ -13,8 +13,8 @@
 #include "ssh1connection.h"
 #include "sshserver.h"
 
-static int ssh1sesschan_write(SshChannel *c, bool is_stderr,
-                              const void *, int);
+static size_t ssh1sesschan_write(SshChannel *c, bool is_stderr,
+                                 const void *, size_t);
 static void ssh1sesschan_write_eof(SshChannel *c);
 static void ssh1sesschan_initiate_close(SshChannel *c, const char *err);
 static void ssh1sesschan_send_exit_status(SshChannel *c, int status);
@@ -239,6 +239,15 @@ bool ssh1_handle_direction_specific_packet(
 
         return true;
 
+      case SSH1_CMSG_EXIT_CONFIRMATION:
+        if (!s->sent_exit_status) {
+            ssh_proto_error(s->ppl.ssh, "Received SSH1_CMSG_EXIT_CONFIRMATION"
+                            " without having sent SSH1_SMSG_EXIT_STATUS");
+            return true;
+        }
+        ppl_logevent("Client sent exit confirmation");
+        return true;
+
       default:
         return false;
     }
@@ -253,7 +262,7 @@ bool ssh1_handle_direction_specific_packet(
 
 SshChannel *ssh1_session_open(ConnectionLayer *cl, Channel *chan)
 {
-    assert(false && "Should never be called in the server");
+    unreachable("Should never be called in the server");
 }
 
 struct ssh_rportfwd *ssh1_rportfwd_alloc(
@@ -262,12 +271,11 @@ struct ssh_rportfwd *ssh1_rportfwd_alloc(
     int addressfamily, const char *log_description, PortFwdRecord *pfr,
     ssh_sharing_connstate *share_ctx)
 {
-    assert(false && "Should never be called in the server");
-    return NULL;
+    unreachable("Should never be called in the server");
 }
 
-static int ssh1sesschan_write(SshChannel *sc, bool is_stderr,
-                              const void *data, int len)
+static size_t ssh1sesschan_write(SshChannel *sc, bool is_stderr,
+                                 const void *data, size_t len)
 {
     struct ssh1_connection_state *s =
         container_of(sc, struct ssh1_connection_state, mainchan_sc);
@@ -302,6 +310,8 @@ static void ssh1sesschan_send_exit_status(SshChannel *sc, int status)
     pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH1_SMSG_EXIT_STATUS);
     put_uint32(pktout, status);
     pq_push(s->ppl.out_pq, pktout);
+
+    s->sent_exit_status = true;
 }
 
 static void ssh1sesschan_send_exit_signal(

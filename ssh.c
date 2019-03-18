@@ -61,9 +61,31 @@ struct Ssh {
 
     int version;
     int conn_throttle_count;
-    int overall_bufsize;
+    size_t overall_bufsize;
     bool throttled_all;
-    bool frozen;
+
+    /*
+     * logically_frozen is true if we're not currently _processing_
+     * data from the SSH socket (e.g. because a higher layer has asked
+     * us not to due to ssh_throttle_conn). socket_frozen is true if
+     * we're not even _reading_ data from the socket (i.e. it should
+     * always match the value we last passed to sk_set_frozen).
+     *
+     * The two differ in that socket_frozen can also become
+     * temporarily true because of a large backlog in the in_raw
+     * bufchain, to force no further plug_receive events until the BPP
+     * input function has had a chance to run. (Some front ends, like
+     * GTK, can persistently call the network and never get round to
+     * the toplevel callbacks.) If we've stopped reading from the
+     * socket for that reason, we absolutely _do_ want to carry on
+     * processing our input bufchain, because that's the only way
+     * it'll ever get cleared!
+     *
+     * ssh_check_frozen() resets socket_frozen, and should be called
+     * whenever either of logically_frozen and the bufchain size
+     * changes.
+     */
+    bool logically_frozen, socket_frozen;
 
     /* in case we find these out before we have a ConnectionLayer to tell */
     int term_width, term_height;
@@ -117,7 +139,7 @@ struct Ssh {
         logevent_and_free((ssh)->logctx, dupprintf params))
 
 static void ssh_shutdown(Ssh *ssh);
-static void ssh_throttle_all(Ssh *ssh, bool enable, int bufsize);
+static void ssh_throttle_all(Ssh *ssh, bool enable, size_t bufsize);
 static void ssh_bpp_output_raw_data_callback(void *vctx);
 
 LogContext *ssh_get_logctx(Ssh *ssh)
@@ -130,7 +152,7 @@ static void ssh_connect_bpp(Ssh *ssh)
     ssh->bpp->ssh = ssh;
     ssh->bpp->in_raw = &ssh->in_raw;
     ssh->bpp->out_raw = &ssh->out_raw;
-    ssh->bpp->out_raw->ic = &ssh->ic_out_raw;
+    bufchain_set_callback(ssh->bpp->out_raw, &ssh->ic_out_raw);
     ssh->bpp->pls = &ssh->pls;
     ssh->bpp->logctx = ssh->logctx;
     ssh->bpp->remote_bugs = ssh->remote_bugs;
@@ -295,6 +317,29 @@ static void ssh_got_ssh_version(struct ssh_version_receiver *rcv,
     ssh_bpp_free(old_bpp);
 }
 
+void ssh_check_frozen(Ssh *ssh)
+{
+    if (!ssh->s)
+        return;
+
+    bool prev_frozen = ssh->socket_frozen;
+    ssh->socket_frozen = (ssh->logically_frozen ||
+                          bufchain_size(&ssh->in_raw) > SSH_MAX_BACKLOG);
+    sk_set_frozen(ssh->s, ssh->socket_frozen);
+    if (prev_frozen && !ssh->socket_frozen && ssh->bpp) {
+        /*
+         * If we've just unfrozen, process any SSH connection data
+         * that was stashed in our queue while we were frozen.
+         */
+        queue_idempotent_callback(&ssh->bpp->ic_in_raw);
+    }
+}
+
+void ssh_conn_processed_data(Ssh *ssh)
+{
+    ssh_check_frozen(ssh);
+}
+
 static void ssh_bpp_output_raw_data_callback(void *vctx)
 {
     Ssh *ssh = (Ssh *)vctx;
@@ -303,23 +348,24 @@ static void ssh_bpp_output_raw_data_callback(void *vctx)
         return;
 
     while (bufchain_size(&ssh->out_raw) > 0) {
-        void *data;
-        int len, backlog;
+        size_t backlog;
 
-        bufchain_prefix(&ssh->out_raw, &data, &len);
+        ptrlen data = bufchain_prefix(&ssh->out_raw);
 
         if (ssh->logctx)
-            log_packet(ssh->logctx, PKT_OUTGOING, -1, NULL, data, len,
+            log_packet(ssh->logctx, PKT_OUTGOING, -1, NULL, data.ptr, data.len,
                        0, NULL, NULL, 0, NULL);
-        backlog = sk_write(ssh->s, data, len);
+        backlog = sk_write(ssh->s, data.ptr, data.len);
 
-        bufchain_consume(&ssh->out_raw, len);
+        bufchain_consume(&ssh->out_raw, data.len);
 
         if (backlog > SSH_MAX_BACKLOG) {
             ssh_throttle_all(ssh, true, backlog);
             return;
         }
     }
+
+    ssh_check_frozen(ssh);
 
     if (ssh->pending_close) {
         sk_close(ssh->s);
@@ -526,7 +572,7 @@ static void ssh_closing(Plug *plug, const char *error_msg, int error_code,
     }
 }
 
-static void ssh_receive(Plug *plug, int urgent, char *data, int len)
+static void ssh_receive(Plug *plug, int urgent, const char *data, size_t len)
 {
     Ssh *ssh = container_of(plug, Ssh, plug);
 
@@ -536,11 +582,13 @@ static void ssh_receive(Plug *plug, int urgent, char *data, int len)
 		   0, NULL, NULL, 0, NULL);
 
     bufchain_add(&ssh->in_raw, data, len);
-    if (!ssh->frozen && ssh->bpp)
+    if (!ssh->logically_frozen && ssh->bpp)
         queue_idempotent_callback(&ssh->bpp->ic_in_raw);
+
+    ssh_check_frozen(ssh);
 }
 
-static void ssh_sent(Plug *plug, int bufsize)
+static void ssh_sent(Plug *plug, size_t bufsize)
 {
     Ssh *ssh = container_of(plug, Ssh, plug);
     /*
@@ -667,7 +715,7 @@ static const char *connect_to_host(
              * behave in quite the usual way. */
             const char *msg =
                 "Reusing a shared connection to this server.\r\n";
-            seat_stderr(ssh->seat, msg, strlen(msg));
+            seat_stderr_pl(ssh->seat, ptrlen_from_asciz(msg));
         }
     } else {
         /*
@@ -753,24 +801,15 @@ void ssh_throttle_conn(Ssh *ssh, int adjust)
         return;                /* don't change current frozen state */
     }
 
-    ssh->frozen = frozen;
-
-    if (ssh->s) {
-        sk_set_frozen(ssh->s, frozen);
-
-        /*
-         * Now process any SSH connection data that was stashed in our
-         * queue while we were frozen.
-         */
-        queue_idempotent_callback(&ssh->bpp->ic_in_raw);
-    }
+    ssh->logically_frozen = frozen;
+    ssh_check_frozen(ssh);
 }
 
 /*
  * Throttle or unthrottle _all_ local data streams (for when sends
  * on the SSH connection itself back up).
  */
-static void ssh_throttle_all(Ssh *ssh, bool enable, int bufsize)
+static void ssh_throttle_all(Ssh *ssh, bool enable, size_t bufsize)
 {
     if (enable == ssh->throttled_all)
 	return;
@@ -861,6 +900,8 @@ static void ssh_free(Backend *be)
 	ssh_gss_cleanup(ssh->gss_state.libs);
 #endif
 
+    delete_callbacks_for_context(ssh); /* likely to catch ic_out_raw */
+
     need_random_unref = ssh->need_random_unref;
     sfree(ssh);
 
@@ -888,7 +929,7 @@ static void ssh_reconfig(Backend *be, Conf *conf)
 /*
  * Called to send data down the SSH connection.
  */
-static int ssh_send(Backend *be, const char *buf, int len)
+static size_t ssh_send(Backend *be, const char *buf, size_t len)
 {
     Ssh *ssh = container_of(be, Ssh, backend);
 
@@ -905,10 +946,10 @@ static int ssh_send(Backend *be, const char *buf, int len)
 /*
  * Called to query the current amount of buffered stdin data.
  */
-static int ssh_sendbuffer(Backend *be)
+static size_t ssh_sendbuffer(Backend *be)
 {
     Ssh *ssh = container_of(be, Ssh, backend);
-    int backlog;
+    size_t backlog;
 
     if (!ssh || !ssh->s || !ssh->cl)
 	return 0;
@@ -942,7 +983,7 @@ static void ssh_size(Backend *be, int width, int height)
 
 struct ssh_add_special_ctx {
     SessionSpecial *specials;
-    int nspecials, specials_size;
+    size_t nspecials, specials_size;
 };
 
 static void ssh_add_special(void *vctx, const char *text,
@@ -951,12 +992,7 @@ static void ssh_add_special(void *vctx, const char *text,
     struct ssh_add_special_ctx *ctx = (struct ssh_add_special_ctx *)vctx;
     SessionSpecial *spec;
 
-    if (ctx->nspecials >= ctx->specials_size) {
-        ctx->specials_size = ctx->nspecials * 5 / 4 + 32;
-        ctx->specials = sresize(ctx->specials, ctx->specials_size,
-                                SessionSpecial);
-    }
-
+    sgrowarray(ctx->specials, ctx->specials_size, ctx->nspecials);
     spec = &ctx->specials[ctx->nspecials++];
     spec->name = text;
     spec->code = code;
@@ -1009,11 +1045,12 @@ static void ssh_special(Backend *be, SessionSpecialCode code, int arg)
  * This is called when the seat's output channel manages to clear some
  * backlog.
  */
-static void ssh_unthrottle(Backend *be, int bufsize)
+static void ssh_unthrottle(Backend *be, size_t bufsize)
 {
     Ssh *ssh = container_of(be, Ssh, backend);
 
-    ssh_stdout_unthrottle(ssh->cl, bufsize);
+    if (ssh->cl)
+        ssh_stdout_unthrottle(ssh->cl, bufsize);
 }
 
 static bool ssh_connected(Backend *be)

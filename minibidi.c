@@ -23,6 +23,7 @@
 
 #include <stdlib.h>	/* definition of wchar_t*/
 
+#include "putty.h"
 #include "misc.h"
 
 #define LMASK	0x3F	/* Embedding Level mask */
@@ -48,11 +49,6 @@ shapetypes[(xh)-SHAPE_FIRST].type : SU) /*))*/
 
 #define leastGreaterOdd(x) ( ((x)+1) | 1 )
 #define leastGreaterEven(x) ( ((x)+2) &~ 1 )
-
-typedef struct bidi_char {
-    unsigned int origwc, wc;
-    unsigned short index;
-} bidi_char;
 
 /* function declarations */
 static void flipThisRun(
@@ -869,7 +865,8 @@ static unsigned char getType(int ch)
         {0x4e00, 0x9fa5, L},
         {0xa000, 0xa48c, L},
         {0xac00, 0xd7a3, L},
-        {0xd800, 0xfa2d, L},
+        {0xd800, 0xdff7, L},
+        {0xe000, 0xfa2d, L},
         {0xfa30, 0xfa6a, L},
         {0xfb00, 0xfb06, L},
         {0xfb13, 0xfb17, L},
@@ -1027,7 +1024,7 @@ static unsigned char getType(int ch)
  * important because all such characters are right-to-left so it
  * would have flagged them anyway.)
  */
-int is_rtl(int c)
+bool is_rtl(int c)
 {
     /*
      * After careful reading of the Unicode bidi algorithm (URL as
@@ -1419,7 +1416,7 @@ int do_bidi(bidi_char *line, int count)
                 continue;
             } else if (i < count-1 && types[i+1] == ET) {
                 j=i;
-                while (j <count && types[j] == ET) {
+                while (j < count-1 && types[j] == ET) {
                     j++;
                 }
                 if (types[j] == EN)

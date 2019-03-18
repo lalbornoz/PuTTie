@@ -12,11 +12,18 @@
 #include "sshchan.h"
 #include "tree234.h"
 
-#define GET_16BIT(endian, cp) \
-  (endian=='B' ? GET_16BIT_MSB_FIRST(cp) : GET_16BIT_LSB_FIRST(cp))
+static inline uint16_t GET_16BIT_X11(char endian, const void *p)
+{
+    return endian == 'B' ? GET_16BIT_MSB_FIRST(p) : GET_16BIT_LSB_FIRST(p);
+}
 
-#define PUT_16BIT(endian, cp, val) \
-  (endian=='B' ? PUT_16BIT_MSB_FIRST(cp, val) : PUT_16BIT_LSB_FIRST(cp, val))
+static inline void PUT_16BIT_X11(char endian, void *p, uint16_t value)
+{
+    if (endian == 'B')
+        PUT_16BIT_MSB_FIRST(p, value);
+    else
+        PUT_16BIT_LSB_FIRST(p, value);
+}
 
 const char *const x11_authnames[] = {
     "", "MIT-MAGIC-COOKIE-1", "XDM-AUTHORIZATION-1"
@@ -93,8 +100,7 @@ struct X11FakeAuth *x11_invent_fake_auth(tree234 *authtree, int authtype)
         auth->xa1_firstblock = NULL;
 
         while (1) {
-            for (i = 0; i < auth->datalen; i++)
-                auth->data[i] = random_byte();
+            random_read(auth->data, auth->datalen);
             if (add234(authtree, auth) == auth)
                 break;
         }
@@ -111,8 +117,10 @@ struct X11FakeAuth *x11_invent_fake_auth(tree234 *authtree, int authtype)
         memset(auth->xa1_firstblock, 0, 8);
 
         while (1) {
-            for (i = 0; i < auth->datalen; i++)
-                auth->data[i] = (i == 8 ? 0 : random_byte());
+            random_read(auth->data, 15);
+            auth->data[15] = auth->data[8];
+            auth->data[8] = 0;
+
             memcpy(auth->xa1_firstblock, auth->data, 8);
             des_encrypt_xdmauth(auth->data + 9, auth->xa1_firstblock, 8);
             if (add234(authtree, auth) == auth)
@@ -454,7 +462,7 @@ void BinarySink_put_stringpl_xauth(BinarySink *bs, ptrlen pl)
 {
     assert((pl.len >> 16) == 0);
     put_uint16(bs, pl.len);
-    put_data(bs, pl.ptr, pl.len);
+    put_datapl(bs, pl);
 }
 #define put_stringpl_xauth(bs, ptrlen) \
     BinarySink_put_stringpl_xauth(BinarySink_UPCAST(bs),ptrlen)
@@ -663,7 +671,7 @@ void x11_format_auth_for_authfile(
         put_uint16(bs, 6); /* indicates IPv6 */
         put_stringpl_xauth(bs, make_ptrlen(ipv6buf, 16));
     } else {
-        assert(false && "Bad address type in x11_format_auth_for_authfile");
+        unreachable("Bad address type in x11_format_auth_for_authfile");
     }
 
     {
@@ -718,7 +726,7 @@ static void x11_closing(Plug *plug, const char *error_msg, int error_code,
     }
 }
 
-static void x11_receive(Plug *plug, int urgent, char *data, int len)
+static void x11_receive(Plug *plug, int urgent, const char *data, size_t len)
 {
     struct X11Connection *xconn = container_of(
         plug, struct X11Connection, plug);
@@ -727,7 +735,7 @@ static void x11_receive(Plug *plug, int urgent, char *data, int len)
     sshfwd_write(xconn->c, data, len);
 }
 
-static void x11_sent(Plug *plug, int bufsize)
+static void x11_sent(Plug *plug, size_t bufsize)
 {
     struct X11Connection *xconn = container_of(
         plug, struct X11Connection, plug);
@@ -762,7 +770,8 @@ static const PlugVtable X11Connection_plugvt = {
 };
 
 static void x11_chan_free(Channel *chan);
-static int x11_send(Channel *chan, bool is_stderr, const void *vdata, int len);
+static size_t x11_send(
+    Channel *chan, bool is_stderr, const void *vdata, size_t len);
 static void x11_send_eof(Channel *chan);
 static void x11_set_input_wanted(Channel *chan, bool wanted);
 static char *x11_log_close_msg(Channel *chan);
@@ -880,7 +889,7 @@ static void x11_send_init_error(struct X11Connection *xconn,
     reply[0] = 0;	       /* failure */
     reply[1] = msglen;	       /* length of reason string */
     memcpy(reply + 2, xconn->firstpkt + 2, 4);	/* major/minor proto vsn */
-    PUT_16BIT(xconn->firstpkt[0], reply + 6, msgsize >> 2);/* data len */
+    PUT_16BIT_X11(xconn->firstpkt[0], reply + 6, msgsize >> 2);/* data len */
     memset(reply + 8, 0, msgsize);
     memcpy(reply + 8, full_message, msglen);
     sshfwd_write(xconn->c, reply, 8 + msgsize);
@@ -910,7 +919,8 @@ static bool x11_parse_ip(const char *addr_string, unsigned long *ip)
 /*
  * Called to send data down the raw connection.
  */
-static int x11_send(Channel *chan, bool is_stderr, const void *vdata, int len)
+static size_t x11_send(
+    Channel *chan, bool is_stderr, const void *vdata, size_t len)
 {
     assert(chan->vt == &X11Connection_channelvt);
     X11Connection *xconn = container_of(chan, X11Connection, chan);
@@ -929,8 +939,9 @@ static int x11_send(Channel *chan, bool is_stderr, const void *vdata, int len)
      * strings, do so now.
      */
     if (!xconn->auth_protocol) {
-	xconn->auth_plen = GET_16BIT(xconn->firstpkt[0], xconn->firstpkt + 6);
-	xconn->auth_dlen = GET_16BIT(xconn->firstpkt[0], xconn->firstpkt + 8);
+        char endian = xconn->firstpkt[0];
+	xconn->auth_plen = GET_16BIT_X11(endian, xconn->firstpkt + 6);
+	xconn->auth_dlen = GET_16BIT_X11(endian, xconn->firstpkt + 8);
 	xconn->auth_psize = (xconn->auth_plen + 3) & ~3;
 	xconn->auth_dsize = (xconn->auth_dlen + 3) & ~3;
 	/* Leave room for a terminating zero, to make our lives easier. */
@@ -966,9 +977,10 @@ static int x11_send(Channel *chan, bool is_stderr, const void *vdata, int len)
         int socketdatalen;
         char new_peer_addr[32];
         int new_peer_port;
+        char endian = xconn->firstpkt[0];
 
-        protomajor = GET_16BIT(xconn->firstpkt[0], xconn->firstpkt + 2);
-        protominor = GET_16BIT(xconn->firstpkt[0], xconn->firstpkt + 4);
+        protomajor = GET_16BIT_X11(endian, xconn->firstpkt + 2);
+        protominor = GET_16BIT_X11(endian, xconn->firstpkt + 4);
 
         assert(!xconn->s);
 
@@ -1176,10 +1188,10 @@ void *x11_make_greeting(int endian, int protomajor, int protominor,
     greeting = snewn(greeting_len, unsigned char);
     memset(greeting, 0, greeting_len);
     greeting[0] = endian;
-    PUT_16BIT(endian, greeting+2, protomajor);
-    PUT_16BIT(endian, greeting+4, protominor);
-    PUT_16BIT(endian, greeting+6, authnamelen);
-    PUT_16BIT(endian, greeting+8, authdatalen);
+    PUT_16BIT_X11(endian, greeting+2, protomajor);
+    PUT_16BIT_X11(endian, greeting+4, protominor);
+    PUT_16BIT_X11(endian, greeting+6, authnamelen);
+    PUT_16BIT_X11(endian, greeting+8, authdatalen);
     memcpy(greeting+12, authname, authnamelen);
     memcpy(greeting+12+authnamelen_pad, authdata, authdatalen);
 

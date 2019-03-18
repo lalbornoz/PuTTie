@@ -14,9 +14,6 @@
 #include <pwd.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
-#ifndef HAVE_NO_SYS_SELECT_H
-#include <sys/select.h>
-#endif
 
 #define PUTTY_DO_GLOBALS	       /* actually _define_ globals */
 #include "putty.h"
@@ -323,23 +320,27 @@ void cleanup_termios(void)
 }
 
 bufchain stdout_data, stderr_data;
+bufchain_sink stdout_bcs, stderr_bcs;
+StripCtrlChars *stdout_scc, *stderr_scc;
+BinarySink *stdout_bs, *stderr_bs;
+
 enum { EOF_NO, EOF_PENDING, EOF_SENT } outgoingeof;
 
-int try_output(bool is_stderr)
+size_t try_output(bool is_stderr)
 {
     bufchain *chain = (is_stderr ? &stderr_data : &stdout_data);
     int fd = (is_stderr ? STDERR_FILENO : STDOUT_FILENO);
-    void *senddata;
-    int sendlen, ret;
+    ssize_t ret;
 
     if (bufchain_size(chain) > 0) {
         bool prev_nonblock = nonblock(fd);
+        ptrlen senddata;
         do {
-            bufchain_prefix(chain, &senddata, &sendlen);
-            ret = write(fd, senddata, sendlen);
+            senddata = bufchain_prefix(chain);
+            ret = write(fd, senddata.ptr, senddata.len);
             if (ret > 0)
                 bufchain_consume(chain, ret);
-        } while (ret == sendlen && bufchain_size(chain) != 0);
+        } while (ret == senddata.len && bufchain_size(chain) != 0);
         if (!prev_nonblock)
             no_nonblock(fd);
         if (ret < 0 && errno != EAGAIN) {
@@ -354,16 +355,15 @@ int try_output(bool is_stderr)
     return bufchain_size(&stdout_data) + bufchain_size(&stderr_data);
 }
 
-static int plink_output(Seat *seat, bool is_stderr, const void *data, int len)
+static size_t plink_output(
+    Seat *seat, bool is_stderr, const void *data, size_t len)
 {
-    if (is_stderr) {
-	bufchain_add(&stderr_data, data, len);
-	return try_output(true);
-    } else {
-        assert(outgoingeof == EOF_NO);
-	bufchain_add(&stdout_data, data, len);
-	return try_output(false);
-    }
+    assert(is_stderr || outgoingeof == EOF_NO);
+
+    BinarySink *bs = is_stderr ? stderr_bs : stdout_bs;
+    put_data(bs, data, len);
+
+    return try_output(is_stderr);
 }
 
 static bool plink_eof(Seat *seat)
@@ -400,6 +400,8 @@ static const SeatVtable plink_seat_vt = {
     nullseat_get_x_display,
     nullseat_get_windowid,
     nullseat_get_window_pixel_size,
+    console_stripctrl_new,
+    console_set_trust_status,
 };
 static Seat plink_seat[1] = {{ &plink_seat_vt }};
 
@@ -528,6 +530,12 @@ static void usage(void)
     printf("  -share    enable use of connection sharing\n");
     printf("  -hostkey aa:bb:cc:...\n");
     printf("            manually specify a host key (may be repeated)\n");
+    printf("  -sanitise-stderr, -sanitise-stdout, "
+           "-no-sanitise-stderr, -no-sanitise-stdout\n");
+    printf("            do/don't strip control chars from standard "
+           "output/error\n");
+    printf("  -no-antispoof   omit anti-spoofing prompt after "
+           "authentication\n");
     printf("  -m file   read remote command(s) from file\n");
     printf("  -s        remote command is an SSH subsystem (SSH-2 only)\n");
     printf("  -N        don't start a shell/command (SSH-2 only)\n");
@@ -561,9 +569,11 @@ int main(int argc, char **argv)
     bool sending;
     int *fdlist;
     int fd;
-    int i, fdsize, fdstate;
+    int i, fdstate;
+    size_t fdsize;
     int exitcode;
     bool errors;
+    enum TriState sanitise_stdout = AUTO, sanitise_stderr = AUTO;
     bool use_subsystem = false;
     bool just_test_share_exists = false;
     unsigned long now;
@@ -581,6 +591,10 @@ int main(int argc, char **argv)
 
     bufchain_init(&stdout_data);
     bufchain_init(&stderr_data);
+    bufchain_sink_init(&stdout_bcs, &stdout_data);
+    bufchain_sink_init(&stderr_bcs, &stderr_data);
+    stdout_bs = BinarySink_UPCAST(&stdout_bcs);
+    stderr_bs = BinarySink_UPCAST(&stderr_bcs);
     outgoingeof = EOF_NO;
 
     flags = FLAG_STDERR_TTY;
@@ -654,33 +668,36 @@ int main(int argc, char **argv)
         } else if (!strcmp(p, "-fuzznet")) {
             conf_set_int(conf, CONF_proxy_type, PROXY_FUZZ);
             conf_set_str(conf, CONF_proxy_telnet_command, "%host");
+        } else if (!strcmp(p, "-sanitise-stdout") ||
+                   !strcmp(p, "-sanitize-stdout")) {
+            sanitise_stdout = FORCE_ON;
+        } else if (!strcmp(p, "-no-sanitise-stdout") ||
+                   !strcmp(p, "-no-sanitize-stdout")) {
+            sanitise_stdout = FORCE_OFF;
+        } else if (!strcmp(p, "-sanitise-stderr") ||
+                   !strcmp(p, "-sanitize-stderr")) {
+            sanitise_stderr = FORCE_ON;
+        } else if (!strcmp(p, "-no-sanitise-stderr") ||
+                   !strcmp(p, "-no-sanitize-stderr")) {
+            sanitise_stderr = FORCE_OFF;
+        } else if (!strcmp(p, "-no-antispoof")) {
+            console_antispoof_prompt = false;
 	} else if (*p != '-') {
-            char *command;
-            int cmdlen, cmdsize;
-            cmdlen = cmdsize = 0;
-            command = NULL;
+            strbuf *cmdbuf = strbuf_new();
 
-            while (argc) {
-                while (*p) {
-                    if (cmdlen >= cmdsize) {
-                        cmdsize = cmdlen + 512;
-                        command = sresize(command, cmdsize, char);
-                    }
-                    command[cmdlen++]=*p++;
-                }
-                if (cmdlen >= cmdsize) {
-                    cmdsize = cmdlen + 512;
-                    command = sresize(command, cmdsize, char);
-                }
-                command[cmdlen++]=' '; /* always add trailing space */
-                if (--argc) p = *++argv;
+            while (argc > 0) {
+                if (cmdbuf->len > 0)
+                    put_byte(cmdbuf, ' '); /* add space separator */
+                put_datapl(cmdbuf, ptrlen_from_asciz(p));
+                if (--argc > 0)
+                    p = *++argv;
             }
-            if (cmdlen) command[--cmdlen]='\0';
-            /* change trailing blank to NUL */
-            conf_set_str(conf, CONF_remote_cmd, command);
+
+            conf_set_str(conf, CONF_remote_cmd, cmdbuf->s);
             conf_set_str(conf, CONF_remote_cmd2, "");
             conf_set_bool(conf, CONF_nopty, true);  /* command => no tty */
 
+            strbuf_free(cmdbuf);
             break;		       /* done with cmdline */
         } else {
             fprintf(stderr, "plink: unknown option \"%s\"\n", p);
@@ -765,6 +782,33 @@ int main(int argc, char **argv)
 	conf_set_int(conf, CONF_height, size.ws_row);
     }
 
+    /*
+     * Decide whether to sanitise control sequences out of standard
+     * output and standard error.
+     *
+     * If we weren't given a command-line override, we do this if (a)
+     * the fd in question is pointing at a terminal, and (b) we aren't
+     * trying to allocate a terminal as part of the session.
+     *
+     * (Rationale: the risk of control sequences is that they cause
+     * confusion when sent to a local terminal, so if there isn't one,
+     * no problem. Also, if we allocate a remote terminal, then we
+     * sent a terminal type, i.e. we told it what kind of escape
+     * sequences we _like_, i.e. we were expecting to receive some.)
+     */
+    if (sanitise_stdout == FORCE_ON ||
+        (sanitise_stdout == AUTO && isatty(STDOUT_FILENO) &&
+         conf_get_bool(conf, CONF_nopty))) {
+        stdout_scc = stripctrl_new(stdout_bs, true, L'\0');
+        stdout_bs = BinarySink_UPCAST(stdout_scc);
+    }
+    if (sanitise_stderr == FORCE_ON ||
+        (sanitise_stderr == AUTO && isatty(STDERR_FILENO) &&
+         conf_get_bool(conf, CONF_nopty))) {
+        stderr_scc = stripctrl_new(stderr_bs, true, L'\0');
+        stderr_bs = BinarySink_UPCAST(stderr_scc);
+    }
+
     sk_init();
     uxsel_init();
 
@@ -831,36 +875,33 @@ int main(int argc, char **argv)
     sending = false;
     now = GETTICKCOUNT();
 
+    pollwrapper *pw = pollwrap_new();
+
     while (1) {
-	fd_set rset, wset, xset;
-	int maxfd;
 	int rwx;
 	int ret;
         unsigned long next;
 
-	FD_ZERO(&rset);
-	FD_ZERO(&wset);
-	FD_ZERO(&xset);
-	maxfd = 0;
+        pollwrap_clear(pw);
 
-	FD_SET_MAX(signalpipe[0], maxfd, rset);
+	pollwrap_add_fd_rwx(pw, signalpipe[0], SELECT_R);
 
 	if (!sending &&
             backend_connected(backend) &&
             backend_sendok(backend) &&
             backend_sendbuffer(backend) < MAX_STDIN_BACKLOG) {
 	    /* If we're OK to send, then try to read from stdin. */
-	    FD_SET_MAX(STDIN_FILENO, maxfd, rset);
+            pollwrap_add_fd_rwx(pw, STDIN_FILENO, SELECT_R);
 	}
 
 	if (bufchain_size(&stdout_data) > 0) {
 	    /* If we have data for stdout, try to write to stdout. */
-	    FD_SET_MAX(STDOUT_FILENO, maxfd, wset);
+            pollwrap_add_fd_rwx(pw, STDOUT_FILENO, SELECT_W);
 	}
 
 	if (bufchain_size(&stderr_data) > 0) {
 	    /* If we have data for stderr, try to write to stderr. */
-	    FD_SET_MAX(STDERR_FILENO, maxfd, wset);
+            pollwrap_add_fd_rwx(pw, STDERR_FILENO, SELECT_W);
 	}
 
 	/* Count the currently active fds. */
@@ -869,37 +910,25 @@ int main(int argc, char **argv)
 	     fd = next_fd(&fdstate, &rwx)) i++;
 
 	/* Expand the fdlist buffer if necessary. */
-	if (i > fdsize) {
-	    fdsize = i + 16;
-	    fdlist = sresize(fdlist, fdsize, int);
-	}
+        sgrowarray(fdlist, fdsize, i);
 
 	/*
-	 * Add all currently open fds to the select sets, and store
-	 * them in fdlist as well.
+	 * Add all currently open fds to pw, and store them in fdlist
+	 * as well.
 	 */
 	int fdcount = 0;
 	for (fd = first_fd(&fdstate, &rwx); fd >= 0;
 	     fd = next_fd(&fdstate, &rwx)) {
 	    fdlist[fdcount++] = fd;
-	    if (rwx & 1)
-		FD_SET_MAX(fd, maxfd, rset);
-	    if (rwx & 2)
-		FD_SET_MAX(fd, maxfd, wset);
-	    if (rwx & 4)
-		FD_SET_MAX(fd, maxfd, xset);
+            pollwrap_add_fd_rwx(pw, fd, rwx);
 	}
 
         if (toplevel_callback_pending()) {
-            struct timeval tv;
-            tv.tv_sec = 0;
-            tv.tv_usec = 0;
-            ret = select(maxfd, &rset, &wset, &xset, &tv);
+            ret = pollwrap_poll_instant(pw);
         } else if (run_timers(now, &next)) {
             do {
                 unsigned long then;
                 long ticks;
-                struct timeval tv;
 
 		then = now;
 		now = GETTICKCOUNT();
@@ -907,42 +936,48 @@ int main(int argc, char **argv)
 		    ticks = 0;
 		else
 		    ticks = next - now;
-		tv.tv_sec = ticks / 1000;
-		tv.tv_usec = ticks % 1000 * 1000;
-                ret = select(maxfd, &rset, &wset, &xset, &tv);
-                if (ret == 0)
+
+                bool overflow = false;
+                if (ticks > INT_MAX) {
+                    ticks = INT_MAX;
+                    overflow = true;
+                }
+
+                ret = pollwrap_poll_timeout(pw, ticks);
+                if (ret == 0 && !overflow)
                     now = next;
                 else
                     now = GETTICKCOUNT();
             } while (ret < 0 && errno == EINTR);
         } else {
-            ret = select(maxfd, &rset, &wset, &xset, NULL);
+            ret = pollwrap_poll_endless(pw);
         }
 
         if (ret < 0 && errno == EINTR)
             continue;
 
 	if (ret < 0) {
-	    perror("select");
+	    perror("poll");
 	    exit(1);
 	}
 
 	for (i = 0; i < fdcount; i++) {
 	    fd = fdlist[i];
+            int rwx = pollwrap_get_fd_rwx(pw, fd);
             /*
              * We must process exceptional notifications before
              * ordinary readability ones, or we may go straight
              * past the urgent marker.
              */
-	    if (FD_ISSET(fd, &xset))
-		select_result(fd, 4);
-	    if (FD_ISSET(fd, &rset))
-		select_result(fd, 1);
-	    if (FD_ISSET(fd, &wset))
-		select_result(fd, 2);
+	    if (rwx & SELECT_X)
+		select_result(fd, SELECT_X);
+	    if (rwx & SELECT_R)
+		select_result(fd, SELECT_R);
+	    if (rwx & SELECT_W)
+		select_result(fd, SELECT_W);
 	}
 
-	if (FD_ISSET(signalpipe[0], &rset)) {
+	if (pollwrap_check_fd_rwx(pw, signalpipe[0], SELECT_R)) {
 	    char c[1];
 	    struct winsize size;
 	    if (read(signalpipe[0], c, 1) <= 0)
@@ -952,12 +987,13 @@ int main(int argc, char **argv)
                 backend_size(backend, size.ws_col, size.ws_row);
 	}
 
-	if (FD_ISSET(STDIN_FILENO, &rset)) {
+	if (pollwrap_check_fd_rwx(pw, STDIN_FILENO, SELECT_R)) {
 	    char buf[4096];
 	    int ret;
 
             if (backend_connected(backend)) {
 		ret = read(STDIN_FILENO, buf, sizeof(buf));
+                noise_ultralight(NOISE_SOURCE_IOLEN, ret);
 		if (ret < 0) {
 		    perror("stdin: read");
 		    exit(1);
@@ -973,11 +1009,11 @@ int main(int argc, char **argv)
 	    }
 	}
 
-	if (FD_ISSET(STDOUT_FILENO, &wset)) {
+	if (pollwrap_check_fd_rwx(pw, STDOUT_FILENO, SELECT_W)) {
             backend_unthrottle(backend, try_output(false));
 	}
 
-	if (FD_ISSET(STDERR_FILENO, &wset)) {
+	if (pollwrap_check_fd_rwx(pw, STDERR_FILENO, SELECT_W)) {
             backend_unthrottle(backend, try_output(true));
 	}
 

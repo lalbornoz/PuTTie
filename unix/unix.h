@@ -315,6 +315,7 @@ void uxsel_init(void);
 typedef void (*uxsel_callback_fn)(int fd, int event);
 void uxsel_set(int fd, int rwx, uxsel_callback_fn callback);
 void uxsel_del(int fd);
+enum { SELECT_R = 1, SELECT_W = 2, SELECT_X = 4 };
 void select_result(int fd, int event);
 int first_fd(int *state, int *rwx);
 int next_fd(int *state, int *rwx);
@@ -424,5 +425,24 @@ char *gtk_askpass_main(const char *display, const char *wintitle,
  * uxsftpserver.c.
  */
 extern const SftpServerVtable unix_live_sftpserver_vt;
+
+/*
+ * uxpoll.c.
+ */
+typedef struct pollwrapper pollwrapper;
+pollwrapper *pollwrap_new(void);
+void pollwrap_free(pollwrapper *pw);
+void pollwrap_clear(pollwrapper *pw);
+void pollwrap_add_fd_events(pollwrapper *pw, int fd, int events);
+void pollwrap_add_fd_rwx(pollwrapper *pw, int fd, int rwx);
+int pollwrap_poll_instant(pollwrapper *pw);
+int pollwrap_poll_endless(pollwrapper *pw);
+int pollwrap_poll_timeout(pollwrapper *pw, int milliseconds);
+int pollwrap_get_fd_events(pollwrapper *pw, int fd);
+int pollwrap_get_fd_rwx(pollwrapper *pw, int fd);
+static inline bool pollwrap_check_fd_rwx(pollwrapper *pw, int fd, int rwx)
+{
+    return (pollwrap_get_fd_rwx(pw, fd) & rwx) != 0;
+}
 
 #endif /* PUTTY_UNIX_H */

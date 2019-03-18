@@ -118,7 +118,7 @@ static void term_print_finish(Terminal *);
 static void scroll(Terminal *, int, int, int, bool);
 static void parse_optionalrgb(optionalrgb *out, unsigned *values);
 
-static termline *newline(Terminal *term, int cols, bool bce)
+static termline *newtermline(Terminal *term, int cols, bool bce)
 {
     termline *line;
     int j;
@@ -129,13 +129,14 @@ static termline *newline(Terminal *term, int cols, bool bce)
 	line->chars[j] = (bce ? term->erase_char : term->basic_erase_char);
     line->cols = line->size = cols;
     line->lattr = LATTR_NORM;
+    line->trusted = false;
     line->temporary = false;
     line->cc_free = 0;
 
     return line;
 }
 
-static void freeline(termline *line)
+static void freetermline(termline *line)
 {
     if (line) {
 	sfree(line->chars);
@@ -146,7 +147,7 @@ static void freeline(termline *line)
 static void unlineptr(termline *line)
 {
     if (line->temporary)
-	freeline(line);
+	freetermline(line);
 }
 
 #ifdef TERM_CC_DIAGS
@@ -202,6 +203,8 @@ static void cc_check(termline *line)
 }
 #endif
 
+static void clear_cc(termline *line, int col);
+
 /*
  * Add a combining character to a character cell.
  */
@@ -212,12 +215,58 @@ static void add_cc(termline *line, int col, unsigned long chr)
     assert(col >= 0 && col < line->cols);
 
     /*
-     * Start by extending the cols array if the free list is empty.
+     * Don't add combining characters at all to U+FFFD REPLACEMENT
+     * CHARACTER. (Partly it's a slightly incoherent idea in the first
+     * place; mostly, U+FFFD is what we generate if a cell already has
+     * too many ccs, in which case we want it to be a fixed point when
+     * further ccs are added.)
+     */
+    if (line->chars[col].chr == 0xFFFD)
+        return;
+
+    /*
+     * Walk the cc list of the cell in question to find its current
+     * end point.
+     */
+    size_t ncc = 0;
+    int origcol = col;
+    while (line->chars[col].cc_next) {
+	col += line->chars[col].cc_next;
+        if (++ncc >= CC_LIMIT) {
+            /*
+             * There are already too many combining characters in this
+             * character cell. Change strategy: throw out the entire
+             * chain and replace the main character with U+FFFD.
+             *
+             * (Rationale: extrapolating from UTR #36 section 3.6.2
+             * suggests the principle that it's better to substitute
+             * U+FFFD than to _ignore_ input completely. Also, if the
+             * user copies and pastes an overcombined character cell,
+             * this way it will clearly indicate that we haven't
+             * reproduced the writer's original intentions, instead of
+             * looking as if it was the _writer's_ fault that the 33rd
+             * cc is missing.)
+             *
+             * Per the code above, this will also prevent any further
+             * ccs from being added to this cell.
+             */
+            clear_cc(line, origcol);
+            line->chars[origcol].chr = 0xFFFD;
+            return;
+        }
+    }
+
+    /*
+     * Extend the cols array if the free list is empty.
      */
     if (!line->cc_free) {
 	int n = line->size;
-	line->size += 16 + (line->size - line->cols) / 2;
-	line->chars = sresize(line->chars, line->size, termchar);
+
+        size_t tmpsize = line->size;
+        sgrowarray(line->chars, tmpsize, tmpsize);
+        assert(tmpsize <= INT_MAX);
+        line->size = tmpsize;
+
 	line->cc_free = n;
 	while (n < line->size) {
 	    if (n+1 < line->size)
@@ -227,12 +276,6 @@ static void add_cc(termline *line, int col, unsigned long chr)
 	    n++;
 	}
     }
-
-    /*
-     * Now walk the cc list of the cell in question.
-     */
-    while (line->chars[col].cc_next)
-	col += line->chars[col].cc_next;
 
     /*
      * `col' now points at the last cc currently in this cell; so
@@ -668,10 +711,11 @@ static compressed_scrollback_line *compressline(termline *ldata)
     }
 
     /*
-     * Next store the lattrs; same principle.
+     * Next store the lattrs; same principle. We add one extra bit to
+     * this to indicate the trust state of the line.
      */
     {
-	int n = ldata->lattr;
+	int n = ldata->lattr | (ldata->trusted ? 0x10000 : 0);
 	while (n >= 128) {
 	    put_byte(b, (unsigned char)((n & 0x7F) | 0x80));
 	    n >>= 7;
@@ -716,7 +760,7 @@ static compressed_scrollback_line *compressline(termline *ldata)
 	printf("\n");
 #endif
 
-	dcl = decompressline(b->data);
+	dcl = decompressline((compressed_scrollback_line *)b->u);
 	assert(ldata->cols == dcl->cols);
 	assert(ldata->lattr == dcl->lattr);
 	for (i = 0; i < ldata->cols; i++)
@@ -728,7 +772,7 @@ static compressed_scrollback_line *compressline(termline *ldata)
 	       (double)dused / (4 * ldata->cols));
 #endif
 
-	freeline(dcl);
+	freetermline(dcl);
     }
 #endif
 #endif /* TERM_CC_DIAGS */
@@ -915,12 +959,14 @@ static termline *decompressline(compressed_scrollback_line *line)
     /*
      * Now read in the lattr.
      */
-    ldata->lattr = shift = 0;
+    int lattr = shift = 0;
     do {
 	byte = get_byte(bs);
-	ldata->lattr |= (byte & 0x7F) << shift;
+	lattr |= (byte & 0x7F) << shift;
 	shift += 7;
     } while (byte & 0x80);
+    ldata->lattr = lattr & 0xFFFF;
+    ldata->trusted = (lattr & 0x10000) != 0;
 
     /*
      * Now we read in each of the RLE streams in turn.
@@ -1284,7 +1330,7 @@ static void power_on(Terminal *term, bool clear)
     term->utf = false;
     term->save_utf = false;
     term->alt_save_utf = false;
-    term->utf_state = 0;
+    term->utf8.state = 0;
     term->alt_sco_acs = term->sco_acs =
         term->save_sco_acs = term->alt_save_sco_acs = 0;
     term->cset_attr[0] = term->cset_attr[1] =
@@ -1707,6 +1753,10 @@ Terminal *term_init(Conf *myconf, struct unicode_data *ucsdata, TermWin *win)
     term->n_mouse_select_clipboards = 1;
     term->mouse_paste_clipboard = CLIP_NULL;
 
+    term->last_graphic_char = 0;
+
+    term->trusted = true;
+
     return term;
 }
 
@@ -1720,14 +1770,14 @@ void term_free(Terminal *term)
 	sfree(line);		       /* compressed data, not a termline */
     freetree234(term->scrollback);
     while ((line = delpos234(term->screen, 0)) != NULL)
-	freeline(line);
+	freetermline(line);
     freetree234(term->screen);
     while ((line = delpos234(term->alt_screen, 0)) != NULL)
-	freeline(line);
+	freetermline(line);
     freetree234(term->alt_screen);
     if (term->disptext) {
 	for (i = 0; i < term->rows; i++)
-	    freeline(term->disptext[i]);
+	    freetermline(term->disptext[i]);
     }
     sfree(term->disptext);
     while (term->beephead) {
@@ -1761,6 +1811,11 @@ void term_free(Terminal *term)
     conf_free(term->conf);
 
     sfree(term);
+}
+
+void term_set_trust_status(Terminal *term, bool trusted)
+{
+    term->trusted = trusted;
 }
 
 /*
@@ -1835,7 +1890,7 @@ void term_size(Terminal *term, int newrows, int newcols, int newsavelines)
 	    term->alt_savecurs.y += 1;
 	} else {
 	    /* Add a new blank line at the bottom of the screen. */
-	    line = newline(term, newcols, false);
+	    line = newtermline(term, newcols, false);
 	    addpos234(term->screen, line, count234(term->screen));
 	}
 	term->rows += 1;
@@ -1845,12 +1900,12 @@ void term_size(Terminal *term, int newrows, int newcols, int newsavelines)
 	if (term->curs.y < term->rows - 1) {
 	    /* delete bottom row, unless it contains the cursor */
             line = delpos234(term->screen, term->rows - 1);
-            freeline(line);
+            freetermline(line);
 	} else {
 	    /* push top row to scrollback */
 	    line = delpos234(term->screen, 0);
 	    addpos234(term->scrollback, compressline(line), sblen++);
-	    freeline(line);
+	    freetermline(line);
 	    term->tempsblines += 1;
 	    term->curs.y -= 1;
 	    term->savecurs.y -= 1;
@@ -1877,13 +1932,13 @@ void term_size(Terminal *term, int newrows, int newcols, int newsavelines)
     /* Make a new displayed text buffer. */
     newdisp = snewn(newrows, termline *);
     for (i = 0; i < newrows; i++) {
-	newdisp[i] = newline(term, newcols, false);
+	newdisp[i] = newtermline(term, newcols, false);
 	for (j = 0; j < newcols; j++)
 	    newdisp[i]->chars[j].attr = ATTR_INVALID;
     }
     if (term->disptext) {
 	for (i = 0; i < oldrows; i++)
-	    freeline(term->disptext[i]);
+	    freetermline(term->disptext[i]);
     }
     sfree(term->disptext);
     term->disptext = newdisp;
@@ -1892,12 +1947,12 @@ void term_size(Terminal *term, int newrows, int newcols, int newsavelines)
     /* Make a new alternate screen. */
     newalt = newtree234(NULL);
     for (i = 0; i < newrows; i++) {
-	line = newline(term, newcols, true);
+	line = newtermline(term, newcols, true);
 	addpos234(newalt, line, i);
     }
     if (term->alt_screen) {
 	while (NULL != (line = delpos234(term->alt_screen, 0)))
-	    freeline(line);
+	    freetermline(line);
 	freetree234(term->alt_screen);
     }
     term->alt_screen = newalt;
@@ -2103,6 +2158,28 @@ static void check_selection(Terminal *term, pos from, pos to)
 	deselect(term);
 }
 
+static void clear_line(Terminal *term, termline *line)
+{
+    resizeline(term, line, term->cols);
+    for (int i = 0; i < term->cols; i++)
+        copy_termchar(line, i, &term->erase_char);
+    line->lattr = LATTR_NORM;
+}
+
+static void check_trust_status(Terminal *term, termline *line)
+{
+    if (line->trusted != term->trusted) {
+        /*
+         * If we're displaying trusted output on a previously
+         * untrusted line, or vice versa, we need to switch the
+         * 'trusted' attribute on this terminal line, and also clear
+         * all its previous contents.
+         */
+        clear_line(term, line);
+        line->trusted = term->trusted;
+    }
+}
+
 /*
  * Scroll the screen. (`lines' is +ve for scrolling forward, -ve
  * for backward.) `sb' is true if the scrolling is permitted to
@@ -2112,7 +2189,7 @@ static void scroll(Terminal *term, int topline, int botline,
                    int lines, bool sb)
 {
     termline *line;
-    int i, seltop, scrollwinsize;
+    int seltop, scrollwinsize;
 
     if (topline != 0 || term->alt_which != 0)
 	sb = false;
@@ -2126,9 +2203,7 @@ static void scroll(Terminal *term, int topline, int botline,
 	while (lines-- > 0) {
 	    line = delpos234(term->screen, botline);
             resizeline(term, line, term->cols);
-	    for (i = 0; i < term->cols; i++)
-		copy_termchar(line, i, &term->erase_char);
-	    line->lattr = LATTR_NORM;
+            clear_line(term, line);
 	    addpos234(term->screen, line, topline);
 
 	    if (term->selstart.y >= topline && term->selstart.y <= botline) {
@@ -2192,9 +2267,8 @@ static void scroll(Terminal *term, int topline, int botline,
 		    term->disptop--;
 	    }
             resizeline(term, line, term->cols);
-	    for (i = 0; i < term->cols; i++)
-		copy_termchar(line, i, &term->erase_char);
-	    line->lattr = LATTR_NORM;
+            clear_line(term, line);
+            check_trust_status(term, line);
 	    addpos234(term->screen, line, botline);
 
 	    /*
@@ -2335,6 +2409,7 @@ static void check_boundary(Terminal *term, int x, int y)
 	return;
 
     ldata = scrlineptr(y);
+    check_trust_status(term, ldata);
     check_line_size(term, ldata);
     if (x == term->cols) {
 	ldata->lattr &= ~LATTR_WRAPPED2;
@@ -2405,6 +2480,7 @@ static void erase_lots(Terminal *term,
 	    scroll(term, 0, scrolllines - 1, scrolllines, true);
     } else {
 	termline *ldata = scrlineptr(start.y);
+        check_trust_status(term, ldata);
 	while (poslt(start, end)) {
             check_line_size(term, ldata);
 	    if (start.x == term->cols) {
@@ -2417,6 +2493,7 @@ static void erase_lots(Terminal *term,
 	    }
 	    if (incpos(start) && start.y < term->rows) {
 		ldata = scrlineptr(start.y);
+                check_trust_status(term, ldata);
 	    }
 	}
     }
@@ -2485,6 +2562,7 @@ static void insch(Terminal *term, int n)
     if (dir < 0)
 	check_boundary(term, term->curs.x + n, term->curs.y);
     ldata = scrlineptr(term->curs.y);
+    check_trust_status(term, ldata);
     if (dir < 0) {
 	for (j = 0; j < m; j++)
 	    move_termchar(ldata,
@@ -2694,21 +2772,18 @@ static void term_print_setup(Terminal *term, char *printer)
 }
 static void term_print_flush(Terminal *term)
 {
-    void *data;
-    int len;
-    int size;
+    size_t size;
     while ((size = bufchain_size(&term->printer_buf)) > 5) {
-	bufchain_prefix(&term->printer_buf, &data, &len);
-	if (len > size-5)
-	    len = size-5;
-	printer_job_data(term->print_job, data, len);
-	bufchain_consume(&term->printer_buf, len);
+	ptrlen data = bufchain_prefix(&term->printer_buf);
+	if (data.len > size-5)
+	    data.len = size-5;
+	printer_job_data(term->print_job, data.ptr, data.len);
+	bufchain_consume(&term->printer_buf, data.len);
     }
 }
 static void term_print_finish(Terminal *term)
 {
-    void *data;
-    int len, size;
+    size_t size;
     char c;
 
     if (!term->printing && !term->only_printing)
@@ -2716,8 +2791,8 @@ static void term_print_finish(Terminal *term)
 
     term_print_flush(term);
     while ((size = bufchain_size(&term->printer_buf)) > 0) {
-	bufchain_prefix(&term->printer_buf, &data, &len);
-	c = *(char *)data;
+	ptrlen data = bufchain_prefix(&term->printer_buf);
+	c = *(char *)data.ptr;
 	if (c == '\033' || c == '\233') {
 	    bufchain_consume(&term->printer_buf, size);
 	    break;
@@ -2738,9 +2813,7 @@ static void term_display_graphic_char(Terminal *term, unsigned long c)
     if (DIRECT_CHAR(c))
         width = 1;
     if (!width)
-        width = (term->cjk_ambig_wide ?
-                 mk_wcwidth_cjk((unsigned int) c) :
-                 mk_wcwidth((unsigned int) c));
+        width = term_char_width(term, c);
 
     if (term->wrapnext && term->wrap && width > 0) {
         cline->lattr |= LATTR_WRAPPED;
@@ -2763,6 +2836,22 @@ static void term_display_graphic_char(Terminal *term, unsigned long c)
          (c & CSET_MASK) == 0) && term->logctx)
         logtraffic(term->logctx, (unsigned char) c, LGTYP_ASCII);
 
+    check_trust_status(term, cline);
+
+    int linecols = term->cols;
+    if (cline->trusted)
+        linecols -= TRUST_SIGIL_WIDTH;
+
+    /*
+     * Preliminary check: if the terminal is only one character cell
+     * wide, then we cannot display any double-width character at all.
+     * Substitute single-width REPLACEMENT CHARACTER instead.
+     */
+    if (width == 2 && linecols < 2) {
+        width = 1;
+        c = 0xFFFD;
+    }
+
     switch (width) {
       case 2:
         /*
@@ -2781,7 +2870,7 @@ static void term_display_graphic_char(Terminal *term, unsigned long c)
          */
         check_boundary(term, term->curs.x, term->curs.y);
         check_boundary(term, term->curs.x+2, term->curs.y);
-        if (term->curs.x == term->cols-1) {
+        if (term->curs.x >= linecols-1) {
             copy_termchar(cline, term->curs.x,
                           &term->erase_char);
             cline->lattr |= LATTR_WRAPPED | LATTR_WRAPPED2;
@@ -2852,8 +2941,8 @@ static void term_display_graphic_char(Terminal *term, unsigned long c)
         return;
     }
     term->curs.x++;
-    if (term->curs.x == term->cols) {
-        term->curs.x--;
+    if (term->curs.x >= linecols) {
+        term->curs.x = linecols - 1;
         term->wrapnext = true;
         if (term->wrap && term->vt52_mode) {
             cline->lattr |= LATTR_WRAPPED;
@@ -2868,6 +2957,140 @@ static void term_display_graphic_char(Terminal *term, unsigned long c)
     seen_disp_event(term);
 }
 
+unsigned long term_translate(
+    Terminal *term, struct term_utf8_decode *utf8, unsigned char c)
+{
+    if (in_utf(term)) {
+        switch (utf8->state) {
+          case 0:
+            if (c < 0x80) {
+                /* UTF-8 must be stateless so we ignore iso2022. */
+                if (term->ucsdata->unitab_ctrl[c] != 0xFF)  {
+                    return term->ucsdata->unitab_ctrl[c];
+                } else if ((term->utf8linedraw) &&
+                           (term->cset_attr[term->cset] == CSET_LINEDRW)) {
+                    /* Linedraw characters are explicitly enabled */
+                    return c | CSET_LINEDRW;
+                } else {
+                    return c | CSET_ASCII;
+                }
+            } else if ((c & 0xe0) == 0xc0) {
+                utf8->size = utf8->state = 1;
+                utf8->chr = (c & 0x1f);
+            } else if ((c & 0xf0) == 0xe0) {
+                utf8->size = utf8->state = 2;
+                utf8->chr = (c & 0x0f);
+            } else if ((c & 0xf8) == 0xf0) {
+                utf8->size = utf8->state = 3;
+                utf8->chr = (c & 0x07);
+            } else if ((c & 0xfc) == 0xf8) {
+                utf8->size = utf8->state = 4;
+                utf8->chr = (c & 0x03);
+            } else if ((c & 0xfe) == 0xfc) {
+                utf8->size = utf8->state = 5;
+                utf8->chr = (c & 0x01);
+            } else {
+                return UCSINVALID;
+            }
+            return UCSINCOMPLETE;
+          case 1:
+          case 2:
+          case 3:
+          case 4:
+          case 5:
+            if ((c & 0xC0) != 0x80) {
+                utf8->state = 0;
+                return UCSTRUNCATED;   /* caller will then give us the
+                                        * same byte again */
+            }
+            utf8->chr = (utf8->chr << 6) | (c & 0x3f);
+            if (--utf8->state)
+                return UCSINCOMPLETE;
+
+            unsigned long t = utf8->chr;
+
+            /* Is somebody trying to be evil! */
+            if (t < 0x80 ||
+                (t < 0x800 && utf8->size >= 2) ||
+                (t < 0x10000 && utf8->size >= 3) ||
+                (t < 0x200000 && utf8->size >= 4) ||
+                (t < 0x4000000 && utf8->size >= 5))
+                return UCSINVALID;
+
+            /* Unicode line separator and paragraph separator are CR-LF */
+            if (t == 0x2028 || t == 0x2029)
+                return 0x85;
+
+            /* High controls are probably a Baaad idea too. */
+            if (t < 0xA0)
+                return 0xFFFD;
+
+            /* The UTF-16 surrogates are not nice either. */
+            /*       The standard give the option of decoding these: 
+             *       I don't want to! */
+            if (t >= 0xD800 && t < 0xE000)
+                return UCSINVALID;
+
+            /* ISO 10646 characters now limited to UTF-16 range. */
+            if (t > 0x10FFFF)
+                return UCSINVALID;
+
+            /* This is currently a TagPhobic application.. */
+            if (t >= 0xE0000 && t <= 0xE007F)
+                return UCSINCOMPLETE;
+
+            /* U+FEFF is best seen as a null. */
+            if (t == 0xFEFF)
+                return UCSINCOMPLETE;
+            /* But U+FFFE is an error. */
+            if (t == 0xFFFE || t == 0xFFFF)
+                return UCSINVALID;
+
+            return t;
+        }
+    } else if (term->sco_acs && 
+               (c!='\033' && c!='\012' && c!='\015' && c!='\b')) {
+        /* Are we in the nasty ACS mode? Note: no sco in utf mode. */
+        if (term->sco_acs == 2)
+            c |= 0x80;
+
+        return c | CSET_SCOACS;
+    } else {
+        switch (term->cset_attr[term->cset]) {
+            /* 
+             * Linedraw characters are different from 'ESC ( B'
+             * only for a small range. For ones outside that
+             * range, make sure we use the same font as well as
+             * the same encoding.
+             */
+          case CSET_LINEDRW:
+            if (term->ucsdata->unitab_ctrl[c] != 0xFF)
+                return term->ucsdata->unitab_ctrl[c];
+            else
+                return c | CSET_LINEDRW;
+            break;
+
+          case CSET_GBCHR:
+            /* If UK-ASCII, make the '#' a LineDraw Pound */
+            if (c == '#')
+                return '}' | CSET_LINEDRW;
+            /* fall through */
+
+          case CSET_ASCII:
+            if (term->ucsdata->unitab_ctrl[c] != 0xFF)
+                return term->ucsdata->unitab_ctrl[c];
+            else
+                return c | CSET_ASCII;
+            break;
+          case CSET_SCOACS:
+            if (c >= ' ')
+                return c | CSET_SCOACS;
+            break;
+        }
+    }
+    return c;
+}
+
 /*
  * Remove everything currently in `inbuf' and stick it up on the
  * in-memory display. There's a big state machine in here to
@@ -2878,7 +3101,7 @@ static void term_out(Terminal *term)
     unsigned long c;
     int unget;
     unsigned char localbuf[256], *chars;
-    int nchars = 0;
+    size_t nchars = 0;
 
     unget = -1;
 
@@ -2886,14 +3109,15 @@ static void term_out(Terminal *term)
     while (nchars > 0 || unget != -1 || bufchain_size(&term->inbuf) > 0) {
 	if (unget == -1) {
 	    if (nchars == 0) {
-		void *ret;
-		bufchain_prefix(&term->inbuf, &ret, &nchars);
-		if (nchars > sizeof(localbuf))
-		    nchars = sizeof(localbuf);
-		memcpy(localbuf, ret, nchars);
-		bufchain_consume(&term->inbuf, nchars);
+                ptrlen data = bufchain_prefix(&term->inbuf);
+		if (data.len > sizeof(localbuf))
+		    data.len = sizeof(localbuf);
+		memcpy(localbuf, data.ptr, data.len);
+		bufchain_consume(&term->inbuf, data.len);
+                nchars = data.len;
 		chars = localbuf;
 		assert(chars != NULL);
+		assert(nchars > 0);
 	    }
 	    c = *chars++;
 	    nchars--;
@@ -2946,135 +3170,22 @@ static void term_out(Terminal *term)
 	    }
 	}
 
-	/* First see about all those translations. */
+	/* Do character-set translation. */
 	if (term->termstate == TOPLEVEL) {
-	    if (in_utf(term))
-		switch (term->utf_state) {
-		  case 0:
-		    if (c < 0x80) {
-			/* UTF-8 must be stateless so we ignore iso2022. */
-			if (term->ucsdata->unitab_ctrl[c] != 0xFF) 
-			     c = term->ucsdata->unitab_ctrl[c];
-                        else if ((term->utf8linedraw) &&
-                                 (term->cset_attr[term->cset] == CSET_LINEDRW))
-                            /* Linedraw characters are explicitly enabled */
-                            c = ((unsigned char) c) | CSET_LINEDRW;
-			else c = ((unsigned char)c) | CSET_ASCII;
-			break;
-		    } else if ((c & 0xe0) == 0xc0) {
-			term->utf_size = term->utf_state = 1;
-			term->utf_char = (c & 0x1f);
-		    } else if ((c & 0xf0) == 0xe0) {
-			term->utf_size = term->utf_state = 2;
-			term->utf_char = (c & 0x0f);
-		    } else if ((c & 0xf8) == 0xf0) {
-			term->utf_size = term->utf_state = 3;
-			term->utf_char = (c & 0x07);
-		    } else if ((c & 0xfc) == 0xf8) {
-			term->utf_size = term->utf_state = 4;
-			term->utf_char = (c & 0x03);
-		    } else if ((c & 0xfe) == 0xfc) {
-			term->utf_size = term->utf_state = 5;
-			term->utf_char = (c & 0x01);
-		    } else {
-			c = UCSERR;
-			break;
-		    }
-		    continue;
-		  case 1:
-		  case 2:
-		  case 3:
-		  case 4:
-		  case 5:
-		    if ((c & 0xC0) != 0x80) {
-			unget = c;
-			c = UCSERR;
-			term->utf_state = 0;
-			break;
-		    }
-		    term->utf_char = (term->utf_char << 6) | (c & 0x3f);
-		    if (--term->utf_state)
-			continue;
-
-		    c = term->utf_char;
-
-		    /* Is somebody trying to be evil! */
-		    if (c < 0x80 ||
-			(c < 0x800 && term->utf_size >= 2) ||
-			(c < 0x10000 && term->utf_size >= 3) ||
-			(c < 0x200000 && term->utf_size >= 4) ||
-			(c < 0x4000000 && term->utf_size >= 5))
-			c = UCSERR;
-
-		    /* Unicode line separator and paragraph separator are CR-LF */
-		    if (c == 0x2028 || c == 0x2029)
-			c = 0x85;
-
-		    /* High controls are probably a Baaad idea too. */
-		    if (c < 0xA0)
-			c = 0xFFFD;
-
-		    /* The UTF-16 surrogates are not nice either. */
-		    /*       The standard give the option of decoding these: 
-		     *       I don't want to! */
-		    if (c >= 0xD800 && c < 0xE000)
-			c = UCSERR;
-
-		    /* ISO 10646 characters now limited to UTF-16 range. */
-		    if (c > 0x10FFFF)
-			c = UCSERR;
-
-		    /* This is currently a TagPhobic application.. */
-		    if (c >= 0xE0000 && c <= 0xE007F)
-			continue;
-
-		    /* U+FEFF is best seen as a null. */
-		    if (c == 0xFEFF)
-			continue;
-		    /* But U+FFFE is an error. */
-		    if (c == 0xFFFE || c == 0xFFFF)
-			c = UCSERR;
-
-		    break;
-	    }
-	    /* Are we in the nasty ACS mode? Note: no sco in utf mode. */
-	    else if(term->sco_acs && 
-		    (c!='\033' && c!='\012' && c!='\015' && c!='\b'))
-	    {
-	       if (term->sco_acs == 2) c |= 0x80;
-	       c |= CSET_SCOACS;
-	    } else {
-		switch (term->cset_attr[term->cset]) {
-		    /* 
-		     * Linedraw characters are different from 'ESC ( B'
-		     * only for a small range. For ones outside that
-		     * range, make sure we use the same font as well as
-		     * the same encoding.
-		     */
-		  case CSET_LINEDRW:
-		    if (term->ucsdata->unitab_ctrl[c] != 0xFF)
-			c = term->ucsdata->unitab_ctrl[c];
-		    else
-			c = ((unsigned char) c) | CSET_LINEDRW;
-		    break;
-
-		  case CSET_GBCHR:
-		    /* If UK-ASCII, make the '#' a LineDraw Pound */
-		    if (c == '#') {
-			c = '}' | CSET_LINEDRW;
-			break;
-		    }
-		  /*FALLTHROUGH*/ case CSET_ASCII:
-		    if (term->ucsdata->unitab_ctrl[c] != 0xFF)
-			c = term->ucsdata->unitab_ctrl[c];
-		    else
-			c = ((unsigned char) c) | CSET_ASCII;
-		    break;
-		case CSET_SCOACS:
-		    if (c>=' ') c = ((unsigned char)c) | CSET_SCOACS;
-		    break;
-		}
-	    }
+            unsigned long t = term_translate(term, &term->utf8, c);
+            switch (t) {
+              case UCSINCOMPLETE:
+                continue;       /* didn't complete a multibyte char */
+              case UCSTRUNCATED:
+                unget = c;
+                /* fall through */
+              case UCSINVALID:
+                c = UCSERR;
+                break;
+              default:
+                c = t;
+                break;
+            }
 	}
 
 	/*
@@ -3442,6 +3553,7 @@ static void term_out(Terminal *term)
 			}
 			ldata = scrlineptr(term->curs.y);
                         check_line_size(term, ldata);
+                        check_trust_status(term, ldata);
                         ldata->lattr = nlattr;
 		    }
 		    break;
@@ -3550,7 +3662,7 @@ static void term_out(Terminal *term)
 			break;
                       case 'b':        /* REP: repeat previous grap */
                         CLAMP(term->esc_args[0], term->rows * term->cols);
-                        {
+                        if (term->last_graphic_char) {
                             unsigned i;
                             for (i = 0; i < term->esc_args[0]; i++)
                                 term_display_graphic_char(
@@ -4225,6 +4337,7 @@ static void term_out(Terminal *term)
 			    int p = term->curs.x;
 			    termline *cline = scrlineptr(term->curs.y);
 
+                            check_trust_status(term, cline);
 			    if (n > term->cols - term->curs.x)
 				n = term->cols - term->curs.x;
 			    cursplus = term->curs;
@@ -4847,7 +4960,7 @@ static void parse_optionalrgb(optionalrgb *out, unsigned *values)
  * fed to the algorithm on each line of the display.
  */
 static bool term_bidi_cache_hit(Terminal *term, int line,
-                                termchar *lbefore, int width)
+                                termchar *lbefore, int width, bool trusted)
 {
     int i;
 
@@ -4863,6 +4976,9 @@ static bool term_bidi_cache_hit(Terminal *term, int line,
     if (term->pre_bidi_cache[line].width != width)
 	return false;		       /* line is wrong width */
 
+    if (term->pre_bidi_cache[line].trusted != trusted)
+	return false;		       /* line has wrong trust state */
+
     for (i = 0; i < width; i++)
 	if (!termchars_equal(term->pre_bidi_cache[line].chars+i, lbefore+i))
 	    return false;	       /* line doesn't match cache */
@@ -4872,16 +4988,13 @@ static bool term_bidi_cache_hit(Terminal *term, int line,
 
 static void term_bidi_cache_store(Terminal *term, int line, termchar *lbefore,
 				  termchar *lafter, bidi_char *wcTo,
-				  int width, int size)
+				  int width, int size, bool trusted)
 {
-    int i;
+    size_t i, j;
 
     if (!term->pre_bidi_cache || term->bidi_cache_size <= line) {
-	int j = term->bidi_cache_size;
-	term->bidi_cache_size = line+1;
-	term->pre_bidi_cache = sresize(term->pre_bidi_cache,
-				       term->bidi_cache_size,
-				       struct bidi_cache_entry);
+        j = term->bidi_cache_size;
+        sgrowarray(term->pre_bidi_cache, term->bidi_cache_size, line);
 	term->post_bidi_cache = sresize(term->post_bidi_cache,
 					term->bidi_cache_size,
 					struct bidi_cache_entry);
@@ -4890,6 +5003,8 @@ static void term_bidi_cache_store(Terminal *term, int line, termchar *lbefore,
 		term->post_bidi_cache[j].chars = NULL;
 	    term->pre_bidi_cache[j].width =
 		term->post_bidi_cache[j].width = -1;
+	    term->pre_bidi_cache[j].trusted = false;
+            term->post_bidi_cache[j].trusted = false;
 	    term->pre_bidi_cache[j].forward =
 		term->post_bidi_cache[j].forward = NULL;
 	    term->pre_bidi_cache[j].backward =
@@ -4904,8 +5019,10 @@ static void term_bidi_cache_store(Terminal *term, int line, termchar *lbefore,
     sfree(term->post_bidi_cache[line].backward);
 
     term->pre_bidi_cache[line].width = width;
+    term->pre_bidi_cache[line].trusted = trusted;
     term->pre_bidi_cache[line].chars = snewn(size, termchar);
     term->post_bidi_cache[line].width = width;
+    term->post_bidi_cache[line].trusted = trusted;
     term->post_bidi_cache[line].chars = snewn(size, termchar);
     term->post_bidi_cache[line].forward = snewn(width, int);
     term->post_bidi_cache[line].backward = snewn(width, int);
@@ -4915,13 +5032,17 @@ static void term_bidi_cache_store(Terminal *term, int line, termchar *lbefore,
     memset(term->post_bidi_cache[line].forward, 0, width * sizeof(int));
     memset(term->post_bidi_cache[line].backward, 0, width * sizeof(int));
 
-    for (i = 0; i < width; i++) {
+    for (i = j = 0; j < width; j += wcTo[i].nchars, i++) {
 	int p = wcTo[i].index;
 
-	assert(0 <= p && p < width);
+        if (p != BIDI_CHAR_INDEX_NONE) {
+            assert(0 <= p && p < width);
 
-	term->post_bidi_cache[line].backward[i] = p;
-	term->post_bidi_cache[line].forward[p] = i;
+            for (int x = 0; x < wcTo[i].nchars; x++) {
+                term->post_bidi_cache[line].backward[j+x] = p+x;
+                term->post_bidi_cache[line].forward[p+x] = j+x;
+            }
+        }
     }
 }
 
@@ -4940,9 +5061,11 @@ static termchar *term_bidi_line(Terminal *term, struct termline *ldata,
     int it;
 
     /* Do Arabic shaping and bidi. */
-    if(!term->bidi || !term->arabicshaping) {
+    if (!term->bidi || !term->arabicshaping ||
+        (ldata->trusted && term->cols > TRUST_SIGIL_WIDTH)) {
 
-	if (!term_bidi_cache_hit(term, scr_y, ldata->chars, term->cols)) {
+	if (!term_bidi_cache_hit(term, scr_y, ldata->chars, term->cols,
+                                 ldata->trusted)) {
 
 	    if (term->wcFromTo_size < term->cols) {
 		term->wcFromTo_size = term->cols;
@@ -4981,18 +5104,42 @@ static termchar *term_bidi_line(Terminal *term, struct termline *ldata,
 		term->wcFrom[it].origwc = term->wcFrom[it].wc =
 		    (unsigned int)uc;
 		term->wcFrom[it].index = it;
+		term->wcFrom[it].nchars = 1;
 	    }
 
+            if (ldata->trusted && term->cols > TRUST_SIGIL_WIDTH) {
+                memmove(
+                    term->wcFrom + TRUST_SIGIL_WIDTH, term->wcFrom,
+                    (term->cols - TRUST_SIGIL_WIDTH) * sizeof(*term->wcFrom));
+                for (it = 0; it < TRUST_SIGIL_WIDTH; it++) {
+                    term->wcFrom[it].origwc = term->wcFrom[it].wc =
+                        (it == 0 ? TRUST_SIGIL_CHAR :
+                         it == 1 ? UCSWIDE : ' ');
+                    term->wcFrom[it].index = BIDI_CHAR_INDEX_NONE;
+                    term->wcFrom[it].nchars = 1;
+                }
+            }
+
+            int nbc = 0;
+            for (it = 0; it < term->cols; it++) {
+                term->wcFrom[nbc] = term->wcFrom[it];
+                if (it+1 < term->cols && term->wcFrom[it+1].wc == UCSWIDE) {
+                    term->wcFrom[nbc].nchars++;
+                    it++;
+                }
+                nbc++;
+            }
+
 	    if(!term->bidi)
-		do_bidi(term->wcFrom, term->cols);
+		do_bidi(term->wcFrom, nbc);
 
 	    /* this is saved iff done from inside the shaping */
 	    if(!term->bidi && term->arabicshaping)
-		for(it=0; it<term->cols; it++)
+		for(it=0; it<nbc; it++)
 		    term->wcTo[it] = term->wcFrom[it];
 
 	    if(!term->arabicshaping)
-		do_shape(term->wcFrom, term->wcTo, term->cols);
+		do_shape(term->wcFrom, term->wcTo, nbc);
 
 	    if (term->ltemp_size < ldata->size) {
 		term->ltemp_size = ldata->size;
@@ -5002,19 +5149,31 @@ static termchar *term_bidi_line(Terminal *term, struct termline *ldata,
 
 	    memcpy(term->ltemp, ldata->chars, ldata->size * TSIZE);
 
-	    for(it=0; it<term->cols ; it++)
-	    {
-		term->ltemp[it] = ldata->chars[term->wcTo[it].index];
-		if (term->ltemp[it].cc_next)
-		    term->ltemp[it].cc_next -=
-		    it - term->wcTo[it].index;
+            int opos = 0;
+	    for (it=0; it<nbc; it++) {
+                int ipos = term->wcTo[it].index;
+                for (int j = 0; j < term->wcTo[it].nchars; j++) {
+                    if (ipos != BIDI_CHAR_INDEX_NONE) {
+                        term->ltemp[opos] = ldata->chars[ipos];
+                        if (term->ltemp[opos].cc_next)
+                            term->ltemp[opos].cc_next -= opos - ipos;
 
-		if (term->wcTo[it].origwc != term->wcTo[it].wc)
-		    term->ltemp[it].chr = term->wcTo[it].wc;
+                        if (j > 0)
+                            term->ltemp[opos].chr = UCSWIDE;
+                        else if (term->wcTo[it].origwc != term->wcTo[it].wc)
+                            term->ltemp[opos].chr = term->wcTo[it].wc;
+                    } else {
+                        term->ltemp[opos] = term->basic_erase_char;
+                        term->ltemp[opos].chr =
+                            j > 0 ? UCSWIDE : term->wcTo[it].origwc;
+                    }
+                    opos++;
+                }
 	    }
+            assert(opos == term->cols);
 	    term_bidi_cache_store(term, scr_y, ldata->chars,
 				  term->ltemp, term->wcTo,
-                                  term->cols, ldata->size);
+                                  term->cols, ldata->size, ldata->trusted);
 
 	    lchars = term->ltemp;
 	} else {
@@ -5027,6 +5186,27 @@ static termchar *term_bidi_line(Terminal *term, struct termline *ldata,
     return lchars;
 }
 
+static void do_paint_draw(Terminal *term, termline *ldata, int x, int y,
+                          wchar_t *ch, int ccount,
+                          unsigned long attr, truecolour tc)
+{
+    if (ch[0] == TRUST_SIGIL_CHAR) {
+        assert(ldata->trusted);
+        assert(ccount == 1);
+        assert(attr & ATTR_WIDE);
+        wchar_t tch[2];
+        tch[0] = tch[1] = L' ';
+        win_draw_text(term->win, x, y, tch, 2, term->basic_erase_char.attr,
+                      ldata->lattr, term->basic_erase_char.truecolour);
+        win_draw_trust_sigil(term->win, x, y);
+    } else {
+        win_draw_text(term->win, x, y, ch, ccount, attr, ldata->lattr, tc);
+        if (attr & (TATTR_ACTCURS | TATTR_PASCURS))
+            win_draw_cursor(term->win, x, y, ch, ccount,
+                            attr, ldata->lattr, tc);
+    }
+}
+
 /*
  * Given a context, update the window.
  */
@@ -5036,7 +5216,7 @@ static void do_paint(Terminal *term)
     int rv, cursor;
     pos scrpos;
     wchar_t *ch;
-    int chlen;
+    size_t chlen;
     termchar *newline;
 
     chlen = 1024;
@@ -5328,6 +5508,14 @@ static void do_paint(Terminal *term)
 		(j > 0 && d[-1].cc_next != 0))
 		break_run = true;
 
+            /*
+             * Break on both sides of a trust sigil.
+             */
+            if (d->chr == TRUST_SIGIL_CHAR ||
+                (j >= 2 && d[-1].chr == UCSWIDE &&
+                 d[-2].chr == TRUST_SIGIL_CHAR))
+                break_run = true;
+
 	    if (!term->ucsdata->dbcs_screenfont && !dirty_line) {
 		if (term->disptext[i]->chars[j].chr == tchar &&
 		    (term->disptext[i]->chars[j].attr &~ DATTR_MASK) == tattr)
@@ -5337,13 +5525,8 @@ static void do_paint(Terminal *term)
 	    }
 
 	    if (break_run) {
-		if ((dirty_run || last_run_dirty) && ccount > 0) {
-		    win_draw_text(term->win, start, i, ch, ccount,
-                                  attr, ldata->lattr, tc);
-		    if (attr & (TATTR_ACTCURS | TATTR_PASCURS))
-			win_draw_cursor(term->win, start, i, ch, ccount, attr,
-                                        ldata->lattr, tc);
-		}
+		if ((dirty_run || last_run_dirty) && ccount > 0)
+                    do_paint_draw(term, ldata, start, i, ch, ccount, attr, tc);
 		start = j;
 		ccount = 0;
 		attr = tattr;
@@ -5361,10 +5544,7 @@ static void do_paint(Terminal *term)
 		dirty_run = true;
 	    }
 
-	    if (ccount+2 > chlen) {
-		chlen = ccount + 256;
-		ch = sresize(ch, chlen, wchar_t);
-	    }
+            sgrowarrayn(ch, chlen, ccount, 2);
 
 #ifdef PLATFORM_IS_UTF16
 	    if (tchar > 0x10000 && tchar < 0x110000) {
@@ -5395,10 +5575,7 @@ static void do_paint(Terminal *term)
 			break;
 		    }
 
-		    if (ccount+2 > chlen) {
-			chlen = ccount + 256;
-			ch = sresize(ch, chlen, wchar_t);
-		    }
+                    sgrowarrayn(ch, chlen, ccount, 2);
 
 #ifdef PLATFORM_IS_UTF16
 		    if (schar > 0x10000 && schar < 0x110000) {
@@ -5437,13 +5614,8 @@ static void do_paint(Terminal *term)
 		}
 	    }
 	}
-	if (dirty_run && ccount > 0) {
-	    win_draw_text(term->win, start, i, ch, ccount,
-                          attr, ldata->lattr, tc);
-	    if (attr & (TATTR_ACTCURS | TATTR_PASCURS))
-		win_draw_cursor(term->win, start, i, ch, ccount,
-                                attr, ldata->lattr, tc);
-	}
+	if (dirty_run && ccount > 0)
+            do_paint_draw(term, ldata, start, i, ch, ccount, attr, tc);
 
 	unlineptr(ldata);
     }
@@ -5549,8 +5721,8 @@ void term_scroll_to_selection(Terminal *term, int which_end)
  * Helper routine for clipme(): growing buffer.
  */
 typedef struct {
-    int buflen;		    /* amount of allocated space in textbuf/attrbuf */
-    int bufpos;		    /* amount of actual data */
+    size_t bufsize;         /* amount of allocated space in textbuf/attrbuf */
+    size_t bufpos;          /* amount of actual data */
     wchar_t *textbuf;	    /* buffer for copied text */
     wchar_t *textptr;	    /* = textbuf + bufpos (current insertion point) */
     int *attrbuf;	    /* buffer for copied attributes */
@@ -5561,13 +5733,12 @@ typedef struct {
 
 static void clip_addchar(clip_workbuf *b, wchar_t chr, int attr, truecolour tc)
 {
-    if (b->bufpos >= b->buflen) {
-	b->buflen *= 2;
-	b->textbuf = sresize(b->textbuf, b->buflen, wchar_t);
+    if (b->bufpos >= b->bufsize) {
+        sgrowarray(b->textbuf, b->bufsize, b->bufpos);
 	b->textptr = b->textbuf + b->bufpos;
-	b->attrbuf = sresize(b->attrbuf, b->buflen, int);
+	b->attrbuf = sresize(b->attrbuf, b->bufsize, int);
 	b->attrptr = b->attrbuf + b->bufpos;
-	b->tcbuf = sresize(b->tcbuf, b->buflen, truecolour);
+	b->tcbuf = sresize(b->tcbuf, b->bufsize, truecolour);
 	b->tcptr = b->tcbuf + b->bufpos;
     }
     *b->textptr++ = chr;
@@ -5584,11 +5755,11 @@ static void clipme(Terminal *term, pos top, pos bottom, bool rect, bool desel,
     int attr;
     truecolour tc;
 
-    buf.buflen = 5120;			
+    buf.bufsize = 5120;
     buf.bufpos = 0;
-    buf.textptr = buf.textbuf = snewn(buf.buflen, wchar_t);
-    buf.attrptr = buf.attrbuf = snewn(buf.buflen, int);
-    buf.tcptr = buf.tcbuf = snewn(buf.buflen, truecolour);
+    buf.textptr = buf.textbuf = snewn(buf.bufsize, wchar_t);
+    buf.attrptr = buf.attrbuf = snewn(buf.bufsize, int);
+    buf.tcptr = buf.tcbuf = snewn(buf.bufsize, truecolour);
 
     old_top_x = top.x;		       /* needed for rect==1 */
 
@@ -5619,9 +5790,17 @@ static void clipme(Terminal *term, pos top, pos bottom, bool rect, bool desel,
 		decpos(nlpos);
 	    if (poslt(nlpos, bottom))
 		nl = true;
-	} else if (ldata->lattr & LATTR_WRAPPED2) {
-	    /* Ignore the last char on the line in a WRAPPED2 line. */
-	    decpos(nlpos);
+	} else {
+            if (ldata->trusted) {
+                /* A wrapped line with a trust sigil on it terminates
+                 * a few characters earlier. */
+                nlpos.x = (nlpos.x < TRUST_SIGIL_WIDTH ? 0 :
+                           nlpos.x - TRUST_SIGIL_WIDTH);
+            }
+            if (ldata->lattr & LATTR_WRAPPED2) {
+                /* Ignore the last char on the line in a WRAPPED2 line. */
+                decpos(nlpos);
+            }
 	}
 
 	/*
@@ -5926,6 +6105,19 @@ static int wordtype(Terminal *term, int uc)
     return 2;
 }
 
+static int line_cols(Terminal *term, termline *ldata)
+{
+    int cols = term->cols;
+    if (ldata->trusted) {
+        cols -= TRUST_SIGIL_WIDTH;
+    }
+    if (ldata->lattr & LATTR_WRAPPED2)
+        cols--;
+    if (cols < 0)
+        cols = 0;
+    return cols;
+}
+
 /*
  * Spread the selection outwards according to the selection mode.
  */
@@ -5944,7 +6136,7 @@ static pos sel_spread_half(Terminal *term, pos p, int dir)
 	 * for runs of spaces at the end of a non-wrapping line.
 	 */
 	if (!(ldata->lattr & LATTR_WRAPPED)) {
-	    termchar *q = ldata->chars + term->cols;
+	    termchar *q = ldata->chars + line_cols(term, ldata);
 	    while (q > ldata->chars &&
 		   IS_SPACE_CHR(q[-1].chr) && !q[-1].cc_next)
 		q--;
@@ -5962,8 +6154,7 @@ static pos sel_spread_half(Terminal *term, pos p, int dir)
 	wvalue = wordtype(term, UCSGET(ldata->chars, p.x));
 	if (dir == +1) {
 	    while (1) {
-		int maxcols = (ldata->lattr & LATTR_WRAPPED2 ?
-			       term->cols-1 : term->cols);
+		int maxcols = line_cols(term, ldata);
 		if (p.x < maxcols-1) {
 		    if (wordtype(term, UCSGET(ldata->chars, p.x+1)) == wvalue)
 			p.x++;
@@ -6001,8 +6192,7 @@ static pos sel_spread_half(Terminal *term, pos p, int dir)
 		    if (p.y <= topy)
 			break;
 		    ldata2 = lineptr(p.y-1);
-		    maxcols = (ldata2->lattr & LATTR_WRAPPED2 ?
-			      term->cols-1 : term->cols);
+		    maxcols = line_cols(term, ldata2);
 		    if (ldata2->lattr & LATTR_WRAPPED) {
 			if (wordtype(term, UCSGET(ldata2->chars, maxcols-1))
 			    == wvalue) {
@@ -6555,7 +6745,7 @@ int format_small_keypad_key(char *buf, Terminal *term, SmallKeypadKey key)
       case SKK_END: code = 4; break;
       case SKK_PGUP: code = 5; break;
       case SKK_PGDN: code = 6; break;
-      default: assert(false && "bad small keypad key enum value");
+      default: unreachable("bad small keypad key enum value");
     }
 
     /* Reorder edit keys to physical order */
@@ -6728,7 +6918,7 @@ static void term_added_data(Terminal *term)
     }
 }
 
-int term_data(Terminal *term, bool is_stderr, const void *data, int len)
+size_t term_data(Terminal *term, bool is_stderr, const void *data, size_t len)
 {
     bufchain_add(&term->inbuf, data, len);
     term_added_data(term);
@@ -6753,12 +6943,6 @@ int term_data(Terminal *term, bool is_stderr, const void *data, int len)
      * In practice, I can't imagine this causing serious trouble.
      */
     return 0;
-}
-
-static void term_data_untrusted(Terminal *term, const void *data, int len)
-{
-    sanitise_term_data(&term->inbuf, data, len);
-    term_added_data(term);
 }
 
 void term_provide_logctx(Terminal *term, LogContext *logctx)
@@ -6795,6 +6979,12 @@ struct term_userpass_state {
     size_t pos;		/* cursor position */
 };
 
+/* Tiny wrapper to make it easier to write lots of little strings */
+static inline void term_write(Terminal *term, ptrlen data)
+{
+    term_data(term, false, data.ptr, data.len);
+}
+
 /*
  * Process some terminal data in the course of username/password
  * input.
@@ -6811,17 +7001,17 @@ int term_get_userpass_input(Terminal *term, prompts_t *p, bufchain *input)
 	s->done_prompt = false;
 	/* We only print the `name' caption if we have to... */
 	if (p->name_reqd && p->name) {
-	    size_t l = strlen(p->name);
-	    term_data_untrusted(term, p->name, l);
-	    if (p->name[l-1] != '\n')
-		term_data_untrusted(term, "\n", 1);
+            ptrlen plname = ptrlen_from_asciz(p->name);
+            term_write(term, plname);
+            if (!ptrlen_endswith(plname, PTRLEN_LITERAL("\n"), NULL))
+                term_write(term, PTRLEN_LITERAL("\r\n"));
 	}
 	/* ...but we always print any `instruction'. */
 	if (p->instruction) {
-	    size_t l = strlen(p->instruction);
-	    term_data_untrusted(term, p->instruction, l);
-	    if (p->instruction[l-1] != '\n')
-		term_data_untrusted(term, "\n", 1);
+            ptrlen plinst = ptrlen_from_asciz(p->instruction);
+            term_write(term, plinst);
+            if (!ptrlen_endswith(plinst, PTRLEN_LITERAL("\n"), NULL))
+                term_write(term, PTRLEN_LITERAL("\r\n"));
 	}
 	/*
 	 * Zero all the results, in case we abort half-way through.
@@ -6839,7 +7029,7 @@ int term_get_userpass_input(Terminal *term, prompts_t *p, bufchain *input)
 	bool finished_prompt = false;
 
 	if (!s->done_prompt) {
-	    term_data_untrusted(term, pr->prompt, strlen(pr->prompt));
+	    term_write(term, ptrlen_from_asciz(pr->prompt));
 	    s->done_prompt = true;
 	    s->pos = 0;
 	}
@@ -6855,7 +7045,7 @@ int term_get_userpass_input(Terminal *term, prompts_t *p, bufchain *input)
 	    switch (c) {
 	      case 10:
 	      case 13:
-		term_data(term, false, "\r\n", 2);
+		term_write(term, PTRLEN_LITERAL("\r\n"));
                 prompt_ensure_result_size(pr, s->pos + 1);
 		pr->result[s->pos] = '\0';
 		/* go to next prompt, if any */
@@ -6867,7 +7057,7 @@ int term_get_userpass_input(Terminal *term, prompts_t *p, bufchain *input)
 	      case 127:
 		if (s->pos > 0) {
 		    if (pr->echo)
-			term_data(term, false, "\b \b", 3);
+			term_write(term, PTRLEN_LITERAL("\b \b"));
 		    s->pos--;
 		}
 		break;
@@ -6875,14 +7065,14 @@ int term_get_userpass_input(Terminal *term, prompts_t *p, bufchain *input)
 	      case 27:
 		while (s->pos > 0) {
 		    if (pr->echo)
-			term_data(term, false, "\b \b", 3);
+			term_write(term, PTRLEN_LITERAL("\b \b"));
 		    s->pos--;
 		}
 		break;
 	      case 3:
 	      case 4:
 		/* Immediate abort. */
-		term_data(term, false, "\r\n", 2);
+		term_write(term, PTRLEN_LITERAL("\r\n"));
 		sfree(s);
 		p->data = NULL;
 		return 0; /* user abort */
@@ -6897,7 +7087,7 @@ int term_get_userpass_input(Terminal *term, prompts_t *p, bufchain *input)
                     prompt_ensure_result_size(pr, s->pos + 1);
 		    pr->result[s->pos++] = c;
 		    if (pr->echo)
-			term_data(term, false, &c, 1);
+			term_write(term, make_ptrlen(&c, 1));
 		}
 		break;
 	    }
