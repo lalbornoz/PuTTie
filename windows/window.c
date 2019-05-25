@@ -297,7 +297,7 @@ static const TermWinVtable windows_termwin_vt = {
 static TermWin wintw[1];
 static HDC wintw_hdc;
 
-static HICON icon;
+static HICON trust_icon = INVALID_HANDLE_VALUE;
 
 const bool share_can_be_downstream = true;
 const bool share_can_be_upstream = true;
@@ -389,6 +389,7 @@ static void start_backend(void)
 	cleanup_exit(1);
     }
 
+    seat_set_trust_status(win_seat, true);
     error = backend_init(vt, win_seat, &backend, logctx, conf,
                          conf_get_str(conf, CONF_host),
                          conf_get_int(conf, CONF_port),
@@ -688,8 +689,6 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         prepare_session(conf);
     }
 
-    icon = LoadIcon(inst, MAKEINTRESOURCE(IDI_MAINICON));
-
     if (!prev) {
         WNDCLASSW wndclass;
 
@@ -698,7 +697,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	wndclass.cbClsExtra = 0;
 	wndclass.cbWndExtra = 0;
 	wndclass.hInstance = inst;
-	wndclass.hIcon = icon;
+	wndclass.hIcon = LoadIcon(inst, MAKEINTRESOURCE(IDI_MAINICON));
 	wndclass.hCursor = LoadCursor(NULL, IDC_IBEAM);
 	wndclass.hbrBackground = NULL;
 	wndclass.lpszMenuName = NULL;
@@ -1510,6 +1509,8 @@ static int get_font_width(HDC hdc, const TEXTMETRIC *tm)
  * - verify that the underlined font is the same width as the
  *   ordinary one (manual underlining by means of line drawing can
  *   be done in a pinch).
+ *
+ * - find a trust sigil icon that will look OK with the chosen font.
  */
 static void init_fonts(int pick_width, int pick_height)
 {
@@ -1675,6 +1676,13 @@ static void init_fonts(int pick_width, int pick_height)
 
     ReleaseDC(hwnd, hdc);
 
+    if (trust_icon != INVALID_HANDLE_VALUE) {
+	DestroyIcon(trust_icon);
+    }
+    trust_icon = LoadImage(hinst, MAKEINTRESOURCE(IDI_MAINICON),
+			   IMAGE_ICON, font_width*2, font_height,
+			   LR_DEFAULTCOLOR);
+
     if (fontsize[FONT_UNDERLINE] != fontsize[FONT_NORMAL]) {
 	und_mode = UND_LINE;
 	DeleteObject(fonts[FONT_UNDERLINE]);
@@ -1757,6 +1765,11 @@ static void deinit_fonts(void)
 	fonts[i] = 0;
 	fontflag[i] = false;
     }
+
+    if (trust_icon != INVALID_HANDLE_VALUE) {
+	DestroyIcon(trust_icon);
+    }
+    trust_icon = INVALID_HANDLE_VALUE;
 }
 
 static void wintw_request_resize(TermWin *tw, int w, int h)
@@ -4075,7 +4088,7 @@ static void wintw_draw_trust_sigil(TermWin *tw, int x, int y)
     x += offset_width;
     y += offset_height;
 
-    DrawIconEx(wintw_hdc, x, y, icon, font_width * 2, font_height,
+    DrawIconEx(wintw_hdc, x, y, trust_icon, font_width * 2, font_height,
                0, NULL, DI_NORMAL);
 }
 
@@ -4175,6 +4188,7 @@ static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
     bool no_applic_k = conf_get_bool(conf, CONF_no_applic_k);
     bool ctrlaltkeys = conf_get_bool(conf, CONF_ctrlaltkeys);
     bool nethack_keypad = conf_get_bool(conf, CONF_nethack_keypad);
+    char keypad_key = '\0';
 
     HKL kbd_layout = GetKeyboardLayout(0);
 
@@ -4540,14 +4554,8 @@ static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
 	    *p++ = 0x1E;	       /* Ctrl-~ == Ctrl-^ in xterm at least */
 	    return p - output;
 	}
-	if (shift_state == 0 && wParam == VK_RETURN && term->cr_lf_return) {
-	    *p++ = '\r';
-	    *p++ = '\n';
-	    return p - output;
-	}
 
 	switch (wParam) {
-            char keypad_key;
           case VK_NUMPAD0: keypad_key = '0'; goto numeric_keypad;
           case VK_NUMPAD1: keypad_key = '1'; goto numeric_keypad;
           case VK_NUMPAD2: keypad_key = '2'; goto numeric_keypad;
@@ -4576,10 +4584,36 @@ static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
                 break;
             }
 
-            p += format_numeric_keypad_key(
-                (char *)p, term, keypad_key,
-                shift_state & 1, shift_state & 2);
-            return p - output;
+            {
+                int nchars = format_numeric_keypad_key(
+                    (char *)p, term, keypad_key,
+                    shift_state & 1, shift_state & 2);
+                if (!nchars) {
+                    /*
+                     * If we didn't get an escape sequence out of the
+                     * numeric keypad key, then that must be because
+                     * we're in Num Lock mode without application
+                     * keypad enabled. In that situation we leave this
+                     * keypress to the ToUnicode/ToAsciiEx handler
+                     * below, which will translate it according to the
+                     * appropriate keypad layout (e.g. so that what a
+                     * Brit thinks of as keypad '.' can become ',' in
+                     * the German layout).
+                     *
+                     * An exception is the keypad Return key: if we
+                     * didn't get an escape sequence for that, we
+                     * treat it like ordinary Return, taking into
+                     * account Telnet special new line codes and
+                     * config options.
+                     */
+                    if (keypad_key == '\r')
+                        goto ordinary_return_key;
+                    break;
+                }
+
+                p += nchars;
+                return p - output;
+            }
 
             int fkey_number;
 	  case VK_F1: fkey_number = 1; goto numbered_function_key;
@@ -4637,9 +4671,16 @@ static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
                 keypad_key = '\r';
                 goto numeric_keypad;
             }
-	    *p++ = 0x0D;
-	    *p++ = 0;
-	    return -2;
+          ordinary_return_key:
+            if (shift_state == 0 && term->cr_lf_return) {
+                *p++ = '\r';
+                *p++ = '\n';
+                return p - output;
+            } else {
+                *p++ = 0x0D;
+                *p++ = 0;
+                return -2;
+            }
 	}
     }
 

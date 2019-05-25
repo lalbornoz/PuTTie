@@ -36,6 +36,7 @@
  *    I define another main() which calls the former repeatedly to
  *    run tests.
  */
+bool cgtest_verbose = false;
 #define get_random_data get_random_data_diagnostic
 char *get_random_data(int len, const char *device)
 {
@@ -53,9 +54,15 @@ int console_get_userpass_input(prompts_t *p)
     for (i = 0; i < p->n_prompts; i++) {
 	if (promptsgot < nprompts) {
 	    p->prompts[i]->result = dupstr(prompts[promptsgot++]);
+            if (cgtest_verbose)
+                printf("  prompt \"%s\": response \"%s\"\n",
+                       p->prompts[i]->prompt, p->prompts[i]->result);
 	} else {
 	    promptsgot++;	    /* track number of requests anyway */
 	    ret = 0;
+            if (cgtest_verbose)
+                printf("  prompt \"%s\": no response preloaded\n",
+                       p->prompts[i]->prompt);
 	}
     }
     return ret;
@@ -933,6 +940,7 @@ int main(int argc, char **argv)
         int real_outtype;
 
       case PRIVATE:
+        random_ref(); /* we'll need a few random bytes in the save file */
 	if (sshver == 1) {
 	    assert(ssh1key);
 	    ret = rsa_ssh1_savekey(outfilename, ssh1key, new_passphrase);
@@ -1126,7 +1134,33 @@ void test(int retval, ...)
     va_end(ap);
 
     promptsgot = 0;
+    if (cgtest_verbose) {
+        printf("run:");
+        for (int i = 0; i < argc; i++) {
+            static const char okchars[] =
+                "0123456789abcdefghijklmnopqrstuvwxyz"
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ%+,-./:=[]^_";
+            const char *arg = argv[i];
+
+            printf(" ");
+            if (arg[strspn(arg, okchars)]) {
+                printf("'");
+                for (const char *c = argv[i]; *c; c++) {
+                    if (*c == '\'') {
+                        printf("'\\''");
+                    } else {
+                        putchar(*c);
+                    }
+                }
+                printf("'");
+            } else {
+                fputs(arg, stdout);
+            }
+        }
+        printf("\n");
+    }
     ret = cmdgen_main(argc, argv);
+    random_clear();
 
     if (ret != retval) {
 	printf("FAILED retval (exp %d got %d):", retval, ret);
@@ -1180,19 +1214,21 @@ void filecmp(char *file1, char *file2, char *fmt, ...)
 
 char *cleanup_fp(char *s)
 {
-    char *p;
+    ptrlen pl = ptrlen_from_asciz(s);
+    static const char separators[] = " \n\t";
 
-    if (!strncmp(s, "ssh-", 4)) {
-	s += strcspn(s, " \n\t");
-	s += strspn(s, " \n\t");
-    }
+    /* Skip initial key type word if we find one */
+    if (ptrlen_startswith(pl, PTRLEN_LITERAL("ssh-"), NULL))
+        ptrlen_get_word(&pl, separators);
 
-    p = s;
-    s += strcspn(s, " \n\t");
-    s += strspn(s, " \n\t");
-    s += strcspn(s, " \n\t");
+    /* Expect two words giving the key length and the hash */
+    ptrlen bits = ptrlen_get_word(&pl, separators);
+    ptrlen hash = ptrlen_get_word(&pl, separators);
 
-    return dupprintf("%.*s", (int)(s - p), p);
+    /* Strip "MD5:" prefix if it's present, and do nothing if it isn't */
+    ptrlen_startswith(hash, PTRLEN_LITERAL("MD5:"), &hash);
+
+    return dupprintf("%.*s %.*s", PTRLEN_PRINTF(bits), PTRLEN_PRINTF(hash));
 }
 
 char *get_fp(char *filename)
@@ -1243,6 +1279,9 @@ int main(int argc, char **argv)
     int i;
     static char *const keytypes[] = { "rsa1", "dsa", "rsa" };
 
+    if (getenv("CGTEST_VERBOSE"))
+        cgtest_verbose = true;
+
     /*
      * Even when this thing is compiled for automatic test mode,
      * it's helpful to be able to invoke it with command-line
@@ -1279,7 +1318,7 @@ int main(int argc, char **argv)
 	{
 	    char *cmdbuf;
 	    fp = NULL;
-	    cmdbuf = dupprintf("ssh-keygen -l -f '%s' > '%s'",
+	    cmdbuf = dupprintf("ssh-keygen -E md5 -l -f '%s' > '%s'",
 		    pubfilename, tmpfilename1);
 	    if (system(cmdbuf) ||
 		(fp = get_fp(tmpfilename1)) == NULL) {
