@@ -1400,8 +1400,8 @@ NORETURN void cleanup_exit(int);
     /* winfrip }}} */ \
     X(STR, NONE, answerback) \
     X(STR, NONE, printer) \
-    X(BOOL, NONE, arabicshaping) \
-    X(BOOL, NONE, bidi) \
+    X(BOOL, NONE, no_arabicshaping) \
+    X(BOOL, NONE, no_bidi) \
     /* Colour options */ \
     X(BOOL, NONE, ansi_colour) \
     X(BOOL, NONE, xterm_256_colour) \
@@ -1540,10 +1540,6 @@ bool conf_deserialise(Conf *conf, BinarySource *src);/*returns true on success*/
  * Functions to copy, free, serialise and deserialise FontSpecs.
  * Provided per-platform, to go with the platform's idea of a
  * FontSpec's contents.
- *
- * fontspec_serialise returns the number of bytes written, and can
- * handle data==NULL without crashing. So you can call it once to find
- * out a size, then again once you've allocated a buffer.
  */
 FontSpec *fontspec_copy(const FontSpec *f);
 void fontspec_free(FontSpec *f);
@@ -1810,6 +1806,13 @@ extern int random_active;
  * calls random_ref on startup and random_unref on shutdown. */
 void random_ref(void);
 void random_unref(void);
+/* random_clear is equivalent to calling random_unref as many times as
+ * necessary to shut down the global PRNG instance completely. It's
+ * not needed in normal applications, but the command-line PuTTYgen
+ * test finds it useful to clean up after each invocation of the
+ * logical main() no matter whether it needed random numbers or
+ * not. */
+void random_clear(void);
 /* random_setup_special is used by PuTTYgen. It makes an extra-big
  * random number generator. */
 void random_setup_special();

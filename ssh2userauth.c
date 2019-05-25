@@ -23,7 +23,7 @@ struct ssh2_userauth_state {
 
     PacketProtocolLayer *transport_layer, *successor_layer;
     Filename *keyfile;
-    bool tryagent, change_username;
+    bool show_banner, tryagent, change_username;
     char *hostname, *fullhostname;
     char *default_username;
     bool try_ki_auth, try_gssapi_auth, try_gssapi_kex_auth, gssapi_fwd;
@@ -125,7 +125,7 @@ static const struct PacketProtocolLayerVtable ssh2_userauth_vtable = {
 PacketProtocolLayer *ssh2_userauth_new(
     PacketProtocolLayer *successor_layer,
     const char *hostname, const char *fullhostname,
-    Filename *keyfile, bool tryagent,
+    Filename *keyfile, bool show_banner, bool tryagent,
     const char *default_username, bool change_username,
     bool try_ki_auth, bool try_gssapi_auth, bool try_gssapi_kex_auth,
     bool gssapi_fwd, struct ssh_connection_shared_gss_state *shgss)
@@ -138,6 +138,7 @@ PacketProtocolLayer *ssh2_userauth_new(
     s->hostname = dupstr(hostname);
     s->fullhostname = dupstr(fullhostname);
     s->keyfile = filename_copy(keyfile);
+    s->show_banner = show_banner;
     s->tryagent = tryagent;
     s->default_username = dupstr(default_username);
     s->change_username = change_username;
@@ -193,6 +194,11 @@ static void ssh2_userauth_filter_queue(struct ssh2_userauth_state *s)
     while ((pktin = pq_peek(s->ppl.in_pq)) != NULL) {
         switch (pktin->type) {
           case SSH2_MSG_USERAUTH_BANNER:
+            if (!s->show_banner) {
+                pq_pop(s->ppl.in_pq);
+                break;
+            }
+
             string = get_string(pktin);
             if (string.len > BANNER_LIMIT - bufchain_size(&s->banner))
                 string.len = BANNER_LIMIT - bufchain_size(&s->banner);
@@ -613,8 +619,10 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                  * Scan it for method identifiers we know about.
                  */
                 bool srv_pubkey = false, srv_passwd = false;
-                bool srv_keyb_inter = false, srv_gssapi = false;
-                bool srv_gssapi_keyex_auth = false;
+                bool srv_keyb_inter = false;
+#ifndef NO_GSSAPI
+                bool srv_gssapi = false, srv_gssapi_keyex_auth = false;
+#endif
 
                 for (ptrlen method; get_commasep_word(&methods, &method) ;) {
                     if (ptrlen_eq_string(method, "publickey"))
@@ -623,10 +631,12 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                         srv_passwd = true;
                     else if (ptrlen_eq_string(method, "keyboard-interactive"))
                         srv_keyb_inter = true;
+#ifndef NO_GSSAPI
                     else if (ptrlen_eq_string(method, "gssapi-with-mic"))
                         srv_gssapi = true;
                     else if (ptrlen_eq_string(method, "gssapi-keyex"))
                         srv_gssapi_keyex_auth = true;
+#endif
                 }
 
                 /*
@@ -1300,6 +1310,8 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                     } else {
                         s->cur_prompt->instr_reqd = false;
                     }
+                    if (sb->len)
+                        s->cur_prompt->instruction = strbuf_to_str(sb);
 
                     /*
                      * Our prompts_t is fully constructed now. Get the
