@@ -39,7 +39,7 @@ build() {
 	mingw)
 		_makeflags_extra="COMPAT=-DNO_MULTIMON TOOLPATH=x86_64-w64-mingw32-";
 		if [ "${_dflag:-0}" -eq 1 ]; then
-			_makeflags_extra="${_makeflags_extra:+${_makeflags_extra} }XFLAGS=-DDEBUG XFLAGS+=-DWINFRIP_DEBUG XFLAGS+=-g3 LDFLAGS+=-g3";
+			_makeflags_extra="${_makeflags_extra:+${_makeflags_extra} }XFLAGS=-DDEBUG XFLAGS+=-DWINFRIP_DEBUG XFLAGS+=-g3 XFLAGS+=-O0 LDFLAGS+=-g3";
 		fi;
 		cd windows;
 		if ! [ -d "../FySTY/${_build_target}" ]; then
