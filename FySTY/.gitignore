@@ -1,2 +1,4 @@
-debug/*
-release/*
+FySTY-debug-*.zip
+FySTY-debug-*/
+FySTY-release-*.zip
+FySTY-release-*/
