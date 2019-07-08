@@ -222,7 +222,8 @@ int main(int argc, char **argv)
     enum { PRIVATE, PUBLIC, PUBLICO, FP, OPENSSH_AUTO,
            OPENSSH_NEW, SSHCOM } outtype = PRIVATE;
     int bits = -1;
-    char *comment = NULL, *origcomment = NULL;
+    const char *comment = NULL;
+    char *origcomment = NULL;
     bool change_passphrase = false;
     bool errs = false, nogo = false;
     int intype = SSH_KEYTYPE_UNOPENABLE;
@@ -742,6 +743,9 @@ int main(int argc, char **argv)
 
 	assert(infile != NULL);
 
+	sfree(origcomment);
+	origcomment = NULL;
+
 	/*
 	 * Find out whether the input key is encrypted.
 	 */
@@ -788,7 +792,11 @@ int main(int argc, char **argv)
 		strbuf *blob;
                 BinarySource src[1];
 
+                sfree(origcomment);
+                origcomment = NULL;
+
                 blob = strbuf_new();
+
 		ret = rsa_ssh1_loadpub(infilename, BinarySink_UPCAST(blob),
                                        &origcomment, &error);
                 BinarySource_BARE_INIT(src, blob->u, blob->len);
@@ -814,6 +822,8 @@ int main(int argc, char **argv)
           case SSH_KEYTYPE_SSH2_PUBLIC_RFC4716:
           case SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH:
 	    if (!load_encrypted) {
+                sfree(origcomment);
+                origcomment = NULL;
                 ssh2blob = strbuf_new();
 		if (ssh2_userkey_loadpub(infilename, &ssh2alg, BinarySink_UPCAST(ssh2blob),
                                          &origcomment, &error)) {
@@ -1076,12 +1086,15 @@ int main(int argc, char **argv)
 
     if (ssh1key) {
 	freersakey(ssh1key);
+        sfree(ssh1key);
     }
     if (ssh2key) {
 	sfree(ssh2key->comment);
 	ssh_key_free(ssh2key->key);
 	sfree(ssh2key);
     }
+    if (ssh2blob)
+        strbuf_free(ssh2blob);
     sfree(origcomment);
     if (infilename)
         filename_free(infilename);
