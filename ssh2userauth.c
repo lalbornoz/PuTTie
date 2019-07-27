@@ -57,7 +57,7 @@ struct ssh2_userauth_state {
     strbuf *last_methods_string;
     bool kbd_inter_refused;
     prompts_t *cur_prompt;
-    int num_prompts;
+    uint32_t num_prompts;
     const char *username;
     char *locally_allocated_username;
     char *password;
@@ -1231,7 +1231,6 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                     ptrlen name, inst;
                     strbuf *sb;
-                    int i;
 
                     /*
                      * We've got a fresh USERAUTH_INFO_REQUEST.
@@ -1248,9 +1247,16 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                      * Get any prompt(s) from the packet.
                      */
                     s->num_prompts = get_uint32(pktin);
-                    for (i = 0; i < s->num_prompts; i++) {
+                    for (uint32_t i = 0; i < s->num_prompts; i++) {
                         ptrlen prompt = get_string(pktin);
                         bool echo = get_bool(pktin);
+
+                        if (get_err(pktin)) {
+                            ssh_proto_error(
+                                s->ppl.ssh, "Server sent truncated "
+                                "SSH_MSG_USERAUTH_INFO_REQUEST packet");
+                            return;
+                        }
 
                         sb = strbuf_new();
                         if (!prompt.len) {
@@ -1296,10 +1302,14 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                     sb = strbuf_new();
                     if (name.len) {
-                        stripctrl_retarget(s->ki_scc, BinarySink_UPCAST(sb));
-                        put_datapl(s->ki_scc, name);
-                        stripctrl_retarget(s->ki_scc, NULL);
-
+                        if (s->ki_scc) {
+                            stripctrl_retarget(s->ki_scc,
+                                               BinarySink_UPCAST(sb));
+                            put_datapl(s->ki_scc, name);
+                            stripctrl_retarget(s->ki_scc, NULL);
+                        } else {
+                            put_datapl(sb, name);
+                        }
                         s->cur_prompt->name_reqd = true;
                     } else {
                         put_datapl(sb, PTRLEN_LITERAL(
@@ -1310,10 +1320,14 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                     sb = strbuf_new();
                     if (inst.len) {
-                        stripctrl_retarget(s->ki_scc, BinarySink_UPCAST(sb));
-                        put_datapl(s->ki_scc, inst);
-                        stripctrl_retarget(s->ki_scc, NULL);
-
+                        if (s->ki_scc) {
+                            stripctrl_retarget(s->ki_scc,
+                                               BinarySink_UPCAST(sb));
+                            put_datapl(s->ki_scc, inst);
+                            stripctrl_retarget(s->ki_scc, NULL);
+                        } else {
+                            put_datapl(sb, inst);
+                        }
                         s->cur_prompt->instr_reqd = true;
                     } else {
                         s->cur_prompt->instr_reqd = false;
@@ -1359,7 +1373,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                     s->pktout = ssh_bpp_new_pktout(
                         s->ppl.bpp, SSH2_MSG_USERAUTH_INFO_RESPONSE);
                     put_uint32(s->pktout, s->num_prompts);
-                    for (i=0; i < s->num_prompts; i++) {
+                    for (uint32_t i = 0; i < s->num_prompts; i++) {
                         put_stringz(s->pktout,
                                     s->cur_prompt->prompts[i]->result);
                     }
