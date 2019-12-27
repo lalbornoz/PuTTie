@@ -21,7 +21,7 @@
  * Stubs to avoid uxpty.c needing to be linked in.
  */
 const bool use_pty_argv = false;
-char **pty_argv;		       /* never used */
+char **pty_argv;                       /* never used */
 char *pty_osx_envrestore_prefix;
 
 /*
@@ -47,7 +47,7 @@ const struct BackendVtable *select_backend(Conf *conf)
 
 void initial_config_box(Conf *conf, post_dialog_fn_t after, void *afterctx)
 {
-    char *title = dupcat(appname, " Configuration", NULL);
+    char *title = dupcat(appname, " Configuration");
     create_config_box(title, conf, false, 0, after, afterctx);
     sfree(title);
 }
@@ -57,7 +57,7 @@ const bool dup_check_launchable = true;
 
 char *make_default_wintitle(char *hostname)
 {
-    return dupcat(hostname, " - ", appname, NULL);
+    return dupcat(hostname, " - ", appname);
 }
 
 /*
@@ -68,8 +68,8 @@ char *platform_get_x_display(void) {
     const char *display;
     /* Try to take account of --display and what have you. */
     if (!(display = gdk_get_display()))
-	/* fall back to traditional method */
-	display = getenv("DISPLAY");
+        /* fall back to traditional method */
+        display = getenv("DISPLAY");
     return dupstr(display);
 }
 
@@ -86,7 +86,7 @@ void setup(bool single)
     {
         const struct BackendVtable *vt =
             backend_vt_from_proto(default_protocol);
-	default_port = 0; /* illegal */
+        default_port = 0; /* illegal */
         if (vt)
             default_port = vt->default_port;
     }

@@ -154,32 +154,32 @@ static void MD5_BinarySink_write(BinarySink *bs, const void *data, size_t len)
     s->len += lenw;
 
     if (s->blkused + len < BLKSIZE) {
-	/*
-	 * Trivial case: just add to the block.
-	 */
-	memcpy(s->block + s->blkused, q, len);
-	s->blkused += len;
+        /*
+         * Trivial case: just add to the block.
+         */
+        memcpy(s->block + s->blkused, q, len);
+        s->blkused += len;
     } else {
-	/*
-	 * We must complete and process at least one block.
-	 */
-	while (s->blkused + len >= BLKSIZE) {
-	    memcpy(s->block + s->blkused, q, BLKSIZE - s->blkused);
-	    q += BLKSIZE - s->blkused;
-	    len -= BLKSIZE - s->blkused;
-	    /* Now process the block. Gather bytes little-endian into words */
-	    for (i = 0; i < 16; i++) {
-		wordblock[i] =
-		    (((uint32_t) s->block[i * 4 + 3]) << 24) |
-		    (((uint32_t) s->block[i * 4 + 2]) << 16) |
-		    (((uint32_t) s->block[i * 4 + 1]) << 8) |
-		    (((uint32_t) s->block[i * 4 + 0]) << 0);
-	    }
-	    MD5_Block(&s->core, wordblock);
-	    s->blkused = 0;
-	}
-	memcpy(s->block, q, len);
-	s->blkused = len;
+        /*
+         * We must complete and process at least one block.
+         */
+        while (s->blkused + len >= BLKSIZE) {
+            memcpy(s->block + s->blkused, q, BLKSIZE - s->blkused);
+            q += BLKSIZE - s->blkused;
+            len -= BLKSIZE - s->blkused;
+            /* Now process the block. Gather bytes little-endian into words */
+            for (i = 0; i < 16; i++) {
+                wordblock[i] =
+                    (((uint32_t) s->block[i * 4 + 3]) << 24) |
+                    (((uint32_t) s->block[i * 4 + 2]) << 16) |
+                    (((uint32_t) s->block[i * 4 + 1]) << 8) |
+                    (((uint32_t) s->block[i * 4 + 0]) << 0);
+            }
+            MD5_Block(&s->core, wordblock);
+            s->blkused = 0;
+        }
+        memcpy(s->block, q, len);
+        s->blkused = len;
     }
 }
 
@@ -191,9 +191,9 @@ void MD5Final(unsigned char output[16], struct MD5Context *s)
     uint64_t len;
 
     if (s->blkused >= 56)
-	pad = 56 + 64 - s->blkused;
+        pad = 56 + 64 - s->blkused;
     else
-	pad = 56 - s->blkused;
+        pad = 56 - s->blkused;
 
     len = (s->len << 3);
 
@@ -206,10 +206,10 @@ void MD5Final(unsigned char output[16], struct MD5Context *s)
     put_data(s, c, 8);
 
     for (i = 0; i < 4; i++) {
-	output[4 * i + 3] = (s->core.h[i] >> 24) & 0xFF;
-	output[4 * i + 2] = (s->core.h[i] >> 16) & 0xFF;
-	output[4 * i + 1] = (s->core.h[i] >> 8) & 0xFF;
-	output[4 * i + 0] = (s->core.h[i] >> 0) & 0xFF;
+        output[4 * i + 3] = (s->core.h[i] >> 24) & 0xFF;
+        output[4 * i + 2] = (s->core.h[i] >> 16) & 0xFF;
+        output[4 * i + 1] = (s->core.h[i] >> 8) & 0xFF;
+        output[4 * i + 0] = (s->core.h[i] >> 0) & 0xFF;
     }
 }
 
@@ -235,24 +235,24 @@ struct md5_hash {
 static ssh_hash *md5_new(const ssh_hashalg *alg)
 {
     struct md5_hash *h = snew(struct md5_hash);
-    MD5Init(&h->state);
     h->hash.vt = alg;
     BinarySink_DELEGATE_INIT(&h->hash, &h->state);
     return &h->hash;
 }
 
-static ssh_hash *md5_copy(ssh_hash *hashold)
+static void md5_reset(ssh_hash *hash)
 {
-    struct md5_hash *hold, *hnew;
-    ssh_hash *hashnew = md5_new(hashold->vt);
+    struct md5_hash *h = container_of(hash, struct md5_hash, hash);
+    MD5Init(&h->state);
+}
 
-    hold = container_of(hashold, struct md5_hash, hash);
-    hnew = container_of(hashnew, struct md5_hash, hash);
+static void md5_copyfrom(ssh_hash *hcopy, ssh_hash *horig)
+{
+    struct md5_hash *copy = container_of(hcopy, struct md5_hash, hash);
+    struct md5_hash *orig = container_of(horig, struct md5_hash, hash);
 
-    hnew->state = hold->state;
-    BinarySink_COPIED(&hnew->state);
-
-    return hashnew;
+    copy->state = orig->state;
+    BinarySink_COPIED(&copy->state);
 }
 
 static void md5_free(ssh_hash *hash)
@@ -263,13 +263,13 @@ static void md5_free(ssh_hash *hash)
     sfree(h);
 }
 
-static void md5_final(ssh_hash *hash, unsigned char *output)
+static void md5_digest(ssh_hash *hash, unsigned char *output)
 {
     struct md5_hash *h = container_of(hash, struct md5_hash, hash);
     MD5Final(output, &h->state);
-    md5_free(hash);
 }
 
 const ssh_hashalg ssh_md5 = {
-    md5_new, md5_copy, md5_final, md5_free, 16, 64, HASHALG_NAMES_BARE("MD5"),
+    md5_new, md5_reset, md5_copyfrom, md5_digest, md5_free,
+    16, 64, HASHALG_NAMES_BARE("MD5"),
 };

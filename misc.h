@@ -9,8 +9,8 @@
 #include "puttymem.h"
 #include "marshal.h"
 
-#include <stdio.h>		       /* for FILE * */
-#include <stdarg.h>		       /* for va_list */
+#include <stdio.h>                     /* for FILE * */
+#include <stdarg.h>                    /* for va_list */
 #include <stdlib.h>                    /* for abort */
 #include <time.h>                      /* for struct tm */
 #include <limits.h>                    /* for INT_MAX/MIN */
@@ -41,7 +41,8 @@ char *host_strduptrim(const char *s);
 #endif /* __GNUC__ */
 
 char *dupstr(const char *s);
-char *dupcat(const char *s1, ...);
+char *dupcat_fn(const char *s1, ...);
+#define dupcat(...) dupcat_fn(__VA_ARGS__, (const char *)NULL)
 char *dupprintf(const char *fmt, ...)
 #ifdef __GNUC__
     __attribute__ ((format (PUTTY_PRINTF_ARCHETYPE, 1, 2)))

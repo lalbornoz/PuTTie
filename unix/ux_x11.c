@@ -25,17 +25,17 @@ void platform_get_x11_auth(struct X11Display *disp, Conf *conf)
     needs_free = false;
     xauthfile = getenv("XAUTHORITY");
     if (!xauthfile) {
-	xauthfile = getenv("HOME");
-	if (xauthfile) {
-	    xauthfile = dupcat(xauthfile, "/.Xauthority", NULL);
-	    needs_free = true;
-	}
+        xauthfile = getenv("HOME");
+        if (xauthfile) {
+            xauthfile = dupcat(xauthfile, "/.Xauthority");
+            needs_free = true;
+        }
     }
 
     if (xauthfile) {
-	x11_get_auth_from_authfile(disp, xauthfile);
-	if (needs_free)
-	    sfree(xauthfile);
+        x11_get_auth_from_authfile(disp, xauthfile);
+        if (needs_free)
+            sfree(xauthfile);
     }
 }
 
@@ -127,7 +127,7 @@ int platform_make_x11_server(Plug *plug, const char *progname, int mindisp,
     if (!tmpdir || !*tmpdir)
         tmpdir = "/tmp";
 
-    authfilename = dupcat(tmpdir, "/", progname, "-Xauthority-XXXXXX", NULL);
+    authfilename = dupcat(tmpdir, "/", progname, "-Xauthority-XXXXXX");
 
     {
         int oldumask = umask(077);

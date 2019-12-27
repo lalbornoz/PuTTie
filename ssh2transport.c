@@ -275,25 +275,25 @@ static void ssh2_mkkey(
     put_data(h, H, hlen);
     put_byte(h, chr);
     put_data(h, s->session_id, s->session_id_len);
-    ssh_hash_final(h, key);
+    ssh_hash_digest(h, key);
 
     /* Subsequent blocks of hlen bytes. */
     if (keylen_padded > hlen) {
         int offset;
 
-        h = ssh_hash_new(s->kex_alg->hash);
+        ssh_hash_reset(h);
         if (!(s->ppl.remote_bugs & BUG_SSH2_DERIVEKEY))
             put_mp_ssh2(h, K);
         put_data(h, H, hlen);
 
         for (offset = hlen; offset < keylen_padded; offset += hlen) {
             put_data(h, key + offset - hlen, hlen);
-            ssh_hash *h2 = ssh_hash_copy(h);
-            ssh_hash_final(h2, key + offset);
+            ssh_hash_digest_nondestructive(h, key + offset);
         }
 
-        ssh_hash_free(h);
     }
+
+    ssh_hash_free(h);
 }
 
 /*
@@ -314,8 +314,8 @@ static struct kexinit_algorithm *ssh2_kexinit_addalg(struct kexinit_algorithm
             list[i].name = name;
             return &list[i];
         }
-    assert(!"No space in KEXINIT list");
-    return NULL;
+
+    unreachable("Should never run out of space in KEXINIT list");
 }
 
 bool ssh2_common_filter_queue(PacketProtocolLayer *ppl)
@@ -1200,9 +1200,7 @@ static void ssh2_transport_process_queue(PacketProtocolLayer *ppl)
             if (better) {
                 if (betteralgs) {
                     char *old_ba = betteralgs;
-                    betteralgs = dupcat(betteralgs, ",",
-                                        hktype->alg->ssh_id,
-                                        (const char *)NULL);
+                    betteralgs = dupcat(betteralgs, ",", hktype->alg->ssh_id);
                     sfree(old_ba);
                 } else {
                     betteralgs = dupstr(hktype->alg->ssh_id);
@@ -1579,7 +1577,7 @@ static void ssh2_transport_timer(void *ctx, unsigned long now)
 
     mins = sanitise_rekey_time(conf_get_int(s->conf, CONF_ssh_rekey_time), 60);
     if (mins == 0)
-	return;
+        return;
 
     /* Rekey if enough time has elapsed */
     ticks = mins * 60 * TICKSPERSEC;
@@ -1884,18 +1882,18 @@ static void ssh2_transport_special_cmd(PacketProtocolLayer *ppl,
         container_of(ppl, struct ssh2_transport_state, ppl);
 
     if (code == SS_REKEY) {
-	if (!s->kex_in_progress) {
+        if (!s->kex_in_progress) {
             s->rekey_reason = "at user request";
             s->rekey_class = RK_NORMAL;
             queue_idempotent_callback(&s->ppl.ic_process_queue);
-	}
+        }
     } else if (code == SS_XCERT) {
-	if (!s->kex_in_progress) {
+        if (!s->kex_in_progress) {
             s->cross_certifying = s->hostkey_alg = ssh2_hostkey_algs[arg].alg;
             s->rekey_reason = "cross-certifying new host key";
             s->rekey_class = RK_NORMAL;
             queue_idempotent_callback(&s->ppl.ic_process_queue);
-	}
+        }
     } else {
         /* Send everything else to the next layer up. This includes
          * SS_PING/SS_NOP, which we _could_ handle here - but it's
@@ -1938,7 +1936,7 @@ static void ssh2_transport_reconfigure(PacketProtocolLayer *ppl, Conf *conf)
     old_max_data_size = s->max_data_size;
     ssh2_transport_set_max_data_size(s);
     if (old_max_data_size != s->max_data_size &&
-	s->max_data_size != 0) {
+        s->max_data_size != 0) {
         if (s->max_data_size < old_max_data_size) {
             unsigned long diff = old_max_data_size - s->max_data_size;
 
@@ -1956,19 +1954,19 @@ static void ssh2_transport_reconfigure(PacketProtocolLayer *ppl, Conf *conf)
     }
 
     if (conf_get_bool(s->conf, CONF_compression) !=
-	conf_get_bool(conf, CONF_compression)) {
+        conf_get_bool(conf, CONF_compression)) {
         rekey_reason = "compression setting changed";
         rekey_mandatory = true;
     }
 
     for (i = 0; i < CIPHER_MAX; i++)
-	if (conf_get_int_int(s->conf, CONF_ssh_cipherlist, i) !=
-	    conf_get_int_int(conf, CONF_ssh_cipherlist, i)) {
+        if (conf_get_int_int(s->conf, CONF_ssh_cipherlist, i) !=
+            conf_get_int_int(conf, CONF_ssh_cipherlist, i)) {
         rekey_reason = "cipher settings changed";
         rekey_mandatory = true;
     }
     if (conf_get_bool(s->conf, CONF_ssh2_des_cbc) !=
-	conf_get_bool(conf, CONF_ssh2_des_cbc)) {
+        conf_get_bool(conf, CONF_ssh2_des_cbc)) {
         rekey_reason = "cipher settings changed";
         rekey_mandatory = true;
     }

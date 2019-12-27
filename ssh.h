@@ -539,6 +539,7 @@ void BinarySource_get_rsa_ssh1_pub(
     BinarySource *src, RSAKey *result, RsaSsh1Order order);
 void BinarySource_get_rsa_ssh1_priv(
     BinarySource *src, RSAKey *rsa);
+RSAKey *BinarySource_get_rsa_ssh1_priv_agent(BinarySource *src);
 bool rsa_ssh1_encrypt(unsigned char *data, int length, RSAKey *key);
 mp_int *rsa_ssh1_decrypt(mp_int *input, RSAKey *key);
 bool rsa_ssh1_decrypt_pkcs1(mp_int *input, RSAKey *key, strbuf *outbuf);
@@ -624,7 +625,7 @@ struct ssh_cipheralg {
      * different. */
     int padded_keybytes;
     unsigned int flags;
-#define SSH_CIPHER_IS_CBC	1
+#define SSH_CIPHER_IS_CBC       1
 #define SSH_CIPHER_SEPARATE_LENGTH      2
     const char *text_name;
     /* If set, this takes priority over other MAC. */
@@ -714,8 +715,9 @@ struct ssh_hash {
 
 struct ssh_hashalg {
     ssh_hash *(*new)(const ssh_hashalg *alg);
-    ssh_hash *(*copy)(ssh_hash *);
-    void (*final)(ssh_hash *, unsigned char *); /* ALSO FREES THE ssh_hash! */
+    void (*reset)(ssh_hash *);
+    void (*copyfrom)(ssh_hash *dest, ssh_hash *src);
+    void (*digest)(ssh_hash *, unsigned char *);
     void (*free)(ssh_hash *);
     int hlen; /* output length in bytes */
     int blocklen; /* length of the hash's input block, or 0 for N/A */
@@ -725,15 +727,33 @@ struct ssh_hashalg {
 };
 
 static inline ssh_hash *ssh_hash_new(const ssh_hashalg *alg)
-{ return alg->new(alg); }
-static inline ssh_hash *ssh_hash_copy(ssh_hash *h)
-{ return h->vt->copy(h); }
-static inline void ssh_hash_final(ssh_hash *h, unsigned char *out)
-{ h->vt->final(h, out); }
+{ ssh_hash *h = alg->new(alg); if (h) h->vt->reset(h); return h; }
+static inline ssh_hash *ssh_hash_copy(ssh_hash *orig)
+{ ssh_hash *h = orig->vt->new(orig->vt); h->vt->copyfrom(h, orig); return h; }
+static inline void ssh_hash_digest(ssh_hash *h, unsigned char *out)
+{ h->vt->digest(h, out); }
 static inline void ssh_hash_free(ssh_hash *h)
 { h->vt->free(h); }
 static inline const ssh_hashalg *ssh_hash_alg(ssh_hash *h)
 { return h->vt; }
+
+/* The reset and copyfrom vtable methods return void. But for call-site
+ * convenience, these wrappers return their input pointer. */
+static inline ssh_hash *ssh_hash_reset(ssh_hash *h)
+{ h->vt->reset(h); return h; }
+static inline ssh_hash *ssh_hash_copyfrom(ssh_hash *dest, ssh_hash *src)
+{ dest->vt->copyfrom(dest, src); return dest; }
+
+/* ssh_hash_final emits the digest _and_ frees the ssh_hash */
+static inline void ssh_hash_final(ssh_hash *h, unsigned char *out)
+{ h->vt->digest(h, out); h->vt->free(h); }
+
+/* ssh_hash_digest_nondestructive generates a finalised hash from the
+ * given object without changing its state, so you can continue
+ * appending data to get a hash of an extended string. */
+static inline void ssh_hash_digest_nondestructive(ssh_hash *h,
+                                                  unsigned char *out)
+{ ssh_hash_final(ssh_hash_copy(h), out); }
 
 /* Handy macros for defining all those text-name fields at once */
 #define HASHALG_NAMES_BARE(base) \
@@ -879,7 +899,7 @@ static inline const ssh_compression_alg *ssh_decompressor_alg(
 
 struct ssh2_userkey {
     ssh_key *key;                      /* the key itself */
-    char *comment;		       /* the key comment */
+    char *comment;                     /* the key comment */
 };
 
 /* The maximum length of any hash algorithm. (bytes) */
@@ -965,7 +985,7 @@ bool platform_sha256_hw_available(void);
 bool platform_sha1_hw_available(void);
 
 /*
- * PuTTY version number formatted as an SSH version string. 
+ * PuTTY version number formatted as an SSH version string.
  */
 extern const char sshver[];
 
@@ -1105,7 +1125,7 @@ char *platform_get_x_display(void);
  * calling this function to do the rest of the work.
  */
 void x11_get_auth_from_authfile(struct X11Display *display,
-				const char *authfilename);
+                                const char *authfilename);
 void x11_format_auth_for_authfile(
     BinarySink *bs, SockAddr *addr, int display_no,
     ptrlen authproto, ptrlen authdata);
@@ -1217,7 +1237,7 @@ bool import_possible(int type);
 int import_target_type(int type);
 bool import_encrypted(const Filename *filename, int type, char **comment);
 int import_ssh1(const Filename *filename, int type,
-		RSAKey *key, char *passphrase, const char **errmsg_p);
+                RSAKey *key, char *passphrase, const char **errmsg_p);
 ssh2_userkey *import_ssh2(const Filename *filename, int type,
                           char *passphrase, const char **errmsg_p);
 bool export_ssh1(const Filename *filename, int type,
@@ -1228,9 +1248,9 @@ bool export_ssh2(const Filename *filename, int type,
 void des3_decrypt_pubkey(const void *key, void *blk, int len);
 void des3_encrypt_pubkey(const void *key, void *blk, int len);
 void des3_decrypt_pubkey_ossh(const void *key, const void *iv,
-			      void *blk, int len);
+                              void *blk, int len);
 void des3_encrypt_pubkey_ossh(const void *key, const void *iv,
-			      void *blk, int len);
+                              void *blk, int len);
 void aes256_encrypt_pubkey(const void *key, void *blk, int len);
 void aes256_decrypt_pubkey(const void *key, void *blk, int len);
 
@@ -1253,9 +1273,9 @@ void openssh_bcrypt(const char *passphrase,
 typedef void (*progfn_t) (void *param, int action, int phase, int progress);
 
 int rsa_generate(RSAKey *key, int bits, progfn_t pfn,
-		 void *pfnparam);
+                 void *pfnparam);
 int dsa_generate(struct dss_key *key, int bits, progfn_t pfn,
-		 void *pfnparam);
+                 void *pfnparam);
 int ecdsa_generate(struct ecdsa_key *key, int bits, progfn_t pfn,
                    void *pfnparam);
 int eddsa_generate(struct eddsa_key *key, int bits, progfn_t pfn,
@@ -1328,16 +1348,16 @@ void platform_ssh_share_cleanup(const char *name);
     X(y, SSH1_CMSG_AUTH_CCARD_RESPONSE, 72)             \
     /* end of list */
 
-#define SSH1_AUTH_RHOSTS                          1	/* 0x1 */
-#define SSH1_AUTH_RSA                             2	/* 0x2 */
-#define SSH1_AUTH_PASSWORD                        3	/* 0x3 */
-#define SSH1_AUTH_RHOSTS_RSA                      4	/* 0x4 */
-#define SSH1_AUTH_TIS                             5	/* 0x5 */
-#define SSH1_AUTH_CCARD                           16	/* 0x10 */
+#define SSH1_AUTH_RHOSTS                          1     /* 0x1 */
+#define SSH1_AUTH_RSA                             2     /* 0x2 */
+#define SSH1_AUTH_PASSWORD                        3     /* 0x3 */
+#define SSH1_AUTH_RHOSTS_RSA                      4     /* 0x4 */
+#define SSH1_AUTH_TIS                             5     /* 0x5 */
+#define SSH1_AUTH_CCARD                           16    /* 0x10 */
 
-#define SSH1_PROTOFLAG_SCREEN_NUMBER              1	/* 0x1 */
+#define SSH1_PROTOFLAG_SCREEN_NUMBER              1     /* 0x1 */
 /* Mask for protoflags we will echo back to server if seen */
-#define SSH1_PROTOFLAGS_SUPPORTED                 0	/* 0x1 */
+#define SSH1_PROTOFLAGS_SUPPORTED                 0     /* 0x1 */
 
 /*
  * List macro defining SSH-2 message type codes. Some of these depend
@@ -1423,7 +1443,7 @@ enum {
 #define SSH1_AGENT_RSA_RESPONSE               4
 #define SSH1_AGENTC_ADD_RSA_IDENTITY          7
 #define SSH1_AGENTC_REMOVE_RSA_IDENTITY       8
-#define SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES 9	/* openssh private? */
+#define SSH1_AGENTC_REMOVE_ALL_RSA_IDENTITIES 9 /* openssh private? */
 
 /*
  * Messages common to SSH-1 and OpenSSH's SSH-2.
@@ -1445,28 +1465,28 @@ enum {
 /*
  * Assorted other SSH-related enumerations.
  */
-#define SSH2_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT 1	/* 0x1 */
-#define SSH2_DISCONNECT_PROTOCOL_ERROR            2	/* 0x2 */
-#define SSH2_DISCONNECT_KEY_EXCHANGE_FAILED       3	/* 0x3 */
-#define SSH2_DISCONNECT_HOST_AUTHENTICATION_FAILED 4	/* 0x4 */
-#define SSH2_DISCONNECT_MAC_ERROR                 5	/* 0x5 */
-#define SSH2_DISCONNECT_COMPRESSION_ERROR         6	/* 0x6 */
-#define SSH2_DISCONNECT_SERVICE_NOT_AVAILABLE     7	/* 0x7 */
-#define SSH2_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED 8	/* 0x8 */
-#define SSH2_DISCONNECT_HOST_KEY_NOT_VERIFIABLE   9	/* 0x9 */
-#define SSH2_DISCONNECT_CONNECTION_LOST           10	/* 0xa */
-#define SSH2_DISCONNECT_BY_APPLICATION            11	/* 0xb */
-#define SSH2_DISCONNECT_TOO_MANY_CONNECTIONS      12	/* 0xc */
-#define SSH2_DISCONNECT_AUTH_CANCELLED_BY_USER    13	/* 0xd */
-#define SSH2_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE 14	/* 0xe */
-#define SSH2_DISCONNECT_ILLEGAL_USER_NAME         15	/* 0xf */
+#define SSH2_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT 1   /* 0x1 */
+#define SSH2_DISCONNECT_PROTOCOL_ERROR            2     /* 0x2 */
+#define SSH2_DISCONNECT_KEY_EXCHANGE_FAILED       3     /* 0x3 */
+#define SSH2_DISCONNECT_HOST_AUTHENTICATION_FAILED 4    /* 0x4 */
+#define SSH2_DISCONNECT_MAC_ERROR                 5     /* 0x5 */
+#define SSH2_DISCONNECT_COMPRESSION_ERROR         6     /* 0x6 */
+#define SSH2_DISCONNECT_SERVICE_NOT_AVAILABLE     7     /* 0x7 */
+#define SSH2_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED 8        /* 0x8 */
+#define SSH2_DISCONNECT_HOST_KEY_NOT_VERIFIABLE   9     /* 0x9 */
+#define SSH2_DISCONNECT_CONNECTION_LOST           10    /* 0xa */
+#define SSH2_DISCONNECT_BY_APPLICATION            11    /* 0xb */
+#define SSH2_DISCONNECT_TOO_MANY_CONNECTIONS      12    /* 0xc */
+#define SSH2_DISCONNECT_AUTH_CANCELLED_BY_USER    13    /* 0xd */
+#define SSH2_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE 14       /* 0xe */
+#define SSH2_DISCONNECT_ILLEGAL_USER_NAME         15    /* 0xf */
 
-#define SSH2_OPEN_ADMINISTRATIVELY_PROHIBITED     1	/* 0x1 */
-#define SSH2_OPEN_CONNECT_FAILED                  2	/* 0x2 */
-#define SSH2_OPEN_UNKNOWN_CHANNEL_TYPE            3	/* 0x3 */
-#define SSH2_OPEN_RESOURCE_SHORTAGE               4	/* 0x4 */
+#define SSH2_OPEN_ADMINISTRATIVELY_PROHIBITED     1     /* 0x1 */
+#define SSH2_OPEN_CONNECT_FAILED                  2     /* 0x2 */
+#define SSH2_OPEN_UNKNOWN_CHANNEL_TYPE            3     /* 0x3 */
+#define SSH2_OPEN_RESOURCE_SHORTAGE               4     /* 0x4 */
 
-#define SSH2_EXTENDED_DATA_STDERR                 1	/* 0x1 */
+#define SSH2_EXTENDED_DATA_STDERR                 1     /* 0x1 */
 
 enum {
     /* TTY modes with opcodes defined consistently in the SSH specs. */
