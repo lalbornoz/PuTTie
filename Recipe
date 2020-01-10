@@ -252,7 +252,7 @@ WINFRIP  = winfrip winfrip_bgimg winfrip_general winfrip_mouse winfrip_transp
 
 # GUI front end and terminal emulator (putty, puttytel).
 GUITERM  = TERMINAL window windlg winctrls sizetip winprint winutils
-	 + wincfg sercfg winhelp winjump sessprep WINFRIP
+	 + wincfg sercfg winhelp winjump sessprep winselgui WINFRIP
 
 # Same thing on Unix.
 UXTERM   = TERMINAL uxcfg sercfg uxucs uxprint timing callback miscucs
@@ -330,6 +330,9 @@ W_BE_NOSSH = be_nos_s winser nocproxy
 U_BE_ALL = be_all_s uxser cproxy
 U_BE_NOSSH = be_nos_s uxser nocproxy
 
+# Auxiliary crypto modules used by key generators.
+KEYGEN   = sshrsag sshdssg sshecdsag
+
 # ------------------------------------------------------------
 # Definitions of actual programs. The program name, followed by a
 # colon, followed by a list of objects. Also in the list may be the
@@ -339,22 +342,23 @@ U_BE_NOSSH = be_nos_s uxser nocproxy
 putty    : [G] GUITERM NONSSH WINSSH W_BE_ALL WINMISC winx11 putty.res LIBS FRIPLIBS
 puttytel : [G] GUITERM NONSSH W_BE_NOSSH WINMISC puttytel.res nogss LIBS FRIPLIBS
 plink    : [C] winplink wincons NONSSH WINSSH W_BE_ALL logging WINMISC
-         + winx11 plink.res winnojmp sessprep noterm winnohlp LIBS
+         + winx11 plink.res winnojmp sessprep noterm winnohlp winselcli LIBS
 pscp     : [C] pscp winsftp wincons WINSSH BE_SSH SFTP wildcard WINMISC
-         + pscp.res winnojmp winnohlp LIBS
+         + pscp.res winnojmp winnohlp winselcli LIBS
 psftp    : [C] psftp winsftp wincons WINSSH BE_SSH SFTP wildcard WINMISC
-         + psftp.res winnojmp winnohlp LIBS
+         + psftp.res winnojmp winnohlp winselcli LIBS
 
 pageant  : [G] winpgnt pageant sshrsa sshpubk sshdes ARITH sshmd5 version
 	 + tree234 MISC sshaes sshsha winsecur winpgntc aqsync sshdss sshsh256
 	 + sshsh512 winutils sshecc winmisc winmiscs winhelp conf pageant.res
-	 + sshauxcrypt sshhmac LIBS
+	 + sshauxcrypt sshhmac wincapi winnps winnpc winhsock errsock winnet
+	 + winhandl callback be_misc winselgui winhandl LIBS
 
-puttygen : [G] winpgen sshrsag sshdssg sshprime sshdes ARITH sshmd5 version
+puttygen : [G] winpgen KEYGEN sshprime sshdes ARITH sshmd5 version
          + sshrand winnoise sshsha winstore MISC winctrls sshrsa sshdss winmisc
          + sshpubk sshaes sshsh256 sshsh512 IMPORT winutils puttygen.res
          + tree234 notiming winhelp winnojmp CONF LIBS wintime sshecc sshprng
-         + sshecdsag sshauxcrypt sshhmac winsecur winmiscs CONFFRIP
+         + sshauxcrypt sshhmac winsecur winmiscs CONFFRIP
 
 pterm    : [X] GTKTERM uxmisc misc ldisc settings uxpty uxsel BE_NONE uxstore
          + uxsignal CHARSET cmdline uxpterm version time xpmpterm xpmptcfg
@@ -369,10 +373,10 @@ puttytel : [X] GTKTERM uxmisc misc ldisc settings uxsel U_BE_NOSSH
 plink    : [U] uxplink uxcons NONSSH UXSSH U_BE_ALL logging UXMISC uxsignal
          + ux_x11 noterm uxnogtk sessprep cmdline
 
-PUTTYGEN_UNIX = sshrsag sshdssg sshprime sshdes ARITH sshmd5 version sshprng
+PUTTYGEN_UNIX = KEYGEN sshprime sshdes ARITH sshmd5 version sshprng
          + sshrand uxnoise sshsha MISC sshrsa sshdss uxcons uxstore uxmisc
          + sshpubk sshaes sshsh256 sshsh512 IMPORT puttygen.res time tree234
-         + uxgen notiming CONF sshecc sshecdsag uxnogtk sshauxcrypt sshhmac
+         + uxgen notiming CONF sshecc uxnogtk sshauxcrypt sshhmac
          + uxpoll uxutils
 puttygen : [U] cmdgen PUTTYGEN_UNIX
 cgtest   : [UT] cgtest PUTTYGEN_UNIX
@@ -396,10 +400,10 @@ osxlaunch : [UT] osxlaunch
 
 fuzzterm : [UT] UXTERM CHARSET MISC version uxmisc uxucs fuzzterm time settings
 	 + uxstore be_none uxnogtk memory
-testcrypt : [UT] testcrypt SSHCRYPTO sshprng sshprime marshal utils
-          + memory tree234 uxutils
-testcrypt : [C] testcrypt SSHCRYPTO sshprng sshprime marshal utils
-          + memory tree234 winmiscs
+testcrypt : [UT] testcrypt SSHCRYPTO sshprng sshprime sshpubk marshal utils
+          + memory tree234 uxutils KEYGEN
+testcrypt : [C] testcrypt SSHCRYPTO sshprng sshprime sshpubk marshal utils
+          + memory tree234 winmiscs KEYGEN
 testsc    : [UT] testsc SSHCRYPTO marshal utils memory tree234 wildcard
           + sshmac uxutils
 testzlib : [UT] testzlib sshzlib utils marshal memory
