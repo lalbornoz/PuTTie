@@ -27,8 +27,6 @@
 #include <gtk/gtkimmodule.h>
 #endif
 
-#define PUTTY_DO_GLOBALS               /* actually _define_ globals */
-
 #define MAY_REFER_TO_GTK_IN_HEADERS
 
 #include "putty.h"
@@ -51,7 +49,7 @@
 #define NALLCOLOURS (NCFGCOLOURS + NEXTCOLOURS)
 
 GdkAtom compound_text_atom, utf8_string_atom;
-GdkAtom clipboard_atom
+static GdkAtom clipboard_atom
 #if GTK_CHECK_VERSION(2,0,0) /* GTK1 will have to fill this in at startup */
     = GDK_SELECTION_CLIPBOARD
 #endif
@@ -375,30 +373,34 @@ static const char *gtk_seat_get_x_display(Seat *seat);
 static bool gtk_seat_get_windowid(Seat *seat, long *id);
 #endif
 static bool gtk_seat_set_trust_status(Seat *seat, bool trusted);
+static bool gtk_seat_get_cursor_position(Seat *seat, int *x, int *y);
 
 static const SeatVtable gtk_seat_vt = {
-    gtk_seat_output,
-    gtk_seat_eof,
-    gtk_seat_get_userpass_input,
-    gtk_seat_notify_remote_exit,
-    gtk_seat_connection_fatal,
-    gtk_seat_update_specials_menu,
-    gtk_seat_get_ttymode,
-    gtk_seat_set_busy_status,
-    gtk_seat_verify_ssh_host_key,
-    gtk_seat_confirm_weak_crypto_primitive,
-    gtk_seat_confirm_weak_cached_hostkey,
-    gtk_seat_is_utf8,
-    nullseat_echoedit_update,
-    gtk_seat_get_x_display,
+    .output = gtk_seat_output,
+    .eof = gtk_seat_eof,
+    .get_userpass_input = gtk_seat_get_userpass_input,
+    .notify_remote_exit = gtk_seat_notify_remote_exit,
+    .connection_fatal = gtk_seat_connection_fatal,
+    .update_specials_menu = gtk_seat_update_specials_menu,
+    .get_ttymode = gtk_seat_get_ttymode,
+    .set_busy_status = gtk_seat_set_busy_status,
+    .verify_ssh_host_key = gtk_seat_verify_ssh_host_key,
+    .confirm_weak_crypto_primitive = gtk_seat_confirm_weak_crypto_primitive,
+    .confirm_weak_cached_hostkey = gtk_seat_confirm_weak_cached_hostkey,
+    .is_utf8 = gtk_seat_is_utf8,
+    .echoedit_update = nullseat_echoedit_update,
+    .get_x_display = gtk_seat_get_x_display,
 #ifdef NOT_X_WINDOWS
-    nullseat_get_windowid,
+    .get_windowid = nullseat_get_windowid,
 #else
-    gtk_seat_get_windowid,
+    .get_windowid = gtk_seat_get_windowid,
 #endif
-    gtk_seat_get_window_pixel_size,
-    gtk_seat_stripctrl_new,
-    gtk_seat_set_trust_status,
+    .get_window_pixel_size = gtk_seat_get_window_pixel_size,
+    .stripctrl_new = gtk_seat_stripctrl_new,
+    .set_trust_status = gtk_seat_set_trust_status,
+    .verbose = nullseat_verbose_yes,
+    .interactive = nullseat_interactive_yes,
+    .get_cursor_position = gtk_seat_get_cursor_position,
 };
 
 static void gtk_eventlog(LogPolicy *lp, const char *string)
@@ -425,9 +427,10 @@ static void gtk_logging_error(LogPolicy *lp, const char *event)
 }
 
 static const LogPolicyVtable gtk_logpolicy_vt = {
-    gtk_eventlog,
-    gtk_askappend,
-    gtk_logging_error,
+    .eventlog = gtk_eventlog,
+    .askappend = gtk_askappend,
+    .logging_error = gtk_logging_error,
+    .verbose = null_lp_verbose_yes,
 };
 
 /*
@@ -4442,6 +4445,7 @@ static void compute_geom_hints(GtkFrontend *inst, GdkGeometry *geom)
 
 void set_geom_hints(GtkFrontend *inst)
 {
+    const struct BackendVtable *vt;
     GdkGeometry geom;
     gint flags = GDK_HINT_MIN_SIZE | GDK_HINT_BASE_SIZE | GDK_HINT_RESIZE_INC;
     compute_geom_hints(inst, &geom);
@@ -4449,6 +4453,16 @@ void set_geom_hints(GtkFrontend *inst)
     if (inst->gotpos)
         flags |= GDK_HINT_USER_POS;
 #endif
+    vt = backend_vt_from_proto(conf_get_int(inst->conf, CONF_protocol));
+    if (vt && vt->flags & BACKEND_RESIZE_FORBIDDEN) {
+        /* Window resizing forbidden.  Set both minimum and maximum
+         * dimensions to be the initial size. */
+        geom.min_width = inst->width*inst->font_width + 2*inst->window_border;
+        geom.min_height = inst->height*inst->font_height + 2*inst->window_border;
+        geom.max_width = geom.min_width;
+        geom.max_height = geom.min_height;
+        flags |= GDK_HINT_MAX_SIZE;
+    }
     gtk_window_set_geometry_hints(GTK_WINDOW(inst->window),
                                   NULL, &geom, flags);
 }
@@ -5043,17 +5057,16 @@ static void gtk_seat_update_specials_menu(Seat *seat)
               case SS_SEP:
                 menuitem = gtk_menu_item_new();
                 break;
-              default:
+              default: {
                 menuitem = gtk_menu_item_new_with_label(specials[i].name);
-                {
-                    SessionSpecial *sc = snew(SessionSpecial);
-                    *sc = specials[i]; /* structure copy */
-                    g_object_set_data_full(G_OBJECT(menuitem), "user-data",
-                                           sc, free_special_cmd);
-                }
+                SessionSpecial *sc = snew(SessionSpecial);
+                *sc = specials[i]; /* structure copy */
+                g_object_set_data_full(G_OBJECT(menuitem), "user-data",
+                                       sc, free_special_cmd);
                 g_signal_connect(G_OBJECT(menuitem), "activate",
                                  G_CALLBACK(special_menuitem), inst);
                 break;
+              }
             }
             if (menuitem) {
                 gtk_container_add(GTK_CONTAINER(menu), menuitem);
@@ -5139,34 +5152,34 @@ static void get_monitor_geometry(GtkWidget *widget, GdkRectangle *geometry)
 #endif
 
 static const TermWinVtable gtk_termwin_vt = {
-    gtkwin_setup_draw_ctx,
-    gtkwin_draw_text,
-    gtkwin_draw_cursor,
-    gtkwin_draw_trust_sigil,
-    gtkwin_char_width,
-    gtkwin_free_draw_ctx,
-    gtkwin_set_cursor_pos,
-    gtkwin_set_raw_mouse_mode,
-    gtkwin_set_scrollbar,
-    gtkwin_bell,
-    gtkwin_clip_write,
-    gtkwin_clip_request_paste,
-    gtkwin_refresh,
-    gtkwin_request_resize,
-    gtkwin_set_title,
-    gtkwin_set_icon_title,
-    gtkwin_set_minimised,
-    gtkwin_is_minimised,
-    gtkwin_set_maximised,
-    gtkwin_move,
-    gtkwin_set_zorder,
-    gtkwin_palette_get,
-    gtkwin_palette_set,
-    gtkwin_palette_reset,
-    gtkwin_get_pos,
-    gtkwin_get_pixels,
-    gtkwin_get_title,
-    gtkwin_is_utf8,
+    .setup_draw_ctx = gtkwin_setup_draw_ctx,
+    .draw_text = gtkwin_draw_text,
+    .draw_cursor = gtkwin_draw_cursor,
+    .draw_trust_sigil = gtkwin_draw_trust_sigil,
+    .char_width = gtkwin_char_width,
+    .free_draw_ctx = gtkwin_free_draw_ctx,
+    .set_cursor_pos = gtkwin_set_cursor_pos,
+    .set_raw_mouse_mode = gtkwin_set_raw_mouse_mode,
+    .set_scrollbar = gtkwin_set_scrollbar,
+    .bell = gtkwin_bell,
+    .clip_write = gtkwin_clip_write,
+    .clip_request_paste = gtkwin_clip_request_paste,
+    .refresh = gtkwin_refresh,
+    .request_resize = gtkwin_request_resize,
+    .set_title = gtkwin_set_title,
+    .set_icon_title = gtkwin_set_icon_title,
+    .set_minimised = gtkwin_set_minimised,
+    .is_minimised = gtkwin_is_minimised,
+    .set_maximised = gtkwin_set_maximised,
+    .move = gtkwin_move,
+    .set_zorder = gtkwin_set_zorder,
+    .palette_get = gtkwin_palette_get,
+    .palette_set = gtkwin_palette_set,
+    .palette_reset = gtkwin_palette_reset,
+    .get_pos = gtkwin_get_pos,
+    .get_pixels = gtkwin_get_pixels,
+    .get_title = gtkwin_get_title,
+    .is_utf8 = gtkwin_is_utf8,
 };
 
 void new_session_window(Conf *conf, const char *geometry_string)
@@ -5529,4 +5542,14 @@ static bool gtk_seat_set_trust_status(Seat *seat, bool trusted)
     GtkFrontend *inst = container_of(seat, GtkFrontend, seat);
     term_set_trust_status(inst->term, trusted);
     return true;
+}
+
+static bool gtk_seat_get_cursor_position(Seat *seat, int *x, int *y)
+{
+    GtkFrontend *inst = container_of(seat, GtkFrontend, seat);
+    if (inst->term) {
+        term_get_cursor_position(inst->term, x, y);
+        return true;
+    }
+    return false;
 }

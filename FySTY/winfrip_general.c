@@ -9,15 +9,6 @@
 #include "FySTY/winfrip_priv.h"
 
 /*
- * {External,Static} variables
- */
-
-/*
- * XXX document
- */
-extern Conf *conf;
-
-/*
  * Public subroutines private to FySTY/winfrip*.c
  */
 
@@ -49,7 +40,7 @@ void winfripp_general_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-void winfrip_general_op(WinFripGeneralOp op, HWND hwnd, int reconfiguring)
+void winfrip_general_op(WinFripGeneralOp op, Conf *conf, HWND hwnd, int reconfiguring)
 {
     /*
      * XXX document

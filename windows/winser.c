@@ -131,12 +131,12 @@ static const char *serial_configure(Serial *serial, HANDLE serport, Conf *conf)
         logeventf(serial->logctx, "Configuring %u data bits", dcb.ByteSize);
 
         switch (conf_get_int(conf, CONF_serstopbits)) {
-          case 2: dcb.StopBits = ONESTOPBIT; str = "1"; break;
-          case 3: dcb.StopBits = ONE5STOPBITS; str = "1.5"; break;
-          case 4: dcb.StopBits = TWOSTOPBITS; str = "2"; break;
+          case 2: dcb.StopBits = ONESTOPBIT; str = "1 stop bit"; break;
+          case 3: dcb.StopBits = ONE5STOPBITS; str = "1.5 stop bits"; break;
+          case 4: dcb.StopBits = TWOSTOPBITS; str = "2 stop bits"; break;
           default: return "Invalid number of stop bits (need 1, 1.5 or 2)";
         }
-        logeventf(serial->logctx, "Configuring %s data bits", str);
+        logeventf(serial->logctx, "Configuring %s", str);
 
         switch (conf_get_int(conf, CONF_serparity)) {
           case SER_PAR_NONE: dcb.Parity = NOPARITY; str = "no"; break;
@@ -191,9 +191,9 @@ static const char *serial_configure(Serial *serial, HANDLE serport, Conf *conf)
  * Also places the canonical host name into `realhost'. It must be
  * freed by the caller.
  */
-static const char *serial_init(Seat *seat, Backend **backend_handle,
-                               LogContext *logctx, Conf *conf,
-                               const char *host, int port,
+static const char *serial_init(const BackendVtable *vt, Seat *seat,
+                               Backend **backend_handle, LogContext *logctx,
+                               Conf *conf, const char *host, int port,
                                char **realhost, bool nodelay, bool keepalive)
 {
     Serial *serial;
@@ -209,7 +209,7 @@ static const char *serial_init(Seat *seat, Backend **backend_handle,
     serial->out = serial->in = NULL;
     serial->bufsize = 0;
     serial->break_in_progress = false;
-    serial->backend.vt = &serial_backend;
+    serial->backend.vt = vt;
     *backend_handle = &serial->backend;
 
     serial->seat = seat;
@@ -427,24 +427,32 @@ static int serial_cfg_info(Backend *be)
     return 0;
 }
 
-const struct BackendVtable serial_backend = {
-    serial_init,
-    serial_free,
-    serial_reconfig,
-    serial_send,
-    serial_sendbuffer,
-    serial_size,
-    serial_special,
-    serial_get_specials,
-    serial_connected,
-    serial_exitcode,
-    serial_sendok,
-    serial_ldisc,
-    serial_provide_ldisc,
-    serial_unthrottle,
-    serial_cfg_info,
-    NULL /* test_for_upstream */,
-    "serial",
-    PROT_SERIAL,
-    0
+const BackendVtable serial_backend = {
+    .init = serial_init,
+    .free = serial_free,
+    .reconfig = serial_reconfig,
+    .send = serial_send,
+    .sendbuffer = serial_sendbuffer,
+    .size = serial_size,
+    .special = serial_special,
+    .get_specials = serial_get_specials,
+    .connected = serial_connected,
+    .exitcode = serial_exitcode,
+    .sendok = serial_sendok,
+    .ldisc_option_state = serial_ldisc,
+    .provide_ldisc = serial_provide_ldisc,
+    .unthrottle = serial_unthrottle,
+    .cfg_info = serial_cfg_info,
+    .id = "serial",
+    .displayname = "Serial",
+    .protocol = PROT_SERIAL,
+    .serial_parity_mask = ((1 << SER_PAR_NONE) |
+                           (1 << SER_PAR_ODD) |
+                           (1 << SER_PAR_EVEN) |
+                           (1 << SER_PAR_MARK) |
+                           (1 << SER_PAR_SPACE)),
+    .serial_flow_mask =   ((1 << SER_FLOW_NONE) |
+                           (1 << SER_FLOW_XONXOFF) |
+                           (1 << SER_FLOW_RTSCTS) |
+                           (1 << SER_FLOW_DSRDTR)),
 };
