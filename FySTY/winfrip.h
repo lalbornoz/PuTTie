@@ -93,7 +93,7 @@ typedef enum WinFripUrlsOp {
     WINFRIP_URLS_OP_MOUSE_EVENT			= 6,
     WINFRIP_URLS_OP_MOUSE_UP			= 7,
 } WinFripUrlsOp;
-WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
+WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
 
 /*
  * windows/window.c:{do_text_internal,WndProc}()
@@ -103,7 +103,7 @@ typedef enum WinFripBgImgOp {
     WINFRIP_BGIMG_OP_RECONF			= 1,
     WINFRIP_BGIMG_OP_SIZE			= 2,
 } WinFripBgImgOp;
-WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
+WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
 
 /*
  * windows/window.c:{WinMain,WndProc}()
@@ -112,7 +112,7 @@ typedef enum WinFripTranspOp {
     WINFRIP_TRANSP_OP_FOCUS_KILL		= 0,
     WINFRIP_TRANSP_OP_FOCUS_SET			= 1,
 } WinFripTranspOp;
-void winfrip_transp_op(WinFripTranspOp op, HWND hwnd);
+void winfrip_transp_op(WinFripTranspOp op, Conf *conf, HWND hwnd);
 
 /*
  * windows/window.c:WinMain()
@@ -126,7 +126,7 @@ typedef enum WinFripGeneralOp {
     WINFRIP_GENERAL_OP_CONFIG_DIALOG		= 0,
     WINFRIP_GENERAL_OP_FOCUS_SET		= 1,
 } WinFripGeneralOp;
-void winfrip_general_op(WinFripGeneralOp op, HWND hwnd, int reconfiguring);
+void winfrip_general_op(WinFripGeneralOp op, Conf *conf, HWND hwnd, int reconfiguring);
 
 /*
  * windows/window.c:WndProc()
@@ -136,7 +136,7 @@ typedef enum WinFripMouseOp {
     WINFRIP_MOUSE_OP_RMB_DOWN			= 1,
     WINFRIP_MOUSE_OP_WHEEL			= 2,
 } WinFripMouseOp;
-WinFripReturn winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam);
+WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPARAM wParam);
 
 /*
  * windows/win{gss,store}.c

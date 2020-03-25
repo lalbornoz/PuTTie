@@ -30,11 +30,6 @@
 /*
  * XXX document
  */
-extern Conf *conf;
-
-/*
- * XXX document
- */
 static pos winfripp_urls_end = {0, 0};
 static pos winfripp_urls_start = {0, 0};
 static WinFrippUrlsState winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
@@ -59,9 +54,9 @@ static size_t winfripp_urls_matchc_w = 0;
  */
 
 static BOOL winfripp_init_urls_get_endstart(Terminal *term, pos *pend, pos *pstart, int x, int y);
-static BOOL winfripp_init_urls_get_matchv(char **pmatch_spec_conf, wchar_t **pmatch_spec_w, size_t *pmatchc_w, wchar_t ***pmatchv_w);
-static BOOL winfripp_init_urls_get_url(pos hover_end, pos hover_start, wchar_t **phover_url_w, size_t *phover_url_w_size);
-static wchar_t *winfripp_init_urls_unnest(wchar_t *url_w);
+static BOOL winfripp_init_urls_get_matchv(Conf *conf, char **pmatch_spec_conf, wchar_t **pmatch_spec_w, size_t *pmatchc_w, wchar_t ***pmatchv_w);
+static BOOL winfripp_init_urls_get_url(pos hover_end, pos hover_start, Terminal *term, wchar_t **phover_url_w, size_t *phover_url_w_size);
+static wchar_t *winfripp_init_urls_unnest(Conf *conf, wchar_t *url_w);
 
 /*
  * Private subroutines
@@ -127,7 +122,7 @@ static BOOL winfripp_init_urls_get_endstart(Terminal *term, pos *pend, pos *psta
     return TRUE;
 }
 
-static BOOL winfripp_init_urls_get_matchv(char **pmatch_spec_conf, wchar_t **pmatch_spec_w, size_t *pmatchc_w, wchar_t ***pmatchv_w)
+static BOOL winfripp_init_urls_get_matchv(Conf *conf, char **pmatch_spec_conf, wchar_t **pmatch_spec_w, size_t *pmatchc_w, wchar_t ***pmatchv_w)
 {
     char *match_spec_conf;
     size_t match_spec_conf_len;
@@ -202,7 +197,7 @@ static BOOL winfripp_init_urls_get_matchv(char **pmatch_spec_conf, wchar_t **pma
     return TRUE;
 }
 
-static BOOL winfripp_init_urls_get_url(pos hover_end, pos hover_start, wchar_t **phover_url_w, size_t *phover_url_w_size)
+static BOOL winfripp_init_urls_get_url(pos hover_end, pos hover_start, Terminal *term, wchar_t **phover_url_w, size_t *phover_url_w_size)
 {
     size_t hover_len, idx_in, idx_out, new_buf_w_size;
     wchar_t *new_buf_w;
@@ -277,7 +272,7 @@ static BOOL winfripp_init_urls_get_url(pos hover_end, pos hover_start, wchar_t *
     return TRUE;
 }
 
-static wchar_t *winfripp_init_urls_unnest(wchar_t *url_w)
+static wchar_t *winfripp_init_urls_unnest(Conf *conf, wchar_t *url_w)
 {
     int foundfl;
     char *nest_char, *nest_chars;
@@ -346,7 +341,7 @@ void winfripp_urls_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y)
+WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y)
 {
     size_t nmatch;
 
@@ -442,7 +437,7 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
 		/*
 		 * XXX document
 		*/
-		if (!winfripp_init_urls_get_url(winfripp_urls_end, winfripp_urls_start,
+		if (!winfripp_init_urls_get_url(winfripp_urls_end, winfripp_urls_start, term,
 						&winfripp_urls_buf_w, &winfripp_urls_buf_w_size)) {
 		    WINFRIPP_DEBUG_FAIL();
 		    if (winfripp_urls_buf_w) {
@@ -451,7 +446,8 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
 		    winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
 		    term_update(term);
 		    return WINFRIP_RETURN_BREAK;
-		} else if (!winfripp_init_urls_get_matchv(&winfripp_urls_match_spec_conf,
+		} else if (!winfripp_init_urls_get_matchv(conf,
+							  &winfripp_urls_match_spec_conf,
 							  &winfripp_urls_match_spec_w,
 							  &winfripp_urls_matchc_w,
 							  &winfripp_urls_matchv_w)) {
@@ -465,7 +461,7 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, HWND hwnd, UINT message, unsigne
 		/*
 		 * XXX document
 		 */
-		winfripp_urls_url_w = winfripp_init_urls_unnest(winfripp_urls_buf_w);
+		winfripp_urls_url_w = winfripp_init_urls_unnest(conf, winfripp_urls_buf_w);
 		for (nmatch = 0; nmatch < winfripp_urls_matchc_w; nmatch++) {
 		    if (PathMatchSpecW(winfripp_urls_url_w, winfripp_urls_matchv_w[nmatch])) {
 			WINFRIPP_DEBUGF("URL `%S' matches `%S'", winfripp_urls_url_w, winfripp_urls_matchv_w[nmatch]);

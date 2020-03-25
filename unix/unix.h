@@ -101,18 +101,6 @@ unsigned long getticks(void);
 #define WCHAR wchar_t
 #define BYTE unsigned char
 
-/*
- * Unix-specific global flag
- *
- * FLAG_STDERR_TTY indicates that standard error might be a terminal and
- * might get its configuration munged, so anything trying to output plain
- * text (i.e. with newlines in it) will need to put it back into cooked
- * mode first.  Applications setting this flag should also call
- * stderr_tty_init() before messing with any terminal modes, and can call
- * premsg() before outputting text to stderr and postmsg() afterwards.
- */
-#define FLAG_STDERR_TTY 0x1000
-
 #define PLATFORM_CLIPBOARDS(X)                            \
     X(CLIP_PRIMARY, "X11 primary selection")              \
     X(CLIP_CLIPBOARD, "XDG clipboard")                    \
@@ -305,7 +293,7 @@ extern char *pty_osx_envrestore_prefix;
 
 /* Things provided by uxcons.c */
 struct termios;
-void stderr_tty_init(void);
+void stderr_tty_init(void); /* call at startup if stderr might be a tty */
 void premsg(struct termios *);
 void postmsg(struct termios *);
 
@@ -455,5 +443,21 @@ static inline bool pollwrap_check_fd_rwx(pollwrapper *pw, int fd, int rwx)
 {
     return (pollwrap_get_fd_rwx(pw, fd) & rwx) != 0;
 }
+
+/*
+ * uxcliloop.c.
+ */
+typedef bool (*cliloop_pw_setup_t)(void *ctx, pollwrapper *pw);
+typedef void (*cliloop_pw_check_t)(void *ctx, pollwrapper *pw);
+typedef bool (*cliloop_continue_t)(void *ctx, bool found_any_fd,
+                                   bool ran_any_callback);
+
+void cli_main_loop(cliloop_pw_setup_t pw_setup,
+                   cliloop_pw_check_t pw_check,
+                   cliloop_continue_t cont, void *ctx);
+
+bool cliloop_no_pw_setup(void *ctx, pollwrapper *pw);
+void cliloop_no_pw_check(void *ctx, pollwrapper *pw);
+bool cliloop_always_continue(void *ctx, bool, bool);
 
 #endif /* PUTTY_UNIX_H */

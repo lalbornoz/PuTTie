@@ -40,18 +40,18 @@
 \IM{different usernames}{changes of username} login names, different
 \IM{different usernames}{changes of username} account names, different
 
-\IM{differences between SSH, Telnet and Rlogin} differences between
+\IM{differences between SSH, Telnet, Rlogin and SUPDUP} differences between
 SSH, Telnet and Rlogin
-\IM{differences between SSH, Telnet and Rlogin} protocols,
+\IM{differences between SSH, Telnet, Rlogin and SUPDUP} protocols,
 differences between
-\IM{differences between SSH, Telnet and Rlogin} SSH, differences
+\IM{differences between SSH, Telnet, Rlogin and SUPDUP} SSH, differences
 from Telnet and Rlogin
-\IM{differences between SSH, Telnet and Rlogin} Telnet, differences
+\IM{differences between SSH, Telnet, Rlogin and SUPDUP} Telnet, differences
 from SSH and Rlogin
-\IM{differences between SSH, Telnet and Rlogin} Rlogin, differences
+\IM{differences between SSH, Telnet, Rlogin and SUPDUP} Rlogin, differences
 from SSH and Telnet
-\IM{differences between SSH, Telnet and Rlogin} selecting a protocol
-\IM{differences between SSH, Telnet and Rlogin} choosing a protocol
+\IM{differences between SSH, Telnet, Rlogin and SUPDUP} selecting a protocol
+\IM{differences between SSH, Telnet, Rlogin and SUPDUP} choosing a protocol
 
 \IM{MUD}{MUDs} MUDs
 
@@ -795,6 +795,9 @@ saved sessions from
 \IM{DSA} DSA
 \IM{DSA} Digital Signature Standard
 
+\IM{EdDSA} EdDSA
+\IM{EdDSA} Edwards-curve DSA
+
 \IM{public-key algorithm} public-key algorithm
 \IM{public-key algorithm} asymmetric key algorithm
 \IM{public-key algorithm} algorithm, public-key
@@ -804,6 +807,12 @@ saved sessions from
 \IM{generating keys} key pairs, generating
 \IM{generating keys} public keys, generating
 \IM{generating keys} private keys, generating
+
+\IM{probable primes} probable primes
+\IM{probable primes} primes, probable
+
+\IM{proven primes} proven primes
+\IM{proven primes} primes, proven
 
 \IM{authorized_keys file}{authorized_keys} \cw{authorized_keys} file
 

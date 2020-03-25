@@ -9,15 +9,6 @@
 #include "FySTY/winfrip_priv.h"
 
 /*
- * {External,Static} variables
- */
-
-/*
- * XXX document
- */
-extern Conf *conf;
-
-/*
  * Public subroutines private to FySTY/winfrip*.c
  */
 
@@ -54,7 +45,7 @@ void winfripp_transp_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-void winfrip_transp_op(WinFripTranspOp op, HWND hwnd)
+void winfrip_transp_op(WinFripTranspOp op, Conf *conf, HWND hwnd)
 {
     LONG_PTR ex_style, rc;
     int opacity;

@@ -12,6 +12,7 @@
 #include "putty.h"
 #include "ssh.h"
 #include "win_res.h"
+#include "winseat.h"
 #include "storage.h"
 #include "dialog.h"
 #include "licence.h"
@@ -78,23 +79,24 @@ static char *getevent(int i)
     return NULL;
 }
 
+static HWND logbox;
+HWND event_log_window(void) { return logbox; }
+
 static INT_PTR CALLBACK LogProc(HWND hwnd, UINT msg,
                                 WPARAM wParam, LPARAM lParam)
 {
     int i;
 
     switch (msg) {
-      case WM_INITDIALOG:
-        {
-            char *str = dupprintf("%s Event Log", appname);
-            SetWindowText(hwnd, str);
-            sfree(str);
-        }
-        {
-            static int tabs[4] = { 78, 108 };
-            SendDlgItemMessage(hwnd, IDN_LIST, LB_SETTABSTOPS, 2,
-                               (LPARAM) tabs);
-        }
+      case WM_INITDIALOG: {
+        char *str = dupprintf("%s Event Log", appname);
+        SetWindowText(hwnd, str);
+        sfree(str);
+
+        static int tabs[4] = { 78, 108 };
+        SendDlgItemMessage(hwnd, IDN_LIST, LB_SETTABSTOPS, 2,
+                           (LPARAM) tabs);
+
         for (i = 0; i < ninitial; i++)
             SendDlgItemMessage(hwnd, IDN_LIST, LB_ADDSTRING,
                                0, (LPARAM) events_initial[i]);
@@ -102,6 +104,7 @@ static INT_PTR CALLBACK LogProc(HWND hwnd, UINT msg,
             SendDlgItemMessage(hwnd, IDN_LIST, LB_ADDSTRING,
                                0, (LPARAM) events_circular[(circular_first + i) % LOGEVENT_CIRCULAR_MAX]);
         return 1;
+      }
       case WM_COMMAND:
         switch (LOWORD(wParam)) {
           case IDOK:
@@ -180,14 +183,13 @@ static INT_PTR CALLBACK LicenceProc(HWND hwnd, UINT msg,
                                     WPARAM wParam, LPARAM lParam)
 {
     switch (msg) {
-      case WM_INITDIALOG:
-        {
-            char *str = dupprintf("%s Licence", appname);
-            SetWindowText(hwnd, str);
-            sfree(str);
-            SetDlgItemText(hwnd, IDA_TEXT, LICENCE_TEXT("\r\n\r\n"));
-        }
+      case WM_INITDIALOG: {
+        char *str = dupprintf("%s Licence", appname);
+        SetWindowText(hwnd, str);
+        sfree(str);
+        SetDlgItemText(hwnd, IDA_TEXT, LICENCE_TEXT("\r\n\r\n"));
         return 1;
+      }
       case WM_COMMAND:
         switch (LOWORD(wParam)) {
           case IDOK:
@@ -209,21 +211,20 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
     char *str;
 
     switch (msg) {
-      case WM_INITDIALOG:
+      case WM_INITDIALOG: {
         str = dupprintf("About %s", appname);
         SetWindowText(hwnd, str);
         sfree(str);
-        {
-            char *buildinfo_text = buildinfo("\r\n");
-            char *text = dupprintf
-                ("%s\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
-                 appname, ver, buildinfo_text,
-                 "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
-            sfree(buildinfo_text);
-            SetDlgItemText(hwnd, IDA_TEXT, text);
-            sfree(text);
-        }
+        char *buildinfo_text = buildinfo("\r\n");
+        char *text = dupprintf
+            ("%s\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
+             appname, ver, buildinfo_text,
+             "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
+        sfree(buildinfo_text);
+        SetDlgItemText(hwnd, IDA_TEXT, text);
+        sfree(text);
         return 1;
+      }
       case WM_COMMAND:
         switch (LOWORD(wParam)) {
           case IDOK:
@@ -691,7 +692,7 @@ void defuse_showwindow(void)
     }
 }
 
-bool do_config(void)
+bool do_config(Conf *conf)
 {
     bool ret;
 
@@ -721,7 +722,7 @@ bool do_config(void)
     return ret;
 }
 
-bool do_reconfig(HWND hwnd, int protcfginfo)
+bool do_reconfig(HWND hwnd, Conf *conf, int protcfginfo)
 {
     Conf *backup_conf;
     bool ret;
@@ -797,10 +798,12 @@ static void win_gui_eventlog(LogPolicy *lp, const char *string)
 
 static void win_gui_logging_error(LogPolicy *lp, const char *event)
 {
+    WinGuiSeat *wgs = container_of(lp, WinGuiSeat, logpolicy);
+
     /* Send 'can't open log file' errors to the terminal window.
      * (Marked as stderr, although terminal.c won't care.) */
-    seat_stderr_pl(win_seat, ptrlen_from_asciz(event));
-    seat_stderr_pl(win_seat, PTRLEN_LITERAL("\r\n"));
+    seat_stderr_pl(&wgs->seat, ptrlen_from_asciz(event));
+    seat_stderr_pl(&wgs->seat, PTRLEN_LITERAL("\r\n"));
 }
 
 void showeventlog(HWND hwnd)
@@ -857,6 +860,8 @@ int win_seat_verify_ssh_host_key(
 
     static const char mbtitle[] = "%s Security Alert";
 
+    WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
+
     /*
      * Verify the key against the registry.
      */
@@ -869,7 +874,7 @@ int win_seat_verify_ssh_host_key(
         char *text = dupprintf(wrongmsg, appname, keytype, fingerprint,
                                appname);
         char *caption = dupprintf(mbtitle, appname);
-        mbret = message_box(text, caption,
+        mbret = message_box(wgs->term_hwnd, text, caption,
                             MB_ICONWARNING | MB_YESNOCANCEL | MB_DEFBUTTON3,
                             HELPCTXID(errors_hostkey_changed));
         assert(mbret==IDYES || mbret==IDNO || mbret==IDCANCEL);
@@ -884,7 +889,7 @@ int win_seat_verify_ssh_host_key(
         int mbret;
         char *text = dupprintf(absentmsg, keytype, fingerprint, appname);
         char *caption = dupprintf(mbtitle, appname);
-        mbret = message_box(text, caption,
+        mbret = message_box(wgs->term_hwnd, text, caption,
                             MB_ICONWARNING | MB_YESNOCANCEL | MB_DEFBUTTON3,
                             HELPCTXID(errors_hostkey_absent));
         assert(mbret==IDYES || mbret==IDNO || mbret==IDCANCEL);
@@ -995,12 +1000,12 @@ static int win_gui_askappend(LogPolicy *lp, Filename *filename,
         return 0;
 }
 
-static const LogPolicyVtable default_logpolicy_vt = {
-    win_gui_eventlog,
-    win_gui_askappend,
-    win_gui_logging_error,
+const LogPolicyVtable win_gui_logpolicy_vt = {
+    .eventlog = win_gui_eventlog,
+    .askappend = win_gui_askappend,
+    .logging_error = win_gui_logging_error,
+    .verbose = null_lp_verbose_yes,
 };
-LogPolicy default_logpolicy[1] = {{ &default_logpolicy_vt }};
 
 /*
  * Warn about the obsolescent key file format.

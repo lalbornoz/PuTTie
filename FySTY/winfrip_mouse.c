@@ -9,15 +9,6 @@
 #include "FySTY/winfrip_priv.h"
 
 /*
- * {External,Static} variables
- */
-
-/*
- * XXX document
- */
-extern Conf *conf;
-
-/*
  * Public subroutines private to FySTY/winfrip*.c
  */
 
@@ -54,7 +45,7 @@ void winfripp_mouse_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-WinFripReturn winfrip_mouse_op(WinFripMouseOp op, UINT message, WPARAM wParam)
+WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPARAM wParam)
 {
     FontSpec *font;
     BYTE keystate[256];

@@ -199,8 +199,8 @@ static const char *serial_configure(Serial *serial, Conf *conf)
     } else {
         options.c_cflag &= ~CSTOPB;
     }
-    logeventf(serial->logctx, "Configuring %d stop bits",
-              (options.c_cflag & CSTOPB ? 2 : 1));
+    logeventf(serial->logctx, "Configuring %s",
+              (options.c_cflag & CSTOPB ? "2 stop bits" : "1 stop bit"));
 
     options.c_iflag &= ~(IXON|IXOFF);
 #ifdef CRTSCTS
@@ -279,10 +279,10 @@ static const char *serial_configure(Serial *serial, Conf *conf)
  * Also places the canonical host name into `realhost'. It must be
  * freed by the caller.
  */
-static const char *serial_init(Seat *seat, Backend **backend_handle,
-                               LogContext *logctx, Conf *conf,
-                               const char *host, int port, char **realhost,
-                               bool nodelay, bool keepalive)
+static const char *serial_init(const BackendVtable *vt, Seat *seat,
+                               Backend **backend_handle, LogContext *logctx,
+                               Conf *conf, const char *host, int port,
+                               char **realhost, bool nodelay, bool keepalive)
 {
     Serial *serial;
     const char *err;
@@ -292,7 +292,7 @@ static const char *serial_init(Seat *seat, Backend **backend_handle,
     seat_set_trust_status(seat, false);
 
     serial = snew(Serial);
-    serial->backend.vt = &serial_backend;
+    serial->backend.vt = vt;
     *backend_handle = &serial->backend;
 
     serial->seat = seat;
@@ -333,6 +333,7 @@ static const char *serial_init(Seat *seat, Backend **backend_handle,
 static void serial_close(Serial *serial)
 {
     if (serial->fd >= 0) {
+        uxsel_del(serial->fd);
         close(serial->fd);
         serial->fd = -1;
     }
@@ -559,24 +560,29 @@ static int serial_cfg_info(Backend *be)
     return 0;
 }
 
-const struct BackendVtable serial_backend = {
-    serial_init,
-    serial_free,
-    serial_reconfig,
-    serial_send,
-    serial_sendbuffer,
-    serial_size,
-    serial_special,
-    serial_get_specials,
-    serial_connected,
-    serial_exitcode,
-    serial_sendok,
-    serial_ldisc,
-    serial_provide_ldisc,
-    serial_unthrottle,
-    serial_cfg_info,
-    NULL /* test_for_upstream */,
-    "serial",
-    PROT_SERIAL,
-    0
+const BackendVtable serial_backend = {
+    .init = serial_init,
+    .free = serial_free,
+    .reconfig = serial_reconfig,
+    .send = serial_send,
+    .sendbuffer = serial_sendbuffer,
+    .size = serial_size,
+    .special = serial_special,
+    .get_specials = serial_get_specials,
+    .connected = serial_connected,
+    .exitcode = serial_exitcode,
+    .sendok = serial_sendok,
+    .ldisc_option_state = serial_ldisc,
+    .provide_ldisc = serial_provide_ldisc,
+    .unthrottle = serial_unthrottle,
+    .cfg_info = serial_cfg_info,
+    .id = "serial",
+    .displayname = "Serial",
+    .protocol = PROT_SERIAL,
+    .serial_parity_mask = ((1 << SER_PAR_NONE) |
+                           (1 << SER_PAR_ODD) |
+                           (1 << SER_PAR_EVEN)),
+    .serial_flow_mask =   ((1 << SER_FLOW_NONE) |
+                           (1 << SER_FLOW_XONXOFF) |
+                           (1 << SER_FLOW_RTSCTS)),
 };

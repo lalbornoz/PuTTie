@@ -38,11 +38,6 @@
 /*
  * XXX document
  */
-extern Conf *conf;
-
-/*
- * XXX document
- */
 static HDC winfripp_bgimg_hdc = NULL;
 static HGDIOBJ winfripp_bgimg_hdc_old = NULL;
 
@@ -55,18 +50,17 @@ static WinFrippBgImgState winfripp_bgimg_state = WINFRIPP_BGIMG_STATE_NONE;
  * Private subroutine prototypes
  */
 
-static BOOL winfripp_init_bgimg_get_fname(wchar_t **pbg_bmp_fname_w, BOOL *pbg_bmpfl);
+static BOOL winfripp_init_bgimg_get_fname(Conf *conf, wchar_t **pbg_bmp_fname_w, BOOL *pbg_bmpfl);
 static BOOL winfripp_init_bgimg_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
 static BOOL winfripp_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
-static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, HDC hdc);
-static BOOL winfripp_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_width);
-static BOOL winfripp_init_bgimg(HDC hdc, BOOL force);
-
+static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, Conf *conf, HDC hdc);
+static BOOL winfripp_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_width, Conf *conf);
+static BOOL winfripp_init_bgimg(Conf *conf, HDC hdc, BOOL force);
 /*
  * Private subroutines
  */
 
-static BOOL winfripp_init_bgimg_get_fname(wchar_t **pbg_fname_w, BOOL *pbg_bmpfl)
+static BOOL winfripp_init_bgimg_get_fname(Conf *conf, wchar_t **pbg_fname_w, BOOL *pbg_bmpfl)
 {
     char *bg_fname;
     Filename *bg_fname_conf;
@@ -215,7 +209,7 @@ static BOOL winfripp_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, 
     return rc;
 }
 
-static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, HDC hdc)
+static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, Conf *conf, HDC hdc)
 {
     int bgimg_style;
     HBRUSH bg_brush;
@@ -323,7 +317,7 @@ static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width,
     return rc;
 }
 
-static BOOL winfripp_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_width)
+static BOOL winfripp_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_width, Conf *conf)
 {
     RECT bg_rect;
     HBITMAP blend_bmp = NULL;
@@ -379,7 +373,7 @@ static BOOL winfripp_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_
     return rc;
 }
 
-static BOOL winfripp_init_bgimg(HDC hdc, BOOL force)
+static BOOL winfripp_init_bgimg(Conf *conf, HDC hdc, BOOL force)
 {
     wchar_t *bg_bmp_fname_w;
     BOOL bg_bmpfl;
@@ -429,7 +423,7 @@ static BOOL winfripp_init_bgimg(HDC hdc, BOOL force)
     /*
      * XXX document
      */
-    if ((winfripp_init_bgimg_get_fname(&bg_bmp_fname_w, &bg_bmpfl))) {
+    if ((winfripp_init_bgimg_get_fname(conf, &bg_bmp_fname_w, &bg_bmpfl))) {
 	switch (bg_bmpfl) {
 	case TRUE:
 	    rc = winfripp_init_bgimg_load_bmp(&bg_hdc, &bg_hdc_old, &bg_height, &bg_width, &bmp_src, bg_bmp_fname_w, hdc);
@@ -447,8 +441,8 @@ static BOOL winfripp_init_bgimg(HDC hdc, BOOL force)
      * XXX document
      */
     if (rc) {
-	if (winfripp_init_bgimg_process(bg_hdc, bg_height, bg_width, bmp_src, hdc)) {
-	    if (winfripp_init_bgimg_process_blend(bg_hdc, bg_height, bg_width)) {
+	if (winfripp_init_bgimg_process(bg_hdc, bg_height, bg_width, bmp_src, conf, hdc)) {
+	    if (winfripp_init_bgimg_process_blend(bg_hdc, bg_height, bg_width, conf)) {
 		DeleteObject(bmp_src);
 		winfripp_bgimg_hdc = bg_hdc; winfripp_bgimg_hdc_old = bg_hdc_old;
 		winfripp_bgimg_state = WINFRIPP_BGIMG_STATE_INIT;
@@ -514,7 +508,7 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y)
+WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y)
 {
     HDC hdc;
     WinFripReturn rc;
@@ -546,7 +540,7 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, HDC hdc_in, HWND 
 	WINFRIPP_DEBUG_ASSERT(font_height > 0);
 	WINFRIPP_DEBUG_ASSERT(len > 0);
 	if ((nbg == 258) || (nbg == 259)) {
-	    if (winfripp_bgimg_hdc || winfripp_init_bgimg(hdc, FALSE)) {
+	    if (winfripp_bgimg_hdc || winfripp_init_bgimg(conf, hdc, FALSE)) {
 		if (rc_width > 0) {
 		    rc = BitBlt(hdc, x, y, rc_width, font_height,
 				winfripp_bgimg_hdc, x, y, SRCCOPY) > 0;
@@ -578,7 +572,7 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, HDC hdc_in, HWND 
      * XXX document
      */
     case WINFRIP_BGIMG_OP_RECONF:
-	if (winfripp_init_bgimg(hdc, TRUE)) {
+	if (winfripp_init_bgimg(conf, hdc, TRUE)) {
 	    rc = WINFRIP_RETURN_CONTINUE;
 	    goto out;
 	} else {
@@ -603,7 +597,7 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, HDC hdc_in, HWND 
 	    goto out;
 	case WINFRIPP_BGIMG_STYLE_CENTER:
 	case WINFRIPP_BGIMG_STYLE_STRETCH:
-	    if (winfripp_init_bgimg(hdc, TRUE)) {
+	    if (winfripp_init_bgimg(conf, hdc, TRUE)) {
 		rc = WINFRIP_RETURN_CONTINUE;
 		goto out;
 	    } else {

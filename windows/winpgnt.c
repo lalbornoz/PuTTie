@@ -9,8 +9,6 @@
 #include <assert.h>
 #include <tchar.h>
 
-#define PUTTY_DO_GLOBALS
-
 #include "putty.h"
 #include "ssh.h"
 #include "misc.h"
@@ -51,6 +49,16 @@
 
 #define APPNAME "Pageant"
 
+/* Titles and class names for invisible windows. IPCWINTITLE and
+ * IPCCLASSNAME are critical to backwards compatibility: WM_COPYDATA
+ * based Pageant clients will call FindWindow with those parameters
+ * and expect to find the Pageant IPC receiver. */
+#define TRAYWINTITLE  "Pageant"
+#define TRAYCLASSNAME "PageantSysTray"
+#define IPCWINTITLE   "Pageant"
+#define IPCCLASSNAME  "Pageant"
+
+static HWND traywindow;
 static HWND keylist;
 static HWND aboutbox;
 static HMENU systray_menu, session_menu;
@@ -80,7 +88,7 @@ void modalfatalbox(const char *fmt, ...)
     va_start(ap, fmt);
     buf = dupvprintf(fmt, ap);
     va_end(ap);
-    MessageBox(hwnd, buf, "Pageant Fatal Error",
+    MessageBox(traywindow, buf, "Pageant Fatal Error",
                MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
     sfree(buf);
     exit(1);
@@ -89,8 +97,10 @@ void modalfatalbox(const char *fmt, ...)
 static bool has_security;
 
 struct PassphraseProcStruct {
-    char **passphrase;
-    char *comment;
+    bool modal;
+    PageantClientDialogId *dlgid;
+    char *passphrase;
+    const char *comment;
 };
 
 /*
@@ -125,18 +135,17 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
                               WPARAM wParam, LPARAM lParam)
 {
     switch (msg) {
-      case WM_INITDIALOG:
-        {
-            char *buildinfo_text = buildinfo("\r\n");
-            char *text = dupprintf
-                ("Pageant\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
-                 ver, buildinfo_text,
-                 "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
-            sfree(buildinfo_text);
-            SetDlgItemText(hwnd, 1000, text);
-            sfree(text);
-        }
+      case WM_INITDIALOG: {
+        char *buildinfo_text = buildinfo("\r\n");
+        char *text = dupprintf
+            ("Pageant\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
+             ver, buildinfo_text,
+             "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
+        sfree(buildinfo_text);
+        SetDlgItemText(hwnd, 1000, text);
+        sfree(text);
         return 1;
+      }
       case WM_COMMAND:
         switch (LOWORD(wParam)) {
           case IDOK:
@@ -166,7 +175,30 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
     return 0;
 }
 
-static HWND passphrase_box;
+static HWND modal_passphrase_hwnd = NULL;
+static HWND nonmodal_passphrase_hwnd = NULL;
+
+static void end_passphrase_dialog(HWND hwnd, INT_PTR result)
+{
+    struct PassphraseProcStruct *p = (struct PassphraseProcStruct *)
+        GetWindowLongPtr(hwnd, GWLP_USERDATA);
+
+    if (p->modal) {
+        EndDialog(hwnd, result);
+    } else {
+        if (result)
+            pageant_passphrase_request_success(
+                p->dlgid, ptrlen_from_asciz(p->passphrase));
+        else
+            pageant_passphrase_request_refused(p->dlgid);
+
+        burnstr(p->passphrase);
+        sfree(p);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) NULL);
+        DestroyWindow(hwnd);
+        nonmodal_passphrase_hwnd = NULL;
+    }
+}
 
 /*
  * Dialog-box function for the passphrase box.
@@ -174,59 +206,67 @@ static HWND passphrase_box;
 static INT_PTR CALLBACK PassphraseProc(HWND hwnd, UINT msg,
                                    WPARAM wParam, LPARAM lParam)
 {
-    static char **passphrase = NULL;
     struct PassphraseProcStruct *p;
 
+    if (msg == WM_INITDIALOG) {
+        p = (struct PassphraseProcStruct *) lParam;
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) p);
+    } else {
+        p = (struct PassphraseProcStruct *)
+            GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    }
+
     switch (msg) {
-      case WM_INITDIALOG:
-        passphrase_box = hwnd;
+      case WM_INITDIALOG: {
+        if (p->modal)
+            modal_passphrase_hwnd = hwnd;
+
         /*
          * Centre the window.
          */
-        {                              /* centre the window */
-            RECT rs, rd;
-            HWND hw;
+        RECT rs, rd;
+        HWND hw;
 
-            hw = GetDesktopWindow();
-            if (GetWindowRect(hw, &rs) && GetWindowRect(hwnd, &rd))
-                MoveWindow(hwnd,
-                           (rs.right + rs.left + rd.left - rd.right) / 2,
-                           (rs.bottom + rs.top + rd.top - rd.bottom) / 2,
-                           rd.right - rd.left, rd.bottom - rd.top, true);
-        }
+        hw = GetDesktopWindow();
+        if (GetWindowRect(hw, &rs) && GetWindowRect(hwnd, &rd))
+            MoveWindow(hwnd,
+                       (rs.right + rs.left + rd.left - rd.right) / 2,
+                       (rs.bottom + rs.top + rd.top - rd.bottom) / 2,
+                       rd.right - rd.left, rd.bottom - rd.top, true);
 
         SetForegroundWindow(hwnd);
         SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
-        p = (struct PassphraseProcStruct *) lParam;
-        passphrase = p->passphrase;
+        if (!p->modal)
+            SetActiveWindow(hwnd); /* this won't have happened automatically */
         if (p->comment)
             SetDlgItemText(hwnd, 101, p->comment);
-        burnstr(*passphrase);
-        *passphrase = dupstr("");
-        SetDlgItemText(hwnd, 102, *passphrase);
+        burnstr(p->passphrase);
+        p->passphrase = dupstr("");
+        SetDlgItemText(hwnd, 102, p->passphrase);
         return 0;
+      }
       case WM_COMMAND:
         switch (LOWORD(wParam)) {
           case IDOK:
-            if (*passphrase)
-                EndDialog(hwnd, 1);
+            if (p->passphrase)
+                end_passphrase_dialog(hwnd, 1);
             else
                 MessageBeep(0);
             return 0;
           case IDCANCEL:
-            EndDialog(hwnd, 0);
+            end_passphrase_dialog(hwnd, 0);
             return 0;
           case 102:                    /* edit box */
-            if ((HIWORD(wParam) == EN_CHANGE) && passphrase) {
-                burnstr(*passphrase);
-                *passphrase = GetDlgItemText_alloc(hwnd, 102);
+            if ((HIWORD(wParam) == EN_CHANGE) && p->passphrase) {
+                burnstr(p->passphrase);
+                p->passphrase = GetDlgItemText_alloc(hwnd, 102);
             }
             return 0;
         }
         return 0;
       case WM_CLOSE:
-        EndDialog(hwnd, 0);
+        end_passphrase_dialog(hwnd, 0);
         return 0;
     }
     return 0;
@@ -358,14 +398,13 @@ static void win_add_keyfile(Filename *filename)
 {
     char *err;
     int ret;
-    char *passphrase = NULL;
 
     /*
      * Try loading the key without a passphrase. (Or rather, without a
      * _new_ passphrase; pageant_add_keyfile will take care of trying
      * all the passphrases we've already stored.)
      */
-    ret = pageant_add_keyfile(filename, NULL, &err);
+    ret = pageant_add_keyfile(filename, NULL, &err, false);
     if (ret == PAGEANT_ACTION_OK) {
         goto done;
     } else if (ret == PAGEANT_ACTION_FAILURE) {
@@ -379,40 +418,37 @@ static void win_add_keyfile(Filename *filename)
     while (1) {
         INT_PTR dlgret;
         struct PassphraseProcStruct pps;
-
-        pps.passphrase = &passphrase;
+        pps.modal = true;
+        pps.dlgid = NULL;
+        pps.passphrase = NULL;
         pps.comment = err;
         dlgret = DialogBoxParam(hinst, MAKEINTRESOURCE(210),
                                 NULL, PassphraseProc, (LPARAM) &pps);
-        passphrase_box = NULL;
+        modal_passphrase_hwnd = NULL;
 
-        if (!dlgret)
+        if (!dlgret) {
+            burnstr(pps.passphrase);
             goto done;                 /* operation cancelled */
+        }
 
         sfree(err);
 
-        assert(passphrase != NULL);
+        assert(pps.passphrase != NULL);
 
-        ret = pageant_add_keyfile(filename, passphrase, &err);
+        ret = pageant_add_keyfile(filename, pps.passphrase, &err, false);
+        burnstr(pps.passphrase);
+
         if (ret == PAGEANT_ACTION_OK) {
             goto done;
         } else if (ret == PAGEANT_ACTION_FAILURE) {
             goto error;
         }
-
-        smemclr(passphrase, strlen(passphrase));
-        sfree(passphrase);
-        passphrase = NULL;
     }
 
   error:
-    message_box(err, APPNAME, MB_OK | MB_ICONERROR,
+    message_box(traywindow, err, APPNAME, MB_OK | MB_ICONERROR,
                 HELPCTXID(errors_cantloadkey));
   done:
-    if (passphrase) {
-        smemclr(passphrase, strlen(passphrase));
-        sfree(passphrase);
-    }
     sfree(err);
     return;
 }
@@ -427,7 +463,7 @@ static void prompt_add_keyfile(void)
 
     if (!keypath) keypath = filereq_new();
     memset(&of, 0, sizeof(of));
-    of.hwndOwner = hwnd;
+    of.hwndOwner = traywindow;
     of.lpstrFilter = FILTER_KEY_FILES;
     of.lpstrCustomFilter = NULL;
     of.nFilterIndex = 1;
@@ -477,41 +513,40 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
     ssh2_userkey *skey;
 
     switch (msg) {
-      case WM_INITDIALOG:
+      case WM_INITDIALOG: {
         /*
          * Centre the window.
          */
-        {                              /* centre the window */
-            RECT rs, rd;
-            HWND hw;
+        RECT rs, rd;
+        HWND hw;
 
-            hw = GetDesktopWindow();
-            if (GetWindowRect(hw, &rs) && GetWindowRect(hwnd, &rd))
-                MoveWindow(hwnd,
-                           (rs.right + rs.left + rd.left - rd.right) / 2,
-                           (rs.bottom + rs.top + rd.top - rd.bottom) / 2,
-                           rd.right - rd.left, rd.bottom - rd.top, true);
-        }
+        hw = GetDesktopWindow();
+        if (GetWindowRect(hw, &rs) && GetWindowRect(hwnd, &rd))
+            MoveWindow(hwnd,
+                       (rs.right + rs.left + rd.left - rd.right) / 2,
+                       (rs.bottom + rs.top + rd.top - rd.bottom) / 2,
+                       rd.right - rd.left, rd.bottom - rd.top, true);
 
         if (has_help())
             SetWindowLongPtr(hwnd, GWL_EXSTYLE,
                              GetWindowLongPtr(hwnd, GWL_EXSTYLE) |
                              WS_EX_CONTEXTHELP);
         else {
-            HWND item = GetDlgItem(hwnd, 103);   /* the Help button */
-            if (item)
-                DestroyWindow(item);
+          HWND item = GetDlgItem(hwnd, 103);   /* the Help button */
+          if (item)
+              DestroyWindow(item);
         }
 
         keylist = hwnd;
         {
-            static int tabs[] = { 35, 75, 250 };
-            SendDlgItemMessage(hwnd, 100, LB_SETTABSTOPS,
-                               sizeof(tabs) / sizeof(*tabs),
-                               (LPARAM) tabs);
+          static int tabs[] = { 35, 75, 250 };
+          SendDlgItemMessage(hwnd, 100, LB_SETTABSTOPS,
+                             sizeof(tabs) / sizeof(*tabs),
+                             (LPARAM) tabs);
         }
         keylist_update();
         return 0;
+      }
       case WM_COMMAND:
         switch (LOWORD(wParam)) {
           case IDOK:
@@ -522,9 +557,9 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
           case 101:                    /* add key */
             if (HIWORD(wParam) == BN_CLICKED ||
                 HIWORD(wParam) == BN_DOUBLECLICKED) {
-                if (passphrase_box) {
+                if (modal_passphrase_hwnd) {
                     MessageBeep(MB_ICONERROR);
-                    SetForegroundWindow(passphrase_box);
+                    SetForegroundWindow(modal_passphrase_hwnd);
                     break;
                 }
                 prompt_add_keyfile();
@@ -599,22 +634,21 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
             return 0;
         }
         return 0;
-      case WM_HELP:
-        {
-            int id = ((LPHELPINFO)lParam)->iCtrlId;
-            const char *topic = NULL;
-            switch (id) {
-              case 100: topic = WINHELP_CTX_pageant_keylist; break;
-              case 101: topic = WINHELP_CTX_pageant_addkey; break;
-              case 102: topic = WINHELP_CTX_pageant_remkey; break;
-            }
-            if (topic) {
-                launch_help(hwnd, topic);
-            } else {
-                MessageBeep(0);
-            }
+      case WM_HELP: {
+        int id = ((LPHELPINFO)lParam)->iCtrlId;
+        const char *topic = NULL;
+        switch (id) {
+          case 100: topic = WINHELP_CTX_pageant_keylist; break;
+          case 101: topic = WINHELP_CTX_pageant_addkey; break;
+          case 102: topic = WINHELP_CTX_pageant_remkey; break;
+        }
+        if (topic) {
+          launch_help(hwnd, topic);
+        } else {
+          MessageBeep(0);
         }
         break;
+      }
       case WM_CLOSE:
         keylist = NULL;
         DestroyWindow(hwnd);
@@ -678,7 +712,7 @@ static void update_sessions(void)
     sb = strbuf_new();
     while(ERROR_SUCCESS == RegEnumKey(hkey, index_key, buf, MAX_PATH)) {
         if(strcmp(buf, PUTTY_DEFAULT) != 0) {
-            sb->len = 0;
+            strbuf_clear(sb);
             unescape_registry_key(buf, sb);
 
             memset(&mii, 0, sizeof(mii));
@@ -754,24 +788,66 @@ PSID get_default_sid(void)
 }
 #endif
 
-struct PageantReply {
-    char *buf;
-    size_t size, len;
-    bool overflowed;
-    BinarySink_IMPLEMENTATION;
-};
+struct WmCopydataTransaction {
+    char *length, *body;
+    size_t bodysize, bodylen;
+    HANDLE ev_msg_ready, ev_reply_ready;
+} wmct;
 
-static void pageant_reply_BinarySink_write(
-    BinarySink *bs, const void *data, size_t len)
+static struct PageantClient wmcpc;
+
+static void wm_copydata_got_msg(void *vctx)
 {
-    struct PageantReply *rep = BinarySink_DOWNCAST(bs, struct PageantReply);
-    if (!rep->overflowed && len <= rep->size - rep->len) {
-        memcpy(rep->buf + rep->len, data, len);
-        rep->len += len;
-    } else {
-        rep->overflowed = true;
-    }
+    pageant_handle_msg(&wmcpc, NULL, make_ptrlen(wmct.body, wmct.bodylen));
 }
+
+static void wm_copydata_got_response(
+    PageantClient *pc, PageantClientRequestId *reqid, ptrlen response)
+{
+    if (response.len > wmct.bodysize) {
+        /* Output would overflow message buffer. Replace with a
+         * failure message. */
+        static const unsigned char failure[] = { SSH_AGENT_FAILURE };
+        response = make_ptrlen(failure, lenof(failure));
+        assert(response.len <= wmct.bodysize);
+    }
+
+    PUT_32BIT_MSB_FIRST(wmct.length, response.len);
+    memcpy(wmct.body, response.ptr, response.len);
+
+    SetEvent(wmct.ev_reply_ready);
+}
+
+static bool ask_passphrase_common(PageantClientDialogId *dlgid,
+                                  const char *msg)
+{
+    /* Pageant core should be serialising requests, so we never expect
+     * a passphrase prompt to exist already at this point */
+    assert(!nonmodal_passphrase_hwnd);
+
+    struct PassphraseProcStruct *pps = snew(struct PassphraseProcStruct);
+    pps->modal = false;
+    pps->dlgid = dlgid;
+    pps->passphrase = NULL;
+    pps->comment = msg;
+
+    nonmodal_passphrase_hwnd = CreateDialogParam(
+        hinst, MAKEINTRESOURCE(210), NULL, PassphraseProc, (LPARAM)pps);
+
+    return true;
+}
+
+static bool wm_copydata_ask_passphrase(
+    PageantClient *pc, PageantClientDialogId *dlgid, const char *msg)
+{
+    return ask_passphrase_common(dlgid, msg);
+}
+
+static const PageantClientVtable wmcpc_vtable = {
+    .log = NULL, /* no logging in this client */
+    .got_response = wm_copydata_got_response,
+    .ask_passphrase = wm_copydata_ask_passphrase,
+};
 
 static char *answer_filemapping_message(const char *mapname)
 {
@@ -780,7 +856,6 @@ static char *answer_filemapping_message(const char *mapname)
     char *err = NULL;
     size_t mapsize;
     unsigned msglen;
-    struct PageantReply reply;
 
 #ifndef NO_SECURITY
     PSID mapsid = NULL;
@@ -789,7 +864,7 @@ static char *answer_filemapping_message(const char *mapname)
     PSECURITY_DESCRIPTOR psd = NULL;
 #endif
 
-    reply.buf = NULL;
+    wmct.length = wmct.body = NULL;
 
 #ifdef DEBUG_IPC
     debug("mapname = \"%s\"\n", mapname);
@@ -885,48 +960,37 @@ static char *answer_filemapping_message(const char *mapname)
         mapsize = mbi.RegionSize;
     }
 #ifdef DEBUG_IPC
-    debug("region size = %zd\n", mapsize);
+    debug("region size = %"SIZEu"\n", mapsize);
 #endif
     if (mapsize < 5) {
         err = dupstr("mapping smaller than smallest possible request");
         goto cleanup;
     }
 
-    msglen = GET_32BIT_MSB_FIRST((unsigned char *)mapaddr);
+    wmct.length = (char *)mapaddr;
+    msglen = GET_32BIT_MSB_FIRST(wmct.length);
 
 #ifdef DEBUG_IPC
     debug("msg length=%08x, msg type=%02x\n",
           msglen, (unsigned)((unsigned char *) mapaddr)[4]);
 #endif
 
-    reply.buf = (char *)mapaddr + 4;
-    reply.size = mapsize - 4;
-    reply.len = 0;
-    reply.overflowed = false;
-    BinarySink_INIT(&reply, pageant_reply_BinarySink_write);
+    wmct.body = wmct.length + 4;
+    wmct.bodysize = mapsize - 4;
 
-    if (msglen > mapsize - 4) {
-        pageant_failure_msg(BinarySink_UPCAST(&reply),
-                            "incoming length field too large", NULL, NULL);
+    if (msglen > wmct.bodysize) {
+        /* Incoming length field is too large. Emit a failure response
+         * without even trying to handle the request.
+         *
+         * (We know this must fit, because we checked mapsize >= 5
+         * above.) */
+        PUT_32BIT_MSB_FIRST(wmct.length, 1);
+        *wmct.body = SSH_AGENT_FAILURE;
     } else {
-        pageant_handle_msg(BinarySink_UPCAST(&reply),
-                           (unsigned char *)mapaddr + 4, msglen, NULL, NULL);
-        if (reply.overflowed) {
-            reply.len = 0;
-            reply.overflowed = false;
-            pageant_failure_msg(BinarySink_UPCAST(&reply),
-                                "output would overflow message buffer",
-                                NULL, NULL);
-        }
+        wmct.bodylen = msglen;
+        SetEvent(wmct.ev_msg_ready);
+        WaitForSingleObject(wmct.ev_reply_ready, INFINITE);
     }
-
-    if (reply.overflowed) {
-        err = dupstr("even failure message overflows buffer");
-        goto cleanup;
-    }
-
-    /* Write in the initial length field, and we're done. */
-    PUT_32BIT_MSB_FIRST(((unsigned char *)mapaddr), reply.len);
 
   cleanup:
     /* expectedsid has the lifetime of the program, so we don't free it */
@@ -940,8 +1004,8 @@ static char *answer_filemapping_message(const char *mapname)
     return err;
 }
 
-static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
-                                WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
+                                    WPARAM wParam, LPARAM lParam)
 {
     static bool menuinprogress;
     static UINT msgTaskbarCreated = 0;
@@ -987,23 +1051,22 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_COMMAND:
       case WM_SYSCOMMAND:
         switch (wParam & ~0xF) {       /* low 4 bits reserved to Windows */
-          case IDM_PUTTY:
-            {
-                TCHAR cmdline[10];
-                cmdline[0] = '\0';
-                if (restrict_putty_acl)
-                    strcat(cmdline, "&R");
+          case IDM_PUTTY: {
+            TCHAR cmdline[10];
+            cmdline[0] = '\0';
+            if (restrict_putty_acl)
+                strcat(cmdline, "&R");
 
-                if((INT_PTR)ShellExecute(hwnd, NULL, putty_path, cmdline,
-                                         _T(""), SW_SHOW) <= 32) {
-                    MessageBox(NULL, "Unable to execute PuTTY!",
-                               "Error", MB_OK | MB_ICONERROR);
-                }
+            if((INT_PTR)ShellExecute(hwnd, NULL, putty_path, cmdline,
+                                     _T(""), SW_SHOW) <= 32) {
+              MessageBox(NULL, "Unable to execute PuTTY!",
+                         "Error", MB_OK | MB_ICONERROR);
             }
             break;
+          }
           case IDM_CLOSE:
-            if (passphrase_box)
-                SendMessage(passphrase_box, WM_CLOSE, 0, 0);
+            if (modal_passphrase_hwnd)
+                SendMessage(modal_passphrase_hwnd, WM_CLOSE, 0, 0);
             SendMessage(hwnd, WM_CLOSE, 0, 0);
             break;
           case IDM_VIEWKEYS:
@@ -1024,9 +1087,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                          SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
             break;
           case IDM_ADDKEY:
-            if (passphrase_box) {
+            if (modal_passphrase_hwnd) {
                 MessageBeep(MB_ICONERROR);
-                SetForegroundWindow(passphrase_box);
+                SetForegroundWindow(modal_passphrase_hwnd);
                 break;
             }
             prompt_add_keyfile();
@@ -1048,61 +1111,87 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
           case IDM_HELP:
             launch_help(hwnd, WINHELP_CTX_pageant_general);
             break;
-          default:
-            {
-                if(wParam >= IDM_SESSIONS_BASE && wParam <= IDM_SESSIONS_MAX) {
-                    MENUITEMINFO mii;
-                    TCHAR buf[MAX_PATH + 1];
-                    TCHAR param[MAX_PATH + 1];
-                    memset(&mii, 0, sizeof(mii));
-                    mii.cbSize = sizeof(mii);
-                    mii.fMask = MIIM_TYPE;
-                    mii.cch = MAX_PATH;
-                    mii.dwTypeData = buf;
-                    GetMenuItemInfo(session_menu, wParam, false, &mii);
-                    param[0] = '\0';
-                    if (restrict_putty_acl)
-                        strcat(param, "&R");
-                    strcat(param, "@");
-                    strcat(param, mii.dwTypeData);
-                    if((INT_PTR)ShellExecute(hwnd, NULL, putty_path, param,
-                                         _T(""), SW_SHOW) <= 32) {
-                        MessageBox(NULL, "Unable to execute PuTTY!", "Error",
-                                   MB_OK | MB_ICONERROR);
-                    }
-                }
+          default: {
+            if(wParam >= IDM_SESSIONS_BASE && wParam <= IDM_SESSIONS_MAX) {
+              MENUITEMINFO mii;
+              TCHAR buf[MAX_PATH + 1];
+              TCHAR param[MAX_PATH + 1];
+              memset(&mii, 0, sizeof(mii));
+              mii.cbSize = sizeof(mii);
+              mii.fMask = MIIM_TYPE;
+              mii.cch = MAX_PATH;
+              mii.dwTypeData = buf;
+              GetMenuItemInfo(session_menu, wParam, false, &mii);
+              param[0] = '\0';
+              if (restrict_putty_acl)
+                  strcat(param, "&R");
+              strcat(param, "@");
+              strcat(param, mii.dwTypeData);
+              if((INT_PTR)ShellExecute(hwnd, NULL, putty_path, param,
+                                       _T(""), SW_SHOW) <= 32) {
+                MessageBox(NULL, "Unable to execute PuTTY!", "Error",
+                           MB_OK | MB_ICONERROR);
+              }
             }
             break;
+          }
         }
         break;
       case WM_DESTROY:
         quit_help(hwnd);
         PostQuitMessage(0);
         return 0;
-      case WM_COPYDATA:
-        {
-            COPYDATASTRUCT *cds;
-            char *mapname, *err;
-
-            cds = (COPYDATASTRUCT *) lParam;
-            if (cds->dwData != AGENT_COPYDATA_ID)
-                return 0;              /* not our message, mate */
-            mapname = (char *) cds->lpData;
-            if (mapname[cds->cbData - 1] != '\0')
-                return 0;              /* failure to be ASCIZ! */
-            err = answer_filemapping_message(mapname);
-            if (err) {
-#ifdef DEBUG_IPC
-                debug("IPC failed: %s\n", err);
-#endif
-                sfree(err);
-                return 0;
-            }
-            return 1;
-        }
     }
 
     return DefWindowProc(hwnd, message, wParam, lParam);
+}
+
+static LRESULT CALLBACK wm_copydata_WndProc(HWND hwnd, UINT message,
+                                            WPARAM wParam, LPARAM lParam)
+{
+    switch (message) {
+      case WM_COPYDATA: {
+        COPYDATASTRUCT *cds;
+        char *mapname, *err;
+
+        cds = (COPYDATASTRUCT *) lParam;
+        if (cds->dwData != AGENT_COPYDATA_ID)
+            return 0;              /* not our message, mate */
+        mapname = (char *) cds->lpData;
+        if (mapname[cds->cbData - 1] != '\0')
+            return 0;              /* failure to be ASCIZ! */
+        err = answer_filemapping_message(mapname);
+        if (err) {
+#ifdef DEBUG_IPC
+          debug("IPC failed: %s\n", err);
+#endif
+          sfree(err);
+          return 0;
+        }
+        return 1;
+      }
+    }
+
+    return DefWindowProc(hwnd, message, wParam, lParam);
+}
+
+static DWORD WINAPI wm_copydata_threadfunc(void *param)
+{
+    HINSTANCE inst = *(HINSTANCE *)param;
+
+    HWND ipchwnd = CreateWindow(IPCCLASSNAME, IPCWINTITLE,
+                                WS_OVERLAPPEDWINDOW | WS_VSCROLL,
+                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                100, 100, NULL, NULL, inst, NULL);
+    ShowWindow(ipchwnd, SW_HIDE);
+
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0) == 1) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    return 0;
 }
 
 /*
@@ -1118,12 +1207,6 @@ void spawn_cmd(const char *cmdline, const char *args, int show)
         MessageBox(NULL, msg, APPNAME, MB_OK | MB_ICONEXCLAMATION);
         sfree(msg);
     }
-}
-
-void agent_schedule_callback(void (*callback)(void *, void *, int),
-                             void *callback_ctx, void *data, int len)
-{
-    unreachable("all Pageant's own agent requests should be synchronous");
 }
 
 void logevent(LogContext *logctx, const char *event)
@@ -1142,11 +1225,26 @@ void cleanup_exit(int code)
     exit(code);
 }
 
-int flags = FLAG_SYNCAGENT;
+static bool winpgnt_listener_ask_passphrase(
+    PageantListenerClient *plc, PageantClientDialogId *dlgid, const char *msg)
+{
+    return ask_passphrase_common(dlgid, msg);
+}
+
+struct winpgnt_client {
+    PageantListenerClient plc;
+};
+static const PageantListenerClientVtable winpgnt_vtable = {
+    .log = NULL, /* no logging */
+    .ask_passphrase = winpgnt_listener_ask_passphrase,
+};
+
+static struct winpgnt_client wpc[1];
+
+HINSTANCE hinst;
 
 int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 {
-    WNDCLASS wndclass;
     MSG msg;
     const char *command = NULL;
     bool added_keys = false;
@@ -1156,7 +1254,6 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     dll_hijacking_protection();
 
     hinst = inst;
-    hwnd = NULL;
 
     /*
      * Determine whether we're an NT system (should have security
@@ -1230,7 +1327,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     split_into_argv(cmdline, &argc, &argv, &argstart);
     for (i = 0; i < argc; i++) {
         if (!strcmp(argv[i], "-pgpfp")) {
-            pgp_fingerprints();
+            pgp_fingerprints_msgbox(NULL);
             return 1;
         } else if (!strcmp(argv[i], "-restrict-acl") ||
                    !strcmp(argv[i], "-restrict_acl") ||
@@ -1297,7 +1394,10 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
      */
     {
         Plug *pl_plug;
-        struct pageant_listen_state *pl = pageant_listener_new(&pl_plug);
+        wpc->plc.vt = &winpgnt_vtable;
+        wpc->plc.suppress_logging = true;
+        struct pageant_listen_state *pl =
+            pageant_listener_new(&pl_plug, &wpc->plc);
         char *pipename = agent_named_pipe_name();
         Socket *sock = new_named_pipe_listener(pipename, pl_plug);
         if (sk_socket_error(sock)) {
@@ -1313,31 +1413,42 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
 #endif /* !defined NO_SECURITY */
 
+    /*
+     * Set up window classes for two hidden windows: one that receives
+     * all the messages to do with our presence in the system tray,
+     * and one that receives the WM_COPYDATA message used by the
+     * old-style Pageant IPC system.
+     */
+
     if (!prev) {
-        wndclass.style = 0;
-        wndclass.lpfnWndProc = WndProc;
-        wndclass.cbClsExtra = 0;
-        wndclass.cbWndExtra = 0;
+        WNDCLASS wndclass;
+
+        memset(&wndclass, 0, sizeof(wndclass));
+        wndclass.lpfnWndProc = TrayWndProc;
         wndclass.hInstance = inst;
         wndclass.hIcon = LoadIcon(inst, MAKEINTRESOURCE(IDI_MAINICON));
-        wndclass.hCursor = LoadCursor(NULL, IDC_IBEAM);
-        wndclass.hbrBackground = GetStockObject(BLACK_BRUSH);
-        wndclass.lpszMenuName = NULL;
-        wndclass.lpszClassName = APPNAME;
+        wndclass.lpszClassName = TRAYCLASSNAME;
+
+        RegisterClass(&wndclass);
+
+        memset(&wndclass, 0, sizeof(wndclass));
+        wndclass.lpfnWndProc = wm_copydata_WndProc;
+        wndclass.hInstance = inst;
+        wndclass.lpszClassName = IPCCLASSNAME;
 
         RegisterClass(&wndclass);
     }
 
     keylist = NULL;
 
-    hwnd = CreateWindow(APPNAME, APPNAME,
-                        WS_OVERLAPPEDWINDOW | WS_VSCROLL,
-                        CW_USEDEFAULT, CW_USEDEFAULT,
-                        100, 100, NULL, NULL, inst, NULL);
-    winselgui_set_hwnd(hwnd);
+    traywindow = CreateWindow(TRAYCLASSNAME, TRAYWINTITLE,
+                              WS_OVERLAPPEDWINDOW | WS_VSCROLL,
+                              CW_USEDEFAULT, CW_USEDEFAULT,
+                              100, 100, NULL, NULL, inst, NULL);
+    winselgui_set_hwnd(traywindow);
 
     /* Set up a system tray icon */
-    AddTrayIcon(hwnd);
+    AddTrayIcon(traywindow);
 
     /* Accelerators used: nsvkxa */
     systray_menu = CreatePopupMenu();
@@ -1362,7 +1473,17 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     /* Set the default menu item. */
     SetMenuDefaultItem(systray_menu, IDM_VIEWKEYS, false);
 
-    ShowWindow(hwnd, SW_HIDE);
+    ShowWindow(traywindow, SW_HIDE);
+
+    wmcpc.vt = &wmcpc_vtable;
+    wmcpc.suppress_logging = true;
+    pageant_register_client(&wmcpc);
+    DWORD wm_copydata_threadid;
+    wmct.ev_msg_ready = CreateEvent(NULL, false, false, NULL);
+    wmct.ev_reply_ready = CreateEvent(NULL, false, false, NULL);
+    CreateThread(NULL, 0, wm_copydata_threadfunc,
+                 &inst, 0, &wm_copydata_threadid);
+    handle_add_foreign_event(wmct.ev_msg_ready, wm_copydata_got_msg, NULL);
 
     /*
      * Main message loop.
@@ -1390,10 +1511,15 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
                 continue;
             if (IsWindow(aboutbox) && IsDialogMessage(aboutbox, &msg))
                 continue;
+            if (IsWindow(nonmodal_passphrase_hwnd) &&
+                IsDialogMessage(nonmodal_passphrase_hwnd, &msg))
+                continue;
 
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+
+        run_toplevel_callbacks();
     }
   finished:
 
@@ -1402,7 +1528,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         NOTIFYICONDATA tnid;
 
         tnid.cbSize = sizeof(NOTIFYICONDATA);
-        tnid.hWnd = hwnd;
+        tnid.hWnd = traywindow;
         tnid.uID = 1;
 
         Shell_NotifyIcon(NIM_DELETE, &tnid);

@@ -26,7 +26,7 @@ static bool stderr_is_a_tty;
 void stderr_tty_init()
 {
     /* Ensure that if stderr is a tty, we can get it back to a sane state. */
-    if ((flags & FLAG_STDERR_TTY) && isatty(STDERR_FILENO)) {
+    if (isatty(STDERR_FILENO)) {
         stderr_is_a_tty = true;
         tcgetattr(STDERR_FILENO, &orig_termios_stderr);
     }
@@ -366,9 +366,8 @@ int console_confirm_weak_cached_hostkey(
  * Ask whether to wipe a session log file before writing to it.
  * Returns 2 for wipe, 1 for append, 0 for cancel (don't log).
  */
-static int console_askappend(LogPolicy *lp, Filename *filename,
-                             void (*callback)(void *ctx, int result),
-                             void *ctx)
+int console_askappend(LogPolicy *lp, Filename *filename,
+                      void (*callback)(void *ctx, int result), void *ctx)
 {
     static const char msgtemplate[] =
         "The session log file \"%.*s\" already exists.\n"
@@ -468,7 +467,7 @@ void old_keyfile_warning(void)
     postmsg(&cf);
 }
 
-static void console_logging_error(LogPolicy *lp, const char *string)
+void console_logging_error(LogPolicy *lp, const char *string)
 {
     /* Errors setting up logging are considered important, so they're
      * displayed to standard error even when not in verbose mode */
@@ -480,11 +479,11 @@ static void console_logging_error(LogPolicy *lp, const char *string)
 }
 
 
-static void console_eventlog(LogPolicy *lp, const char *string)
+void console_eventlog(LogPolicy *lp, const char *string)
 {
     /* Ordinary Event Log entries are displayed in the same way as
      * logging errors, but only in verbose mode */
-    if (flags & FLAG_VERBOSE)
+    if (lp_verbose(lp))
         console_logging_error(lp, string);
 }
 
@@ -566,7 +565,6 @@ int console_get_userpass_input(prompts_t *p)
     for (curr_prompt = 0; curr_prompt < p->n_prompts; curr_prompt++) {
 
         struct termios oldmode, newmode;
-        int len;
         prompt_t *pr = p->prompts[curr_prompt];
 
         tcgetattr(infd, &oldmode);
@@ -580,21 +578,21 @@ int console_get_userpass_input(prompts_t *p)
 
         console_write(outfp, ptrlen_from_asciz(pr->prompt));
 
-        len = 0;
+        bool failed = false;
         while (1) {
-            int ret;
+            size_t toread = 65536;
+            size_t prev_result_len = pr->result->len;
+            void *ptr = strbuf_append(pr->result, toread);
+            int ret = read(infd, ptr, toread);
 
-            prompt_ensure_result_size(pr, len * 5 / 4 + 512);
-            ret = read(infd, pr->result + len, pr->resultsize - len - 1);
             if (ret <= 0) {
-                len = -1;
+                failed = true;
                 break;
             }
-            len += ret;
-            if (pr->result[len - 1] == '\n') {
-                len--;
+
+            strbuf_shrink_to(pr->result, prev_result_len + ret);
+            if (strbuf_chomp(pr->result, '\n'))
                 break;
-            }
         }
 
         tcsetattr(infd, TCSANOW, &oldmode);
@@ -602,12 +600,10 @@ int console_get_userpass_input(prompts_t *p)
         if (!pr->echo)
             console_write(outfp, PTRLEN_LITERAL("\n"));
 
-        if (len < 0) {
+        if (failed) {
             console_close(outfp, infd);
             return 0;                  /* failure due to read error */
         }
-
-        pr->result[len] = '\0';
     }
 
     console_close(outfp, infd);
@@ -627,10 +623,3 @@ bool is_interactive(void)
 char *platform_get_x_display(void) {
     return dupstr(getenv("DISPLAY"));
 }
-
-static const LogPolicyVtable default_logpolicy_vt = {
-    console_eventlog,
-    console_askappend,
-    console_logging_error,
-};
-LogPolicy default_logpolicy[1] = {{ &default_logpolicy_vt }};
