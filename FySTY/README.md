@@ -18,7 +18,8 @@ PuTTY plus *pointless frippery* and tremendous amounts of *bloat*[[1](#r1)][[2](
    Configurable {de,in}crease font size with \<Shift\> + \<Mouse wheel\>  
    Configurable {normal,inhibit} RMB processing behaviour (for alghazi)
 5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation  
-6. Fixes on-clipboard paste thread handle leak present in PuTTY v0.70 and in master.
+6. Fixes on-clipboard paste thread handle leak present in PuTTY v0.70 and in master.  
+7. Optionally filters Unicode U+2028/+2029 line/paragraph separator code points.
 
 ## TODO/wish list
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position

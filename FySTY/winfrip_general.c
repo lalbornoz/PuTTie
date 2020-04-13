@@ -29,6 +29,10 @@ void winfripp_general_config_panel(struct controlbox *b)
 		      conf_radiobutton_handler, I(CONF_frip_general_always_on_top),
 		      "Never",	NO_SHORTCUT,	I(WINFRIPP_GENERAL_ALWAYS_ON_TOP_NEVER),
 		      "Always",	NO_SHORTCUT,	I(WINFRIPP_GENERAL_ALWAYS_ON_TOP_ALWAYS), NULL);
+    ctrl_radiobuttons(s, "Filter U+202[89] separators on output:", NO_SHORTCUT, 4, P(WINFRIPP_HELP_CTX),
+		      conf_radiobutton_handler, I(CONF_frip_general_filter_separators),
+		      "No",	NO_SHORTCUT,	I(WINFRIPP_GENERAL_FILTER_SEPARATORS_NO),
+		      "Yes",	NO_SHORTCUT,	I(WINFRIPP_GENERAL_FILTER_SEPARATORS_YES), NULL);
     ctrl_radiobuttons(s, "Storage backend:", NO_SHORTCUT, 2, P(WINFRIPP_HELP_CTX),
 		      conf_radiobutton_handler, I(CONF_frip_general_store_backend),
 		      "Registry",	NO_SHORTCUT,	I(WINFRIP_GENERAL_STORE_BACKEND_REGISTRY),
