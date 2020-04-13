@@ -28,6 +28,7 @@ void winfrip_config_panel(struct controlbox *b);
  */
 #define WINFRIP_CONFIG_OPTIONS(X)											\
     X(INT, NONE, frip_general_always_on_top)										\
+    X(INT, NONE, frip_general_filter_separators)									\
     X(INT, NONE, frip_general_store_backend)										\
     X(FILENAME, NONE, frip_bgimg_filename)										\
     X(INT, NONE, frip_bgimg_opacity)											\
@@ -50,6 +51,7 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);						\
     gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);							\
     gppi((sesskey), "FripGeneralAlwaysOnTop", 0, (conf), CONF_frip_general_always_on_top);				\
+    gppi((sesskey), "FripGeneralFilterSeparators", 0, (conf), CONF_frip_general_filter_separators);			\
     gppi((sesskey), "FripGeneralStoreBackEnd", 0, (conf), CONF_frip_general_store_backend);				\
     gppi((sesskey), "FripMouseRmb", 0, (conf), CONF_frip_mouse_rmb);							\
     gppi((sesskey), "FripMouseWheel", 0, (conf), CONF_frip_mouse_wheel);						\
@@ -69,6 +71,7 @@ void winfrip_config_panel(struct controlbox *b);
     write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));				\
     write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));				\
     write_setting_i((sesskey), "FripGeneralAlwaysOnTop", conf_get_int((conf), CONF_frip_general_always_on_top));	\
+    write_setting_i((sesskey), "FripGeneralFilterSeparators", conf_get_int((conf), CONF_frip_general_filter_separators));\
     write_setting_i((sesskey), "FripGeneralStoreBackEnd", conf_get_int((conf), CONF_frip_general_store_backend));	\
     write_setting_i((sesskey), "FripMouseRmb", conf_get_int((conf), CONF_frip_mouse_rmb));				\
     write_setting_i((sesskey), "FripMouseWheel", conf_get_int((conf), CONF_frip_mouse_wheel));				\

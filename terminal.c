@@ -3201,8 +3201,14 @@ unsigned long term_translate(
                 return UCSINVALID;
 
             /* Unicode line separator and paragraph separator are CR-LF */
-            if (t == 0x2028 || t == 0x2029)
-                return 0x85;
+            if (t == 0x2028 || t == 0x2029) {
+		/* {{{ winfrip */
+		if (conf_get_int(term->conf, CONF_frip_general_filter_separators))
+		    return 0xFFFD;
+		else
+		/* winfrip }}} */
+		return 0x85;
+	    }
 
             /* High controls are probably a Baaad idea too. */
             if (t < 0xA0)

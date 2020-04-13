@@ -31,6 +31,14 @@ typedef enum WinFrippGeneralAlwaysOnTop {
 /*
  * XXX document
  */
+typedef enum WinFrippGeneralFilterSeparators {
+	WINFRIPP_GENERAL_FILTER_SEPARATORS_NO	= 0,
+	WINFRIPP_GENERAL_FILTER_SEPARATORS_YES	= 1,
+} WinFrippGeneralFilterSeparators;
+
+/*
+ * XXX document
+ */
 typedef enum WinFrippBgImgState {
     WINFRIPP_BGIMG_STATE_NONE			= 0,
     WINFRIPP_BGIMG_STATE_FAILED			= 1,
