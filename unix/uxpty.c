@@ -206,6 +206,8 @@ static void setup_utmp(char *ttyname, char *location)
     struct timeval tv;
 
     pw = getpwuid(getuid());
+    if (!pw)
+        return; /* can't stamp utmp if we don't have a username */
     memset(&utmp_entry, 0, sizeof(utmp_entry));
     utmp_entry.ut_type = USER_PROCESS;
     utmp_entry.ut_pid = getpid();
@@ -890,6 +892,15 @@ Backend *pty_backend_create(
         pty->fds[i].pty = pty;
     }
 
+    if (pty_signal_pipe[0] < 0) {
+        if (pipe(pty_signal_pipe) < 0) {
+            perror("pipe");
+            exit(1);
+        }
+        cloexec(pty_signal_pipe[0]);
+        cloexec(pty_signal_pipe[1]);
+    }
+
     pty->seat = seat;
     pty->backend.vt = &pty_backend;
 
@@ -1250,14 +1261,6 @@ Backend *pty_backend_create(
         add234(ptys_by_pid, pty);
     }
 
-    if (pty_signal_pipe[0] < 0) {
-        if (pipe(pty_signal_pipe) < 0) {
-            perror("pipe");
-            exit(1);
-        }
-        cloexec(pty_signal_pipe[0]);
-        cloexec(pty_signal_pipe[1]);
-    }
     pty_uxsel_setup(pty);
 
     return &pty->backend;
@@ -1270,10 +1273,10 @@ Backend *pty_backend_create(
  * it gets the argv array from the global variable pty_argv, expecting
  * that it will have been invoked by pterm.
  */
-static const char *pty_init(const BackendVtable *vt, Seat *seat,
-                            Backend **backend_handle, LogContext *logctx,
-                            Conf *conf, const char *host, int port,
-                            char **realhost, bool nodelay, bool keepalive)
+static char *pty_init(const BackendVtable *vt, Seat *seat,
+                      Backend **backend_handle, LogContext *logctx,
+                      Conf *conf, const char *host, int port,
+                      char **realhost, bool nodelay, bool keepalive)
 {
     const char *cmd = NULL;
     struct ssh_ttymodes modes;

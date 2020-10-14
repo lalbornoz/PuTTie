@@ -110,6 +110,7 @@
 #define ATTR_BGMASK  0x003FE00U
 #define ATTR_COLOURS 0x003FFFFU
 #define ATTR_DIM     0x1000000U
+#define ATTR_STRIKE  0x2000000U
 #define ATTR_FGSHIFT 0
 #define ATTR_BGSHIFT 9
 
@@ -499,10 +500,10 @@ struct Backend {
     const BackendVtable *vt;
 };
 struct BackendVtable {
-    const char *(*init) (const BackendVtable *vt, Seat *seat,
-                         Backend **backend_out, LogContext *logctx, Conf *conf,
-                         const char *host, int port,
-                         char **realhost, bool nodelay, bool keepalive);
+    char *(*init) (const BackendVtable *vt, Seat *seat,
+                   Backend **backend_out, LogContext *logctx, Conf *conf,
+                   const char *host, int port, char **realhost,
+                   bool nodelay, bool keepalive);
 
     void (*free) (Backend *be);
     /* Pass in a replacement configuration. */
@@ -544,7 +545,7 @@ struct BackendVtable {
     unsigned serial_parity_mask, serial_flow_mask;
 };
 
-static inline const char *backend_init(
+static inline char *backend_init(
     const BackendVtable *vt, Seat *seat, Backend **out, LogContext *logctx,
     Conf *conf, const char *host, int port, char **rhost, bool nd, bool ka)
 { return vt->init(vt, seat, out, logctx, conf, host, port, rhost, nd, ka); }
@@ -1260,6 +1261,7 @@ NORETURN void cleanup_exit(int);
     X(BOOL, NONE, compression) \
     X(INT, INT, ssh_kexlist) \
     X(INT, INT, ssh_hklist) \
+    X(BOOL, NONE, ssh_prefer_known_hostkeys) \
     X(INT, NONE, ssh_rekey_time) /* in minutes */ \
     X(STR, NONE, ssh_rekey_data) /* string encoding e.g. "100K", "2M", "1G" */ \
     X(BOOL, NONE, tryagent) \
@@ -1823,9 +1825,14 @@ void random_unref(void);
  * logical main() no matter whether it needed random numbers or
  * not. */
 void random_clear(void);
-/* random_setup_special is used by PuTTYgen. It makes an extra-big
- * random number generator. */
-void random_setup_special(void);
+/* random_setup_custom sets up the process-global random number
+ * generator specially, with a hash function of your choice. */
+void random_setup_custom(const ssh_hashalg *hash);
+/* random_setup_special() is a macro wrapper on that, which makes an
+ * extra-big one based on SHA-512. It's defined this way to avoid what
+ * would otherwise be an unnecessary module dependency from sshrand.c
+ * to sshsh512.c. */
+#define random_setup_special() random_setup_custom(&ssh_sha512)
 /* Manually drop a random seed into the random number generator, e.g.
  * just before generating a key. */
 void random_reseed(ptrlen seed);
