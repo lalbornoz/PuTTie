@@ -92,6 +92,7 @@
 #endif
 
 static Mouse_Button translate_button(Mouse_Button button);
+static void show_mouseptr(bool show);
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
                         unsigned char *output);
@@ -190,7 +191,7 @@ static bool bold_colours;
 static enum {
     UND_LINE, UND_FONT
 } und_mode;
-static int descent;
+static int descent, font_strikethrough_y;
 
 #define NCFGCOLOURS 22
 #define NEXTCOLOURS 240
@@ -371,9 +372,8 @@ static WinGuiSeat wgs = { .seat.vt = &win_seat_vt,
 static void start_backend(void)
 {
     const struct BackendVtable *vt;
-    const char *error;
     const char *title;
-    char *realhost;
+    char *error, *realhost;
     int i;
 
     /*
@@ -400,6 +400,7 @@ static void start_backend(void)
         char *str = dupprintf("%s Error", appname);
         char *msg = dupprintf("Unable to open connection to\n%s\n%s",
                               conf_dest(conf), error);
+        sfree(error);
         MessageBox(NULL, msg, str, MB_ICONERROR | MB_OK);
         sfree(str);
         sfree(msg);
@@ -1194,6 +1195,7 @@ static void wintw_set_raw_mouse_mode(TermWin *tw, bool activate)
 static void win_seat_connection_fatal(Seat *seat, const char *msg)
 {
     char *title = dupprintf("%s Fatal Error", appname);
+    show_mouseptr(true);
     MessageBox(wgs.term_hwnd, msg, title, MB_ICONERROR | MB_OK);
     sfree(title);
 
@@ -1499,6 +1501,7 @@ static int get_font_width(HDC hdc, const TEXTMETRIC *tm)
 static void init_fonts(int pick_width, int pick_height)
 {
     TEXTMETRIC tm;
+    OUTLINETEXTMETRIC otm;
     CPINFO cpinfo;
     FontSpec *font;
     int fontsize[3];
@@ -1548,6 +1551,10 @@ static void init_fonts(int pick_width, int pick_height)
 
     SelectObject(hdc, fonts[FONT_NORMAL]);
     GetTextMetrics(hdc, &tm);
+    if (GetOutlineTextMetrics(hdc, sizeof(otm), &otm))
+        font_strikethrough_y = tm.tmAscent - otm.otmsStrikeoutPosition;
+    else
+        font_strikethrough_y = tm.tmAscent - (tm.tmAscent * 3 / 8);
 
     GetObject(fonts[FONT_NORMAL], sizeof(LOGFONT), &lfont);
 
@@ -2127,9 +2134,11 @@ static void win_seat_notify_remote_exit(Seat *seat)
             /* exitcode == INT_MAX indicates that the connection was closed
              * by a fatal error, so an error box will be coming our way and
              * we should not generate this informational one. */
-            if (exitcode != INT_MAX)
+            if (exitcode != INT_MAX) {
+                show_mouseptr(true);
                 MessageBox(wgs.term_hwnd, "Connection closed by remote host",
                            appname, MB_OK | MB_ICONINFORMATION);
+            }
         }
     }
 }
@@ -3520,6 +3529,25 @@ static void sys_cursor_update(void)
     ImmReleaseContext(wgs.term_hwnd, hIMC);
 }
 
+static void draw_horizontal_line_on_text(int y, int lattr, RECT line_box,
+                                         COLORREF colour)
+{
+    if (lattr == LATTR_TOP || lattr == LATTR_BOT) {
+        y *= 2;
+        if (lattr == LATTR_BOT)
+            y -= font_height;
+    }
+
+    if (!(0 <= y && y < font_height))
+        return;
+
+    HPEN oldpen = SelectObject(wintw_hdc, CreatePen(PS_SOLID, 0, colour));
+    MoveToEx(wintw_hdc, line_box.left, line_box.top + y, NULL);
+    LineTo(wintw_hdc, line_box.right, line_box.top + y);
+    oldpen = SelectObject(wintw_hdc, oldpen);
+    DeleteObject(oldpen);
+}
+
 /*
  * Draw a line of text in the window, at given character
  * coordinates, in given attributes.
@@ -3905,20 +3933,13 @@ static void do_text_internal(
         SetBkMode(wintw_hdc, TRANSPARENT);
         opaque = false;
     }
-    if (lattr != LATTR_TOP && (force_manual_underline ||
-                               (und_mode == UND_LINE
-                                && (attr & ATTR_UNDER)))) {
-        HPEN oldpen;
-        int dec = descent;
-        if (lattr == LATTR_BOT)
-            dec = dec * 2 - font_height;
 
-        oldpen = SelectObject(wintw_hdc, CreatePen(PS_SOLID, 0, fg));
-        MoveToEx(wintw_hdc, line_box.left, line_box.top + dec, NULL);
-        LineTo(wintw_hdc, line_box.right, line_box.top + dec);
-        oldpen = SelectObject(wintw_hdc, oldpen);
-        DeleteObject(oldpen);
-    }
+    if (lattr != LATTR_TOP && (force_manual_underline ||
+                               (und_mode == UND_LINE && (attr & ATTR_UNDER))))
+        draw_horizontal_line_on_text(descent, lattr, line_box, fg);
+
+    if (attr & ATTR_STRIKE)
+        draw_horizontal_line_on_text(font_strikethrough_y, lattr, line_box, fg);
 }
 
 /*
@@ -5292,7 +5313,7 @@ static void wintw_clip_write(
                                    (int)udata[uindex]);
                     alen = 1; strcpy(after, "}");
                 } else {
-                    blen = sprintf(before, "\\u%d", udata[uindex]);
+                    blen = sprintf(before, "\\u%d", (int)udata[uindex]);
                     alen = 0; after[0] = '\0';
                 }
             }
@@ -5465,6 +5486,7 @@ void modalfatalbox(const char *fmt, ...)
     va_start(ap, fmt);
     message = dupvprintf(fmt, ap);
     va_end(ap);
+    show_mouseptr(true);
     title = dupprintf("%s Fatal Error", appname);
     MessageBox(wgs.term_hwnd, message, title,
                MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
@@ -5484,6 +5506,7 @@ void nonfatal(const char *fmt, ...)
     va_start(ap, fmt);
     message = dupvprintf(fmt, ap);
     va_end(ap);
+    show_mouseptr(true);
     title = dupprintf("%s Error", appname);
     MessageBox(wgs.term_hwnd, message, title, MB_ICONERROR | MB_OK);
     sfree(message);
@@ -5598,6 +5621,7 @@ static void wintw_bell(TermWin *tw, int mode)
         if (!p_PlaySound || !p_PlaySound(bell_wavefile->path, NULL,
                          SND_ASYNC | SND_FILENAME)) {
             char *buf, *otherbuf;
+            show_mouseptr(true);
             buf = dupprintf(
                 "Unable to play sound file\n%s\nUsing default sound instead",
                 bell_wavefile->path);

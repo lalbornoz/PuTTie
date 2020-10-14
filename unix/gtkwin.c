@@ -3887,6 +3887,14 @@ static void do_text_internal(
                   y*inst->font_height + uheight + inst->window_border);
     }
 
+    if (attr & ATTR_STRIKE) {
+        int sheight = inst->fonts[fontid]->strikethrough_y;
+        draw_line(inst, x*inst->font_width+inst->window_border,
+                  y*inst->font_height + sheight + inst->window_border,
+                  (x+len)*widefactor*inst->font_width-1+inst->window_border,
+                  y*inst->font_height + sheight + inst->window_border);
+    }
+
     if ((lattr & LATTR_MODE) != LATTR_NORM) {
         draw_stretch_after(inst,
                            x*inst->font_width+inst->window_border,
@@ -5088,8 +5096,7 @@ static void gtk_seat_update_specials_menu(Seat *seat)
 static void start_backend(GtkFrontend *inst)
 {
     const struct BackendVtable *vt;
-    char *realhost;
-    const char *error;
+    char *error, *realhost;
     char *s;
 
     vt = select_backend(inst->conf);
@@ -5107,6 +5114,7 @@ static void start_backend(GtkFrontend *inst)
         seat_connection_fatal(&inst->seat,
                               "Unable to open connection to %s:\n%s",
                               conf_dest(inst->conf), error);
+        sfree(error);
         inst->exited = true;
         return;
     }
