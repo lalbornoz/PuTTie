@@ -123,6 +123,8 @@ static void usage(void)
     printf("  -load sessname  Load settings from saved session\n");
     printf("  -ssh -telnet -rlogin -raw -serial\n");
     printf("            force use of a particular protocol\n");
+    printf("  -ssh-connection\n");
+    printf("            force use of the bare ssh-connection protocol\n");
     printf("  -P port   connect to specified port\n");
     printf("  -l user   connect with specified username\n");
     printf("  -batch    disable all interactive prompts\n");
@@ -165,6 +167,9 @@ static void usage(void)
     printf("  -sshlog file\n");
     printf("  -sshrawlog file\n");
     printf("            log protocol details to a file\n");
+    printf("  -logoverwrite\n");
+    printf("  -logappend\n");
+    printf("            control what happens when a log file already exists\n");
     printf("  -shareexists\n");
     printf("            test whether a connection-sharing upstream exists\n");
     exit(1);
@@ -395,7 +400,8 @@ int main(int argc, char **argv)
 
     if (vt->flags & BACKEND_NEEDS_TERMINAL) {
         fprintf(stderr,
-                "Plink must have a terminal to run.\n");
+                "Plink doesn't support %s, which needs terminal emulation\n",
+                vt->displayname);
         return 1;
     }
 

@@ -103,6 +103,11 @@ void timer_change_notify(unsigned long next)
 
 char *platform_get_x_display(void) { return NULL; }
 
+void make_unix_sftp_filehandle_key(void *data, size_t size)
+{
+    random_read(data, size);
+}
+
 static bool verbose;
 
 struct AuthPolicyShared {
@@ -338,7 +343,7 @@ static void show_help(FILE *fp)
           "         --exitsignum         send buggy numeric \"exit-signal\" "
           "message\n"
           "         --verbose            print event log messages to standard "
-          "output\n"
+          "error\n"
           "         --sshlog FILE        write SSH packet log to FILE\n"
           "         --sshrawlog FILE     write SSH packets + raw data log"
           " to FILE\n"
@@ -528,6 +533,7 @@ int main(int argc, char **argv)
 
     memset(&ssc, 0, sizeof(ssc));
 
+    ssc.application_name = "Uppity";
     ssc.session_starting_dir = getenv("HOME");
     ssc.ssh1_cipher_mask = SSH1_SUPPORTED_CIPHER_MASK;
     ssc.ssh1_allow_compression = true;
@@ -777,6 +783,8 @@ int main(int argc, char **argv)
             conf_set_int(conf, CONF_logxfovr, LGXF_OVR);
         } else if (!strcmp(arg, "--pretend-to-accept-any-pubkey")) {
             ssc.stunt_pretend_to_accept_any_pubkey = true;
+        } else if (!strcmp(arg, "--open-unconditional-agent-socket")) {
+            ssc.stunt_open_unconditional_agent_socket = true;
         } else {
             fprintf(stderr, "%s: unrecognised option '%s'\n", appname, arg);
             exit(1);

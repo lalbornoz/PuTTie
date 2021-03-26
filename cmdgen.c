@@ -137,6 +137,8 @@ void help(void)
            "  -L    equivalent to `-O public-openssh'\n"
            "  -p    equivalent to `-O public'\n"
            "  --dump   equivalent to `-O text'\n"
+           "  --reencrypt          load a key and save it with fresh "
+           "encryption\n"
            "  --old-passphrase file\n"
            "        specify file containing old key passphrase\n"
            "  --new-passphrase file\n"
@@ -148,6 +150,22 @@ void help(void)
            "        proven         numbers that have been proven to be prime\n"
            "        proven-even    also try harder for an even distribution\n"
            "  --strong-rsa         use \"strong\" primes as RSA key factors\n"
+           "  --ppk-param <key>=<value>[,<key>=<value>,...]\n"
+           "        specify parameters when writing PuTTY private key file "
+           "format:\n"
+           "            version       PPK format version (min 2, max 3, "
+           "default 3)\n"
+           "            kdf           key derivation function (argon2id, "
+           "argon2i, argon2d)\n"
+           "            memory        Kb of memory to use in password hash "
+           "(default 8192)\n"
+           "            time          approx milliseconds to hash for "
+           "(default 100)\n"
+           "            passes        number of hash passes to run "
+           "(alternative to 'time')\n"
+           "            parallelism   number of parallelisable threads in the "
+           "hash function\n"
+           "                             (default 1)\n"
            );
 }
 
@@ -211,7 +229,7 @@ int main(int argc, char **argv)
     int bits = -1;
     const char *comment = NULL;
     char *origcomment = NULL;
-    bool change_passphrase = false;
+    bool change_passphrase = false, reencrypt = false;
     bool errs = false, nogo = false;
     int intype = SSH_KEYTYPE_UNOPENABLE;
     int sshver = 0;
@@ -225,6 +243,8 @@ int main(int argc, char **argv)
     int exit_status = 0;
     const PrimeGenerationPolicy *primegen = &primegen_probabilistic;
     bool strong_rsa = false;
+    ppk_save_parameters params = ppk_save_default_parameters;
+    FingerprintType fptype = SSH_FPTYPE_DEFAULT;
 
     if (is_interactive())
         progress_fp = stderr;
@@ -362,6 +382,83 @@ int main(int argc, char **argv)
                         }
                     } else if (!strcmp(opt, "-strong-rsa")) {
                         strong_rsa = true;
+                    } else if (!strcmp(opt, "-reencrypt")) {
+                        reencrypt = true;
+                    } else if (!strcmp(opt, "-ppk-param") ||
+                               !strcmp(opt, "-ppk-params")) {
+                        if (!val && argc > 1)
+                            --argc, val = *++argv;
+                        if (!val) {
+                            errs = true;
+                            fprintf(stderr, "puttygen: option `-%s'"
+                                    " expects an argument\n", opt);
+                        } else {
+                            char *nextval;
+                            for (; val; val = nextval) {
+                                nextval = strchr(val, ',');
+                                if (nextval)
+                                    *nextval++ = '\0';
+
+                                char *optvalue = strchr(val, '=');
+                                if (!optvalue) {
+                                    errs = true;
+                                    fprintf(stderr, "puttygen: PPK parameter "
+                                            "'%s' expected a value\n", val);
+                                    continue;
+                                }
+                                *optvalue++ = '\0';
+
+                                /* Non-numeric options */
+                                if (!strcmp(val, "kdf")) {
+                                    if (!strcmp(optvalue, "Argon2id") ||
+                                        !strcmp(optvalue, "argon2id")) {
+                                        params.argon2_flavour = Argon2id;
+                                    } else if (!strcmp(optvalue, "Argon2i") ||
+                                               !strcmp(optvalue, "argon2i")) {
+                                        params.argon2_flavour = Argon2i;
+                                    } else if (!strcmp(optvalue, "Argon2d") ||
+                                               !strcmp(optvalue, "argon2d")) {
+                                        params.argon2_flavour = Argon2d;
+                                    } else {
+                                        errs = true;
+                                        fprintf(stderr, "puttygen: unrecognise"
+                                                "d kdf '%s'\n", optvalue);
+                                    }
+                                    continue;
+                                }
+
+                                char *end;
+                                unsigned long n = strtoul(optvalue, &end, 0);
+                                if (!*optvalue || *end) {
+                                    errs = true;
+                                    fprintf(stderr, "puttygen: value '%s' for "
+                                            "PPK parameter '%s': expected a "
+                                            "number\n", optvalue, val);
+                                    continue;
+                                }
+
+                                if (!strcmp(val, "version")) {
+                                    params.fmt_version = n;
+                                } else if (!strcmp(val, "memory") ||
+                                           !strcmp(val, "mem")) {
+                                    params.argon2_mem = n;
+                                } else if (!strcmp(val, "time")) {
+                                    params.argon2_passes_auto = true;
+                                    params.argon2_milliseconds = n;
+                                } else if (!strcmp(val, "passes")) {
+                                    params.argon2_passes_auto = false;
+                                    params.argon2_milliseconds = n;
+                                } else if (!strcmp(val, "parallelism") ||
+                                           !strcmp(val, "parallel")) {
+                                    params.argon2_parallelism = n;
+                                } else {
+                                    errs = true;
+                                    fprintf(stderr, "puttygen: unrecognised "
+                                            "PPK parameter '%s'\n", val);
+                                    continue;
+                                }
+                            }
+                        }
                     } else {
                       errs = true;
                       fprintf(stderr,
@@ -411,6 +508,7 @@ int main(int argc, char **argv)
                   case 'C':
                   case 'O':
                   case 'o':
+                  case 'E':
                     /*
                      * Option requiring parameter.
                      */
@@ -478,6 +576,17 @@ int main(int argc, char **argv)
                         break;
                       case 'o':
                         outfile = p;
+                        break;
+                      case 'E':
+                        if (!strcmp(p, "md5"))
+                            fptype = SSH_FPTYPE_MD5;
+                        else if (!strcmp(p, "sha256"))
+                            fptype = SSH_FPTYPE_SHA256;
+                        else {
+                            fprintf(stderr, "puttygen: unknown fingerprint "
+                                    "type `%s'\n", p);
+                            errs = true;
+                        }
                         break;
                     }
                     p = NULL;          /* prevent continued processing */
@@ -680,7 +789,7 @@ int main(int argc, char **argv)
             outfiletmp = dupcat(outfile, ".tmp");
         }
 
-        if (!change_passphrase && !comment) {
+        if (!change_passphrase && !comment && !reencrypt) {
             fprintf(stderr, "puttygen: this command would perform no useful"
                     " action\n");
             RETURN(1);
@@ -1029,7 +1138,7 @@ int main(int argc, char **argv)
             }
         } else {
             assert(ssh2key);
-            ret = ppk_save_f(outfilename, ssh2key, new_passphrase);
+            ret = ppk_save_f(outfilename, ssh2key, new_passphrase, &params);
             if (!ret) {
                 fprintf(stderr, "puttygen: unable to save SSH-2 private key\n");
                 RETURN(1);
@@ -1086,11 +1195,11 @@ int main(int argc, char **argv)
           fingerprint = rsa_ssh1_fingerprint(ssh1key);
         } else {
           if (ssh2key) {
-            fingerprint = ssh2_fingerprint(ssh2key->key);
+            fingerprint = ssh2_fingerprint(ssh2key->key, fptype);
           } else {
             assert(ssh2blob);
             fingerprint = ssh2_fingerprint_blob(
-                ptrlen_from_strbuf(ssh2blob));
+                ptrlen_from_strbuf(ssh2blob), fptype);
           }
         }
 

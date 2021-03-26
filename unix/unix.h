@@ -218,8 +218,8 @@ void logevent_dlg(eventlog_stuff *estuff, const char *string);
 int gtkdlg_askappend(Seat *seat, Filename *filename,
                      void (*callback)(void *ctx, int result), void *ctx);
 int gtk_seat_verify_ssh_host_key(
-    Seat *seat, const char *host, int port,
-    const char *keytype, char *keystr, char *fingerprint,
+    Seat *seat, const char *host, int port, const char *keytype,
+    char *keystr, const char *keydisp, char **fingerprints,
     void (*callback)(void *ctx, int result), void *ctx);
 int gtk_seat_confirm_weak_crypto_primitive(
     Seat *seat, const char *algtype, const char *algname,
@@ -244,9 +244,6 @@ GtkWidget *create_message_box(
     bool selectable, const struct message_box_buttons *buttons,
     post_dialog_fn_t after, void *afterctx);
 #endif
-
-/* Things gtkwin.c needs from {ptermm,uxputty}.c */
-char *make_default_wintitle(char *hostname);
 
 /* gtkwin.c needs this special function in xkeysym.c */
 int keysym_to_unicode(int keysym);
