@@ -263,13 +263,8 @@ struct hostport {
     union control *host, *port;
 };
 
-/*
- * We export this function so that platform-specific config
- * routines can use it to conveniently identify the protocol radio
- * buttons in order to add to them.
- */
-void config_protocolbuttons_handler(union control *ctrl, dlgparam *dlg,
-                                    void *data, int event)
+static void config_protocolbuttons_handler(union control *ctrl, dlgparam *dlg,
+                                           void *data, int event)
 {
     int button;
     Conf *conf = (Conf *)data;
@@ -862,18 +857,12 @@ struct colour_data {
     union control *listbox, *redit, *gedit, *bedit, *button;
 };
 
+/* Array of the user-visible colour names defined in the list macro in
+ * putty.h */
 static const char *const colours[] = {
-    "Default Foreground", "Default Bold Foreground",
-    "Default Background", "Default Bold Background",
-    "Cursor Text", "Cursor Colour",
-    "ANSI Black", "ANSI Black Bold",
-    "ANSI Red", "ANSI Red Bold",
-    "ANSI Green", "ANSI Green Bold",
-    "ANSI Yellow", "ANSI Yellow Bold",
-    "ANSI Blue", "ANSI Blue Bold",
-    "ANSI Magenta", "ANSI Magenta Bold",
-    "ANSI Cyan", "ANSI Cyan Bold",
-    "ANSI White", "ANSI White Bold"
+    #define CONF_COLOUR_NAME_DECL(id,name) name,
+    CONF_COLOUR_LIST(CONF_COLOUR_NAME_DECL)
+    #undef CONF_COLOUR_NAME_DECL
 };
 
 static void colour_handler(union control *ctrl, dlgparam *dlg,

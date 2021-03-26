@@ -96,8 +96,6 @@ static void show_mouseptr(bool show);
 static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
                         unsigned char *output);
-static void conftopalette(void);
-static void systopalette(void);
 static void init_palette(void);
 static void init_fonts(int, int);
 static void another_font(int);
@@ -193,16 +191,11 @@ static enum {
 } und_mode;
 static int descent, font_strikethrough_y;
 
-#define NCFGCOLOURS 22
-#define NEXTCOLOURS 240
-#define NALLCOLOURS (NCFGCOLOURS + NEXTCOLOURS)
-static COLORREF colours[NALLCOLOURS];
-static struct rgb {
-    int r, g, b;
-} colours_rgb[NALLCOLOURS];
+static COLORREF colours[OSC4_NCOLOURS];
 static HPALETTE pal;
 static LPLOGPALETTE logpal;
-static RGBTRIPLE defpal[NALLCOLOURS];
+bool tried_pal = false;
+COLORREF colorref_modifier = 0;
 
 static HBITMAP caretbm;
 
@@ -212,6 +205,8 @@ static Mouse_Button lastbtn;
 /* this allows xterm-style mouse handling. */
 static bool send_raw_mouse = false;
 static int wheel_accumulator = 0;
+
+static bool pointer_indicates_raw_mouse = false;
 
 static BusyStatus busy_status = BUSY_NOT;
 
@@ -237,6 +232,7 @@ static int wintw_char_width(TermWin *, int uc);
 static void wintw_free_draw_ctx(TermWin *);
 static void wintw_set_cursor_pos(TermWin *, int x, int y);
 static void wintw_set_raw_mouse_mode(TermWin *, bool enable);
+static void wintw_set_raw_mouse_mode_pointer(TermWin *, bool enable);
 static void wintw_set_scrollbar(TermWin *, int total, int start, int page);
 static void wintw_bell(TermWin *, int mode);
 static void wintw_clip_write(
@@ -248,17 +244,11 @@ static void wintw_request_resize(TermWin *, int w, int h);
 static void wintw_set_title(TermWin *, const char *title);
 static void wintw_set_icon_title(TermWin *, const char *icontitle);
 static void wintw_set_minimised(TermWin *, bool minimised);
-static bool wintw_is_minimised(TermWin *);
 static void wintw_set_maximised(TermWin *, bool maximised);
 static void wintw_move(TermWin *, int x, int y);
 static void wintw_set_zorder(TermWin *, bool top);
-static bool wintw_palette_get(TermWin *, int n, int *r, int *g, int *b);
-static void wintw_palette_set(TermWin *, int n, int r, int g, int b);
-static void wintw_palette_reset(TermWin *);
-static void wintw_get_pos(TermWin *, int *x, int *y);
-static void wintw_get_pixels(TermWin *, int *x, int *y);
-static const char *wintw_get_title(TermWin *, bool icon);
-static bool wintw_is_utf8(TermWin *);
+static void wintw_palette_set(TermWin *, unsigned, unsigned, const rgb *);
+static void wintw_palette_get_overrides(TermWin *);
 
 static const TermWinVtable windows_termwin_vt = {
     .setup_draw_ctx = wintw_setup_draw_ctx,
@@ -269,6 +259,7 @@ static const TermWinVtable windows_termwin_vt = {
     .free_draw_ctx = wintw_free_draw_ctx,
     .set_cursor_pos = wintw_set_cursor_pos,
     .set_raw_mouse_mode = wintw_set_raw_mouse_mode,
+    .set_raw_mouse_mode_pointer = wintw_set_raw_mouse_mode_pointer,
     .set_scrollbar = wintw_set_scrollbar,
     .bell = wintw_bell,
     .clip_write = wintw_clip_write,
@@ -278,17 +269,11 @@ static const TermWinVtable windows_termwin_vt = {
     .set_title = wintw_set_title,
     .set_icon_title = wintw_set_icon_title,
     .set_minimised = wintw_set_minimised,
-    .is_minimised = wintw_is_minimised,
     .set_maximised = wintw_set_maximised,
     .move = wintw_move,
     .set_zorder = wintw_set_zorder,
-    .palette_get = wintw_palette_get,
     .palette_set = wintw_palette_set,
-    .palette_reset = wintw_palette_reset,
-    .get_pos = wintw_get_pos,
-    .get_pixels = wintw_get_pixels,
-    .get_title = wintw_get_title,
-    .is_utf8 = wintw_is_utf8,
+    .palette_get_overrides = wintw_palette_get_overrides,
 };
 
 static TermWin wintw[1];
@@ -304,28 +289,17 @@ static bool is_utf8(void)
     return ucsdata.line_codepage == CP_UTF8;
 }
 
-static bool wintw_is_utf8(TermWin *tw)
-{
-    return is_utf8();
-}
-
 static bool win_seat_is_utf8(Seat *seat)
 {
     return is_utf8();
 }
 
-char *win_seat_get_ttymode(Seat *seat, const char *mode)
+static char *win_seat_get_ttymode(Seat *seat, const char *mode)
 {
     return term_get_ttymode(term, mode);
 }
 
-bool win_seat_get_window_pixel_size(Seat *seat, int *x, int *y)
-{
-    win_get_pixels(wintw, x, y);
-    return true;
-}
-
-StripCtrlChars *win_seat_stripctrl_new(
+static StripCtrlChars *win_seat_stripctrl_new(
     Seat *seat, BinarySink *bs_out, SeatInteractionContext sic)
 {
     return stripctrl_new_term(bs_out, false, 0, term);
@@ -342,6 +316,7 @@ static void win_seat_update_specials_menu(Seat *seat);
 static void win_seat_set_busy_status(Seat *seat, BusyStatus status);
 static bool win_seat_set_trust_status(Seat *seat, bool trusted);
 static bool win_seat_get_cursor_position(Seat *seat, int *x, int *y);
+static bool win_seat_get_window_pixel_size(Seat *seat, int *x, int *y);
 
 static const SeatVtable win_seat_vt = {
     .output = win_seat_output,
@@ -372,7 +347,6 @@ static WinGuiSeat wgs = { .seat.vt = &win_seat_vt,
 static void start_backend(void)
 {
     const struct BackendVtable *vt;
-    const char *title;
     char *error, *realhost;
     int i;
 
@@ -406,16 +380,8 @@ static void start_backend(void)
         sfree(msg);
         exit(0);
     }
-    window_name = icon_name = NULL;
-    char *title_to_free = NULL;
-    title = conf_get_str(conf, CONF_wintitle);
-    if (!*title) {
-        title_to_free = dupprintf("%s - %s", realhost, appname);
-        title = title_to_free;
-    }
+    term_setup_window_titles(term, realhost);
     sfree(realhost);
-    win_set_title(wintw, title);
-    win_set_icon_title(wintw, title);
 
     /*
      * Connect the terminal to the backend for resize purposes.
@@ -439,8 +405,6 @@ static void start_backend(void)
     }
 
     session_closed = false;
-
-    sfree(title_to_free);
 }
 
 static void close_session(void *ignored_context)
@@ -714,8 +678,6 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
     conf_cache_data();
 
-    conftopalette();
-
     /*
      * Guess some defaults for the window size. This all gets
      * updated later, so we don't really care too much. However, we
@@ -770,6 +732,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
      * for font_{width,height}.
      */
     init_fonts(0,0);
+
+    /*
+     * Prepare a logical palette.
+     */
+    init_palette();
 
     /*
      * Initialise the terminal. (We have to do this _after_
@@ -904,13 +871,6 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
      */
     ShowWindow(wgs.term_hwnd, show);
     SetForegroundWindow(wgs.term_hwnd);
-
-    /*
-     * Set the palette up.
-     */
-    pal = NULL;
-    logpal = NULL;
-    init_palette();
 
     term_set_focus(term, GetForegroundWindow() == wgs.term_hwnd);
     UpdateWindow(wgs.term_hwnd);
@@ -1142,7 +1102,7 @@ static void update_mouse_pointer(void)
     static bool forced_visible = false;
     switch (busy_status) {
       case BUSY_NOT:
-        if (send_raw_mouse)
+        if (pointer_indicates_raw_mouse)
             curstype = IDC_ARROW;
         else
             curstype = IDC_IBEAM;
@@ -1179,13 +1139,14 @@ static void win_seat_set_busy_status(Seat *seat, BusyStatus status)
     update_mouse_pointer();
 }
 
-/*
- * set or clear the "raw mouse message" mode
- */
 static void wintw_set_raw_mouse_mode(TermWin *tw, bool activate)
 {
-    activate = activate && !conf_get_bool(conf, CONF_no_mouse_rep);
     send_raw_mouse = activate;
+}
+
+static void wintw_set_raw_mouse_mode_pointer(TermWin *tw, bool activate)
+{
+    pointer_indicates_raw_mouse = activate;
     update_mouse_pointer();
 }
 
@@ -1234,122 +1195,34 @@ static void wm_netevent_callback(void *vctx)
     sfree(vctx);
 }
 
-/*
- * Copy the colour palette from the configuration data into defpal.
- * This is non-trivial because the colour indices are different.
- */
-static void conftopalette(void)
+static inline rgb rgb_from_colorref(COLORREF cr)
 {
-    int i;
-    static const int ww[] = {
-        256, 257, 258, 259, 260, 261,
-        0, 8, 1, 9, 2, 10, 3, 11,
-        4, 12, 5, 13, 6, 14, 7, 15
-    };
-
-    for (i = 0; i < 22; i++) {
-        int w = ww[i];
-        defpal[w].rgbtRed = conf_get_int_int(conf, CONF_colours, i*3+0);
-        defpal[w].rgbtGreen = conf_get_int_int(conf, CONF_colours, i*3+1);
-        defpal[w].rgbtBlue = conf_get_int_int(conf, CONF_colours, i*3+2);
-    }
-    for (i = 0; i < NEXTCOLOURS; i++) {
-        if (i < 216) {
-            int r = i / 36, g = (i / 6) % 6, b = i % 6;
-            defpal[i+16].rgbtRed = r ? r * 40 + 55 : 0;
-            defpal[i+16].rgbtGreen = g ? g * 40 + 55 : 0;
-            defpal[i+16].rgbtBlue = b ? b * 40 + 55 : 0;
-        } else {
-            int shade = i - 216;
-            shade = shade * 10 + 8;
-            defpal[i+16].rgbtRed = defpal[i+16].rgbtGreen =
-                defpal[i+16].rgbtBlue = shade;
-        }
-    }
-
-    /* Override with system colours if appropriate */
-    if (conf_get_bool(conf, CONF_system_colour))
-        systopalette();
+    rgb toret;
+    toret.r = GetRValue(cr);
+    toret.g = GetGValue(cr);
+    toret.b = GetBValue(cr);
+    return toret;
 }
 
-/*
- * Override bit of defpal with colours from the system.
- * (NB that this takes a copy the system colours at the time this is called,
- * so subsequent colour scheme changes don't take effect. To fix that we'd
- * probably want to be using GetSysColorBrush() and the like.)
- */
-static void systopalette(void)
+static void wintw_palette_get_overrides(TermWin *tw)
 {
-    int i;
-    static const struct { int nIndex; int norm; int bold; } or[] =
-    {
-        { COLOR_WINDOWTEXT,     256, 257 }, /* Default Foreground */
-        { COLOR_WINDOW,         258, 259 }, /* Default Background */
-        { COLOR_HIGHLIGHTTEXT,  260, 260 }, /* Cursor Text */
-        { COLOR_HIGHLIGHT,      261, 261 }, /* Cursor Colour */
-    };
+    if (conf_get_bool(conf, CONF_system_colour)) {
+        rgb rgb;
 
-    for (i = 0; i < (sizeof(or)/sizeof(or[0])); i++) {
-        COLORREF colour = GetSysColor(or[i].nIndex);
-        defpal[or[i].norm].rgbtRed =
-           defpal[or[i].bold].rgbtRed = GetRValue(colour);
-        defpal[or[i].norm].rgbtGreen =
-           defpal[or[i].bold].rgbtGreen = GetGValue(colour);
-        defpal[or[i].norm].rgbtBlue =
-           defpal[or[i].bold].rgbtBlue = GetBValue(colour);
+        rgb = rgb_from_colorref(GetSysColor(COLOR_WINDOWTEXT));
+        term_palette_override(term, OSC4_COLOUR_fg, rgb);
+        term_palette_override(term, OSC4_COLOUR_fg_bold, rgb);
+
+        rgb = rgb_from_colorref(GetSysColor(COLOR_WINDOW));
+        term_palette_override(term, OSC4_COLOUR_bg, rgb);
+        term_palette_override(term, OSC4_COLOUR_bg_bold, rgb);
+
+        rgb = rgb_from_colorref(GetSysColor(COLOR_HIGHLIGHTTEXT));
+        term_palette_override(term, OSC4_COLOUR_cursor_fg, rgb);
+
+        rgb = rgb_from_colorref(GetSysColor(COLOR_HIGHLIGHT));
+        term_palette_override(term, OSC4_COLOUR_cursor_bg, rgb);
     }
-}
-
-static void internal_set_colour(int i, int r, int g, int b)
-{
-    assert(i >= 0);
-    assert(i < NALLCOLOURS);
-    if (pal)
-        colours[i] = PALETTERGB(r, g, b);
-    else
-        colours[i] = RGB(r, g, b);
-    colours_rgb[i].r = r;
-    colours_rgb[i].g = g;
-    colours_rgb[i].b = b;
-}
-
-/*
- * Set up the colour palette.
- */
-static void init_palette(void)
-{
-    int i;
-    HDC hdc = GetDC(wgs.term_hwnd);
-    if (hdc) {
-        if (conf_get_bool(conf, CONF_try_palette) &&
-            GetDeviceCaps(hdc, RASTERCAPS) & RC_PALETTE) {
-            /*
-             * This is a genuine case where we must use smalloc
-             * because the snew macros can't cope.
-             */
-            logpal = smalloc(sizeof(*logpal)
-                             - sizeof(logpal->palPalEntry)
-                             + NALLCOLOURS * sizeof(PALETTEENTRY));
-            logpal->palVersion = 0x300;
-            logpal->palNumEntries = NALLCOLOURS;
-            for (i = 0; i < NALLCOLOURS; i++) {
-                logpal->palPalEntry[i].peRed = defpal[i].rgbtRed;
-                logpal->palPalEntry[i].peGreen = defpal[i].rgbtGreen;
-                logpal->palPalEntry[i].peBlue = defpal[i].rgbtBlue;
-                logpal->palPalEntry[i].peFlags = PC_NOCOLLAPSE;
-            }
-            pal = CreatePalette(logpal);
-            if (pal) {
-                SelectPalette(hdc, pal, false);
-                RealizePalette(hdc);
-                SelectPalette(hdc, GetStockObject(DEFAULT_PALETTE), false);
-            }
-        }
-        ReleaseDC(wgs.term_hwnd, hdc);
-    }
-    for (i = 0; i < NALLCOLOURS; i++)
-        internal_set_colour(i, defpal[i].rgbtRed,
-                            defpal[i].rgbtGreen, defpal[i].rgbtBlue);
 }
 
 /*
@@ -1824,6 +1697,25 @@ static void wintw_request_resize(TermWin *tw, int w, int h)
     InvalidateRect(wgs.term_hwnd, NULL, true);
 }
 
+static void recompute_window_offset(void)
+{
+    RECT cr;
+    GetClientRect(wgs.term_hwnd, &cr);
+
+    int win_width  = cr.right - cr.left;
+    int win_height = cr.bottom - cr.top;
+
+    int new_offset_width = (win_width-font_width*term->cols)/2;
+    int new_offset_height = (win_height-font_height*term->rows)/2;
+
+    if (offset_width != new_offset_width ||
+        offset_height != new_offset_height) {
+        offset_width = new_offset_width;
+        offset_height = new_offset_height;
+        InvalidateRect(wgs.term_hwnd, NULL, true);
+    }
+}
+
 static void reset_window(int reinit) {
     /*
      * This function decides how to resize or redraw when the
@@ -1866,12 +1758,8 @@ static void reset_window(int reinit) {
         return;
 
     /* Is the window out of position ? */
-    if ( !reinit &&
-            (offset_width != (win_width-font_width*term->cols)/2 ||
-             offset_height != (win_height-font_height*term->rows)/2) ){
-        offset_width = (win_width-font_width*term->cols)/2;
-        offset_height = (win_height-font_height*term->rows)/2;
-        InvalidateRect(wgs.term_hwnd, NULL, true);
+    if (!reinit) {
+        recompute_window_offset();
 #ifdef RDB_DEBUG_PATCH
         debug("reset_window() -> Reposition terminal\n");
 #endif
@@ -2187,12 +2075,44 @@ static void free_hdc(HDC hdc)
     ReleaseDC(wgs.term_hwnd, hdc);
 }
 
+static bool need_backend_resize = false;
+
+static void wm_size_resize_term(LPARAM lParam, bool border)
+{
+    int width = LOWORD(lParam);
+    int height = HIWORD(lParam);
+    int border_size = border ? conf_get_int(conf, CONF_window_border) : 0;
+
+    int w = (width - border_size*2) / font_width;
+    int h = (height - border_size*2) / font_height;
+
+    if (w < 1) w = 1;
+    if (h < 1) h = 1;
+
+    if (resizing) {
+        /*
+         * If we're in the middle of an interactive resize, we don't
+         * call term_size. This means that, firstly, the user can drag
+         * the size back and forth indecisively without wiping out any
+         * actual terminal contents, and secondly, the Terminal
+         * doesn't call back->size in turn for each increment of the
+         * resizing drag, so we don't spam the server with huge
+         * numbers of resize events.
+         */
+        need_backend_resize = true;
+        conf_set_int(conf, CONF_height, h);
+        conf_set_int(conf, CONF_width, w);
+    } else {
+        term_size(term, h, w,
+                  conf_get_int(conf, CONF_savelines));
+    }
+}
+
 static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                                 WPARAM wParam, LPARAM lParam)
 {
     HDC hdc;
     static bool ignore_clip = false;
-    static bool need_backend_resize = false;
     static bool fullscr_on_max = false;
     static bool processed_resize = false;
     static UINT last_mousemove = 0;
@@ -2213,16 +2133,23 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_CREATE:
         break;
       case WM_CLOSE: {
-        char *str;
+        char *title, *msg, *additional = NULL;
         show_mouseptr(true);
-        str = dupprintf("%s Exit Confirmation", appname);
+        title = dupprintf("%s Exit Confirmation", appname);
+        if (backend && backend->vt->close_warn_text) {
+            additional = backend->vt->close_warn_text(backend);
+        }
+        msg = dupprintf("Are you sure you want to close this session?%s%s",
+                        additional ? "\n" : "",
+                        additional ? additional : "");
         if (session_closed || !conf_get_bool(conf, CONF_warn_on_close) ||
-            MessageBox(hwnd,
-                       "Are you sure you want to close this session?",
-                       str, MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON1)
+            MessageBox(hwnd, msg, title,
+                       MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON1)
             == IDOK)
             DestroyWindow(hwnd);
-        sfree(str);
+        sfree(title);
+        sfree(msg);
+        sfree(additional);
         return 0;
       }
       case WM_DESTROY:
@@ -2346,14 +2273,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             else
                 reconfiguring = true;
 
-            /*
-             * Copy the current window title into the stored
-             * previous configuration, so that doing nothing to
-             * the window title field in the config box doesn't
-             * reset the title to its startup state.
-             */
-            conf_set_str(conf, CONF_wintitle, window_name);
-
+            term_pre_reconfig(term, conf);
             prev_conf = conf_copy(conf);
 
             /* {{{ winfrip */
@@ -2398,16 +2318,22 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
               ldisc_configure(ldisc, conf);
               ldisc_echoedit_update(ldisc);
             }
-            if (pal)
-                DeleteObject(pal);
-            logpal = NULL;
-            pal = NULL;
-            conftopalette();
-            init_palette();
+
+            if (conf_get_bool(conf, CONF_system_colour) !=
+                conf_get_bool(prev_conf, CONF_system_colour))
+                term_notify_palette_overrides_changed(term);
 
             /* Pass new config data to the terminal */
             term_reconfig(term, conf);
             setup_clipboards(term, conf);
+
+            /* Reinitialise the colour palette, in case the terminal
+             * just read new settings out of Conf */
+            if (pal)
+                DeleteObject(pal);
+            logpal = NULL;
+            pal = NULL;
+            init_palette();
 
             /* Pass new config data to the back end */
             if (backend)
@@ -2494,13 +2420,6 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             if (resize_action == RESIZE_DISABLED && IsZoomed(hwnd)) {
               force_normal(hwnd);
               init_lvl = 2;
-            }
-
-            win_set_title(wintw, conf_get_str(conf, CONF_wintitle));
-            if (IsIconic(hwnd)) {
-              SetWindowText(hwnd,
-                            conf_get_bool(conf, CONF_win_name_always) ?
-                            window_name : icon_name);
             }
 
             {
@@ -2950,6 +2869,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                       conf_get_int(conf, CONF_savelines));
             InvalidateRect(hwnd, NULL, true);
         }
+        recompute_window_offset();
         break;
       case WM_SIZING:
         /*
@@ -3048,6 +2968,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         fullscr_on_max = true;
         break;
       case WM_MOVE:
+        term_notify_window_pos(term, LOWORD(lParam), HIWORD(lParam));
         sys_cursor_update();
         break;
       case WM_SIZE:
@@ -3061,6 +2982,18 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
               "...",
               LOWORD(lParam), HIWORD(lParam));
 #endif
+        term_notify_minimised(term, wParam == SIZE_MINIMIZED);
+        {
+            /*
+             * WM_SIZE's lParam tells us the size of the client area.
+             * But historic PuTTY practice is that we want to tell the
+             * terminal the size of the overall window.
+             */
+            RECT r;
+            GetWindowRect(hwnd, &r);
+            term_notify_window_size_pixels(
+                term, r.right - r.left, r.bottom - r.top);
+        }
         if (wParam == SIZE_MINIMIZED)
             SetWindowText(hwnd,
                           conf_get_bool(conf, CONF_win_name_always) ?
@@ -3101,48 +3034,17 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             /* A resize, well it better be a minimize. */
             reset_window(-1);
         } else {
-
-            int width, height, w, h;
-            int window_border = conf_get_int(conf, CONF_window_border);
-
-            width = LOWORD(lParam);
-            height = HIWORD(lParam);
-
             if (wParam == SIZE_MAXIMIZED) {
                 was_zoomed = true;
                 prev_rows = term->rows;
                 prev_cols = term->cols;
-                if (resize_action == RESIZE_TERM) {
-                    w = width / font_width;
-                    if (w < 1) w = 1;
-                    h = height / font_height;
-                    if (h < 1) h = 1;
-
-                    if (resizing) {
-                        /*
-                         * As below, if we're in the middle of an
-                         * interactive resize we don't call
-                         * back->size. In Windows 7, this case can
-                         * arise in maximisation as well via the Aero
-                         * snap UI.
-                         */
-                        need_backend_resize = true;
-                        conf_set_int(conf, CONF_height, h);
-                        conf_set_int(conf, CONF_width, w);
-                    } else {
-                        term_size(term, h, w,
-                                  conf_get_int(conf, CONF_savelines));
-                    }
-                }
+                if (resize_action == RESIZE_TERM)
+                    wm_size_resize_term(lParam, false);
                 reset_window(0);
             } else if (wParam == SIZE_RESTORED && was_zoomed) {
                 was_zoomed = false;
                 if (resize_action == RESIZE_TERM) {
-                    w = (width-window_border*2) / font_width;
-                    if (w < 1) w = 1;
-                    h = (height-window_border*2) / font_height;
-                    if (h < 1) h = 1;
-                    term_size(term, h, w, conf_get_int(conf, CONF_savelines));
+                    wm_size_resize_term(lParam, true);
                     reset_window(2);
                 } else if (resize_action != RESIZE_FONT)
                     reset_window(2);
@@ -3153,24 +3055,23 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             } else if (resize_action == RESIZE_TERM ||
                        (resize_action == RESIZE_EITHER &&
                         !is_alt_pressed())) {
-                w = (width-window_border*2) / font_width;
-                if (w < 1) w = 1;
-                h = (height-window_border*2) / font_height;
-                if (h < 1) h = 1;
+                wm_size_resize_term(lParam, true);
 
-                if (resizing) {
-                    /*
-                     * Don't call back->size in mid-resize. (To
-                     * prevent massive numbers of resize events
-                     * getting sent down the connection during an NT
-                     * opaque drag.)
-                     */
-                    need_backend_resize = true;
-                    conf_set_int(conf, CONF_height, h);
-                    conf_set_int(conf, CONF_width, w);
-                } else {
-                    term_size(term, h, w, conf_get_int(conf, CONF_savelines));
-                }
+                /*
+                 * Sometimes, we can get a spontaneous resize event
+                 * outside a WM_SIZING interactive drag which wants to
+                 * set us to a new specific SIZE_RESTORED size. An
+                 * example is what happens if you press Windows+Right
+                 * and then Windows+Up: the first operation fits the
+                 * window to the right-hand half of the screen, and
+                 * the second one changes that for the top right
+                 * quadrant. In that situation, if we've responded
+                 * here by resizing the terminal, we may still need to
+                 * recompute the border around the window and do a
+                 * full redraw to clear the new border.
+                 */
+                if (!resizing)
+                    recompute_window_offset();
             } else {
                 reset_window(0);
             }
@@ -3390,8 +3291,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_SYSCOLORCHANGE:
         if (conf_get_bool(conf, CONF_system_colour)) {
             /* Refresh palette from system colours. */
-            /* XXX actually this zaps the entire palette. */
-            systopalette();
+            term_notify_palette_overrides_changed(term);
             init_palette();
             /* Force a repaint of the terminal window. */
             term_invalidate(term);
@@ -4819,8 +4719,7 @@ static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
 static void wintw_set_title(TermWin *tw, const char *title)
 {
     sfree(window_name);
-    window_name = snewn(1 + strlen(title), char);
-    strcpy(window_name, title);
+    window_name = dupstr(title);
     if (conf_get_bool(conf, CONF_win_name_always) || !IsIconic(wgs.term_hwnd))
         SetWindowText(wgs.term_hwnd, title);
 }
@@ -4828,8 +4727,7 @@ static void wintw_set_title(TermWin *tw, const char *title)
 static void wintw_set_icon_title(TermWin *tw, const char *title)
 {
     sfree(icon_name);
-    icon_name = snewn(1 + strlen(title), char);
-    strcpy(icon_name, title);
+    icon_name = dupstr(title);
     if (!conf_get_bool(conf, CONF_win_name_always) && IsIconic(wgs.term_hwnd))
         SetWindowText(wgs.term_hwnd, title);
 }
@@ -4866,74 +4764,73 @@ static void wintw_free_draw_ctx(TermWin *tw)
     wintw_hdc = NULL;
 }
 
-static void real_palette_set(int n, int r, int g, int b)
+/*
+ * Set up the colour palette.
+ */
+static void init_palette(void)
 {
-    internal_set_colour(n, r, g, b);
-    if (pal) {
-        logpal->palPalEntry[n].peRed = r;
-        logpal->palPalEntry[n].peGreen = g;
-        logpal->palPalEntry[n].peBlue = b;
-        logpal->palPalEntry[n].peFlags = PC_NOCOLLAPSE;
-        SetPaletteEntries(pal, 0, NALLCOLOURS, logpal->palPalEntry);
+    pal = NULL;
+    logpal = snew_plus(LOGPALETTE, (OSC4_NCOLOURS - 1) * sizeof(PALETTEENTRY));
+    logpal->palVersion = 0x300;
+    logpal->palNumEntries = OSC4_NCOLOURS;
+    for (unsigned i = 0; i < OSC4_NCOLOURS; i++)
+        logpal->palPalEntry[i].peFlags = PC_NOCOLLAPSE;
+}
+
+static void wintw_palette_set(TermWin *win, unsigned start,
+                              unsigned ncolours, const rgb *colours_in)
+{
+    assert(start <= OSC4_NCOLOURS);
+    assert(ncolours <= OSC4_NCOLOURS - start);
+
+    for (unsigned i = 0; i < ncolours; i++) {
+        const rgb *in = &colours_in[i];
+        PALETTEENTRY *out = &logpal->palPalEntry[i + start];
+        out->peRed = in->r;
+        out->peGreen = in->g;
+        out->peBlue = in->b;
+        colours[i + start] = RGB(in->r, in->g, in->b) ^ colorref_modifier;
     }
-}
 
-static bool wintw_palette_get(TermWin *tw, int n, int *r, int *g, int *b)
-{
-    if (n < 0 || n >= NALLCOLOURS)
-        return false;
-    *r = colours_rgb[n].r;
-    *g = colours_rgb[n].g;
-    *b = colours_rgb[n].b;
-    return true;
-}
+    bool got_new_palette = false;
 
-static void wintw_palette_set(TermWin *tw, int n, int r, int g, int b)
-{
-    if (n >= 16)
-        n += 256 - 16;
-    if (n >= NALLCOLOURS)
-        return;
-    real_palette_set(n, r, g, b);
-    if (pal) {
+    if (!tried_pal && conf_get_bool(conf, CONF_try_palette)) {
+        HDC hdc = GetDC(wgs.term_hwnd);
+        if (GetDeviceCaps(hdc, RASTERCAPS) & RC_PALETTE) {
+            pal = CreatePalette(logpal);
+            if (pal) {
+                SelectPalette(hdc, pal, false);
+                RealizePalette(hdc);
+                SelectPalette(hdc, GetStockObject(DEFAULT_PALETTE), false);
+
+                /* Convert all RGB() values in colours[] into PALETTERGB(),
+                 * and ensure we stick to that later */
+                colorref_modifier = PALETTERGB(0, 0, 0) ^ RGB(0, 0, 0);
+                for (unsigned i = 0; i < OSC4_NCOLOURS; i++)
+                    colours[i] ^= colorref_modifier;
+
+                /* Inhibit the SetPaletteEntries call below */
+                got_new_palette = true;
+            }
+        }
+        ReleaseDC(wgs.term_hwnd, hdc);
+        tried_pal = true;
+    }
+
+    if (pal && !got_new_palette) {
+        /* We already had a palette, so replace the changed colours in the
+         * existing one. */
+        SetPaletteEntries(pal, start, ncolours, logpal->palPalEntry + start);
+
         HDC hdc = make_hdc();
         UnrealizeObject(pal);
         RealizePalette(hdc);
         free_hdc(hdc);
-    } else {
-        if (n == (ATTR_DEFBG>>ATTR_BGSHIFT))
-            /* If Default Background changes, we need to ensure any
-             * space between the text area and the window border is
-             * redrawn. */
-            InvalidateRect(wgs.term_hwnd, NULL, true);
-    }
-}
-
-static void wintw_palette_reset(TermWin *tw)
-{
-    int i;
-
-    /* And this */
-    for (i = 0; i < NALLCOLOURS; i++) {
-        internal_set_colour(i, defpal[i].rgbtRed,
-                            defpal[i].rgbtGreen, defpal[i].rgbtBlue);
-        if (pal) {
-            logpal->palPalEntry[i].peRed = defpal[i].rgbtRed;
-            logpal->palPalEntry[i].peGreen = defpal[i].rgbtGreen;
-            logpal->palPalEntry[i].peBlue = defpal[i].rgbtBlue;
-            logpal->palPalEntry[i].peFlags = 0;
-        }
     }
 
-    if (pal) {
-        HDC hdc;
-        SetPaletteEntries(pal, 0, NALLCOLOURS, logpal->palPalEntry);
-        hdc = make_hdc();
-        RealizePalette(hdc);
-        free_hdc(hdc);
-    } else {
-        /* Default Background may have changed. Ensure any space between
-         * text area and window border is redrawn. */
+    if (start <= OSC4_COLOUR_bg && OSC4_COLOUR_bg < start + ncolours) {
+        /* If Default Background changes, we need to ensure any space between
+         * the text area and the window border is redrawn. */
         InvalidateRect(wgs.term_hwnd, NULL, true);
     }
 }
@@ -5038,7 +4935,7 @@ static void wintw_clip_write(
         COLORREF bg,   lastbg = -1;
         int attrBold,  lastAttrBold  = 0;
         int attrUnder, lastAttrUnder = 0;
-        int palette[NALLCOLOURS];
+        int palette[OSC4_NCOLOURS];
         int numcolours;
         tree234 *rgbtree = NULL;
         FontSpec *font = conf_get_fontspec(conf, CONF_font);
@@ -5114,7 +5011,7 @@ static void wintw_clip_write(
              * Next - Create a reduced palette
              */
             numcolours = 0;
-            for (i = 0; i < NALLCOLOURS; i++) {
+            for (i = 0; i < OSC4_NCOLOURS; i++) {
                 if (palette[i] != 0)
                     palette[i]  = ++numcolours;
             }
@@ -5130,11 +5027,11 @@ static void wintw_clip_write(
              */
             put_datapl(rtf, PTRLEN_LITERAL("{\\colortbl ;"));
 
-            for (i = 0; i < NALLCOLOURS; i++) {
+            for (i = 0; i < OSC4_NCOLOURS; i++) {
                 if (palette[i] != 0) {
+                    const PALETTEENTRY *pe = &logpal->palPalEntry[i];
                     strbuf_catf(rtf, "\\red%d\\green%d\\blue%d;",
-                                defpal[i].rgbtRed, defpal[i].rgbtGreen,
-                                defpal[i].rgbtBlue);
+                                pe->peRed, pe->peGreen, pe->peBlue);
                 }
             }
             if (rgbtree) {
@@ -5721,44 +5618,6 @@ static void wintw_set_maximised(TermWin *tw, bool maximised)
 }
 
 /*
- * Report whether the window is iconic, for terminal reports.
- */
-static bool wintw_is_minimised(TermWin *tw)
-{
-    return IsIconic(wgs.term_hwnd);
-}
-
-/*
- * Report the window's position, for terminal reports.
- */
-static void wintw_get_pos(TermWin *tw, int *x, int *y)
-{
-    RECT r;
-    GetWindowRect(wgs.term_hwnd, &r);
-    *x = r.left;
-    *y = r.top;
-}
-
-/*
- * Report the window's pixel size, for terminal reports.
- */
-static void wintw_get_pixels(TermWin *tw, int *x, int *y)
-{
-    RECT r;
-    GetWindowRect(wgs.term_hwnd, &r);
-    *x = r.right - r.left;
-    *y = r.bottom - r.top;
-}
-
-/*
- * Return the window or icon title.
- */
-static const char *wintw_get_title(TermWin *tw, bool icon)
-{
-    return icon ? icon_name : window_name;
-}
-
-/*
  * See if we're in full-screen mode.
  */
 static bool is_full_screen()
@@ -5914,5 +5773,14 @@ static bool win_seat_set_trust_status(Seat *seat, bool trusted)
 static bool win_seat_get_cursor_position(Seat *seat, int *x, int *y)
 {
     term_get_cursor_position(term, x, y);
+    return true;
+}
+
+static bool win_seat_get_window_pixel_size(Seat *seat, int *x, int *y)
+{
+    RECT r;
+    GetWindowRect(wgs.term_hwnd, &r);
+    *x = r.right - r.left;
+    *y = r.bottom - r.top;
     return true;
 }

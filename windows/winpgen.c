@@ -12,6 +12,7 @@
 #include "sshkeygen.h"
 #include "licence.h"
 #include "winsecur.h"
+#include "puttygen-rc.h"
 
 #include <commctrl.h>
 
@@ -260,6 +261,159 @@ static INT_PTR CALLBACK PassphraseProc(HWND hwnd, UINT msg,
     return 0;
 }
 
+static void try_get_dlg_item_uint32(HWND hwnd, int id, uint32_t *out)
+{
+    char buf[128];
+    if (!GetDlgItemText(hwnd, id, buf, sizeof(buf)))
+        return;
+
+    if (!*buf)
+        return;
+
+    char *end;
+    unsigned long val = strtoul(buf, &end, 10);
+    if (*end)
+        return;
+
+    if ((val >> 16) >> 16)
+        return;
+
+    *out = val;
+}
+
+static ppk_save_parameters save_params;
+
+struct PPKParams {
+    ppk_save_parameters params;
+    uint32_t time_passes, time_ms;
+};
+
+/*
+ * Dialog-box function for the passphrase box.
+ */
+static INT_PTR CALLBACK PPKParamsProc(HWND hwnd, UINT msg,
+                                      WPARAM wParam, LPARAM lParam)
+{
+    struct PPKParams *pp;
+    char *buf;
+
+    if (msg == WM_INITDIALOG) {
+        pp = (struct PPKParams *)lParam;
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)pp);
+    } else {
+        pp = (struct PPKParams *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+    }
+
+    switch (msg) {
+      case WM_INITDIALOG:
+        SetForegroundWindow(hwnd);
+        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+
+        /*
+         * Centre the window.
+         */
+        {                              /* centre the window */
+            RECT rs, rd;
+            HWND hw;
+
+            hw = GetDesktopWindow();
+            if (GetWindowRect(hw, &rs) && GetWindowRect(hwnd, &rd))
+                MoveWindow(hwnd,
+                           (rs.right + rs.left + rd.left - rd.right) / 2,
+                           (rs.bottom + rs.top + rd.top - rd.bottom) / 2,
+                           rd.right - rd.left, rd.bottom - rd.top, true);
+        }
+
+        CheckRadioButton(hwnd, IDC_PPKVER_2, IDC_PPKVER_3,
+                         IDC_PPKVER_2 + (pp->params.fmt_version - 2));
+
+        CheckRadioButton(
+            hwnd, IDC_KDF_ARGON2ID, IDC_KDF_ARGON2D,
+            (pp->params.argon2_flavour == Argon2id ?    IDC_KDF_ARGON2ID :
+             pp->params.argon2_flavour == Argon2i  ?    IDC_KDF_ARGON2I  :
+          /* pp->params.argon2_flavour == Argon2d  ? */ IDC_KDF_ARGON2D));
+
+        buf = dupprintf("%"PRIu32, pp->params.argon2_mem);
+        SetDlgItemText(hwnd, IDC_ARGON2_MEM, buf);
+        sfree(buf);
+
+        if (pp->params.argon2_passes_auto) {
+            CheckRadioButton(hwnd, IDC_PPK_AUTO_YES, IDC_PPK_AUTO_NO,
+                             IDC_PPK_AUTO_YES);
+            buf = dupprintf("%"PRIu32, pp->time_ms);
+            SetDlgItemText(hwnd, IDC_ARGON2_TIME, buf);
+            sfree(buf);
+        } else {
+            CheckRadioButton(hwnd, IDC_PPK_AUTO_YES, IDC_PPK_AUTO_NO,
+                             IDC_PPK_AUTO_NO);
+            buf = dupprintf("%"PRIu32, pp->time_passes);
+            SetDlgItemText(hwnd, IDC_ARGON2_TIME, buf);
+            sfree(buf);
+        }
+
+        buf = dupprintf("%"PRIu32, pp->params.argon2_parallelism);
+        SetDlgItemText(hwnd, IDC_ARGON2_PARALLEL, buf);
+        sfree(buf);
+
+        return 0;
+      case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+          case IDOK:
+            EndDialog(hwnd, 1);
+            return 0;
+          case IDCANCEL:
+            EndDialog(hwnd, 0);
+            return 0;
+          case IDC_PPKVER_2:
+            pp->params.fmt_version = 2;
+            return 0;
+          case IDC_PPKVER_3:
+            pp->params.fmt_version = 3;
+            return 0;
+          case IDC_KDF_ARGON2ID:
+            pp->params.argon2_flavour = Argon2id;
+            return 0;
+          case IDC_KDF_ARGON2I:
+            pp->params.argon2_flavour = Argon2i;
+            return 0;
+          case IDC_KDF_ARGON2D:
+            pp->params.argon2_flavour = Argon2d;
+            return 0;
+          case IDC_ARGON2_MEM:
+            try_get_dlg_item_uint32(hwnd, IDC_ARGON2_MEM,
+                                    &pp->params.argon2_mem);
+            return 0;
+          case IDC_PPK_AUTO_YES:
+            pp->params.argon2_passes_auto = true;
+            buf = dupprintf("%"PRIu32, pp->time_ms);
+            SetDlgItemText(hwnd, IDC_ARGON2_TIME, buf);
+            sfree(buf);
+            return 0;
+          case IDC_PPK_AUTO_NO:
+            pp->params.argon2_passes_auto = false;
+            buf = dupprintf("%"PRIu32, pp->time_passes);
+            SetDlgItemText(hwnd, IDC_ARGON2_TIME, buf);
+            sfree(buf);
+            return 0;
+          case IDC_ARGON2_TIME:
+            try_get_dlg_item_uint32(hwnd, IDC_ARGON2_TIME,
+                                    pp->params.argon2_passes_auto ?
+                                    &pp->time_ms : &pp->time_passes);
+            return 0;
+          case IDC_ARGON2_PARALLEL:
+            try_get_dlg_item_uint32(hwnd, IDC_ARGON2_PARALLEL,
+                                    &pp->params.argon2_parallelism);
+            return 0;
+        }
+        return 0;
+      case WM_CLOSE:
+        EndDialog(hwnd, 0);
+        return 0;
+    }
+    return 0;
+}
+
 /*
  * Prompt for a key file. Assumes the filename buffer is of size
  * FILENAME_MAX.
@@ -449,6 +603,7 @@ struct MainDlgState {
     keytype keytype;
     const PrimeGenerationPolicy *primepolicy;
     bool rsa_strong;
+    FingerprintType fptype;
     char **commentptr;                 /* points to key.comment or ssh2key.comment */
     ssh2_userkey ssh2key;
     unsigned *entropy;
@@ -529,6 +684,8 @@ enum {
     IDC_KEYSSH2ECDSA, IDC_KEYSSH2EDDSA,
     IDC_PRIMEGEN_PROB, IDC_PRIMEGEN_MAURER_SIMPLE, IDC_PRIMEGEN_MAURER_COMPLEX,
     IDC_RSA_STRONG,
+    IDC_FPTYPE_SHA256, IDC_FPTYPE_MD5,
+    IDC_PPK_PARAMS,
     IDC_BITSSTATIC, IDC_BITS,
     IDC_ECCURVESTATIC, IDC_ECCURVE,
     IDC_EDCURVESTATIC, IDC_EDCURVE,
@@ -737,6 +894,41 @@ void ui_set_rsa_strong(HWND hwnd, struct MainDlgState *state, bool enable)
     CheckMenuItem(state->keymenu, IDC_RSA_STRONG,
                   (enable ? MF_CHECKED : 0) | MF_BYCOMMAND);
 }
+static FingerprintType idc_to_fptype(int option)
+{
+    switch (option) {
+      case IDC_FPTYPE_SHA256:
+        return SSH_FPTYPE_SHA256;
+      case IDC_FPTYPE_MD5:
+        return SSH_FPTYPE_MD5;
+      default:
+        unreachable("bad control id in idc_to_fptype");
+    }
+}
+static int fptype_to_idc(FingerprintType fptype)
+{
+    switch (fptype) {
+      case SSH_FPTYPE_SHA256:
+        return IDC_FPTYPE_SHA256;
+      case SSH_FPTYPE_MD5:
+        return IDC_FPTYPE_MD5;
+      default:
+        unreachable("bad fptype in fptype_to_idc");
+    }
+}
+void ui_set_fptype(HWND hwnd, struct MainDlgState *state, int option)
+{
+    CheckMenuRadioItem(state->keymenu, IDC_FPTYPE_SHA256,
+                       IDC_FPTYPE_MD5, option, MF_BYCOMMAND);
+
+    state->fptype = idc_to_fptype(option);
+
+    if (state->key_exists && state->ssh2) {
+        char *fp = ssh2_fingerprint(state->ssh2key.key, state->fptype);
+        SetDlgItemText(hwnd, IDC_FINGERPRINT, fp);
+        sfree(fp);
+    }
+}
 
 void load_key_file(HWND hwnd, struct MainDlgState *state,
                    Filename *filename, bool was_import_cmd)
@@ -868,7 +1060,7 @@ void load_key_file(HWND hwnd, struct MainDlgState *state,
 
                 savecomment = state->ssh2key.comment;
                 state->ssh2key.comment = NULL;
-                fp = ssh2_fingerprint(state->ssh2key.key);
+                fp = ssh2_fingerprint(state->ssh2key.key, state->fptype);
                 state->ssh2key.comment = savecomment;
 
                 SetDlgItemText(hwnd, IDC_FINGERPRINT, fp);
@@ -1006,6 +1198,14 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
             AppendMenu(menu1, MF_SEPARATOR, 0, 0);
             AppendMenu(menu1, MF_ENABLED, IDC_RSA_STRONG,
                        "Use \"strong\" primes as RSA key factors");
+            AppendMenu(menu1, MF_SEPARATOR, 0, 0);
+            AppendMenu(menu1, MF_ENABLED, IDC_PPK_PARAMS,
+                       "Parameters for saving key files...");
+            AppendMenu(menu1, MF_SEPARATOR, 0, 0);
+            AppendMenu(menu1, MF_ENABLED, IDC_FPTYPE_SHA256,
+                       "Show fingerprint as SHA256");
+            AppendMenu(menu1, MF_ENABLED, IDC_FPTYPE_MD5,
+                       "Show fingerprint as MD5");
             AppendMenu(menu, MF_POPUP | MF_ENABLED, (UINT_PTR) menu1, "&Key");
             state->keymenu = menu1;
 
@@ -1064,15 +1264,15 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                         IDC_PKSTATIC, IDC_KEYDISPLAY, 5);
             SendDlgItemMessage(hwnd, IDC_KEYDISPLAY, EM_SETREADONLY, 1, 0);
             staticedit(&cp, "Key f&ingerprint:", IDC_FPSTATIC,
-                       IDC_FINGERPRINT, 75);
+                       IDC_FINGERPRINT, 82);
             SendDlgItemMessage(hwnd, IDC_FINGERPRINT, EM_SETREADONLY, 1,
                                0);
             staticedit(&cp, "Key &comment:", IDC_COMMENTSTATIC,
-                       IDC_COMMENTEDIT, 75);
+                       IDC_COMMENTEDIT, 82);
             staticpassedit(&cp, "Key p&assphrase:", IDC_PASSPHRASE1STATIC,
-                           IDC_PASSPHRASE1EDIT, 75);
+                           IDC_PASSPHRASE1EDIT, 82);
             staticpassedit(&cp, "C&onfirm passphrase:",
-                           IDC_PASSPHRASE2STATIC, IDC_PASSPHRASE2EDIT, 75);
+                           IDC_PASSPHRASE2STATIC, IDC_PASSPHRASE2EDIT, 82);
             endbox(&cp);
             beginbox(&cp, "Actions", IDC_BOX_ACTIONS);
             staticbtn(&cp, "Generate a public/private key pair",
@@ -1142,6 +1342,7 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
         ui_set_key_type(hwnd, state, IDC_KEYSSH2RSA);
         ui_set_primepolicy(hwnd, state, IDC_PRIMEGEN_PROB);
         ui_set_rsa_strong(hwnd, state, false);
+        ui_set_fptype(hwnd, state, fptype_to_idc(SSH_FPTYPE_DEFAULT));
         SetDlgItemInt(hwnd, IDC_BITS, DEFAULT_KEY_BITS, false);
         SendDlgItemMessage(hwnd, IDC_ECCURVE, CB_SETCURSEL,
                            DEFAULT_ECCURVE_INDEX, 0);
@@ -1208,10 +1409,39 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
             ui_set_primepolicy(hwnd, state, LOWORD(wParam));
             break;
           }
+          case IDC_FPTYPE_SHA256:
+          case IDC_FPTYPE_MD5: {
+            state = (struct MainDlgState *)
+                GetWindowLongPtr(hwnd, GWLP_USERDATA);
+            ui_set_fptype(hwnd, state, LOWORD(wParam));
+            break;
+          }
           case IDC_RSA_STRONG: {
             state = (struct MainDlgState *)
                 GetWindowLongPtr(hwnd, GWLP_USERDATA);
             ui_set_rsa_strong(hwnd, state, !state->rsa_strong);
+            break;
+          }
+          case IDC_PPK_PARAMS: {
+            struct PPKParams pp[1];
+            pp->params = save_params;
+            if (pp->params.argon2_passes_auto) {
+                pp->time_ms = pp->params.argon2_milliseconds;
+                pp->time_passes = 13;
+            } else {
+                pp->time_ms = 100;
+                pp->time_passes = pp->params.argon2_passes;
+            }
+            int dlgret = DialogBoxParam(hinst, MAKEINTRESOURCE(215),
+                                        NULL, PPKParamsProc, (LPARAM)pp);
+            if (dlgret) {
+                if (pp->params.argon2_passes_auto) {
+                    pp->params.argon2_milliseconds = pp->time_ms;
+                } else {
+                    pp->params.argon2_passes = pp->time_passes;
+                }
+                save_params = pp->params;
+            }
             break;
           }
           case IDC_QUIT:
@@ -1468,7 +1698,8 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                                               *passphrase ? passphrase : NULL);
                         else
                             ret = ppk_save_f(fn, &state->ssh2key,
-                                             *passphrase ? passphrase : NULL);
+                                             *passphrase ? passphrase : NULL,
+                                             &save_params);
                         filename_free(fn);
                     } else {
                         Filename *fn = filename_from_str(filename);
@@ -1615,7 +1846,7 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
             savecomment = *state->commentptr;
             *state->commentptr = NULL;
             if (state->ssh2)
-                fp = ssh2_fingerprint(state->ssh2key.key);
+                fp = ssh2_fingerprint(state->ssh2key.key, state->fptype);
             else
                 fp = rsa_ssh1_fingerprint(&state->key);
             SetDlgItemText(hwnd, IDC_FINGERPRINT, fp);
@@ -1746,6 +1977,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             break;
         }
     }
+
+    save_params = ppk_save_default_parameters;
 
     random_setup_special();
     ret = DialogBox(hinst, MAKEINTRESOURCE(201), NULL, MainDlgProc) != IDOK;

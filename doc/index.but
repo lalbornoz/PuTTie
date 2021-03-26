@@ -40,18 +40,20 @@
 \IM{different usernames}{changes of username} login names, different
 \IM{different usernames}{changes of username} account names, different
 
-\IM{differences between SSH, Telnet, Rlogin and SUPDUP} differences between
-SSH, Telnet and Rlogin
-\IM{differences between SSH, Telnet, Rlogin and SUPDUP} protocols,
+\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} differences between
+SSH, Telnet, Rlogin, and SUPDUP
+\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} protocols,
 differences between
-\IM{differences between SSH, Telnet, Rlogin and SUPDUP} SSH, differences
-from Telnet and Rlogin
-\IM{differences between SSH, Telnet, Rlogin and SUPDUP} Telnet, differences
-from SSH and Rlogin
-\IM{differences between SSH, Telnet, Rlogin and SUPDUP} Rlogin, differences
-from SSH and Telnet
-\IM{differences between SSH, Telnet, Rlogin and SUPDUP} selecting a protocol
-\IM{differences between SSH, Telnet, Rlogin and SUPDUP} choosing a protocol
+\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} SSH, differences
+from other protocols
+\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} Telnet, differences
+from other protocols
+\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} Rlogin, differences
+from other protocols
+\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} SUPDUP, differences
+from other protocols
+\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} selecting a protocol
+\IM{differences between SSH, Telnet, Rlogin, and SUPDUP} choosing a protocol
 
 \IM{MUD}{MUDs} MUDs
 
@@ -218,7 +220,9 @@ saved sessions from
 \IM{-telnet} \c{-telnet} command-line option
 \IM{-raw} \c{-raw} command-line option
 \IM{-rlogin} \c{-rlogin} command-line option
+\IM{-supdup} \c{-supdup} command-line option
 \IM{-ssh} \c{-ssh} command-line option
+\IM{-ssh-connection} \c{-ssh-connection} command-line option
 \IM{-serial} \c{-serial} command-line option
 \IM{-cleanup} \c{-cleanup} command-line option
 \IM{-load} \c{-load} command-line option
