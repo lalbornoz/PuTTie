@@ -40,8 +40,11 @@ that any channel that you were prepared to run a \e{bare} shell
 session over, you can run \cw{psusan} over instead, which adds all the
 above conveniences without changing the security properties.
 
-The protocol that \cw{psusan} speaks is also spoken by PuTTY and
-Plink, if you select the protocol type \q{Bare ssh-connection}.
+The protocol that \cw{psusan} speaks is also spoken by PuTTY, Plink,
+PSCP, and PSFTP, if you select the protocol type \q{Bare ssh-connection}
+or the command-line option \cw{-ssh-connection} and specify the
+absolute path to the appropriate Unix-domain socket in place of
+a hostname.
 
 \S{psusan-manpage-examples} EXAMPLES
 
@@ -188,15 +191,66 @@ And the setup script \cw{uml-psusan.sh} might look like this:
 \c # Choose what shell you want to run inside psusan
 \e iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 \c export SHELL=/bin/bash
+\c # Set up a default path
+\e iiiiiiiiiiiiiiiiiiiiiii
+\c export PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
 \c # And now run psusan over the serial port
 \e iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
 \c exec /home/simon/src/putty/misc/psusan
 
-Now set up a PuTTY saved session as in the Docker example above, using
-that \cw{linux} command as the local proxy command, and you'll have a
-PuTTY session that starts up a clean UML instance when you run it, and
-(if you enabled connection sharing) further instances of the same
-session will connect to the same instance again.
+Now set up a PuTTY saved session as in the Docker example above.
+Basically you'll want to use the above \cw{linux} command as the local
+proxy command. However, it's worth wrapping it in \cw{setsid}(\e{1}),
+because when UML terminates, it kills its entire process group. So
+it's better that PuTTY should not be part of that group, and should
+have the opportunity to shut down cleanly by itself. So probably you
+end up setting the proxy command to be something more like:
+
+\c setsid linux mem=512M rootfstype=hostfs rootflags=/ rw \
+\c     con=fd:2,fd:2 ssl0=fd:0,fd:1 init=/some/path/to/uml-psusan.sh
+\e                                       iiiiiiiiiiiiiiiiiiiiiiiiiii
+
+You may also find that you have to enable the bug workaround that
+indicates that the server \q{Discards data sent before its greeting},
+because otherwise PuTTY's outgoing protocol greeting can be
+accidentally lost during UML startup. (See
+\W{https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=991958}{Debian
+bug #991958}.)
+
+Once you've done that, you'll have a PuTTY session that starts up a
+clean UML instance when you run it, and (if you enabled connection
+sharing) further instances of the same session will connect to the
+same instance again.
+
+\S2{psusan-manpage-examples-wsl} Windows Subsystem for Linux
+
+On Windows, the default way to use WSL is to run the \cw{wsl} program,
+or one of its aliases, in a Windows console, either by launching it
+from an existing command prompt, or by using a shortcut that opens it
+in a fresh console. This gives you a Linux terminal environment, but
+in a Windows console window.
+
+If you'd prefer to interact with the same environment using PuTTY as
+the terminal (for example, if you prefer PuTTY's mouse shortcuts for
+copy and paste), you can set it up by installing \cw{psusan} in the
+Linux environment, and then setting up a PuTTY saved session that
+talks to it. A nice way to do this is to use the name of the WSL
+distribution as the \q{host name}:
+
+\b set the local proxy command to \cq{wsl -d %host
+/usr/local/bin/psusan} (or wherever you installed \cw{psusan} in the
+Linux system)
+
+\b enter the name of a particular WSL distribution in the host name
+box. (For example, if you installed WSL Debian in the standard way
+from the Windows store, this will just be \q{Debian}.)
+
+\b set the protocol to \q{Bare ssh-connection}, as usual.
+
+Like all the other examples here, this also permits you to forward
+ports in and out of the WSL environment (e.g. expose a WSL2 network
+service through the hypervisor's internal NAT), forward Pageant into
+it, and so on.
 
 \S2{psusan-manpage-examples-schroot} \cw{schroot}
 

@@ -128,6 +128,7 @@ static bool gui_request_in_progress = false;
 static void failure(PageantClient *pc, PageantClientRequestId *reqid,
                     strbuf *sb, unsigned char type, const char *fmt, ...);
 static void fail_requests_for_key(PageantKey *pk, const char *reason);
+static PageantKey *pageant_nth_key(int ssh_version, int i);
 
 static void pk_free(PageantKey *pk)
 {
@@ -213,7 +214,7 @@ static int count_keys(int ssh_version)
 int pageant_count_ssh1_keys(void) { return count_keys(1); }
 int pageant_count_ssh2_keys(void) { return count_keys(2); }
 
-bool pageant_add_ssh1_key(RSAKey *rkey)
+static bool pageant_add_ssh1_key(RSAKey *rkey)
 {
     PageantKey *pk = snew(PageantKey);
     memset(pk, 0, sizeof(PageantKey));
@@ -234,7 +235,7 @@ bool pageant_add_ssh1_key(RSAKey *rkey)
     }
 }
 
-bool pageant_add_ssh2_key(ssh2_userkey *skey)
+static bool pageant_add_ssh2_key(ssh2_userkey *skey)
 {
     PageantKey *pk = snew(PageantKey);
     memset(pk, 0, sizeof(PageantKey));
@@ -392,11 +393,8 @@ static bool request_passphrase(PageantClient *pc, PageantKey *pk)
     if (!pk->decryption_prompt_active) {
         assert(!gui_request_in_progress);
 
-        strbuf *sb = strbuf_new();
-        strbuf_catf(sb, "Enter passphrase to decrypt key '%s'", pk->comment);
         bool created_dlg = pageant_client_ask_passphrase(
-            pc, &pk->dlgid, sb->s);
-        strbuf_free(sb);
+            pc, &pk->dlgid, pk->comment);
 
         if (!created_dlg)
             return false;
@@ -556,6 +554,8 @@ void pageant_passphrase_request_success(PageantClientDialogId *dlgid,
                                       "passphrase prompts");
             }
             return;
+        } else {
+            keylist_update();
         }
     }
 
@@ -678,9 +678,9 @@ static PageantAsyncOp *pageant_make_op(
                            "reply: SSH1_AGENT_RSA_IDENTITIES_ANSWER");
         if (!pc->suppress_logging) {
             int i;
-            RSAKey *rkey;
-            for (i = 0; NULL != (rkey = pageant_nth_ssh1_key(i)); i++) {
-                char *fingerprint = rsa_ssh1_fingerprint(rkey);
+            PageantKey *pk;
+            for (i = 0; NULL != (pk = pageant_nth_key(1, i)); i++) {
+                char *fingerprint = rsa_ssh1_fingerprint(pk->rkey);
                 pageant_client_log(pc, reqid, "returned key: %s",
                                    fingerprint);
                 sfree(fingerprint);
@@ -701,12 +701,12 @@ static PageantAsyncOp *pageant_make_op(
         pageant_client_log(pc, reqid, "reply: SSH2_AGENT_IDENTITIES_ANSWER");
         if (!pc->suppress_logging) {
             int i;
-            ssh2_userkey *skey;
-            for (i = 0; NULL != (skey = pageant_nth_ssh2_key(i)); i++) {
-                char *fingerprint = ssh2_fingerprint(
-                    skey->key, SSH_FPTYPE_DEFAULT);
+            PageantKey *pk;
+            for (i = 0; NULL != (pk = pageant_nth_key(2, i)); i++) {
+                char *fingerprint = ssh2_fingerprint_blob(
+                    ptrlen_from_strbuf(pk->public_blob), SSH_FPTYPE_DEFAULT);
                 pageant_client_log(pc, reqid, "returned key: %s %s",
-                                   fingerprint, skey->comment);
+                                   fingerprint, pk->comment);
                 sfree(fingerprint);
             }
         }
@@ -1182,6 +1182,7 @@ static PageantAsyncOp *pageant_make_op(
                     pk->encrypted_key_file = strbuf_new_nm();
                     put_datapl(pk->encrypted_key_file, keyfile);
 
+                    keylist_update();
                     put_byte(sb, SSH_AGENT_SUCCESS);
                     pageant_client_log(
                         pc, reqid, "reply: SSH_AGENT_SUCCESS (added encrypted"
@@ -1209,6 +1210,7 @@ static PageantAsyncOp *pageant_make_op(
                 PageantKey *added = add234(keytree, pk);
                 assert(added == pk); (void)added;
 
+                keylist_update();
                 put_byte(sb, SSH_AGENT_SUCCESS);
                 pageant_client_log(pc, reqid, "reply: SSH_AGENT_SUCCESS (made"
                                    " new encrypted-only key record)");
@@ -1258,6 +1260,7 @@ static PageantAsyncOp *pageant_make_op(
                 goto responded;
             }
 
+            keylist_update();
             put_byte(sb, SSH_AGENT_SUCCESS);
             pageant_client_log(pc, reqid, "reply: SSH_AGENT_SUCCESS");
             break;
@@ -1291,6 +1294,7 @@ static PageantAsyncOp *pageant_make_op(
             if (nsuccesses == 0 && nfailures > 0) {
                 fail("no key could be re-encrypted");
             } else {
+                keylist_update();
                 put_byte(sb, SSH_AGENT_SUCCESS);
                 put_uint32(sb, nfailures);
                 pageant_client_log(pc, reqid, "reply: SSH_AGENT_SUCCESS "
@@ -1318,12 +1322,13 @@ static PageantAsyncOp *pageant_make_op(
                                "reply: SSH2_AGENT_SUCCESS + key list");
             if (!pc->suppress_logging) {
                 int i;
-                ssh2_userkey *skey;
-                for (i = 0; NULL != (skey = pageant_nth_ssh2_key(i)); i++) {
-                    char *fingerprint = ssh2_fingerprint(
-                        skey->key, SSH_FPTYPE_DEFAULT);
+                PageantKey *pk;
+                for (i = 0; NULL != (pk = pageant_nth_key(2, i)); i++) {
+                    char *fingerprint = ssh2_fingerprint_blob(
+                        ptrlen_from_strbuf(pk->public_blob),
+                        SSH_FPTYPE_DEFAULT);
                     pageant_client_log(pc, reqid, "returned key: %s %s",
-                                       fingerprint, skey->comment);
+                                       fingerprint, pk->comment);
                     sfree(fingerprint);
                 }
             }
@@ -1367,50 +1372,53 @@ void pageant_init(void)
     keytree = newtree234(cmpkeys);
 }
 
-RSAKey *pageant_nth_ssh1_key(int i)
+static PageantKey *pageant_nth_key(int ssh_version, int i)
 {
-    PageantKey *pk = index234(keytree, find_first_key_for_version(1) + i);
-    if (pk && pk->sort.ssh_version == 1)
-        return pk->rkey;
+    PageantKey *pk = index234(
+        keytree, find_first_key_for_version(ssh_version) + i);
+    if (pk && pk->sort.ssh_version == ssh_version)
+        return pk;
     else
         return NULL;
 }
 
-ssh2_userkey *pageant_nth_ssh2_key(int i)
+bool pageant_delete_nth_ssh1_key(int i)
+{
+    PageantKey *pk = delpos234(keytree, find_first_key_for_version(1) + i);
+    if (!pk)
+        return false;
+    pk_free(pk);
+    return true;
+}
+
+bool pageant_delete_nth_ssh2_key(int i)
+{
+    PageantKey *pk = delpos234(keytree, find_first_key_for_version(2) + i);
+    if (!pk)
+        return false;
+    pk_free(pk);
+    return true;
+}
+
+bool pageant_reencrypt_nth_ssh2_key(int i)
 {
     PageantKey *pk = index234(keytree, find_first_key_for_version(2) + i);
-    if (pk && pk->sort.ssh_version == 2)
-        return pk->skey;
-    else
-        return NULL;
+    if (!pk)
+        return false;
+    return reencrypt_key(pk);
 }
 
-bool pageant_delete_ssh1_key(RSAKey *rkey)
+void pageant_delete_all(void)
 {
-    strbuf *blob = makeblob1(rkey);
-    PageantKeySort sort = keysort(1, ptrlen_from_strbuf(blob));
-    PageantKey *deleted = del234(keytree, &sort);
-    strbuf_free(blob);
-
-    if (!deleted)
-        return false;
-    assert(deleted->sort.ssh_version == 1);
-    assert(deleted->rkey == rkey);
-    return true;
+    remove_all_keys(1);
+    remove_all_keys(2);
 }
 
-bool pageant_delete_ssh2_key(ssh2_userkey *skey)
+void pageant_reencrypt_all(void)
 {
-    strbuf *blob = makeblob2(skey);
-    PageantKeySort sort = keysort(2, ptrlen_from_strbuf(blob));
-    PageantKey *deleted = del234(keytree, &sort);
-    strbuf_free(blob);
-
-    if (!deleted)
-        return false;
-    assert(deleted->sort.ssh_version == 2);
-    assert(deleted->skey == skey);
-    return true;
+    PageantKey *pk;
+    for (int i = 0; (pk = index234(keytree, i)) != NULL; i++)
+        reencrypt_key(pk);
 }
 
 /* ----------------------------------------------------------------------
@@ -1519,11 +1527,11 @@ static void pageant_conn_got_response(
 }
 
 static bool pageant_conn_ask_passphrase(
-    PageantClient *pc, PageantClientDialogId *dlgid, const char *msg)
+    PageantClient *pc, PageantClientDialogId *dlgid, const char *comment)
 {
     struct pageant_conn_state *pcs =
         container_of(pc, struct pageant_conn_state, pc);
-    return pageant_listener_client_ask_passphrase(pcs->plc, dlgid, msg);
+    return pageant_listener_client_ask_passphrase(pcs->plc, dlgid, comment);
 }
 
 static const PageantClientVtable pageant_connection_clientvt = {
@@ -1713,7 +1721,7 @@ static void internal_client_got_response(
 }
 
 static bool internal_client_ask_passphrase(
-    PageantClient *pc, PageantClientDialogId *dlgid, const char *msg)
+    PageantClient *pc, PageantClientDialogId *dlgid, const char *comment)
 {
     /* No delaying operations are permitted in this mode */
     return false;
@@ -1886,11 +1894,17 @@ static KeyList *pageant_get_keylist(unsigned ssh_version)
     KeyList *kl = snew(KeyList);
     kl->nkeys = get_uint32(pco);
     kl->keys = snewn(kl->nkeys, struct KeyListEntry);
+    kl->broken = false;
 
     for (size_t i = 0; i < kl->nkeys && !get_err(pco); i++) {
         if (ssh_version == 1) {
-            kl->keys[i].blob = get_data(pco, rsa_ssh1_public_blob_len(
-                make_ptrlen(get_ptr(pco), get_avail(pco))));
+            int bloblen = rsa_ssh1_public_blob_len(
+                make_ptrlen(get_ptr(pco), get_avail(pco)));
+            if (bloblen < 0) {
+                kl->broken = true;
+                bloblen = 0;
+            }
+            kl->keys[i].blob = get_data(pco, bloblen);
         } else {
             kl->keys[i].blob = get_string(pco);
         }
@@ -1907,7 +1921,8 @@ static KeyList *pageant_get_keylist(unsigned ssh_version)
         }
     }
 
-    kl->broken = get_err(pco);
+    if (get_err(pco))
+        kl->broken = true;
     kl->raw_data = pco->buf;
     pco->buf = NULL;
     pageant_client_op_free(pco);
@@ -1981,24 +1996,38 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
 
             for (size_t i = 0; i < kl->nkeys; i++) {
                 /*
-                 * If the key already exists in the agent, we're done
-                 * ... *unless* it's encrypted in the agent and we're
-                 * being asked to add it unencrypted, in which case we
-                 * still want to upload the unencrypted version to
-                 * cause the key to become decrypted.
+                 * If the key already exists in the agent, we're done,
+                 * except in the following special cases:
                  *
+                 * It's encrypted in the agent, and we're being asked
+                 * to add it unencrypted, in which case we still want
+                 * to upload the unencrypted version to cause the key
+                 * to become decrypted.
                  * (Rationale: if you know in advance you're going to
                  * want it, and don't want to be interrupted at an
                  * unpredictable moment to be asked for the
                  * passphrase.)
+                 *
+                 * The agent only has cleartext, and we're being asked
+                 * to add it encrypted, in which case we'll add the
+                 * encrypted form.
+                 * (Rationale: if you might want to re-encrypt the key
+                 * at some future point, but it happened to have been
+                 * initially added in cleartext, perhaps by something
+                 * other than Pageant.)
                  */
                 if (ptrlen_eq_ptrlen(ptrlen_from_strbuf(blob),
                                      kl->keys[i].blob)) {
                     bool have_unencrypted =
                         !(kl->keys[i].flags &
                           LIST_EXTENDED_FLAG_HAS_NO_CLEARTEXT_KEY);
-                    if (have_unencrypted || add_encrypted) {
-                        /* Key is already present; we can now leave. */
+                    bool have_encrypted =
+                        (kl->keys[i].flags &
+                         LIST_EXTENDED_FLAG_HAS_ENCRYPTED_KEY_FILE);
+                    if ((have_unencrypted && !add_encrypted)
+                        || (have_encrypted && add_encrypted)) {
+                        /* Key is already present in the desired form;
+                         * we can now leave. */
                         keylist_free(kl);
                         strbuf_free(blob);
                         return PAGEANT_ACTION_OK;
@@ -2031,8 +2060,15 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
         pageant_client_op_free(pco);
 
         if (reply != SSH_AGENT_SUCCESS) {
-            *retstr = dupstr("The already running Pageant "
-                             "refused to add the key.");
+            if (reply == SSH_AGENT_FAILURE) {
+                /* The agent didn't understand the protocol extension
+                 * at all. */
+                *retstr = dupstr("Agent doesn't support adding "
+                                 "encrypted keys");
+            } else {
+                *retstr = dupstr("The already running agent "
+                                 "refused to add the key.");
+            }
             return PAGEANT_ACTION_FAILURE;
         }
 
@@ -2146,7 +2182,7 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
         sfree(rkey);
 
         if (reply != SSH_AGENT_SUCCESS) {
-            *retstr = dupstr("The already running Pageant "
+            *retstr = dupstr("The already running agent "
                              "refused to add the key.");
             return PAGEANT_ACTION_FAILURE;
         }
@@ -2164,7 +2200,7 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
         sfree(skey);
 
         if (reply != SSH_AGENT_SUCCESS) {
-            *retstr = dupstr("The already running Pageant "
+            *retstr = dupstr("The already running agent "
                              "refused to add the key.");
             return PAGEANT_ACTION_FAILURE;
         }
@@ -2309,6 +2345,7 @@ int pageant_reencrypt_key(struct pageant_pubkey *key, char **retstr)
 
     if (key->ssh_version == 1) {
         *retstr = dupstr("Can't re-encrypt an SSH-1 key");
+        pageant_client_op_free(pco);
         return PAGEANT_ACTION_FAILURE;
     } else {
         put_byte(pco, SSH2_AGENTC_EXTENSION);
@@ -2320,7 +2357,12 @@ int pageant_reencrypt_key(struct pageant_pubkey *key, char **retstr)
     pageant_client_op_free(pco);
 
     if (reply != SSH_AGENT_SUCCESS) {
-        *retstr = dupstr("Agent failed to re-encrypt key");
+        if (reply == SSH_AGENT_FAILURE) {
+            /* The agent didn't understand the protocol extension at all. */
+            *retstr = dupstr("Agent doesn't support encrypted keys");
+        } else {
+            *retstr = dupstr("Agent failed to re-encrypt key");
+        }
         return PAGEANT_ACTION_FAILURE;
     } else {
         *retstr = NULL;
@@ -2337,7 +2379,12 @@ int pageant_reencrypt_all_keys(char **retstr)
     uint32_t failures = get_uint32(pco);
     pageant_client_op_free(pco);
     if (reply != SSH_AGENT_SUCCESS) {
-        *retstr = dupstr("Agent failed to re-encrypt any keys");
+        if (reply == SSH_AGENT_FAILURE) {
+            /* The agent didn't understand the protocol extension at all. */
+            *retstr = dupstr("Agent doesn't support encrypted keys");
+        } else {
+            *retstr = dupstr("Agent failed to re-encrypt any keys");
+        }
         return PAGEANT_ACTION_FAILURE;
     } else if (failures == 1) {
         /* special case for English grammar */

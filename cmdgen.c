@@ -157,8 +157,9 @@ void help(void)
            "default 3)\n"
            "            kdf           key derivation function (argon2id, "
            "argon2i, argon2d)\n"
-           "            memory        Kb of memory to use in password hash "
-           "(default 8192)\n"
+           "            memory        Kbyte of memory to use in passphrase "
+           "hash\n"
+           "                             (default 8192)\n"
            "            time          approx milliseconds to hash for "
            "(default 100)\n"
            "            passes        number of hash passes to run "
@@ -447,7 +448,7 @@ int main(int argc, char **argv)
                                     params.argon2_milliseconds = n;
                                 } else if (!strcmp(val, "passes")) {
                                     params.argon2_passes_auto = false;
-                                    params.argon2_milliseconds = n;
+                                    params.argon2_passes = n;
                                 } else if (!strcmp(val, "parallelism") ||
                                            !strcmp(val, "parallel")) {
                                     params.argon2_parallelism = n;
@@ -810,22 +811,30 @@ int main(int argc, char **argv)
 
     /*
      * Figure out whether we need to load the encrypted part of the
-     * key. This will be the case if either (a) we need to write
-     * out a private key format, or (b) the entire input key file
-     * is encrypted.
+     * key. This will be the case if (a) we need to write out
+     * a private key format, (b) the entire input key file is
+     * encrypted, or (c) we're outputting TEXT, in which case we
+     * want all of the input file including private material if it
+     * exists.
      */
-    if (outtype == PRIVATE || outtype == OPENSSH_AUTO ||
-        outtype == OPENSSH_NEW || outtype == SSHCOM ||
+    bool intype_entirely_encrypted =
         intype == SSH_KEYTYPE_OPENSSH_PEM ||
         intype == SSH_KEYTYPE_OPENSSH_NEW ||
-        intype == SSH_KEYTYPE_SSHCOM)
+        intype == SSH_KEYTYPE_SSHCOM;
+    bool intype_has_private =
+        !(intype == SSH_KEYTYPE_SSH1_PUBLIC ||
+          intype == SSH_KEYTYPE_SSH2_PUBLIC_RFC4716 ||
+          intype == SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH);
+    bool outtype_has_private =
+        outtype == PRIVATE || outtype == OPENSSH_AUTO ||
+        outtype == OPENSSH_NEW || outtype == SSHCOM;
+    if (outtype_has_private || intype_entirely_encrypted ||
+        (outtype == TEXT && intype_has_private))
         load_encrypted = true;
     else
         load_encrypted = false;
 
-    if (load_encrypted && (intype == SSH_KEYTYPE_SSH1_PUBLIC ||
-                           intype == SSH_KEYTYPE_SSH2_PUBLIC_RFC4716 ||
-                           intype == SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH)) {
+    if (load_encrypted && !intype_has_private) {
         fprintf(stderr, "puttygen: cannot perform this action on a "
                 "public-key-only input file\n");
         RETURN(1);
@@ -869,10 +878,10 @@ int main(int argc, char **argv)
         PrimeGenerationContext *pgc = primegen_new_context(primegen);
 
         if (keytype == DSA) {
-            struct dss_key *dsskey = snew(struct dss_key);
-            dsa_generate(dsskey, bits, pgc, &cmdgen_progress);
+            struct dsa_key *dsakey = snew(struct dsa_key);
+            dsa_generate(dsakey, bits, pgc, &cmdgen_progress);
             ssh2key = snew(ssh2_userkey);
-            ssh2key->key = &dsskey->sshk;
+            ssh2key->key = &dsakey->sshk;
             ssh1key = NULL;
         } else if (keytype == ECDSA) {
             struct ecdsa_key *ek = snew(struct ecdsa_key);
@@ -1274,6 +1283,10 @@ int main(int argc, char **argv)
                 }
                 ssh_key *sk = ssh_key_new_pub(
                     alg, ptrlen_from_strbuf(ssh2blob));
+                if (!sk) {
+                    fprintf(stderr, "puttygen: unable to decode public key\n");
+                    RETURN(1);
+                }
                 kc = ssh_key_components(sk);
                 ssh_key_free(sk);
             }

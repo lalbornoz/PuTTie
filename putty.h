@@ -5,7 +5,7 @@
 #include <limits.h>                    /* for INT_MAX */
 
 #include "defs.h"
-#include "puttyps.h"
+#include "platform.h"
 #include "network.h"
 #include "misc.h"
 #include "marshal.h"
@@ -25,14 +25,14 @@
  * Fingerprints of the current and previous PGP master keys, to
  * establish a trust path between an executable and other files.
  */
-#define PGP_MASTER_KEY_YEAR "2018"
-#define PGP_MASTER_KEY_DETAILS "RSA, 4096-bit"
-#define PGP_MASTER_KEY_FP                                       \
-    "24E1 B1C5 75EA 3C9F F752  A922 76BC 7FE4 EBFD 2D9E"
-#define PGP_PREV_MASTER_KEY_YEAR "2015"
+#define PGP_MASTER_KEY_YEAR "2021"
+#define PGP_MASTER_KEY_DETAILS "RSA, 3072-bit"
+#define PGP_MASTER_KEY_FP                                  \
+    "A872 D42F 1660 890F 0E05  223E DD43 55EA AC11 19DE"
+#define PGP_PREV_MASTER_KEY_YEAR "2018"
 #define PGP_PREV_MASTER_KEY_DETAILS "RSA, 4096-bit"
 #define PGP_PREV_MASTER_KEY_FP                                  \
-    "440D E3B5 B7A1 CA85 B3CC  1718 AB58 5DC6 0467 6F7C"
+    "24E1 B1C5 75EA 3C9F F752  A922 76BC 7FE4 EBFD 2D9E"
 
 /*
  * Definitions of three separate indexing schemes for colour palette
@@ -330,13 +330,13 @@ typedef enum {
     /*
      * Send a POSIX-style signal. (Useful in SSH and also pterm.)
      *
-     * We use the master list in sshsignals.h to define these enum
+     * We use the master list in ssh/signal-list.h to define these enum
      * values, which will come out looking like names of the form
      * SS_SIGABRT, SS_SIGINT etc.
      */
     #define SIGNAL_MAIN(name, text) SS_SIG ## name,
     #define SIGNAL_SUB(name) SS_SIG ## name,
-    #include "sshsignals.h"
+    #include "ssh/signal-list.h"
     #undef SIGNAL_MAIN
     #undef SIGNAL_SUB
 
@@ -360,7 +360,7 @@ struct SessionSpecial {
     int arg;
 };
 
-/* Needed by both sshchan.h and sshppl.h */
+/* Needed by both ssh/channel.h and ssh/ppl.h */
 typedef void (*add_special_fn_t)(
     void *ctx, const char *text, SessionSpecialCode code, int arg);
 
@@ -478,7 +478,8 @@ enum {
      * Proxy types.
      */
     PROXY_NONE, PROXY_SOCKS4, PROXY_SOCKS5,
-    PROXY_HTTP, PROXY_TELNET, PROXY_CMD, PROXY_FUZZ
+    PROXY_HTTP, PROXY_TELNET, PROXY_CMD, PROXY_SSH,
+    PROXY_FUZZ
 };
 
 enum {
@@ -621,6 +622,11 @@ enum {
 #define BACKEND_RESIZE_FORBIDDEN    0x01   /* Backend does not allow
                                               resizing terminal */
 #define BACKEND_NEEDS_TERMINAL      0x02   /* Backend must have terminal */
+#define BACKEND_SUPPORTS_NC_HOST    0x04   /* Backend can honour
+                                              CONF_ssh_nc_host */
+
+/* In (no)sshproxy.c */
+extern const bool ssh_proxy_supported;
 
 struct Backend {
     const BackendVtable *vt;
@@ -712,6 +718,12 @@ static inline int backend_cfg_info(Backend *be)
 { return be->vt->cfg_info(be); }
 
 extern const struct BackendVtable *const backends[];
+/*
+ * In programs with a config UI, only the first few members of
+ * backends[] will be displayed at the top-level; the others will be
+ * relegated to a drop-down.
+ */
+extern const size_t n_ui_backends;
 
 /*
  * Suggested default protocol provided by the backend link module.
@@ -879,6 +891,17 @@ struct SeatVtable {
     bool (*eof)(Seat *seat);
 
     /*
+     * Called by the back end to notify that the output backlog has
+     * changed size. A front end in control of the event loop won't
+     * necessarily need this (they can just keep checking it via
+     * backend_sendbuffer at every opportunity), but one buried in the
+     * depths of something else (like an SSH proxy) will need to be
+     * proactively notified that the amount of buffered data has
+     * become smaller.
+     */
+    void (*sent)(Seat *seat, size_t new_sendbuffer);
+
+    /*
      * Try to get answers from a set of interactive login prompts. The
      * prompts are provided in 'p'; the bufchain 'input' holds the
      * data currently outstanding in the session's normal standard-
@@ -919,6 +942,29 @@ struct SeatVtable {
      * the connection has finished.
      */
     void (*notify_remote_exit)(Seat *seat);
+
+    /*
+     * Notify the seat that the whole connection has finished.
+     * (Distinct from notify_remote_exit, e.g. in the case where you
+     * have port forwardings still active when the main foreground
+     * session goes away: then you'd get notify_remote_exit when the
+     * foreground session dies, but notify_remote_disconnect when the
+     * last forwarding vanishes and the network connection actually
+     * closes.)
+     *
+     * This function might be called multiple times by accident; seats
+     * should be prepared to cope.
+     *
+     * More precisely: this function notifies the seat that
+     * backend_connected() might now return false where previously it
+     * returned true. (Note the 'might': an accidental duplicate call
+     * might happen when backend_connected() was already returning
+     * false. Or even, in weird situations, when it hadn't stopped
+     * returning true yet. The point is, when you get this
+     * notification, all it's really telling you is that it's worth
+     * _checking_ backend_connected, if you weren't already.)
+     */
+    void (*notify_remote_disconnect)(Seat *seat);
 
     /*
      * Notify the seat that the connection has suffered a fatal error.
@@ -1086,11 +1132,15 @@ static inline size_t seat_output(
 { return seat->vt->output(seat, err, data, len); }
 static inline bool seat_eof(Seat *seat)
 { return seat->vt->eof(seat); }
+static inline void seat_sent(Seat *seat, size_t bufsize)
+{ seat->vt->sent(seat, bufsize); }
 static inline int seat_get_userpass_input(
     Seat *seat, prompts_t *p, bufchain *input)
 { return seat->vt->get_userpass_input(seat, p, input); }
 static inline void seat_notify_remote_exit(Seat *seat)
 { seat->vt->notify_remote_exit(seat); }
+static inline void seat_notify_remote_disconnect(Seat *seat)
+{ seat->vt->notify_remote_disconnect(seat); }
 static inline void seat_update_specials_menu(Seat *seat)
 { seat->vt->update_specials_menu(seat); }
 static inline char *seat_get_ttymode(Seat *seat, const char *mode)
@@ -1157,8 +1207,10 @@ static inline size_t seat_stderr_pl(Seat *seat, ptrlen data)
 size_t nullseat_output(
     Seat *seat, bool is_stderr, const void *data, size_t len);
 bool nullseat_eof(Seat *seat);
+void nullseat_sent(Seat *seat, size_t bufsize);
 int nullseat_get_userpass_input(Seat *seat, prompts_t *p, bufchain *input);
 void nullseat_notify_remote_exit(Seat *seat);
+void nullseat_notify_remote_disconnect(Seat *seat);
 void nullseat_connection_fatal(Seat *seat, const char *message);
 void nullseat_update_specials_menu(Seat *seat);
 char *nullseat_get_ttymode(Seat *seat, const char *mode);
@@ -1297,8 +1349,14 @@ struct TermWinVtable {
 
     /* Query the front end for any OS-local overrides to the default
      * colours stored in Conf. The front end should set any it cares
-     * about by calling term_palette_override. */
-    void (*palette_get_overrides)(TermWin *);
+     * about by calling term_palette_override.
+     *
+     * The Terminal object is passed in as a parameter, because this
+     * can be called as a callback from term_init(). So the TermWin
+     * itself won't yet have been told where to find its Terminal
+     * object, because that doesn't happen until term_init
+     * returns. */
+    void (*palette_get_overrides)(TermWin *, Terminal *);
 };
 
 static inline bool win_setup_draw_ctx(TermWin *win)
@@ -1352,8 +1410,8 @@ static inline void win_set_zorder(TermWin *win, bool top)
 static inline void win_palette_set(
     TermWin *win, unsigned start, unsigned ncolours, const rgb *colours)
 { win->vt->palette_set(win, start, ncolours, colours); }
-static inline void win_palette_get_overrides(TermWin *win)
-{ win->vt->palette_get_overrides(win); }
+static inline void win_palette_get_overrides(TermWin *win, Terminal *term)
+{ win->vt->palette_get_overrides(win, term); }
 
 /*
  * Global functions not specific to a connection instance.
@@ -1420,6 +1478,7 @@ NORETURN void cleanup_exit(int);
     X(INT, NONE, sshprot) \
     X(BOOL, NONE, ssh2_des_cbc) /* "des-cbc" unrecommended SSH-2 cipher */ \
     X(BOOL, NONE, ssh_no_userauth) /* bypass "ssh-userauth" (SSH-2 only) */ \
+    X(BOOL, NONE, ssh_no_trivial_userauth) /* disable trivial types of auth */ \
     X(BOOL, NONE, ssh_show_banner) /* show USERAUTH_BANNERs (SSH-2 only) */ \
     X(BOOL, NONE, try_tis_auth) \
     X(BOOL, NONE, try_ki_auth) \
@@ -1595,6 +1654,7 @@ NORETURN void cleanup_exit(int);
     X(INT, NONE, sshbug_oldgex2) \
     X(INT, NONE, sshbug_winadj) \
     X(INT, NONE, sshbug_chanreq) \
+    X(INT, NONE, sshbug_dropstart) \
     /*                                                                \
      * ssh_simple means that we promise never to open any channel     \
      * other than the main one, which means it can safely use a very  \
@@ -1785,7 +1845,7 @@ void term_keyinputw(Terminal *, const wchar_t * widebuf, int len);
 void term_get_cursor_position(Terminal *term, int *x, int *y);
 void term_setup_window_titles(Terminal *term, const char *title_hostname);
 void term_notify_minimised(Terminal *term, bool minimised);
-void term_notify_palette_overrides_changed(Terminal *term);
+void term_notify_palette_changed(Terminal *term);
 void term_notify_window_pos(Terminal *term, int x, int y);
 void term_notify_window_size_pixels(Terminal *term, int x, int y);
 void term_palette_override(Terminal *term, unsigned osc4_index, rgb rgb);
@@ -1926,7 +1986,7 @@ extern const struct BackendVtable rlogin_backend;
 extern const struct BackendVtable telnet_backend;
 
 /*
- * Exports from ssh.c.
+ * Exports from ssh/ssh.c.
  */
 extern const struct BackendVtable ssh_backend;
 extern const struct BackendVtable sshconn_backend;
@@ -2206,7 +2266,7 @@ enum {
     X11_XDM,                           /* XDM-AUTHORIZATION-1 */
     X11_NAUTHS
 };
-extern const char *const x11_authnames[];  /* declared in x11fwd.c */
+extern const char *const x11_authnames[X11_NAUTHS];
 
 /*
  * An enum for the copy-paste UI action configuration.

@@ -56,6 +56,13 @@ to aid in verifying new files released by the PuTTY team.
 
 \dd Force serial mode.
 
+\dt \cw{-ssh-connection}
+
+\dd Force use of the \q{bare \cw{ssh-connection}} protocol. This is
+only likely to be useful when connecting to a \cw{psusan}(\e{1})
+server, most likely with an absolute path to a Unix-domain socket in
+place of \e{host}.
+
 \dt \cw{\-proxycmd} \e{command}
 
 \dd Instead of making a TCP connection, use \e{command} as a proxy;
@@ -196,6 +203,15 @@ which of the agent's keys to use. }
 \dd Allow use of an authentication agent. (This option is only necessary
 to override a setting in a saved session.)
 
+\dt \cw{\-no\-trivial\-auth}
+
+\dd Disconnect from any SSH server which accepts authentication without
+ever having asked for any kind of password or signature or token. (You
+might want to enable this for a server you always expect to challenge
+you, for instance to ensure you don't accidentally type your key file's
+passphrase into a compromised server spoofing Plink's passphrase
+prompt.)
+
 \dt \cw{\-noshare}
 
 \dd Don't test and try to share an existing connection, always make
@@ -208,8 +224,9 @@ a new connection.
 \dt \cw{\-hostkey} \e{key}
 
 \dd Specify an acceptable host public key. This option may be specified
-multiple times; each key can be either a fingerprint (\cw{99:aa:bb:...}) or
-a base64-encoded blob in OpenSSH's one-line format.
+multiple times; each key can be either a fingerprint (\cw{SHA256:AbCdE...},
+\cw{99:aa:bb:...}, etc) or a base64-encoded blob in OpenSSH's one-line
+format.
 
 \lcont{ Specifying this option overrides automated host key
 management; \e{only} the key(s) specified on the command-line will be

@@ -8,8 +8,8 @@
 #include "putty.h"
 #include "storage.h"
 #ifndef NO_GSSAPI
-#include "sshgssc.h"
-#include "sshgss.h"
+#include "ssh/gssc.h"
+#include "ssh/gss.h"
 #endif
 
 /* {{{ winfrip */
@@ -612,6 +612,7 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
 #endif
     write_setting_s(sesskey, "RekeyBytes", conf_get_str(conf, CONF_ssh_rekey_data));
     write_setting_b(sesskey, "SshNoAuth", conf_get_bool(conf, CONF_ssh_no_userauth));
+    write_setting_b(sesskey, "SshNoTrivialAuth", conf_get_bool(conf, CONF_ssh_no_trivial_userauth));
     write_setting_b(sesskey, "SshBanner", conf_get_bool(conf, CONF_ssh_show_banner));
     write_setting_b(sesskey, "AuthTIS", conf_get_bool(conf, CONF_try_tis_auth));
     write_setting_b(sesskey, "AuthKI", conf_get_bool(conf, CONF_try_ki_auth));
@@ -774,6 +775,7 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
     write_setting_i(sesskey, "BugOldGex2", 2-conf_get_int(conf, CONF_sshbug_oldgex2));
     write_setting_i(sesskey, "BugWinadj", 2-conf_get_int(conf, CONF_sshbug_winadj));
     write_setting_i(sesskey, "BugChanReq", 2-conf_get_int(conf, CONF_sshbug_chanreq));
+    write_setting_i(sesskey, "BugDropStart", 2-conf_get_int(conf, CONF_sshbug_dropstart));
     write_setting_b(sesskey, "StampUtmp", conf_get_bool(conf, CONF_stamp_utmp));
     write_setting_b(sesskey, "LoginShell", conf_get_bool(conf, CONF_login_shell));
     write_setting_b(sesskey, "ScrollbarOnLeft", conf_get_bool(conf, CONF_scrollbar_on_left));
@@ -1031,6 +1033,7 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
     gpps(sesskey, "LogHost", "", conf, CONF_loghost);
     gppb(sesskey, "SSH2DES", false, conf, CONF_ssh2_des_cbc);
     gppb(sesskey, "SshNoAuth", false, conf, CONF_ssh_no_userauth);
+    gppb(sesskey, "SshNoTrivialAuth", false, conf, CONF_ssh_no_trivial_userauth);
     gppb(sesskey, "SshBanner", true, conf, CONF_ssh_show_banner);
     gppb(sesskey, "AuthTIS", false, conf, CONF_try_tis_auth);
     gppb(sesskey, "AuthKI", true, conf, CONF_try_ki_auth);
@@ -1251,6 +1254,7 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
     i = gppi_raw(sesskey, "BugOldGex2", 0); conf_set_int(conf, CONF_sshbug_oldgex2, 2-i);
     i = gppi_raw(sesskey, "BugWinadj", 0); conf_set_int(conf, CONF_sshbug_winadj, 2-i);
     i = gppi_raw(sesskey, "BugChanReq", 0); conf_set_int(conf, CONF_sshbug_chanreq, 2-i);
+    i = gppi_raw(sesskey, "BugDropStart", 0); conf_set_int(conf, CONF_sshbug_dropstart, 2-i);
     conf_set_bool(conf, CONF_ssh_simple, false);
     gppb(sesskey, "StampUtmp", true, conf, CONF_stamp_utmp);
     gppb(sesskey, "LoginShell", true, conf, CONF_login_shell);
