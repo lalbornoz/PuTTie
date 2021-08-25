@@ -81,7 +81,9 @@ target_link_libraries(test_wildcard utils ${platform_libraries})
 
 add_executable(plink
   ${platform}/plink.c
-  be_all_s.c)
+  be_all_s.c
+  FySTY/winfrip_confstore.c
+  FySTY/winfrip_confstore_priv.c)
 target_link_libraries(plink
   eventloop noterminal console sshclient otherbackends settings network crypto
   utils
@@ -90,7 +92,9 @@ installed_program(plink)
 
 add_executable(pscp
   pscp.c
-  be_ssh.c)
+  be_ssh.c
+  FySTY/winfrip_confstore.c
+  FySTY/winfrip_confstore_priv.c)
 target_link_libraries(pscp
   sftpclient eventloop console sshclient settings network crypto utils
   ${platform_libraries})
@@ -98,7 +102,9 @@ installed_program(pscp)
 
 add_executable(psftp
   psftp.c
-  be_ssh.c)
+  be_ssh.c
+  FySTY/winfrip_confstore.c
+  FySTY/winfrip_confstore_priv.c)
 target_link_libraries(psftp
   sftpclient eventloop console sshclient settings network crypto utils
   ${platform_libraries})
@@ -110,7 +116,9 @@ add_executable(psocks
   norand.c
   nocproxy.c
   nosshproxy.c
-  ssh/portfwd.c)
+  ssh/portfwd.c
+  FySTY/winfrip_confstore.c
+  FySTY/winfrip_confstore_priv.c)
 target_link_libraries(psocks
   eventloop console network utils
   ${platform_libraries})
