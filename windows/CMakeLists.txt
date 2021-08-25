@@ -93,11 +93,20 @@ add_executable(putty
   putty.c
   help.c
   ${CMAKE_SOURCE_DIR}/be_all_s.c
-  putty.rc)
+  putty.rc
+  ../FySTY/winfrip.c
+  ../FySTY/winfrip_bgimg.c
+  ../FySTY/winfrip_confstore.c
+  ../FySTY/winfrip_confstore_priv.c
+  ../FySTY/winfrip_general.c
+  ../FySTY/winfrip_mouse.c
+  ../FySTY/winfrip_transp.c
+  ../FySTY/winfrip_urls.c)
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
   guiterminal guimisc eventloop sshclient otherbackends settings network crypto
   utils
+  gdiplus.lib msimg32.lib shlwapi.lib
   ${platform_libraries})
 set_target_properties(putty PROPERTIES
   WIN32_EXECUTABLE ON
@@ -113,10 +122,19 @@ add_executable(puttytel
   ${CMAKE_SOURCE_DIR}/norand.c
   ${CMAKE_SOURCE_DIR}/nocproxy.c
   ${CMAKE_SOURCE_DIR}/nosshproxy.c
-  puttytel.rc)
+  puttytel.rc
+  ../FySTY/winfrip.c
+  ../FySTY/winfrip_bgimg.c
+  ../FySTY/winfrip_confstore.c
+  ../FySTY/winfrip_confstore_priv.c
+  ../FySTY/winfrip_general.c
+  ../FySTY/winfrip_mouse.c
+  ../FySTY/winfrip_transp.c
+  ../FySTY/winfrip_urls.c)
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel
   guiterminal guimisc eventloop otherbackends settings network utils
+  gdiplus.lib msimg32.lib shlwapi.lib
   ${platform_libraries})
 set_target_properties(puttytel PROPERTIES
   WIN32_EXECUTABLE ON
@@ -133,7 +151,9 @@ add_executable(puttygen
   ${CMAKE_SOURCE_DIR}/sshpubk.c
   ${CMAKE_SOURCE_DIR}/sshrand.c
   controls.c
-  puttygen.rc)
+  puttygen.rc
+  ../FySTY/winfrip_confstore.c
+  ../FySTY/winfrip_confstore_priv.c)
 add_dependencies(puttygen generated_licence_h)
 target_link_libraries(puttygen
   keygen guimisc crypto utils
