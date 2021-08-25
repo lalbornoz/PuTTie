@@ -20,6 +20,12 @@
 \IM{host key fingerprint} host key fingerprint (SSH)
 \IM{host key fingerprint} SSH host key fingerprint
 
+\IM{MD5 fingerprint} MD5 fingerprint, of SSH host key
+\IM{MD5 fingerprint} fingerprint, MD5, of SSH host key
+
+\IM{SHA256 fingerprint} SHA-256 fingerprint, of SSH host key
+\IM{SHA256 fingerprint} fingerprint, SHA-256, of SSH host key
+
 \IM{manually configuring host keys} manually configuring host keys
 \IM{manually configuring host keys} overriding host keys
 \IM{manually configuring host keys} host keys, manually configuring
@@ -189,6 +195,11 @@ saved sessions from
 \IM{protocol selection} selecting a protocol
 \IM{protocol selection} choosing a protocol
 
+\IM{ssh-connection} bare \cw{ssh-connection} protocol
+\IM{ssh-connection} \cw{ssh-connection} protocol, bare
+
+\IM{psusan} \cq{psusan} program
+
 \IM{login name}{username} login name
 \IM{login name}{username} user name
 \IM{login name}{username} account name
@@ -265,6 +276,11 @@ saved sessions from
 
 \IM{PPK} \cw{PPK} file
 \IM{PPK} private key file, PuTTY
+
+\IM{Argon2} Argon2 passphrase hashing function
+
+\IM{passphrase hashing} passphrase hashing, for private key files
+\IM{passphrase hashing} password hashing, for private key files
 
 \IM{PGP key fingerprint} PGP key fingerprint
 \IM{PGP key fingerprint} fingerprint, of PGP key
@@ -910,3 +926,7 @@ saved sessions from
 \IM{PuTTY icon} PuTTY icon
 \IM{PuTTY icon} icon, PuTTY's
 \IM{PuTTY icon} logo, PuTTY's
+
+\IM{system tray} system tray, Windows
+\IM{system tray} notification area, Windows (aka system tray)
+\IM{system tray} taskbar notification area, Windows (aka system tray)

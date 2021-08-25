@@ -10,20 +10,14 @@
 #include <limits.h>
 #include <assert.h>
 
-#ifdef __WINE__
-#define NO_MULTIMON                    /* winelib doesn't have this */
-#endif
-
-#ifndef NO_MULTIMON
 #define COMPILE_MULTIMON_STUBS
-#endif
 
 #include "putty.h"
 #include "terminal.h"
 #include "storage.h"
-#include "win_res.h"
-#include "winsecur.h"
-#include "winseat.h"
+#include "putty-rc.h"
+#include "security-api.h"
+#include "win-gui-seat.h"
 #include "tree234.h"
 
 /* {{{ winfrip */
@@ -86,6 +80,14 @@
 #define WHEEL_DELTA 120
 #endif
 
+/* DPI awareness support */
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#define WM_DPICHANGED_BEFOREPARENT 0x02E2
+#define WM_DPICHANGED_AFTERPARENT 0x02E3
+#define WM_GETDPISCALEDSIZE 0x02E4
+#endif
+
 /* VK_PACKET, used to send Unicode characters in WM_KEYDOWNs */
 #ifndef VK_PACKET
 #define VK_PACKET 0xE7
@@ -98,6 +100,7 @@ static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
                         unsigned char *output);
 static void init_palette(void);
 static void init_fonts(int, int);
+static void init_dpi_info(void);
 static void another_font(int);
 static void deinit_fonts(void);
 static void set_input_locale(HKL);
@@ -197,6 +200,16 @@ static LPLOGPALETTE logpal;
 bool tried_pal = false;
 COLORREF colorref_modifier = 0;
 
+enum MONITOR_DPI_TYPE { MDT_EFFECTIVE_DPI, MDT_ANGULAR_DPI, MDT_RAW_DPI, MDT_DEFAULT };
+DECL_WINDOWS_FUNCTION(static, HRESULT, GetDpiForMonitor, (HMONITOR hmonitor, enum MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY));
+DECL_WINDOWS_FUNCTION(static, HRESULT, GetSystemMetricsForDpi, (int nIndex, UINT dpi));
+DECL_WINDOWS_FUNCTION(static, HRESULT, AdjustWindowRectExForDpi, (LPRECT lpRect, DWORD dwStyle, BOOL bMenu, DWORD dwExStyle, UINT dpi));
+
+static struct _dpi_info {
+    POINT cur_dpi;
+    RECT new_wnd_rect;
+} dpi_info;
+
 static HBITMAP caretbm;
 
 static int dbltime, lasttime, lastact;
@@ -248,7 +261,7 @@ static void wintw_set_maximised(TermWin *, bool maximised);
 static void wintw_move(TermWin *, int x, int y);
 static void wintw_set_zorder(TermWin *, bool top);
 static void wintw_palette_set(TermWin *, unsigned, unsigned, const rgb *);
-static void wintw_palette_get_overrides(TermWin *);
+static void wintw_palette_get_overrides(TermWin *, Terminal *);
 
 static const TermWinVtable windows_termwin_vt = {
     .setup_draw_ctx = wintw_setup_draw_ctx,
@@ -321,8 +334,10 @@ static bool win_seat_get_window_pixel_size(Seat *seat, int *x, int *y);
 static const SeatVtable win_seat_vt = {
     .output = win_seat_output,
     .eof = win_seat_eof,
+    .sent = nullseat_sent,
     .get_userpass_input = win_seat_get_userpass_input,
     .notify_remote_exit = win_seat_notify_remote_exit,
+    .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = win_seat_connection_fatal,
     .update_specials_menu = win_seat_update_specials_menu,
     .get_ttymode = win_seat_get_ttymode,
@@ -350,18 +365,7 @@ static void start_backend(void)
     char *error, *realhost;
     int i;
 
-    /*
-     * Select protocol. This is farmed out into a table in a
-     * separate file to enable an ssh-free variant.
-     */
-    vt = backend_vt_from_proto(conf_get_int(conf, CONF_protocol));
-    if (!vt) {
-        char *str = dupprintf("%s Internal Error", appname);
-        MessageBox(NULL, "Unsupported protocol number found",
-                   str, MB_OK | MB_ICONEXCLAMATION);
-        sfree(str);
-        cleanup_exit(1);
-    }
+    vt = backend_vt_from_conf(conf);
 
     seat_set_trust_status(&wgs.seat, true);
     error = backend_init(vt, &wgs.seat, &backend, logctx, conf,
@@ -506,156 +510,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     /*
      * Process the command line.
      */
-    {
-        char *p;
-        bool special_launchable_argument = false;
-
-        settings_set_default_protocol(be_default_protocol);
-        /* Find the appropriate default port. */
-        {
-            const struct BackendVtable *vt =
-                backend_vt_from_proto(be_default_protocol);
-            settings_set_default_port(0); /* illegal */
-            if (vt)
-                settings_set_default_port(vt->default_port);
-        }
-        conf_set_int(conf, CONF_logtype, LGTYP_NONE);
-
-        do_defaults(NULL, conf);
-
-        p = cmdline;
-
-        /*
-         * Process a couple of command-line options which are more
-         * easily dealt with before the line is broken up into words.
-         * These are the old-fashioned but convenient @sessionname and
-         * the internal-use-only &sharedmemoryhandle, plus the &R
-         * prefix for -restrict-acl, all of which are used by PuTTYs
-         * auto-launching each other via System-menu options.
-         */
-        while (*p && isspace(*p))
-            p++;
-        if (*p == '&' && p[1] == 'R' &&
-            (!p[2] || p[2] == '@' || p[2] == '&')) {
-            /* &R restrict-acl prefix */
-            restrict_process_acl();
-            p += 2;
-        }
-
-        if (*p == '@') {
-            /*
-             * An initial @ means that the whole of the rest of the
-             * command line should be treated as the name of a saved
-             * session, with _no quoting or escaping_. This makes it a
-             * very convenient means of automated saved-session
-             * launching, via IDM_SAVEDSESS or Windows 7 jump lists.
-             */
-            int i = strlen(p);
-            while (i > 1 && isspace(p[i - 1]))
-                i--;
-            p[i] = '\0';
-            do_defaults(p + 1, conf);
-            if (!conf_launchable(conf) && !do_config(conf)) {
-                cleanup_exit(0);
-            }
-            special_launchable_argument = true;
-        } else if (*p == '&') {
-            /*
-             * An initial & means we've been given a command line
-             * containing the hex value of a HANDLE for a file
-             * mapping object, which we must then interpret as a
-             * serialised Conf.
-             */
-            HANDLE filemap;
-            void *cp;
-            unsigned cpsize;
-            if (sscanf(p + 1, "%p:%u", &filemap, &cpsize) == 2 &&
-                (cp = MapViewOfFile(filemap, FILE_MAP_READ,
-                                    0, 0, cpsize)) != NULL) {
-                BinarySource src[1];
-                BinarySource_BARE_INIT(src, cp, cpsize);
-                if (!conf_deserialise(conf, src))
-                    modalfatalbox("Serialised configuration data was invalid");
-                UnmapViewOfFile(cp);
-                CloseHandle(filemap);
-            } else if (!do_config(conf)) {
-                cleanup_exit(0);
-            }
-            special_launchable_argument = true;
-        } else if (!*p) {
-            /* Do-nothing case for an empty command line - or rather,
-             * for a command line that's empty _after_ we strip off
-             * the &R prefix. */
-        } else {
-            /*
-             * Otherwise, break up the command line and deal with
-             * it sensibly.
-             */
-            int argc, i;
-            char **argv;
-
-            split_into_argv(cmdline, &argc, &argv, NULL);
-
-            for (i = 0; i < argc; i++) {
-                char *p = argv[i];
-                int ret;
-
-                ret = cmdline_process_param(p, i+1<argc?argv[i+1]:NULL,
-                                            1, conf);
-                if (ret == -2) {
-                    cmdline_error("option \"%s\" requires an argument", p);
-                } else if (ret == 2) {
-                    i++;               /* skip next argument */
-                } else if (ret == 1) {
-                    continue;          /* nothing further needs doing */
-                } else if (!strcmp(p, "-cleanup")) {
-                    /*
-                     * `putty -cleanup'. Remove all registry
-                     * entries associated with PuTTY, and also find
-                     * and delete the random seed file.
-                     */
-                    char *s1, *s2;
-                    s1 = dupprintf("This procedure will remove ALL Registry entries\n"
-                                   "associated with %s, and will also remove\n"
-                                   "the random seed file. (This only affects the\n"
-                                   "currently logged-in user.)\n"
-                                   "\n"
-                                   "THIS PROCESS WILL DESTROY YOUR SAVED SESSIONS.\n"
-                                   "Are you really sure you want to continue?",
-                                   appname);
-                    s2 = dupprintf("%s Warning", appname);
-                    if (message_box(NULL, s1, s2,
-                                    MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2,
-                                    HELPCTXID(option_cleanup)) == IDYES) {
-                        cleanup_all();
-                    }
-                    sfree(s1);
-                    sfree(s2);
-                    exit(0);
-                } else if (!strcmp(p, "-pgpfp")) {
-                    pgp_fingerprints_msgbox(NULL);
-                    exit(1);
-                } else if (*p != '-') {
-                    cmdline_error("unexpected argument \"%s\"", p);
-                } else {
-                    cmdline_error("unknown option \"%s\"", p);
-                }
-            }
-        }
-
-        cmdline_run_saved(conf);
-
-        /*
-         * Bring up the config dialog if the command line hasn't
-         * (explicitly) specified a launchable configuration.
-         */
-        if (!(special_launchable_argument || cmdline_host_ok(conf))) {
-            if (!do_config(conf))
-                cleanup_exit(0);
-        }
-
-        prepare_session(conf);
-    }
+    gui_term_process_cmdline(conf, cmdline);
 
     if (!prev) {
         WNDCLASSW wndclass;
@@ -724,6 +579,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 	/* {{{ winfrip */
 	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, wgs.term_hwnd);
 	/* winfrip }}} */
+        memset(&dpi_info, 0, sizeof(struct _dpi_info));
+        init_dpi_info();
         sfree(uappname);
     }
 
@@ -876,8 +733,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     UpdateWindow(wgs.term_hwnd);
 
     while (1) {
-        HANDLE *handles;
-        int nhandles, n;
+        int n;
         DWORD timeout;
 
         if (toplevel_callback_pending() ||
@@ -906,16 +762,14 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             term_set_focus(term, GetForegroundWindow() == wgs.term_hwnd);
         }
 
-        handles = handle_get_events(&nhandles);
+        HandleWaitList *hwl = get_handle_wait_list();
 
-        n = MsgWaitForMultipleObjects(nhandles, handles, false,
+        n = MsgWaitForMultipleObjects(hwl->nhandles, hwl->handles, false,
                                       timeout, QS_ALLINPUT);
 
-        if ((unsigned)(n - WAIT_OBJECT_0) < (unsigned)nhandles) {
-            handle_got_event(handles[n - WAIT_OBJECT_0]);
-            sfree(handles);
-        } else
-            sfree(handles);
+        if ((unsigned)(n - WAIT_OBJECT_0) < (unsigned)hwl->nhandles)
+            handle_wait_activate(hwl, n - WAIT_OBJECT_0);
+        handle_wait_list_free(hwl);
 
         while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT)
@@ -954,6 +808,88 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     finished:
     cleanup_exit(msg.wParam);          /* this doesn't return... */
     return msg.wParam;                 /* ... but optimiser doesn't know */
+}
+
+char *handle_restrict_acl_cmdline_prefix(char *p)
+{
+    /*
+     * Process the &R prefix on a command line, which is equivalent to
+     * -restrict-acl but lexically easier to prepend when another
+     * instance of ourself automatically constructs a command line.
+     *
+     * If successful, restricts the process ACL and advances the input
+     * pointer past the prefix. Returns the updated pointer (whether
+     * it moved or not).
+     */
+    while (*p && isspace(*p))
+        p++;
+    if (*p == '&' && p[1] == 'R' &&
+        (!p[2] || p[2] == '@' || p[2] == '&')) {
+        /* &R restrict-acl prefix */
+        restrict_process_acl();
+        p += 2;
+    }
+    return p;
+}
+
+bool handle_special_sessionname_cmdline(char *p, Conf *conf)
+{
+    /*
+     * Process the special form of command line with an initial @
+     * followed by the name of a saved session with _no quoting or
+     * escaping_. This is a very convenient means of automated
+     * saved-session launching, via IDM_SAVEDSESS or Windows 7 jump
+     * lists.
+     *
+     * If successful, the whole command line has been interpreted in
+     * this way, so there's nothing left to parse into other arguments.
+     */
+    if (*p != '@')
+        return false;
+
+    ptrlen sessionname = ptrlen_from_asciz(p + 1);
+    while (sessionname.len > 0 &&
+           isspace(((unsigned char *)sessionname.ptr)[sessionname.len-1]))
+        sessionname.len--;
+
+    char *dup = mkstr(sessionname);
+    bool loaded = do_defaults(dup, conf);
+    sfree(dup);
+
+    return loaded;
+}
+
+bool handle_special_filemapping_cmdline(char *p, Conf *conf)
+{
+    /*
+     * Process the special form of command line with an initial &
+     * followed by the hex value of a HANDLE for a file mapping object
+     * and the size of the data contained in it, which we must
+     * interpret as a serialised Conf.
+     *
+     * If successful, the whole command line has been interpreted in
+     * this way, so there's nothing left to parse into other arguments.
+     */
+
+    if (*p != '&')
+        return false;
+
+    HANDLE filemap;
+    unsigned cpsize;
+    if (sscanf(p + 1, "%p:%u", &filemap, &cpsize) != 2)
+        return false;
+
+    void *cp = MapViewOfFile(filemap, FILE_MAP_READ, 0, 0, cpsize);
+    if (!cp)
+        return false;
+
+    BinarySource src[1];
+    BinarySource_BARE_INIT(src, cp, cpsize);
+    if (!conf_deserialise(conf, src))
+        modalfatalbox("Serialised configuration data was invalid");
+    UnmapViewOfFile(cp);
+    CloseHandle(filemap);
+    return true;
 }
 
 static void setup_clipboards(Terminal *term, Conf *conf)
@@ -1204,7 +1140,7 @@ static inline rgb rgb_from_colorref(COLORREF cr)
     return toret;
 }
 
-static void wintw_palette_get_overrides(TermWin *tw)
+static void wintw_palette_get_overrides(TermWin *tw, Terminal *term)
 {
     if (conf_get_bool(conf, CONF_system_colour)) {
         rgb rgb;
@@ -1235,16 +1171,16 @@ static void exact_textout(HDC hdc, int x, int y, CONST RECT *lprc,
                           unsigned short *lpString, UINT cbCount,
                           CONST INT *lpDx, bool opaque)
 {
-#ifdef __LCC__
+#if HAVE_GCP_RESULTSW
+    GCP_RESULTSW gcpr;
+#else
     /*
-     * The LCC include files apparently don't supply the
-     * GCP_RESULTSW type, but we can make do with GCP_RESULTS
-     * proper: the differences aren't important to us (the only
-     * variable-width string parameter is one we don't use anyway).
+     * If building against old enough headers that the GCP_RESULTSW
+     * type isn't available, we can make do with GCP_RESULTS proper:
+     * the differences aren't important to us (the only variable-width
+     * string parameter is one we don't use anyway).
      */
     GCP_RESULTS gcpr;
-#else
-    GCP_RESULTSW gcpr;
 #endif
     char *buffer = snewn(cbCount*2+2, char);
     char *classbuffer = snewn(cbCount, char);
@@ -1352,6 +1288,30 @@ static int get_font_width(HDC hdc, const TEXTMETRIC *tm)
     return ret;
 }
 
+static void init_dpi_info(void)
+{
+    if (dpi_info.cur_dpi.x == 0 || dpi_info.cur_dpi.y == 0) {
+        if (p_GetDpiForMonitor) {
+            UINT dpiX, dpiY;
+            HMONITOR currentMonitor = MonitorFromWindow(
+                wgs.term_hwnd, MONITOR_DEFAULTTOPRIMARY);
+            if (p_GetDpiForMonitor(currentMonitor, MDT_EFFECTIVE_DPI,
+                                   &dpiX, &dpiY) == S_OK) {
+                dpi_info.cur_dpi.x = (int)dpiX;
+                dpi_info.cur_dpi.y = (int)dpiY;
+            }
+        }
+
+        /* Fall back to system DPI */
+        if (dpi_info.cur_dpi.x == 0 || dpi_info.cur_dpi.y == 0) {
+            HDC hdc = GetDC(wgs.term_hwnd);
+            dpi_info.cur_dpi.x = GetDeviceCaps(hdc, LOGPIXELSX);
+            dpi_info.cur_dpi.y = GetDeviceCaps(hdc, LOGPIXELSY);
+            ReleaseDC(wgs.term_hwnd, hdc);
+        }
+    }
+}
+
 /*
  * Initialise all the fonts we will need initially. There may be as many as
  * three or as few as one.  The other (potentially) twenty-one fonts are done
@@ -1408,7 +1368,7 @@ static void init_fonts(int pick_width, int pick_height)
         font_height = font->height;
         if (font_height > 0) {
             font_height =
-                -MulDiv(font_height, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+                -MulDiv(font_height, dpi_info.cur_dpi.y, 72);
         }
     }
     font_width = pick_width;
@@ -1805,6 +1765,35 @@ static void reset_window(int reinit) {
         return;
     }
 
+    /* Resize window after DPI change */
+    if (reinit == 3 && p_GetSystemMetricsForDpi && p_AdjustWindowRectExForDpi) {
+        RECT rect;
+        rect.left = rect.top = 0;
+        rect.right = (font_width * term->cols);
+        if (conf_get_bool(conf, CONF_scrollbar))
+            rect.right += p_GetSystemMetricsForDpi(SM_CXVSCROLL,
+                                                   dpi_info.cur_dpi.x);
+        rect.bottom = (font_height * term->rows);
+        p_AdjustWindowRectExForDpi(
+            &rect, GetWindowLongPtr(wgs.term_hwnd, GWL_STYLE),
+            FALSE, GetWindowLongPtr(wgs.term_hwnd, GWL_EXSTYLE),
+            dpi_info.cur_dpi.x);
+        rect.right += (window_border * 2);
+        rect.bottom += (window_border * 2);
+        OffsetRect(&dpi_info.new_wnd_rect,
+            ((dpi_info.new_wnd_rect.right - dpi_info.new_wnd_rect.left) -
+             (rect.right - rect.left)) / 2,
+            ((dpi_info.new_wnd_rect.bottom - dpi_info.new_wnd_rect.top) -
+             (rect.bottom - rect.top)) / 2);
+        SetWindowPos(wgs.term_hwnd, NULL,
+                     dpi_info.new_wnd_rect.left, dpi_info.new_wnd_rect.top,
+                     rect.right - rect.left, rect.bottom - rect.top,
+                     SWP_NOZORDER);
+
+        InvalidateRect(wgs.term_hwnd, NULL, true);
+        return;
+    }
+
     /* Hmm, a force re-init means we should ignore the current window
      * so we resize to the default font size.
      */
@@ -2115,6 +2104,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
     static bool ignore_clip = false;
     static bool fullscr_on_max = false;
     static bool processed_resize = false;
+    static bool in_scrollbar_loop = false;
     static UINT last_mousemove = 0;
     int resize_action;
 
@@ -2169,6 +2159,21 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_COMMAND:
       case WM_SYSCOMMAND:
         switch (wParam & ~0xF) {       /* low 4 bits reserved to Windows */
+          case SC_VSCROLL:
+          case SC_HSCROLL:
+            if (message == WM_SYSCOMMAND) {
+                /* As per the long comment in WM_VSCROLL handler: give
+                 * this message the default handling, which starts a
+                 * subsidiary message loop, but set a flag so that
+                 * when we're re-entered from that loop, scroll events
+                 * within an interactive scrollbar-drag can be handled
+                 * differently. */
+                in_scrollbar_loop = true;
+                LRESULT result = DefWindowProcW(hwnd, message, wParam, lParam);
+                in_scrollbar_loop = false;
+                return result;
+            }
+            break;
           case IDM_SHOWLOG:
             showeventlog(hwnd);
             break;
@@ -2321,7 +2326,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
             if (conf_get_bool(conf, CONF_system_colour) !=
                 conf_get_bool(prev_conf, CONF_system_colour))
-                term_notify_palette_overrides_changed(term);
+                term_notify_palette_changed(term);
 
             /* Pass new config data to the terminal */
             term_reconfig(term, conf);
@@ -3082,6 +3087,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	/* winfrip }}} */
         sys_cursor_update();
         return 0;
+      case WM_DPICHANGED:
+        dpi_info.cur_dpi.x = LOWORD(wParam);
+        dpi_info.cur_dpi.y = HIWORD(wParam);
+        dpi_info.new_wnd_rect = *(RECT*)(lParam);
+        reset_window(3);
+        return 0;
       case WM_VSCROLL:
         switch (LOWORD(wParam)) {
           case SB_BOTTOM:
@@ -3117,6 +3128,51 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             term_scroll(term, 1, si.nTrackPos);
             break;
           }
+        }
+
+        if (in_scrollbar_loop) {
+            /*
+             * Allow window updates to happen during interactive
+             * scroll.
+             *
+             * When the user takes hold of our window's scrollbar and
+             * wobbles it interactively back and forth, or presses on
+             * one of the arrow buttons at the ends, the first thing
+             * that happens is that this window procedure receives
+             * WM_SYSCOMMAND / SC_VSCROLL. [1] The default handler for
+             * that window message starts a subsidiary message loop,
+             * which continues to run until the user lets go of the
+             * scrollbar again. All WM_VSCROLL / SB_THUMBTRACK
+             * messages are generated by the handlers within that
+             * subsidiary message loop.
+             *
+             * So, during that time, _our_ message loop is not
+             * running, which means toplevel callbacks and timers and
+             * so forth are not happening, which means that when we
+             * redraw the window and set a timer to clear the cooldown
+             * flag 20ms later, that timer never fires, and we aren't
+             * able to keep redrawing the window.
+             *
+             * The 'obvious' answer would be to seize that SYSCOMMAND
+             * ourselves and inhibit the default handler, so that our
+             * message loop carries on running. But that would mean
+             * we'd have to reimplement the whole of the scrollbar
+             * handler!
+             *
+             * So instead we apply a bodge: set a static variable that
+             * indicates that we're _in_ that sub-loop, and if so,
+             * decide it's OK to manually call term_update() proper,
+             * bypassing the timer and cooldown and rate-limiting
+             * systems completely, whenever we see an SB_THUMBTRACK.
+             * This shouldn't cause a rate overload, because we're
+             * only doing it once per UI event!
+             *
+             * [1] Actually, there's an extra oddity where SC_HSCROLL
+             * and SC_VSCROLL have their documented values the wrong
+             * way round. Many people on the Internet have noticed
+             * this, e.g. https://stackoverflow.com/q/55528397
+             */
+            term_update(term);
         }
         break;
       case WM_PALETTECHANGED:
@@ -3291,7 +3347,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_SYSCOLORCHANGE:
         if (conf_get_bool(conf, CONF_system_colour)) {
             /* Refresh palette from system colours. */
-            term_notify_palette_overrides_changed(term);
+            term_notify_palette_changed(term);
             init_palette();
             /* Force a repaint of the terminal window. */
             term_invalidate(term);
@@ -4045,9 +4101,13 @@ static void init_winfuncs(void)
 {
     HMODULE user32_module = load_system32_dll("user32.dll");
     HMODULE winmm_module = load_system32_dll("winmm.dll");
+    HMODULE shcore_module = load_system32_dll("shcore.dll");
     GET_WINDOWS_FUNCTION(user32_module, FlashWindowEx);
     GET_WINDOWS_FUNCTION(user32_module, ToUnicodeEx);
     GET_WINDOWS_FUNCTION_PP(winmm_module, PlaySound);
+    GET_WINDOWS_FUNCTION_NO_TYPECHECK(shcore_module, GetDpiForMonitor);
+    GET_WINDOWS_FUNCTION_NO_TYPECHECK(user32_module, GetSystemMetricsForDpi);
+    GET_WINDOWS_FUNCTION_NO_TYPECHECK(user32_module, AdjustWindowRectExForDpi);
 }
 
 /*
@@ -5366,10 +5426,10 @@ static void wintw_clip_request_paste(TermWin *tw, int clipboard)
      * that tells us it's OK to paste.
      */
     DWORD in_threadid; /* required for Win9x */
-    HANDLE hThread;
-    hThread = CreateThread(NULL, 0, clipboard_read_threadfunc,
-                           wgs.term_hwnd, 0, &in_threadid);
-    CloseHandle(hThread);
+    HANDLE hThread = CreateThread(NULL, 0, clipboard_read_threadfunc,
+                                  wgs.term_hwnd, 0, &in_threadid);
+    if (hThread)
+        CloseHandle(hThread);          /* we don't need the thread handle */
 }
 
 /*
