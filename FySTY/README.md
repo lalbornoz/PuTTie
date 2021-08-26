@@ -5,7 +5,7 @@ PuTTY plus *pointless frippery* and tremendous amounts of *bloat*[[1](#r1)][[2](
 ![Screenshot](https://github.com/lalbornoz/FySTY/raw/master/FySTY/FySTY.png "Screenshot")
 
 ## Built & tested on
-1. MinGW on Ubuntu 16.04.4 LTS & Windows 8.1 x64, resp.
+1. MinGW on Cygwin v3.2.0(0.340/5/3) on Windows 8.1 x64
 
 ## List of newly introduced features
 1. **Background BMP or {JPG,PNG,...}[[10](#r10)] images**, similarly to[[6](#r6)]  
@@ -18,8 +18,7 @@ PuTTY plus *pointless frippery* and tremendous amounts of *bloat*[[1](#r1)][[2](
    Configurable {de,in}crease font size with \<Shift\> + \<Mouse wheel\>  
    Configurable {normal,inhibit} RMB processing behaviour (for alghazi)
 5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation  
-6. Fixes on-clipboard paste thread handle leak present in PuTTY v0.70 and in master.  
-7. Optionally filters Unicode U+2028/+2029 line/paragraph separator code points.
+6. Optionally filters Unicode U+2028/+2029 line/paragraph separator code points.
 
 ## TODO/wish list
 1. **Bug**: clickable URLs: correctly reset ATTR\_UNDER & honour scrollback position
