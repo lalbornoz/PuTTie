@@ -10,9 +10,6 @@
  * Preprocessor macros
  */
 
-/*
- * XXX document
- */
 #define WINFRIPP_HELP_CTX					\
 	"appearance.frippery:config-winfrippery"
 
@@ -20,34 +17,22 @@
  * Private enumerations
  */
 
-/*
- * XXX document
- */
 typedef enum WinFrippGeneralAlwaysOnTop {
     WINFRIPP_GENERAL_ALWAYS_ON_TOP_NEVER	= 0,
     WINFRIPP_GENERAL_ALWAYS_ON_TOP_ALWAYS	= 1,
 } WinFrippGeneralAlwaysOnTop;
 
-/*
- * XXX document
- */
 typedef enum WinFrippGeneralFilterSeparators {
 	WINFRIPP_GENERAL_FILTER_SEPARATORS_NO	= 0,
 	WINFRIPP_GENERAL_FILTER_SEPARATORS_YES	= 1,
 } WinFrippGeneralFilterSeparators;
 
-/*
- * XXX document
- */
 typedef enum WinFrippBgImgState {
     WINFRIPP_BGIMG_STATE_NONE			= 0,
     WINFRIPP_BGIMG_STATE_FAILED			= 1,
     WINFRIPP_BGIMG_STATE_INIT			= 2,
 } WinFrippBgImgState;
 
-/*
- * XXX document
- */
 typedef enum WinFrippBgImgStyle {
     WINFRIPP_BGIMG_STYLE_ABSOLUTE		= 0,
     WINFRIPP_BGIMG_STYLE_CENTER			= 1,
@@ -55,33 +40,21 @@ typedef enum WinFrippBgImgStyle {
     WINFRIPP_BGIMG_STYLE_TILE			= 3,
 } WinFrippBgImgStyle;
 
-/*
- * XXX document
- */
 typedef enum WinFrippBgImgType {
     WINFRIPP_BGIMG_TYPE_SOLID			= 0,
     WINFRIPP_BGIMG_TYPE_IMAGE			= 1,
 } WinFrippBgImgType;
 
-/*
- * XXX document
- */
 typedef enum WinFrippMouseRmb {
     WINFRIPP_MOUSE_RMB_NORMAL			= 0,
     WINFRIPP_MOUSE_RMB_INHIBIT			= 1,
 } WinFrippMouseRmb;
 
-/*
- * XXX document
- */
 typedef enum WinFrippMouseWheel {
     WINFRIPP_MOUSE_WHEEL_NORMAL			= 0,
     WINFRIPP_MOUSE_WHEEL_FONT_SIZE		= 1,
 } WinFrippMouseWheel;
 
-/*
- * XXX document
- */
 typedef enum WinFrippTranspLevel {
     WINFRIPP_TRANSP_LEVEL_OFF			= 255,
     WINFRIPP_TRANSP_LEVEL_LOW			= 255 - 16,
@@ -89,18 +62,12 @@ typedef enum WinFrippTranspLevel {
     WINFRIPP_TRANSP_LEVEL_HIGH			= 255 - 48,
 } WinFrippTranspLevel;
 
-/*
- * XXX document
- */
 typedef enum WinFrippTranspOpaqueOn {
     WINFRIPP_TRANSP_OPAQUE_NEVER		= 0,
     WINFRIPP_TRANSP_OPAQUE_FOCUS_KILL		= 1,
     WINFRIPP_TRANSP_OPAQUE_FOCUS_SET		= 2,
 } WinFrippTranspOpaqueOn;
 
-/*
- * XXX document
- */
 typedef enum WinFrippTranspSetting {
     WINFRIPP_TRANSP_SETTING_OFF			= 0,
     WINFRIPP_TRANSP_SETTING_LOW			= 1,
@@ -109,9 +76,6 @@ typedef enum WinFrippTranspSetting {
     WINFRIPP_TRANSP_SETTING_CUSTOM		= 4,
 } WinFrippTranspSetting;
 
-/*
- * XXX document
- */
 typedef enum WinFrippUrlsState {
     WINFRIPP_URLS_STATE_NONE			= 0,
     WINFRIPP_URLS_STATE_SELECT			= 1,
@@ -123,18 +87,12 @@ typedef enum WinFrippUrlsState {
  * Public subroutines private to FySTY/winfrip*.c prototypes
  */
 
-/*
- * XXX document
- */
 void winfripp_bgimg_config_panel(struct controlbox *b);
 void winfripp_general_config_panel(struct controlbox *b);
 void winfripp_mouse_config_panel(struct controlbox *b);
 void winfripp_transp_config_panel(struct controlbox *b);
 void winfripp_urls_config_panel(struct controlbox *b);
 
-/*
- * XXX document
- */
 #ifdef WINFRIP_DEBUG
 #define WINFRIPP_DEBUG_ASSERT(expr) do {			\
 	if (!(expr)) {						\
@@ -165,9 +123,6 @@ void winfripp_debugf(const char *fmt, const char *file, const char *func, int li
 #define WINFRIPP_DEBUGF(fmt, ...)
 #endif
 
-/*
- * XXX document
- */
 BOOL winfripp_towcsdup(char *in, size_t in_size, wchar_t **pout_w);
 
 #endif

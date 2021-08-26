@@ -15,9 +15,6 @@
  * Preprocessor macros
  */
 
-/*
- * XXX document
- */
 #define WINFRIPP_BGIMG_FILTER_IMAGE_FILES (									\
 	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
 	"Bitmap Files (*.bmp)\0*.bmp\0"										\
@@ -35,15 +32,9 @@
  * {External,Static} variables
  */
 
-/*
- * XXX document
- */
 static HDC winfripp_bgimg_hdc = NULL;
 static HGDIOBJ winfripp_bgimg_hdc_old = NULL;
 
-/*
- * XXX document
- */
 static WinFrippBgImgState winfripp_bgimg_state = WINFRIPP_BGIMG_STATE_NONE;
 
 /*
@@ -71,9 +62,6 @@ static BOOL winfripp_init_bgimg_get_fname(Conf *conf, wchar_t **pbg_fname_w, BOO
     WINFRIPP_DEBUG_ASSERT(pbg_fname_w);
     WINFRIPP_DEBUG_ASSERT(pbg_bmpfl);
 
-    /*
-     * XXX document
-     */
     bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
     bg_fname = bg_fname_conf->path;
     WINFRIPP_DEBUG_ASSERT(bg_fname);
@@ -115,9 +103,6 @@ static BOOL winfripp_init_bgimg_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int
     WINFRIPP_DEBUG_ASSERT(bmp_src_fname_w);
     WINFRIPP_DEBUG_ASSERT(hdc);
 
-    /*
-     * XXX document
-     */
     bg_height = GetDeviceCaps(hdc, VERTRES);
     bg_width = GetDeviceCaps(hdc, HORZRES);
     if ((bmp_src = LoadImageW(0, bmp_src_fname_w, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE))) {
@@ -129,9 +114,6 @@ static BOOL winfripp_init_bgimg_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int
 	}
     }
 
-    /*
-     * XXX document
-     */
     *pbg_hdc = bg_hdc; *pbg_hdc_old = bg_hdc_old;
     *pbg_height = bg_height; *pbg_width = bg_width;
     *pbmp_src = bmp_src;
@@ -163,9 +145,6 @@ static BOOL winfripp_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, 
     WINFRIPP_DEBUG_ASSERT(bmp_src_fname_w);
     WINFRIPP_DEBUG_ASSERT(hdc);
 
-    /*
-     * XXX document
-     */
     gdip_si.GdiplusVersion = 2;
     gdip_si.DebugEventCallback = NULL;
     gdip_si.SuppressBackgroundThread = FALSE;
@@ -187,9 +166,6 @@ static BOOL winfripp_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, 
 	}
     }
 
-    /*
-     * XXX document
-     */
     bg_height = GetDeviceCaps(hdc, VERTRES);
     bg_width = GetDeviceCaps(hdc, HORZRES);
     if ((bg_hdc = CreateCompatibleDC(hdc))) {
@@ -199,9 +175,6 @@ static BOOL winfripp_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, 
 	}
     }
 
-    /*
-     * XXX document
-     */
     *pbg_hdc = bg_hdc; *pbg_hdc_old = bg_hdc_old;
     *pbg_height = bg_height; *pbg_width = bg_width;
     *pbmp_src = bmp_src;
@@ -229,18 +202,12 @@ static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width,
     WINFRIPP_DEBUG_ASSERT(bmp_src);
     WINFRIPP_DEBUG_ASSERT(hdc);
 
-    /*
-     * XXX document
-     */
     SetRect(&bg_rect, 0, 0, bg_width, bg_height);
     bgimg_style = conf_get_int(conf, CONF_frip_bgimg_style);
     switch (bgimg_style) {
     default:
 	WINFRIPP_DEBUG_FAIL(); break;
 
-    /*
-     * XXX document
-     */
     case WINFRIPP_BGIMG_STYLE_ABSOLUTE:
     case WINFRIPP_BGIMG_STYLE_CENTER:
     case WINFRIPP_BGIMG_STYLE_STRETCH:
@@ -251,18 +218,12 @@ static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width,
 	    default:
 		WINFRIPP_DEBUG_FAIL(); break;
 
-	    /*
-	     * XXX document
-	     */
 	    case WINFRIPP_BGIMG_STYLE_ABSOLUTE:
 		rc = BitBlt(bg_hdc, bg_rect.left, bg_rect.top,
 			    bmp_src_obj.bmWidth, bmp_src_obj.bmHeight,
 			    bmp_src_hdc, 0, 0, SRCCOPY) > 0;
 		break;
 
-	    /*
-	     * XXX document
-	     */
 	    case WINFRIPP_BGIMG_STYLE_CENTER:
 		hwnd = WindowFromDC(hdc);
 		GetClientRect(hwnd, &cr);
@@ -280,9 +241,6 @@ static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width,
 			    bmp_src_hdc, 0, 0, SRCCOPY) > 0;
 		break;
 
-	    /*
-	     * XXX document
-	     */
 	    case WINFRIPP_BGIMG_STYLE_STRETCH:
 		bg_hdc_sb_mode = SetStretchBltMode(bg_hdc, HALFTONE);
 		rc = StretchBlt(bg_hdc, bg_rect.left, bg_rect.top,
@@ -294,17 +252,11 @@ static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width,
 		break;
 	    }
 
-	    /*
-	     * XXX document
-	     */
 	    SelectObject(bmp_src_hdc, bmp_src_old);
 	    DeleteDC(bmp_src_hdc);
 	}
 	break;
 
-    /*
-     * XXX document
-     */
     case WINFRIPP_BGIMG_STYLE_TILE:
 	if ((bg_brush = CreatePatternBrush(bmp_src))) {
 	    rc = FillRect(bg_hdc, &bg_rect, bg_brush) > 0;
@@ -334,16 +286,10 @@ static BOOL winfripp_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_
 
     if ((blend_hdc = CreateCompatibleDC(bg_hdc))) {
 	if ((blend_bmp = CreateCompatibleBitmap(bg_hdc, 1, 1))) {
-	    /*
-	     * XXX document
-	     */
 	    blend_old = SelectObject(blend_hdc, blend_bmp);
 	    blend_colour = RGB(0, 0, 0);
 	    SetPixelV(blend_hdc, 0, 0, blend_colour);
 
-	    /*
-	     * XXX document
-	     */
 	    SetRect(&bg_rect, 0, 0, bg_width, bg_height);
 	    blend_ftn.AlphaFormat = 0;
 	    blend_ftn.BlendFlags = 0;
@@ -357,9 +303,6 @@ static BOOL winfripp_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_
 	}
     }
 
-    /*
-     * XXX document
-     */
     if (blend_hdc) {
 	if (blend_old) {
 	    SelectObject(blend_hdc, blend_old);
@@ -386,9 +329,6 @@ static BOOL winfripp_init_bgimg(Conf *conf, HDC hdc, BOOL force)
 
     WINFRIPP_DEBUG_ASSERT(hdc);
 
-    /*
-     * XXX document
-     */
     switch (winfripp_bgimg_state) {
     default:
 	WINFRIPP_DEBUG_FAIL(); break;
@@ -410,9 +350,6 @@ static BOOL winfripp_init_bgimg(Conf *conf, HDC hdc, BOOL force)
 	}
     }
 
-    /*
-     * XXX document
-     */
     if (winfripp_bgimg_hdc) {
 	bg_hdc_cur = GetCurrentObject(winfripp_bgimg_hdc, OBJ_BITMAP);
 	SelectObject(winfripp_bgimg_hdc, winfripp_bgimg_hdc_old); winfripp_bgimg_hdc_old = NULL;
@@ -420,9 +357,6 @@ static BOOL winfripp_init_bgimg(Conf *conf, HDC hdc, BOOL force)
 	DeleteDC(winfripp_bgimg_hdc); winfripp_bgimg_hdc = NULL;
     }
 
-    /*
-     * XXX document
-     */
     if ((winfripp_init_bgimg_get_fname(conf, &bg_bmp_fname_w, &bg_bmpfl))) {
 	switch (bg_bmpfl) {
 	case TRUE:
@@ -437,9 +371,6 @@ static BOOL winfripp_init_bgimg(Conf *conf, HDC hdc, BOOL force)
 	sfree(bg_bmp_fname_w);
     }
 
-    /*
-     * XXX document
-     */
     if (rc) {
 	if (winfripp_init_bgimg_process(bg_hdc, bg_height, bg_width, bmp_src, conf, hdc)) {
 	    if (winfripp_init_bgimg_process_blend(bg_hdc, bg_height, bg_width, conf)) {
@@ -451,9 +382,6 @@ static BOOL winfripp_init_bgimg(Conf *conf, HDC hdc, BOOL force)
 	}
     }
 
-    /*
-     * XXX document
-     */
     if (bg_hdc) {
 	if (bg_hdc_old) {
 	    bg_hdc_cur = GetCurrentObject(bg_hdc, OBJ_BITMAP);
@@ -514,9 +442,6 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
     WinFripReturn rc;
 
 
-    /*
-     * XXX document
-     */
     if (conf_get_int(conf, CONF_frip_bgimg_type) != WINFRIPP_BGIMG_TYPE_IMAGE) {
 	return WINFRIP_RETURN_NOOP;
     } else if (hdc_in) {
@@ -532,9 +457,6 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 	rc = WINFRIP_RETURN_FAILURE;
 	goto out;
 
-    /*
-     * XXX document
-     */
     case WINFRIP_BGIMG_OP_DRAW:
 	WINFRIPP_DEBUG_ASSERT(hdc);
 	WINFRIPP_DEBUG_ASSERT(font_height > 0);
@@ -568,9 +490,6 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 	    goto out;
 	}
 
-    /*
-     * XXX document
-     */
     case WINFRIP_BGIMG_OP_RECONF:
 	if (winfripp_init_bgimg(conf, hdc, TRUE)) {
 	    rc = WINFRIP_RETURN_CONTINUE;
@@ -581,9 +500,6 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 	    goto out;
 	}
 
-    /*
-     * XXX document
-     */
     case WINFRIP_BGIMG_OP_SIZE:
 	switch (conf_get_int(conf, CONF_frip_bgimg_style)) {
 	default:
@@ -608,9 +524,6 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 	}
     }
 
-    /*
-     * XXX document
-     */
 out:
     if (!hdc_in) {
 	ReleaseDC(hwnd, hdc);

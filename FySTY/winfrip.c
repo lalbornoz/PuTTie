@@ -20,9 +20,6 @@ void winfripp_debugf(const char *fmt, const char *file, const char *func, int li
     va_list ap;
 
 
-    /*
-     * XXX document
-     */
     fprintf(stderr, "In %s:%d:%s():\n", file, line, func);
     va_start(ap, line);
     vfprintf(stderr, fmt, ap);
@@ -41,9 +38,6 @@ BOOL winfripp_towcsdup(char *in, size_t in_size, wchar_t **pout_w)
     WINFRIPP_DEBUG_ASSERT(in_size > 0);
     WINFRIPP_DEBUG_ASSERT(pout_w);
 
-    /*
-     * XXX document
-     */
     out_w_len = MultiByteToWideChar(CP_ACP, 0, in, in_size, NULL, 0);
     WINFRIPP_DEBUG_ASSERT(out_w_len > 0);
     if (out_w_len > 0) {
@@ -79,9 +73,6 @@ void winfrip_config_panel(struct controlbox *b)
 void winfrip_debug_init(void)
 {
 #ifdef WINFRIP_DEBUG
-    /*
-     * XXX document
-     */
     AllocConsole();
     AttachConsole(GetCurrentProcessId());
     freopen("CON", "w", stdout);

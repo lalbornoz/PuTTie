@@ -53,9 +53,6 @@ WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPAR
     int rc;
 
 
-    /*
-     * XXX document
-     */
     if (op == WINFRIP_MOUSE_OP_MOUSE_EVENT) {
 	if (message == WM_RBUTTONDOWN) {
 	    op = WINFRIP_MOUSE_OP_RMB_DOWN;
@@ -66,17 +63,11 @@ WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPAR
 	}
     }
 
-    /*
-     * XXX document
-     */
     switch (op) {
     default:
 	WINFRIPP_DEBUG_FAIL();
 	return WINFRIP_RETURN_FAILURE;
 
-    /*
-     * XXX document
-     */
     case WINFRIP_MOUSE_OP_RMB_DOWN:
 	switch (conf_get_int(conf, CONF_frip_mouse_rmb)) {
 	default:
@@ -100,9 +91,6 @@ WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPAR
 	    }
 	}
 
-    /*
-     * XXX document
-     */
     case WINFRIP_MOUSE_OP_WHEEL:
 	if ((LOWORD(wParam) & MK_CONTROL) && !(LOWORD(wParam) & MK_SHIFT)) {
 	    switch (conf_get_int(conf, CONF_frip_mouse_wheel)) {

@@ -51,9 +51,6 @@ void winfrip_transp_op(WinFripTranspOp op, Conf *conf, HWND hwnd)
     int opacity;
 
 
-    /*
-     * XXX document
-     */
     switch (conf_get_int(conf, CONF_frip_transp_setting)) {
     default:
 	WINFRIPP_DEBUG_FAIL(); return;
@@ -69,9 +66,6 @@ void winfrip_transp_op(WinFripTranspOp op, Conf *conf, HWND hwnd)
 	opacity = conf_get_int(conf, CONF_frip_transp_custom); break;
     }
 
-    /*
-     * XXX document
-     */
     switch (op) {
     default:
 	WINFRIPP_DEBUG_FAIL(); return;

@@ -19,9 +19,6 @@ void winfripp_confstore_debugf(const char *fmt, const char *file, const char *fu
     va_list ap;
 
 
-    /*
-     * XXX document
-     */
     fprintf(stderr, "In %s:%d:%s():\n", file, line, func);
     va_start(ap, line);
     vfprintf(stderr, fmt, ap);
@@ -30,9 +27,6 @@ void winfripp_confstore_debugf(const char *fmt, const char *file, const char *fu
 }
 #endif
 
-/*
- * XXX document
- */
 
 BOOL winfripp_confstore_map_hkey_add(uint64_t *bitmap, size_t *pbitmap_bits, WinFrippConfStoreHKEYSubKey *map, size_t map_len, HKEY hKey_parent, LPCSTR lpSubKey, HKEY *phKey)
 {
@@ -48,17 +42,11 @@ BOOL winfripp_confstore_map_hkey_add(uint64_t *bitmap, size_t *pbitmap_bits, Win
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpSubKey);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(phKey);
 
-    /*
-     * XXX document
-     */
     if (hKey_parent && hKey_parent == HKEY_PERFORMANCE_DATA) {
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
 	return FALSE;
     }
 
-    /*
-     * XXX document
-     */
     for (hKey_new = (HKEY)0, nbit_cur = 1; nbit_cur <= *pbitmap_bits; nbit_cur++) {
 	if (!(*bitmap & (1 << (nbit_cur - 1)))) {
 	    hKey_new = (HKEY)nbit_cur; break;
@@ -69,9 +57,6 @@ BOOL winfripp_confstore_map_hkey_add(uint64_t *bitmap, size_t *pbitmap_bits, Win
 	return FALSE;
     }
 
-    /*
-     * XXX document
-     */
     for (nmap_item = 0; nmap_item < map_len; nmap_item++) {
 	if (!map[nmap_item].hKey) {
 	    if (!(lpSubKey_new = dupstr(lpSubKey))) {
@@ -86,9 +71,6 @@ BOOL winfripp_confstore_map_hkey_add(uint64_t *bitmap, size_t *pbitmap_bits, Win
 	}
     }
 
-    /*
-     * XXX document
-     */
     WINFRIPP_CONFSTORE_DEBUG_FAIL();
     return FALSE;
 }
@@ -104,17 +86,11 @@ BOOL winfripp_confstore_map_hkey_del(uint64_t *bitmap, size_t *pbitmap_bits, Win
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(map_len > 0);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(hKey);
 
-    /*
-     * XXX document
-     */
     if (hKey == HKEY_PERFORMANCE_DATA) {
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
 	return FALSE;
     }
 
-    /*
-     * XXX document
-     */
     for (nmap_item = 0; nmap_item < map_len; nmap_item++) {
 	if (map[nmap_item].hKey == hKey) {
 	    nbit_old = (size_t)map[nmap_item].hKey;
@@ -130,9 +106,6 @@ BOOL winfripp_confstore_map_hkey_del(uint64_t *bitmap, size_t *pbitmap_bits, Win
 	}
     }
 
-    /*
-     * XXX document
-     */
     WINFRIPP_CONFSTORE_DEBUG_FAIL();
     return FALSE;
 }
@@ -151,17 +124,11 @@ BOOL winfripp_confstore_map_hkey_get(WinFrippConfStoreHKEYSubKey *map, size_t ma
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(hKey);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(pfull_key);
 
-    /*
-     * XXX document
-     */
     if (hKey == HKEY_PERFORMANCE_DATA) {
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
 	return FALSE;
     }
 
-    /*
-     * XXX document
-     */
     full_key = NULL; full_key_len = 0; hKey_cur = hKey;
     for (niter = 0; niter < 16; niter++) {
 	for (nmap_item = 0; nmap_item < map_len; nmap_item++) {
@@ -169,9 +136,6 @@ BOOL winfripp_confstore_map_hkey_get(WinFrippConfStoreHKEYSubKey *map, size_t ma
 		key_len = strlen(map[nmap_item].lpSubKey);
 		WINFRIPP_CONFSTORE_DEBUG_ASSERT(key_len);
 		if (key_len) {
-		    /*
-		     * XXX document
-		     */
 		    if (!(full_key_new = sresize(full_key, full_key_len + 1 + key_len + 1, char))) {
 			if (full_key) {
 			    sfree(full_key);
@@ -187,9 +151,6 @@ BOOL winfripp_confstore_map_hkey_get(WinFrippConfStoreHKEYSubKey *map, size_t ma
 		    }
 		}
 
-		/*
-		 * XXX document
-		 */
 		if (map[nmap_item].hKey_parent == (HKEY)0) {
 		    full_key[full_key_len] = '\0';
 		    *pfull_key = full_key;
@@ -201,9 +162,6 @@ BOOL winfripp_confstore_map_hkey_get(WinFrippConfStoreHKEYSubKey *map, size_t ma
 	}
     }
 
-    /*
-     * XXX document
-     */
     if (full_key) {
 	sfree(full_key);
     }
@@ -211,9 +169,6 @@ BOOL winfripp_confstore_map_hkey_get(WinFrippConfStoreHKEYSubKey *map, size_t ma
     return FALSE;
 }
 
-/*
- * XXX document
- */
 
 BOOL winfripp_confstore_map_value_del(WinFrippConfStoreKeyMap *map, char *full_keyval_buf, size_t full_keyval_buf_size, const char *key, LPCSTR lpValueName)
 {
@@ -229,9 +184,6 @@ BOOL winfripp_confstore_map_value_del(WinFrippConfStoreKeyMap *map, char *full_k
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(key);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpValueName);
 
-    /*
-     * XXX document
-     */
     if (!winfripp_confstore_map_value_hash(full_keyval_buf, full_keyval_buf_size,
 					   key, map->nbits, lpValueName, &full_key_hash)) {
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -240,9 +192,6 @@ BOOL winfripp_confstore_map_value_del(WinFrippConfStoreKeyMap *map, char *full_k
 	map_item = map->map[full_key_hash];
     }
 
-    /*
-     * XXX document
-     */
     for (item = map_item, item_prev = item; item;
 	 item_prev = item, item = item->next)
     {
@@ -258,9 +207,6 @@ BOOL winfripp_confstore_map_value_del(WinFrippConfStoreKeyMap *map, char *full_k
 	}
     }
 
-    /*
-     * XXX document
-     */
     WINFRIPP_CONFSTORE_DEBUG_FAIL();
     return FALSE;
 }
@@ -280,9 +226,6 @@ BOOL winfripp_confstore_map_value_get(WinFrippConfStoreKeyMap *map, char *full_k
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(key);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpValueName);
 
-    /*
-     * XXX document
-     */
     if (!winfripp_confstore_map_value_hash(full_keyval_buf, full_keyval_buf_size,
 					   key, map->nbits, lpValueName, &full_key_hash)) {
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -291,9 +234,6 @@ BOOL winfripp_confstore_map_value_get(WinFrippConfStoreKeyMap *map, char *full_k
 	map_item = map->map[full_key_hash];
     }
 
-    /*
-     * XXX document
-     */
     for (item = map_item; item; item = item->next) {
 	if (item->key_hash == full_key_hash) {
 	    value_size = item->cbData;
@@ -310,9 +250,6 @@ BOOL winfripp_confstore_map_value_get(WinFrippConfStoreKeyMap *map, char *full_k
 	}
     }
 
-    /*
-     * XXX document
-     */
     WINFRIPP_CONFSTORE_DEBUG_FAIL();
     return FALSE;
 }
@@ -331,9 +268,6 @@ BOOL winfripp_confstore_map_value_hash(char *full_keyval_buf, size_t full_keyval
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpValueName);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(phash);
 
-    /*
-     * XXX document
-     */
     key_len = strlen(key);
     lpValueName_len = strlen(lpValueName);
     full_keyval_len = key_len + lpValueName_len;
@@ -346,9 +280,6 @@ BOOL winfripp_confstore_map_value_hash(char *full_keyval_buf, size_t full_keyval
 	return FALSE;
     }
 
-    /*
-     * XXX document
-     */
     p = (uint8_t *)full_keyval_buf; q = p + full_keyval_len;
     while (p < q) {
 	fnv32_hash ^= (uint32_t)*p++;
@@ -375,9 +306,6 @@ BOOL winfripp_confstore_map_value_set(WinFrippConfStoreKeyMap *map, char *full_k
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpData);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(cbData > 0);
 
-    /*
-     * XXX document
-     */
     if (!winfripp_confstore_map_value_hash(full_keyval_buf, full_keyval_buf_size,
 					   key, map->nbits, lpValueName, &full_key_hash)) {
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -386,9 +314,6 @@ BOOL winfripp_confstore_map_value_set(WinFrippConfStoreKeyMap *map, char *full_k
 	map_item = map->map[full_key_hash];
     }
 
-    /*
-     * XXX document
-     */
     if (!(new_lpData = snewn(cbData, BYTE))) {
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
 	return FALSE;
@@ -396,9 +321,6 @@ BOOL winfripp_confstore_map_value_set(WinFrippConfStoreKeyMap *map, char *full_k
 	memcpy(new_lpData, lpData, cbData);
     }
 
-    /*
-     * XXX document
-     */
     if (!(new_item = snew(WinFrippConfStoreKeyValue))) {
 	sfree(new_lpData);
 	return FALSE;
@@ -411,9 +333,6 @@ BOOL winfripp_confstore_map_value_set(WinFrippConfStoreKeyMap *map, char *full_k
 	new_item->next = NULL;
     }
 
-    /*
-     * XXX document
-     */
     if (!map_item) {
 	map->map[full_key_hash] = new_item;
     } else for (item = map_item; item; item = item->next) {
@@ -424,9 +343,6 @@ BOOL winfripp_confstore_map_value_set(WinFrippConfStoreKeyMap *map, char *full_k
     return TRUE;
 }
 
-/*
- * XXX document
- */
 
 void winfripp_confstore_free_value_map(WinFrippConfStoreKeyMap *map)
 {
@@ -438,9 +354,6 @@ void winfripp_confstore_free_value_map(WinFrippConfStoreKeyMap *map)
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(map->nbits > 0);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(map->map);
 
-    /*
-     * XXX document
-     */
     if (map->nbits) {
 	nmap_items = 2 << (map->nbits - 1);
 	for (nmap_item = 0; nmap_item < nmap_items; nmap_item++) {
@@ -470,9 +383,6 @@ BOOL winfripp_confstore_init_value_map(size_t nmap_bits, WinFrippConfStoreKeyMap
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(nmap_bits > 0);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(pmap);
 
-    /*
-     * XXX document
-     */
     nmap_items = 2 << (nmap_bits - 1);
     if (!(new_map = snew(WinFrippConfStoreKeyMap))) {
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();

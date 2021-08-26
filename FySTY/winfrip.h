@@ -7,9 +7,6 @@
 #define PUTTY_WINFRIP_H
 #ifndef PUTTY_UNIX_H
 
-/*
- * XXX document
- */
 typedef enum WinFripReturn {
     WINFRIP_RETURN_FAILURE		= 0,
     WINFRIP_RETURN_BREAK		= 1,
