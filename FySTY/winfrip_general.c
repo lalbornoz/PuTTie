@@ -46,16 +46,10 @@ void winfripp_general_config_panel(struct controlbox *b)
 
 void winfrip_general_op(WinFripGeneralOp op, Conf *conf, HWND hwnd, int reconfiguring)
 {
-    /*
-     * XXX document
-     */
     switch (op) {
     default:
 	WINFRIPP_DEBUG_FAIL(); break;
 
-    /*
-     * XXX document
-     */
     case WINFRIP_GENERAL_OP_CONFIG_DIALOG:
 	switch (conf_get_int(conf, CONF_frip_general_always_on_top)) {
 	default:
@@ -68,9 +62,6 @@ void winfrip_general_op(WinFripGeneralOp op, Conf *conf, HWND hwnd, int reconfig
 	}
 	break;
 
-    /*
-     * XXX document
-     */
     case WINFRIP_GENERAL_OP_FOCUS_SET:
 	if (reconfiguring) {
 	    break;

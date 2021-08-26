@@ -13,20 +13,11 @@
  * Static variables
  */
 
-/*
- * XXX document
- */
 static WinFripGeneralStoreBackEnd winfripp_confstore_backend = WINFRIP_GENERAL_STORE_BACKEND_REGISTRY;
 
-/*
- * XXX document
- */
 static WinFrippConfStoreHKEYSubKey winfripp_confstore_hkey_map[64] = {{NULL, NULL, NULL}};
 static size_t winfripp_confstore_hkey_map_len = 64;
 
-/*
- * XXX document
- */
 static uint64_t winfripp_confstore_hkey_bitmap = 0ULL;
 static size_t winfripp_confstore_hkey_bitmap_bits = 64;
 
@@ -36,17 +27,11 @@ static size_t winfripp_confstore_hkey_bitmap_bits = 64;
 
 WinFripGeneralStoreBackEnd winfrip_confstore_backend_get(void)
 {
-    /*
-     * XXX document
-     */
     return winfripp_confstore_backend;
 }
 
 void winfrip_confstore_backend_set(WinFripGeneralStoreBackEnd new_backend)
 {
-    /*
-     * XXX document
-     */
     winfripp_confstore_backend = new_backend;
 }
 
@@ -60,9 +45,6 @@ LONG winfrip_confstore_RegCreateKey(HKEY hKey, LPCSTR lpSubKey, PHKEY phkResult)
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpSubKey);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(phkResult);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -91,9 +73,6 @@ LONG winfrip_confstore_RegCreateKeyEx(HKEY hKey, LPCSTR lpSubKey, DWORD Reserved
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(phkResult);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpSubKey);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -122,9 +101,6 @@ LONG winfrip_confstore_RegOpenKey(HKEY hKey, LPCSTR lpSubKey, PHKEY phkResult)
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpSubKey);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(phkResult);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -155,9 +131,6 @@ LONG winfrip_confstore_RegCloseKey(HKEY hKey)
 {
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(hKey);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -185,9 +158,6 @@ LONG winfrip_confstore_RegDeleteKey(HKEY hKey, LPCSTR lpSubKey)
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(hKey);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpSubKey);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -209,9 +179,6 @@ LONG winfrip_confstore_RegEnumKey(HKEY hKey, DWORD dwIndex, LPSTR lpName, DWORD 
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpName);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(cchName > 0);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -236,9 +203,6 @@ LONG winfrip_confstore_RegDeleteValue(HKEY hKey, LPCSTR lpValueName)
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(hKey);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpValueName);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -259,9 +223,6 @@ LONG winfrip_confstore_RegQueryValueEx(HKEY hKey, LPCSTR lpValueName, LPDWORD lp
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(hKey);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpValueName);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
@@ -284,9 +245,6 @@ LONG winfrip_confstore_RegSetValueEx(HKEY hKey, LPCSTR lpValueName, DWORD Reserv
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(lpData);
     WINFRIPP_CONFSTORE_DEBUG_ASSERT(cbData > 0);
 
-    /*
-     * XXX document
-     */
     switch (winfrip_confstore_backend_get()) {
     default:
 	WINFRIPP_CONFSTORE_DEBUG_FAIL();
