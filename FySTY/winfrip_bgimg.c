@@ -41,15 +41,62 @@ static WinFrippBgImgState winfripp_bgimg_state = WINFRIPP_BGIMG_STATE_NONE;
  * Private subroutine prototypes
  */
 
+static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_bgimg_config_panel_type(union control *ctrl, dlgparam *dlg, void *data, int event);
 static BOOL winfripp_init_bgimg_get_fname(Conf *conf, wchar_t **pbg_bmp_fname_w, BOOL *pbg_bmpfl);
 static BOOL winfripp_init_bgimg_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
 static BOOL winfripp_init_bgimg_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
 static BOOL winfripp_init_bgimg_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, Conf *conf, HDC hdc);
 static BOOL winfripp_init_bgimg_process_blend(HDC bg_hdc, int bg_height, int bg_width, Conf *conf);
 static BOOL winfripp_init_bgimg(Conf *conf, HDC hdc, BOOL force);
+
 /*
  * Private subroutines
  */
+
+static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg, void *data, int event)
+{
+    Conf *conf = (Conf *)data;
+
+    switch (event) {
+    case EVENT_REFRESH:
+	dlg_update_start(ctrl, dlg);
+	dlg_listbox_clear(ctrl, dlg);
+	dlg_listbox_addwithid(ctrl, dlg, "Absolute", WINFRIPP_BGIMG_STYLE_ABSOLUTE);
+	dlg_listbox_addwithid(ctrl, dlg, "Center", WINFRIPP_BGIMG_STYLE_CENTER);
+	dlg_listbox_addwithid(ctrl, dlg, "Stretch", WINFRIPP_BGIMG_STYLE_STRETCH);
+	dlg_listbox_addwithid(ctrl, dlg, "Tile", WINFRIPP_BGIMG_STYLE_TILE);
+	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_bgimg_style));
+	dlg_update_done(ctrl, dlg);
+	break;
+
+    case EVENT_SELCHANGE:
+    case EVENT_VALCHANGE:
+	conf_set_int(conf, CONF_frip_bgimg_style, dlg_listbox_index(ctrl, dlg));
+	break;
+    }
+}
+
+static void winfripp_bgimg_config_panel_type(union control *ctrl, dlgparam *dlg, void *data, int event)
+{
+    Conf *conf = (Conf *)data;
+
+    switch (event) {
+    case EVENT_REFRESH:
+	dlg_update_start(ctrl, dlg);
+	dlg_listbox_clear(ctrl, dlg);
+	dlg_listbox_addwithid(ctrl, dlg, "Solid", WINFRIPP_BGIMG_TYPE_SOLID);
+	dlg_listbox_addwithid(ctrl, dlg, "Image", WINFRIPP_BGIMG_TYPE_IMAGE);
+	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_bgimg_type));
+	dlg_update_done(ctrl, dlg);
+	break;
+
+    case EVENT_SELCHANGE:
+    case EVENT_VALCHANGE:
+	conf_set_int(conf, CONF_frip_bgimg_type, dlg_listbox_index(ctrl, dlg));
+	break;
+    }
+}
 
 static BOOL winfripp_init_bgimg_get_fname(Conf *conf, wchar_t **pbg_fname_w, BOOL *pbg_bmpfl)
 {
@@ -406,7 +453,6 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
 {
     struct controlset *s;
 
-
     WINFRIPP_DEBUG_ASSERT(b);
 
     /*
@@ -415,21 +461,15 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
 
     ctrl_settitle(b, "Frippery/Background", "Configure pointless frippery: background image");
     s = ctrl_getset(b, "Frippery/Background", "frip_bgimg", "Background image settings");
-    ctrl_filesel(s, "Image file:", NO_SHORTCUT,
+    ctrl_filesel(s, "Image file:", 'i',
 		 WINFRIPP_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file",
 		 P(WINFRIPP_HELP_CTX), conf_filesel_handler, I(CONF_frip_bgimg_filename));
-    ctrl_editbox(s, "Opacity (0-100):", NO_SHORTCUT, 20, P(WINFRIPP_HELP_CTX),
+    ctrl_editbox(s, "Opacity (0-100):", 'p', 20, P(WINFRIPP_HELP_CTX),
 		 conf_editbox_handler, I(CONF_frip_bgimg_opacity), I(-1));
-    ctrl_radiobuttons(s, "Style:", NO_SHORTCUT, 4, P(WINFRIPP_HELP_CTX),
-		      conf_radiobutton_handler, I(CONF_frip_bgimg_style),
-		      "Absolute",	NO_SHORTCUT,	I(WINFRIPP_BGIMG_STYLE_ABSOLUTE),
-		      "Center",		NO_SHORTCUT,	I(WINFRIPP_BGIMG_STYLE_CENTER),
-		      "Stretch",	NO_SHORTCUT,	I(WINFRIPP_BGIMG_STYLE_STRETCH),
-		      "Tile",		NO_SHORTCUT,	I(WINFRIPP_BGIMG_STYLE_TILE), NULL);
-    ctrl_radiobuttons(s, "Type:", NO_SHORTCUT, 2, P(WINFRIPP_HELP_CTX),
-		      conf_radiobutton_handler, I(CONF_frip_bgimg_type),
-		      "Solid",		NO_SHORTCUT,	I(WINFRIPP_BGIMG_TYPE_SOLID),
-		      "Image",		NO_SHORTCUT,	I(WINFRIPP_BGIMG_TYPE_IMAGE), NULL);
+    ctrl_droplist(s, "Style:", 's', 35, P(WINFRIPP_HELP_CTX),
+		  winfripp_bgimg_config_panel_style, P(NULL));
+    ctrl_droplist(s, "Type:", 't', 35, P(WINFRIPP_HELP_CTX),
+		  winfripp_bgimg_config_panel_type, P(NULL));
 }
 
 /*

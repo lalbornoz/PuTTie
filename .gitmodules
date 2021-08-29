@@ -1,0 +1,3 @@
+[submodule "FySTY/pcre2@master"]
+	path = FySTY/pcre2@master
+	url = https://github.com/PhilipHazel/pcre2

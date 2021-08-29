@@ -692,6 +692,7 @@ typedef struct compressed_scrollback_line {
     size_t len;
 } compressed_scrollback_line;
 
+
 static termline *decompressline(compressed_scrollback_line *line);
 
 static compressed_scrollback_line *compressline(termline *ldata)
@@ -3529,11 +3530,6 @@ unsigned long term_translate(
 
             /* Unicode line separator and paragraph separator are CR-LF */
             if (t == 0x2028 || t == 0x2029) {
-		/* {{{ winfrip */
-		if (conf_get_int(term->conf, CONF_frip_general_filter_separators))
-		    return 0xFFFD;
-		else
-		/* winfrip }}} */
 		return 0x85;
 	    }
 
@@ -5908,11 +5904,11 @@ static void do_paint(Terminal *term)
             if (j < term->cols-1 && d[1].chr == UCSWIDE)
                 tattr |= ATTR_WIDE;
 
-	    /* {{{ winfrip */
-	#ifndef PUTTY_UNIX_H
-	    winfrip_urls_op(WINFRIP_URLS_OP_DRAW, term->conf, NULL, 0, &tattr, term, 0, scrpos.x, scrpos.y);
-	#endif
-	    /* winfrip }}} */
+            /* {{{ winfrip */
+        #ifndef PUTTY_UNIX_H
+            winfrip_urls_op(WINFRIP_URLS_OP_DRAW, term->conf, NULL, 0, &tattr, term, 0, scrpos.x, scrpos.y);
+        #endif
+            /* winfrip }}} */
 
             /* Video reversing things */
             if (term->selstate == DRAGGING || term->selstate == SELECTED) {
@@ -6161,12 +6157,6 @@ static void do_paint(Terminal *term)
 
         unlineptr(ldata);
     }
-
-    /* {{{ winfrip */
-#ifndef PUTTY_UNIX_H
-    winfrip_urls_op(WINFRIP_URLS_OP_CLEAR, term->conf, NULL, 0, NULL, term, 0, -1, -1);
-#endif
-    /* winfrip }}} */
 
     sfree(newline);
     sfree(ch);

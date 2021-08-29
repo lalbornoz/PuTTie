@@ -22,9 +22,25 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
     p = handle_restrict_acl_cmdline_prefix(cmdline);
 
     if (handle_special_sessionname_cmdline(p, conf)) {
-        if (!conf_launchable(conf) && !do_config(conf)) {
+        if (!conf_launchable(conf) && !do_config(conf, NULL)) {
             cleanup_exit(0);
         }
+        /* {{{ winfrip */
+        bool breakfl = false;
+        do {
+            switch (winfrip_urls_op(WINFRIP_URLS_OP_RECONFIG, conf, NULL, -1, NULL, NULL, 0, 0, 0)) {
+            default:
+            case WINFRIP_RETURN_CANCEL:
+                cleanup_exit(0);
+            case WINFRIP_RETURN_CONTINUE:
+                breakfl = true; break;
+            case WINFRIP_RETURN_RETRY:
+                if (!do_config(conf, "Frippery/URLs")) {
+                    cleanup_exit(0);
+                }; break;
+            }
+        } while (!breakfl);
+        /* }}} */
         special_launchable_argument = true;
     } else if (handle_special_filemapping_cmdline(p, conf)) {
         special_launchable_argument = true;
@@ -96,8 +112,24 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
      * (explicitly) specified a launchable configuration.
      */
     if (!(special_launchable_argument || cmdline_host_ok(conf))) {
-        if (!do_config(conf))
+        if (!do_config(conf, NULL))
             cleanup_exit(0);
+        /* {{{ winfrip */
+        bool breakfl = false;
+        do {
+            switch (winfrip_urls_op(WINFRIP_URLS_OP_RECONFIG, conf, NULL, -1, NULL, NULL, 0, 0, 0)) {
+            default:
+            case WINFRIP_RETURN_CANCEL:
+                cleanup_exit(0);
+            case WINFRIP_RETURN_CONTINUE:
+                breakfl = true; break;
+            case WINFRIP_RETURN_RETRY:
+                if (!do_config(conf, "Frippery/URLs")) {
+                    cleanup_exit(0);
+                }; break;
+            }
+        } while (!breakfl);
+        /* }}} */
     }
 
     prepare_session(conf);

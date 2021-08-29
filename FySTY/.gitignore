@@ -1,3 +1,4 @@
+*.sw[op]
 FySTY-Debug-*.zip
 FySTY-Debug-*/
 FySTY-Release-*.zip

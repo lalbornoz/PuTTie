@@ -551,8 +551,8 @@ void win_setup_config_box(struct controlbox *b, HWND *hwndp, bool has_help,
  * Exports from windlg.c.
  */
 void defuse_showwindow(void);
-bool do_config(Conf *);
-bool do_reconfig(HWND, Conf *, int);
+bool do_config(Conf *, char *);
+bool do_reconfig(HWND, Conf *, int, char *);
 void showeventlog(HWND);
 void showabout(HWND);
 void force_normal(HWND hwnd);
