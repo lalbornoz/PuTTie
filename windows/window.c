@@ -2285,7 +2285,23 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             winfrip_general_op(WINFRIP_GENERAL_OP_CONFIG_DIALOG, conf, hwnd, -1);
             /* winfrip }}} */
             reconfig_result = do_reconfig(
-                hwnd, conf, backend ? backend_cfg_info(backend) : 0);
+                hwnd, conf, backend ? backend_cfg_info(backend) : 0, NULL);
+            /* {{{ winfrip */
+            bool breakfl = false;
+            do {
+                switch (winfrip_urls_op(WINFRIP_URLS_OP_RECONFIG, conf, NULL, -1, NULL, NULL, 0, 0, 0)) {
+                default:
+                case WINFRIP_RETURN_CANCEL:
+                    conf_copy_into(conf, prev_conf); breakfl = true; reconfig_result = false; break;
+                case WINFRIP_RETURN_CONTINUE:
+                    breakfl = true; break;
+                case WINFRIP_RETURN_RETRY:
+                    reconfig_result = do_reconfig(
+                        hwnd, conf, backend ? backend_cfg_info(backend) : 0,
+                        "Frippery/URLs"); break;
+                }
+            } while (!breakfl);
+            /* }}} */
             reconfiguring = false;
             if (!reconfig_result) {
               /* {{{ winfrip */
@@ -2537,14 +2553,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_LBUTTONUP:
       case WM_MBUTTONUP:
       case WM_RBUTTONUP:
-	/* {{{ winfrip */
-	if (winfrip_urls_op(WINFRIP_URLS_OP_MOUSE_EVENT, conf, NULL, message, NULL, term,
-			    wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))) == WINFRIP_RETURN_BREAK) {
-	    break;
-	} else if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, conf, message, wParam) == WINFRIP_RETURN_BREAK) {
-	    break;
-	}
-	/* winfrip }}} */
+        /* {{{ winfrip */
+        if (winfrip_urls_op(WINFRIP_URLS_OP_MOUSE_BUTTON_EVENT, conf, NULL, message, NULL, term,
+                            wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))) == WINFRIP_RETURN_BREAK) {
+            break;
+        }
+        /* winfrip }}} */
         if (message == WM_RBUTTONDOWN &&
             ((wParam & MK_CONTROL) ||
              (conf_get_int(conf, CONF_mouse_is_xterm) == 2))) {
@@ -2676,11 +2690,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         noise_ultralight(NOISE_SOURCE_MOUSEPOS, lParam);
 
 	/* {{{ winfrip */
-	if (winfrip_urls_op(WINFRIP_URLS_OP_CTRL_EVENT, conf, NULL, message, NULL, term,
-			     wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))) == WINFRIP_RETURN_BREAK) {
+        if (winfrip_urls_op(WINFRIP_URLS_OP_MOUSE_MOTION_EVENT, conf, NULL, message, NULL, term,
+                            wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))) == WINFRIP_RETURN_BREAK) {
 	    return 0;
-	}
-	/* winfrip }}} */
+        }
+        /* winfrip }}} */
 
         if (wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON) &&
             GetCapture() == hwnd) {
@@ -2847,6 +2861,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_KILLFOCUS:
 	/* {{{ winfrip */
 	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_KILL, conf, hwnd);
+        winfrip_urls_op(WINFRIP_URLS_OP_FOCUS_KILL, conf, NULL, message, NULL, term, wParam, -1, -1);
 	/* winfrip }}} */
         show_mouseptr(true);
         term_set_focus(term, false);

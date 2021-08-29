@@ -52,6 +52,10 @@ static int ninitial = 0, ncircular = 0, circular_first = 0;
 
 #define PRINTER_DISABLED_STRING "None (printing disabled)"
 
+/* {{{ winfrip */
+static char *winfrip_config_dialog_focus_pathname = NULL;
+/* winfrip }}} */
+
 void force_normal(HWND hwnd)
 {
     static bool recurse = false;
@@ -514,8 +518,17 @@ static INT_PTR CALLBACK GenericMainDlgProc(HWND hwnd, UINT msg,
 
                 item = treeview_insert(&tvfaff, j, c, s->pathname);
                 if (!hfirst) {
+                    /* {{{ winfrip */
+                    if (winfrip_config_dialog_focus_pathname) {
+                        if (strcmp(s->pathname, winfrip_config_dialog_focus_pathname) == 0) {
+                            hfirst = item;
+                            firstpath = s->pathname;
+                        }
+                    } else {
+                    /* winfrip }}} */
                     hfirst = item;
                     firstpath = s->pathname;
+                    }
                 }
 
                 path = s->pathname;
@@ -693,7 +706,7 @@ void defuse_showwindow(void)
     }
 }
 
-bool do_config(Conf *conf)
+bool do_config(Conf *conf, char *focus_pathname)
 {
     bool ret;
 
@@ -711,6 +724,10 @@ bool do_config(Conf *conf)
     dlg_auto_set_fixed_pitch_flag(&dp);
     dp.shortcuts['g'] = true;          /* the treeview: `Cate&gory' */
 
+    /* {{{ winfrip */
+    winfrip_config_dialog_focus_pathname = focus_pathname;
+    /* winfrip }}} */
+
     ret =
         SaneDialogBox(hinst, MAKEINTRESOURCE(IDD_MAINBOX), NULL,
                   GenericMainDlgProc);
@@ -723,7 +740,7 @@ bool do_config(Conf *conf)
     return ret;
 }
 
-bool do_reconfig(HWND hwnd, Conf *conf, int protcfginfo)
+bool do_reconfig(HWND hwnd, Conf *conf, int protcfginfo, char *focus_pathname)
 {
     Conf *backup_conf;
     bool ret;
@@ -745,6 +762,10 @@ bool do_reconfig(HWND hwnd, Conf *conf, int protcfginfo)
     dp.data = conf;
     dlg_auto_set_fixed_pitch_flag(&dp);
     dp.shortcuts['g'] = true;          /* the treeview: `Cate&gory' */
+
+    /* {{{ winfrip */
+    winfrip_config_dialog_focus_pathname = focus_pathname;
+    /* winfrip }}} */
 
     ret = SaneDialogBox(hinst, MAKEINTRESOURCE(IDD_MAINBOX), NULL,
                   GenericMainDlgProc);

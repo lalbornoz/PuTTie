@@ -9,6 +9,63 @@
 #include "FySTY/winfrip_priv.h"
 
 /*
+ * Private subroutine prototypes
+ */
+
+static void winfripp_transp_config_panel_opaque(union control *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_transp_config_panel_setting(union control *ctrl, dlgparam *dlg, void *data, int event);
+
+/*
+ * Private subroutines
+ */
+
+static void winfripp_transp_config_panel_opaque(union control *ctrl, dlgparam *dlg, void *data, int event)
+{
+    Conf *conf = (Conf *)data;
+
+    switch (event) {
+    case EVENT_REFRESH:
+	dlg_update_start(ctrl, dlg);
+	dlg_listbox_clear(ctrl, dlg);
+	dlg_listbox_addwithid(ctrl, dlg, "Never", WINFRIPP_TRANSP_OPAQUE_NEVER);
+	dlg_listbox_addwithid(ctrl, dlg, "Focus loss", WINFRIPP_TRANSP_OPAQUE_FOCUS_KILL);
+	dlg_listbox_addwithid(ctrl, dlg, "Focus", WINFRIPP_TRANSP_OPAQUE_FOCUS_SET);
+	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_transp_opaque_on));
+	dlg_update_done(ctrl, dlg);
+	break;
+
+    case EVENT_SELCHANGE:
+    case EVENT_VALCHANGE:
+	conf_set_int(conf, CONF_frip_transp_opaque_on, dlg_listbox_index(ctrl, dlg));
+	break;
+    }
+}
+
+static void winfripp_transp_config_panel_setting(union control *ctrl, dlgparam *dlg, void *data, int event)
+{
+    Conf *conf = (Conf *)data;
+
+    switch (event) {
+    case EVENT_REFRESH:
+	dlg_update_start(ctrl, dlg);
+	dlg_listbox_clear(ctrl, dlg);
+	dlg_listbox_addwithid(ctrl, dlg, "Off", WINFRIPP_TRANSP_SETTING_OFF);
+	dlg_listbox_addwithid(ctrl, dlg, "Low", WINFRIPP_TRANSP_SETTING_LOW);
+	dlg_listbox_addwithid(ctrl, dlg, "Medium", WINFRIPP_TRANSP_SETTING_MEDIUM);
+	dlg_listbox_addwithid(ctrl, dlg, "High", WINFRIPP_TRANSP_SETTING_HIGH);
+	dlg_listbox_addwithid(ctrl, dlg, "Custom", WINFRIPP_TRANSP_SETTING_CUSTOM);
+	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_transp_setting));
+	dlg_update_done(ctrl, dlg);
+	break;
+
+    case EVENT_SELCHANGE:
+    case EVENT_VALCHANGE:
+	conf_set_int(conf, CONF_frip_transp_setting, dlg_listbox_index(ctrl, dlg));
+	break;
+    }
+}
+
+/*
  * Public subroutines private to FySTY/winfrip*.c
  */
 
@@ -25,20 +82,12 @@ void winfripp_transp_config_panel(struct controlbox *b)
 
     ctrl_settitle(b, "Frippery/Transparency", "Configure pointless frippery: transparency");
     s = ctrl_getset(b, "Frippery/Transparency", "frip_transp", "Transparency settings");
-    ctrl_radiobuttons(s, "Setting", NO_SHORTCUT, 3, P(WINFRIPP_HELP_CTX),
-		      conf_radiobutton_handler, I(CONF_frip_transp_setting),
-		      "Off",		NO_SHORTCUT,	I(WINFRIPP_TRANSP_SETTING_OFF),
-		      "Low",		NO_SHORTCUT,	I(WINFRIPP_TRANSP_SETTING_LOW),
-		      "Medium",		NO_SHORTCUT,	I(WINFRIPP_TRANSP_SETTING_MEDIUM),
-		      "High",		NO_SHORTCUT,	I(WINFRIPP_TRANSP_SETTING_HIGH),
-		      "Custom",		NO_SHORTCUT,	I(WINFRIPP_TRANSP_SETTING_CUSTOM), NULL);
-    ctrl_editbox(s, "Custom (0-255):", NO_SHORTCUT, 20, P(WINFRIPP_HELP_CTX),
+    ctrl_droplist(s, "Setting:", 't', 35, P(WINFRIPP_HELP_CTX),
+		  winfripp_transp_config_panel_setting, P(NULL));
+    ctrl_editbox(s, "Custom (0-255):", 'u', 15, P(WINFRIPP_HELP_CTX),
 		 conf_editbox_handler, I(CONF_frip_transp_custom), I(-1));
-    ctrl_radiobuttons(s, "Opaque on", NO_SHORTCUT, 3, P(WINFRIPP_HELP_CTX),
-		      conf_radiobutton_handler, I(CONF_frip_transp_opaque_on),
-		      "Never",		NO_SHORTCUT,	I(WINFRIPP_TRANSP_OPAQUE_NEVER),
-		      "Focus loss",	NO_SHORTCUT,	I(WINFRIPP_TRANSP_OPAQUE_FOCUS_KILL),
-		      "Focus",		NO_SHORTCUT,	I(WINFRIPP_TRANSP_OPAQUE_FOCUS_SET), NULL);
+    ctrl_droplist(s, "Opaque on:", 'q', 35, P(WINFRIPP_HELP_CTX),
+		  winfripp_transp_config_panel_opaque, P(NULL));
 }
 
 /*
