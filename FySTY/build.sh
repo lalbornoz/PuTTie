@@ -2,10 +2,10 @@
 # Copyright (c) 2018, 2019, 2020, 2021 Lucio Andrés Illanes Albornoz <lucio@lucioillanes.de>
 #
 
-# {{{ build_clean($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag)
+# {{{ build_clean($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_clean() {
 	local	_build_type="${1}" _cflag="${2}" _dflag="${3}" _iflag="${4}"	\
-		_install_dname="${5}" _jflag="${6}" _Rflag="${7}"		\
+		_install_dname="${5}" _jflag="${6}" _Rflag="${7}" _tflag="${8}"	\
 		_fname="" _IFS0="${IFS:- 	}";
 
 	if [ "${_cflag:-0}" -eq 1 ]; then
@@ -29,10 +29,10 @@ build_clean() {
 	fi;
 };
 # }}}
-# {{{ build_configure($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag)
+# {{{ build_configure($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_configure() {
 	local	_build_type="${1}" _cflag="${2}" _dflag="${3}" _iflag="${4}"		\
-		_install_dname="${5}" _jflag="${6}" _Rflag="${7}";
+		_install_dname="${5}" _jflag="${6}" _Rflag="${7}" _tflag="${8}";
 
 	if ! [ -e FySTY/pcre2@master/CMakeCache.txt ]\
 	|| ! [ -e FySTY/pcre2@master/CMakeFiles/ ]; then
@@ -77,10 +77,10 @@ build_configure() {
 	fi;
 };
 # }}}
-# {{{ build_make($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag)
+# {{{ build_make($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_make() {
 	local	_build_type="${1}" _cflag="${2}" _dflag="${3}" _iflag="${4}"\
-		_install_dname="${5}" _jflag="${6}" _Rflag="${7}";
+		_install_dname="${5}" _jflag="${6}" _Rflag="${7}" _tflag="${8}";
 
 	cd FySTY/pcre2@master;
 	cmake --build . --parallel "${_jflag:-1}";
@@ -88,14 +88,14 @@ build_make() {
 		ln -fs "libpcre2-16d.a" "libpcre2-16.a";
 	fi;
 	cd "${OLDPWD}";
-	cmake --build . --parallel "${_jflag:-1}" "${@}";
+	cmake --build . --parallel "${_jflag:-1}" ${_tflag:+--target "${_tflag}"};
 };
 # }}}
-# {{{ build_install($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag)
+# {{{ build_install($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_install() {
 	local	_build_type="${1}" _cflag="${2}" _dflag="${3}" _iflag="${4}"	\
-		_install_dname="${5}" _jflag="${6}" _Rflag="${7}" _fname=""	\
-		_IFS0="${IFS:- 	}";
+		_install_dname="${5}" _jflag="${6}" _Rflag="${7}" _tflag="${8}"	\
+		_fname="" _IFS0="${IFS:- 	}";
 
 	if [ "${_iflag:-0}" -eq 1 ]; then
 		if ! [ -d "FySTY/${_install_dname}" ]; then
@@ -124,20 +124,21 @@ build_install() {
 # }}}
 
 buildp_usage() {
-	echo "usage: ${0} [-c] [-d] [-h] [-i] [-j jobs] [-R] [[--] cmake args...]" >&2;
-	echo "       -c.......: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
-	echo "       -d.......: select Debug (vs. Release) build" >&2;
-	echo "       -h.......: show this screen" >&2;
-	echo "       -i.......: {clean,install} images {pre,post}-build" >&2;
-	echo "       -j.......: set cmake(1) max. job count" >&2;
-	echo "       -R.......: create release archive (implies -i)" >&2;
+	echo "usage: ${0} [-c] [-d] [-h] [-i] [-j jobs] [-R] [-t <target>]" >&2;
+	echo "       -c...........: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
+	echo "       -d...........: select Debug (vs. Release) build" >&2;
+	echo "       -h...........: show this screen" >&2;
+	echo "       -i...........: {clean,install} images {pre,post}-build" >&2;
+	echo "       -j...........: set cmake(1) max. job count" >&2;
+	echo "       -R...........: create release archive (implies -i)" >&2;
+	echo "       -t <target>..: build PuTTY <target> instead of default target" >&2;
 };
 
 build() {
 	local	_build_type="Release" _cflag=0 _dflag=0 _iflag=0 _jflag=1	\
-		_Rflag=0 _install_dname="" _opt="";
+		_Rflag=0 _tflag="" _install_dname="" _opt="";
 
-	while getopts cdhij:R _opt; do
+	while getopts cdhij:Rt: _opt; do
 	case "${_opt}" in
 	c)	_cflag=1; ;;
 	d)	_dflag=1; _build_type="Debug"; ;;
@@ -145,15 +146,18 @@ build() {
 	i)	_iflag=1; ;;
 	j)	_jflag="${OPTARG}"; ;;
 	R)	_iflag=1; _Rflag=1; ;;
+	t)	_tflag="${OPTARG}"; ;;
 	*)	buildp_usage; exit 1; ;;
 	esac; done; shift $((${OPTIND}-1));
 	_install_dname="FySTY-${_build_type}-$(git rev-parse --short HEAD)";
 
-	build_clean "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}";
-	build_configure "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}";
-	build_make "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}";
-	build_install "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}";
+	build_clean "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	build_configure "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	build_make "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	build_install "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
 };
 
 set -o errexit -o noglob -o nounset;
 export LANG=C LC_ALL=C; build "${@}";
+
+# vim:fdm=marker tw=0
