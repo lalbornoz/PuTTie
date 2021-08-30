@@ -576,9 +576,12 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         wgs.term_hwnd = CreateWindowExW(
             exwinmode, uappname, uappname, winmode, CW_USEDEFAULT,
             CW_USEDEFAULT, guess_width, guess_height, NULL, NULL, inst, NULL);
-	/* {{{ winfrip */
-	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, wgs.term_hwnd);
-	/* winfrip }}} */
+        /* {{{ winfrip */
+        winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, wgs.term_hwnd);
+        /* winfrip }}} */
+        /* {{{ winfrip */
+        (void)winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_INIT, conf, inst, wgs.term_hwnd, -1, -1, -1);
+        /* winfrip }}} */
         memset(&dpi_info, 0, sizeof(struct _dpi_info));
         init_dpi_info();
         sfree(uappname);
@@ -2282,7 +2285,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             prev_conf = conf_copy(conf);
 
             /* {{{ winfrip */
-            winfrip_general_op(WINFRIP_GENERAL_OP_CONFIG_DIALOG, conf, hwnd, -1);
+            (void)winfrip_general_op(WINFRIP_GENERAL_OP_CONFIG_DIALOG, conf, hinst, hwnd, -1, -1, -1);
             /* winfrip }}} */
             reconfig_result = do_reconfig(
                 hwnd, conf, backend ? backend_cfg_info(backend) : 0, NULL);
@@ -2305,7 +2308,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             reconfiguring = false;
             if (!reconfig_result) {
               /* {{{ winfrip */
-              winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, conf, hwnd, FALSE);
+              (void)winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, conf, hinst, hwnd, -1, false, -1);
               /* winfrip }}} */
               conf_free(prev_conf);
               break;
@@ -2472,7 +2475,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
             conf_free(prev_conf);
             /* {{{ winfrip */
-            winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, conf, hwnd, FALSE);
+            (void)winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, conf, hinst, hwnd, -1, false, -1);
             /* winfrip }}} */
             break;
           }
@@ -2523,6 +2526,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             flip_full_screen();
             break;
           default:
+            /* {{{ winfrip */
+            if (winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_WM_MENU, conf, hinst, hwnd, -1, -1, wParam) == WINFRIP_RETURN_BREAK) {
+                break;
+            }
+            /* winfrip }}} */
             if (wParam >= IDM_SAVED_MIN && wParam < IDM_SAVED_MAX) {
                 SendMessage(hwnd, WM_SYSCOMMAND, IDM_SAVEDSESS, wParam);
             }
@@ -2847,10 +2855,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         return 0;
       }
       case WM_SETFOCUS:
-	/* {{{ winfrip */
-	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, hwnd);
-	winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, conf, hwnd, reconfiguring);
-	/* winfrip }}} */
+        /* {{{ winfrip */
+        winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, hwnd);
+        (void)winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, conf, hinst, hwnd, -1, reconfiguring, -1);
+        /* winfrip }}} */
         term_set_focus(term, true);
         CreateCaret(hwnd, caretbm, font_width, font_height);
         ShowCaret(hwnd);
@@ -3018,6 +3026,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             SetWindowText(hwnd,
                           conf_get_bool(conf, CONF_win_name_always) ?
                           window_name : icon_name);
+        if (wParam == SIZE_MINIMIZED)
+	    (void)winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_MINIMISE, conf, hinst, hwnd, -1, -1, -1);
         if (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED)
             SetWindowText(hwnd, window_name);
         if (wParam == SIZE_RESTORED) {
@@ -3096,10 +3106,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 reset_window(0);
             }
         }
-	/* {{{ winfrip */
-	winfrip_bgimg_op(WINFRIP_BGIMG_OP_SIZE, NULL, conf,
+        /* {{{ winfrip */
+        winfrip_bgimg_op(WINFRIP_BGIMG_OP_SIZE, NULL, conf,
                          NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
-	/* winfrip }}} */
+        /* winfrip }}} */
         sys_cursor_update();
         return 0;
       case WM_DPICHANGED:
@@ -3373,20 +3383,26 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         return 0;
       /* {{{ winfrip */
       case WM_DISPLAYCHANGE:
-	winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL, conf,
+        winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL, conf,
                          NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
-	return 0;
+        return 0;
       /* winfrip }}} */
       default:
+        /* {{{ winfrip */
+        if (message == winfripp_general_get_wm_systray()) {
+            (void)winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_WM_OTHER, conf, hinst, wgs.term_hwnd, lParam, -1, -1);
+            break;
+        }
+        /* winfrip }}} */
         if (message == wm_mousewheel || message == WM_MOUSEWHEEL) {
             bool shift_pressed = false, control_pressed = false;
 
             if (message == WM_MOUSEWHEEL) {
-		/* {{{ winfrip */
-		if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, conf, message, wParam) == WINFRIP_RETURN_BREAK_RESET_WINDOW) {
-		    reset_window(2); return 0;
-		}
-		/* winfrip }}} */
+                /* {{{ winfrip */
+                if (winfrip_mouse_op(WINFRIP_MOUSE_OP_MOUSE_EVENT, conf, message, wParam) == WINFRIP_RETURN_BREAK_RESET_WINDOW) {
+                    reset_window(2); return 0;
+                }
+                /* winfrip }}} */
                 wheel_accumulator += (short)HIWORD(wParam);
                 shift_pressed=LOWORD(wParam) & MK_SHIFT;
                 control_pressed=LOWORD(wParam) & MK_CONTROL;

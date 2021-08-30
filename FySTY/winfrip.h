@@ -33,6 +33,7 @@ void winfrip_config_panel(struct controlbox *b);
     X(INT, NONE, frip_bgimg_style)											\
     X(INT, NONE, frip_bgimg_type)											\
     X(BOOL, NONE, frip_general_always_on_top)										\
+    X(BOOL, NONE, frip_general_minimise_to_systray)									\
     X(INT, NONE, frip_general_store_backend)										\
     X(BOOL, NONE, frip_mouse_font_size_wheel)										\
     X(INT, NONE, frip_transp_custom)											\
@@ -58,6 +59,7 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);						\
     gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);							\
     gppb((sesskey), "FripGeneralAlwaysOnTop", false, (conf), CONF_frip_general_always_on_top);				\
+    gppb((sesskey), "FripGeneralMinimiseToSysTray", true, (conf), CONF_frip_general_minimise_to_systray);		\
     gppi((sesskey), "FripGeneralStoreBackEnd", 0, (conf), CONF_frip_general_store_backend);				\
     gppb((sesskey), "FripMouseFontSizeWheel", true, (conf), CONF_frip_mouse_font_size_wheel);				\
     gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);						\
@@ -82,6 +84,7 @@ void winfrip_config_panel(struct controlbox *b);
     write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));				\
     write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));				\
     write_setting_b((sesskey), "FripGeneralAlwaysOnTop", conf_get_bool((conf), CONF_frip_general_always_on_top));	\
+    write_setting_b((sesskey), "FripGeneralMinimiseToSysTray", conf_get_bool((conf), CONF_frip_general_minimise_to_systray));\
     write_setting_i((sesskey), "FripGeneralStoreBackEnd", conf_get_int((conf), CONF_frip_general_store_backend));	\
     write_setting_b((sesskey), "FripMouseFontSizeWheel", conf_get_bool((conf), CONF_frip_mouse_font_size_wheel));	\
     write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));			\
@@ -141,6 +144,8 @@ void winfrip_debug_init(void);
  * windows/window.c:WndProc()
  */
 
+UINT winfripp_general_get_wm_systray(void);
+
 typedef enum WinFripGeneralStoreBackEnd {
     WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL	= 0,
     WINFRIP_GENERAL_STORE_BACKEND_DEFAULT	= WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL,
@@ -151,8 +156,12 @@ typedef enum WinFripGeneralStoreBackEnd {
 typedef enum WinFripGeneralOp {
     WINFRIP_GENERAL_OP_CONFIG_DIALOG		= 1,
     WINFRIP_GENERAL_OP_FOCUS_SET		= 2,
+    WINFRIP_GENERAL_OP_SYSTRAY_INIT		= 3,
+    WINFRIP_GENERAL_OP_SYSTRAY_MINIMISE		= 4,
+    WINFRIP_GENERAL_OP_SYSTRAY_WM_MENU		= 5,
+    WINFRIP_GENERAL_OP_SYSTRAY_WM_OTHER		= 6,
 } WinFripGeneralOp;
-void winfrip_general_op(WinFripGeneralOp op, Conf *conf, HWND hwnd, int reconfiguring);
+WinFripReturn winfrip_general_op(WinFripGeneralOp op, Conf *conf, HINSTANCE hinst, HWND hwnd, LPARAM lParam, int reconfiguring, WPARAM wParam);
 
 /*
  * windows/window.c:WndProc()

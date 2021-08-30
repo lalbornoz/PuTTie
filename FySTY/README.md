@@ -93,6 +93,7 @@ you should use FySTY:
    Regular expressions may contain/match on whitespaces, etc. pp.
 4. **Change font size with \<Shift\> + \<Mouse wheel\>**, similarly to the mintty[[7](#r7)] and PuTTYTray[[11](#r11)] implementations  
 5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation
+6. **Minimise to system tray[[2](#r2)]**, similarly to[[11](#r11)]
 
 ## Built & tested on
 1. MinGW w/ GCC v11.2.0 & cmake v3.20.0 on Cygwin v3.2.0(0.340/5/3) & Windows 8.1 x64, resp.
@@ -125,14 +126,13 @@ usage: ./FySTY/build.sh [-c] [-d] [-h] [-i] [-j jobs] [-R] [[--] cmake args...]
 
 ## TODO/wish list
 1. **New feature**: Direct{2D,Write} backend, similarly to[[21](#r21)]
-2. **New feature**: minimise to system tray[[2](#r2)], similarly to[[11](#r11)]
-3. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
-4. **New feature**: ssh:// protocol handler registration, similarly to[[19](#r19)]
-5. **New feature**: ReGIS[[22](#r22)] and/or Sixel[[23](#r23)] terminal graphics support
-6. **New feature**: ephemeral configuration store backend  
+2. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
+3. **New feature**: ssh:// protocol handler registration, similarly to[[19](#r19)]
+4. **New feature**: ReGIS[[22](#r22)] and/or Sixel[[23](#r23)] terminal graphics support
+5. **New feature**: ephemeral configuration store backend  
    Selectable w/ command-line option in plink, pscp, psftp, puttygen, PuTTY & PuTTYtel
-7. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
-8. **New feature**: clickabe URLs spanning >1 line(s)
+6. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
+7. **New feature**: clickabe URLs spanning >1 line(s)
 
 ## Pull requests policy
 Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn,
