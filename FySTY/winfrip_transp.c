@@ -30,13 +30,25 @@ static void winfripp_transp_config_panel_opaque(union control *ctrl, dlgparam *d
 	dlg_listbox_addwithid(ctrl, dlg, "Never", WINFRIPP_TRANSP_OPAQUE_NEVER);
 	dlg_listbox_addwithid(ctrl, dlg, "Focus loss", WINFRIPP_TRANSP_OPAQUE_FOCUS_KILL);
 	dlg_listbox_addwithid(ctrl, dlg, "Focus", WINFRIPP_TRANSP_OPAQUE_FOCUS_SET);
-	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_transp_opaque_on));
+
+	switch (conf_get_int(conf, CONF_frip_transp_opaque_on)) {
+	case WINFRIPP_TRANSP_OPAQUE_NEVER:
+	    dlg_listbox_select(ctrl, dlg, 0); break;
+	case WINFRIPP_TRANSP_OPAQUE_FOCUS_KILL:
+	    dlg_listbox_select(ctrl, dlg, 1); break;
+	case WINFRIPP_TRANSP_OPAQUE_FOCUS_SET:
+	    dlg_listbox_select(ctrl, dlg, 2); break;
+	default:
+	    WINFRIPP_DEBUG_FAIL(); break;
+	}
 	dlg_update_done(ctrl, dlg);
 	break;
 
     case EVENT_SELCHANGE:
     case EVENT_VALCHANGE:
-	conf_set_int(conf, CONF_frip_transp_opaque_on, dlg_listbox_index(ctrl, dlg));
+	conf_set_int(conf, CONF_frip_transp_opaque_on,
+		     dlg_listbox_getid(ctrl, dlg,
+				       dlg_listbox_index(ctrl, dlg)));
 	break;
     }
 }
@@ -54,13 +66,29 @@ static void winfripp_transp_config_panel_setting(union control *ctrl, dlgparam *
 	dlg_listbox_addwithid(ctrl, dlg, "Medium", WINFRIPP_TRANSP_SETTING_MEDIUM);
 	dlg_listbox_addwithid(ctrl, dlg, "High", WINFRIPP_TRANSP_SETTING_HIGH);
 	dlg_listbox_addwithid(ctrl, dlg, "Custom", WINFRIPP_TRANSP_SETTING_CUSTOM);
-	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_transp_setting));
+
+	switch (conf_get_int(conf, CONF_frip_transp_setting)) {
+	case WINFRIPP_TRANSP_SETTING_OFF:
+	    dlg_listbox_select(ctrl, dlg, 0); break;
+	case WINFRIPP_TRANSP_SETTING_LOW:
+	    dlg_listbox_select(ctrl, dlg, 1); break;
+	case WINFRIPP_TRANSP_SETTING_MEDIUM:
+	    dlg_listbox_select(ctrl, dlg, 2); break;
+	case WINFRIPP_TRANSP_SETTING_HIGH:
+	    dlg_listbox_select(ctrl, dlg, 3); break;
+	case WINFRIPP_TRANSP_SETTING_CUSTOM:
+	    dlg_listbox_select(ctrl, dlg, 4); break;
+	default:
+	    WINFRIPP_DEBUG_FAIL(); break;
+	}
 	dlg_update_done(ctrl, dlg);
 	break;
 
     case EVENT_SELCHANGE:
     case EVENT_VALCHANGE:
-	conf_set_int(conf, CONF_frip_transp_setting, dlg_listbox_index(ctrl, dlg));
+	conf_set_int(conf, CONF_frip_transp_setting,
+		     dlg_listbox_getid(ctrl, dlg,
+				       dlg_listbox_index(ctrl, dlg)));
 	break;
     }
 }
