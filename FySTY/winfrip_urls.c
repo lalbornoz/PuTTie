@@ -179,7 +179,7 @@ static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend,
 static void winfripp_urls_config_panel_modifier_key_handler(union control *ctrl, dlgparam *dlg, void *data, int event)
 {
     Conf *conf = (Conf *)data;
-    int index;
+    int id;
 
 
     switch (event) {
@@ -190,14 +190,26 @@ static void winfripp_urls_config_panel_modifier_key_handler(union control *ctrl,
 	dlg_listbox_addwithid(ctrl, dlg, "Alt", WINFRIPP_URLS_MODIFIER_KEY_ALT);
 	dlg_listbox_addwithid(ctrl, dlg, "Right Ctrl", WINFRIPP_URLS_MODIFIER_KEY_RIGHT_CTRL);
 	dlg_listbox_addwithid(ctrl, dlg, "Right Alt/AltGr", WINFRIPP_URLS_MODIFIER_KEY_RIGHT_ALT);
-	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_urls_modifier_key));
+
+	switch (conf_get_int(conf, CONF_frip_urls_modifier_key)) {
+	case WINFRIPP_URLS_MODIFIER_KEY_CTRL:
+	    dlg_listbox_select(ctrl, dlg, 0); break;
+	case WINFRIPP_URLS_MODIFIER_KEY_ALT:
+	    dlg_listbox_select(ctrl, dlg, 1); break;
+	case WINFRIPP_URLS_MODIFIER_KEY_RIGHT_CTRL:
+	    dlg_listbox_select(ctrl, dlg, 2); break;
+	case WINFRIPP_URLS_MODIFIER_KEY_RIGHT_ALT:
+	    dlg_listbox_select(ctrl, dlg, 3); break;
+	default:
+	    WINFRIPP_DEBUG_FAIL(); break;
+	}
 	dlg_update_done(ctrl, dlg);
 	break;
 
     case EVENT_SELCHANGE:
     case EVENT_VALCHANGE:
-	index = dlg_listbox_index(ctrl, dlg);
-	conf_set_int(conf, CONF_frip_urls_modifier_key, index);
+	id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
+	conf_set_int(conf, CONF_frip_urls_modifier_key, id);
 	winfripp_urls_reconfig_modifier_key(conf);
 	break;
     }
@@ -206,7 +218,7 @@ static void winfripp_urls_config_panel_modifier_key_handler(union control *ctrl,
 static void winfripp_urls_config_panel_modifier_shift_handler(union control *ctrl, dlgparam *dlg, void *data, int event)
 {
     Conf *conf = (Conf *)data;
-    int index;
+    int id;
 
 
     switch (event) {
@@ -216,14 +228,24 @@ static void winfripp_urls_config_panel_modifier_shift_handler(union control *ctr
 	dlg_listbox_addwithid(ctrl, dlg, "None", WINFRIPP_URLS_MODIFIER_SHIFT_NONE);
 	dlg_listbox_addwithid(ctrl, dlg, "Shift", WINFRIPP_URLS_MODIFIER_SHIFT_LSHIFT);
 	dlg_listbox_addwithid(ctrl, dlg, "Right Shift", WINFRIPP_URLS_MODIFIER_SHIFT_RSHIFT);
-	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_urls_modifier_shift));
+
+	switch (conf_get_int(conf, CONF_frip_urls_modifier_shift)) {
+	case WINFRIPP_URLS_MODIFIER_SHIFT_NONE:
+	    dlg_listbox_select(ctrl, dlg, 0); break;
+	case WINFRIPP_URLS_MODIFIER_SHIFT_LSHIFT:
+	    dlg_listbox_select(ctrl, dlg, 1); break;
+	case WINFRIPP_URLS_MODIFIER_SHIFT_RSHIFT:
+	    dlg_listbox_select(ctrl, dlg, 2); break;
+	default:
+	    WINFRIPP_DEBUG_FAIL(); break;
+	}
 	dlg_update_done(ctrl, dlg);
 	break;
 
     case EVENT_SELCHANGE:
     case EVENT_VALCHANGE:
-	index = dlg_listbox_index(ctrl, dlg);
-	conf_set_int(conf, CONF_frip_urls_modifier_shift, index);
+	id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
+	conf_set_int(conf, CONF_frip_urls_modifier_shift, id);
 	winfripp_urls_reconfig_modifier_shift(conf);
 	break;
     }

@@ -52,6 +52,8 @@ static void winfripp_general_systray_wm_other(HWND hwnd, LPARAM lParam);
 static void winfripp_general_config_panel_store_backend_handler(union control *ctrl, dlgparam *dlg, void *data, int event)
 {
     Conf *conf = (Conf *)data;
+    int id;
+
 
     switch (event) {
     case EVENT_REFRESH:
@@ -60,13 +62,24 @@ static void winfripp_general_config_panel_store_backend_handler(union control *c
 	dlg_listbox_addwithid(ctrl, dlg, "Registry", WINFRIP_GENERAL_STORE_BACKEND_REGISTRY);
 	dlg_listbox_addwithid(ctrl, dlg, "Ephemeral", WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL);
 	dlg_listbox_addwithid(ctrl, dlg, "File", WINFRIP_GENERAL_STORE_BACKEND_FILE);
-	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_general_store_backend));
+
+	switch (winfrip_confstore_backend_get()) {
+	case WINFRIP_GENERAL_STORE_BACKEND_REGISTRY:
+	    dlg_listbox_select(ctrl, dlg, 0); break;
+	case WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL:
+	    dlg_listbox_select(ctrl, dlg, 1); break;
+	case WINFRIP_GENERAL_STORE_BACKEND_FILE:
+	    dlg_listbox_select(ctrl, dlg, 2); break;
+	default:
+	    WINFRIPP_DEBUG_FAIL(); break;
+	}
 	dlg_update_done(ctrl, dlg);
 	break;
 
     case EVENT_SELCHANGE:
     case EVENT_VALCHANGE:
-	conf_set_int(conf, CONF_frip_general_store_backend, dlg_listbox_index(ctrl, dlg));
+	id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
+	winfrip_confstore_backend_set(id);
 	break;
     }
 }

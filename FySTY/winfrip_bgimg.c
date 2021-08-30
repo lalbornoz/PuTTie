@@ -66,13 +66,27 @@ static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg
 	dlg_listbox_addwithid(ctrl, dlg, "Center", WINFRIPP_BGIMG_STYLE_CENTER);
 	dlg_listbox_addwithid(ctrl, dlg, "Stretch", WINFRIPP_BGIMG_STYLE_STRETCH);
 	dlg_listbox_addwithid(ctrl, dlg, "Tile", WINFRIPP_BGIMG_STYLE_TILE);
-	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_bgimg_style));
+
+	switch (conf_get_int(conf, CONF_frip_bgimg_style)) {
+	case WINFRIPP_BGIMG_STYLE_ABSOLUTE:
+	    dlg_listbox_select(ctrl, dlg, 0); break;
+	case WINFRIPP_BGIMG_STYLE_CENTER:
+	    dlg_listbox_select(ctrl, dlg, 1); break;
+	case WINFRIPP_BGIMG_STYLE_STRETCH:
+	    dlg_listbox_select(ctrl, dlg, 2); break;
+	case WINFRIPP_BGIMG_STYLE_TILE:
+	    dlg_listbox_select(ctrl, dlg, 3); break;
+	default:
+	    WINFRIPP_DEBUG_FAIL(); break;
+	}
 	dlg_update_done(ctrl, dlg);
 	break;
 
     case EVENT_SELCHANGE:
     case EVENT_VALCHANGE:
-	conf_set_int(conf, CONF_frip_bgimg_style, dlg_listbox_index(ctrl, dlg));
+	conf_set_int(conf, CONF_frip_bgimg_style,
+		     dlg_listbox_getid(ctrl, dlg,
+				       dlg_listbox_index(ctrl, dlg)));
 	break;
     }
 }
@@ -87,13 +101,23 @@ static void winfripp_bgimg_config_panel_type(union control *ctrl, dlgparam *dlg,
 	dlg_listbox_clear(ctrl, dlg);
 	dlg_listbox_addwithid(ctrl, dlg, "Solid", WINFRIPP_BGIMG_TYPE_SOLID);
 	dlg_listbox_addwithid(ctrl, dlg, "Image", WINFRIPP_BGIMG_TYPE_IMAGE);
-	dlg_listbox_select(ctrl, dlg, conf_get_int(conf, CONF_frip_bgimg_type));
+
+	switch (conf_get_int(conf, CONF_frip_bgimg_type)) {
+	case WINFRIPP_BGIMG_TYPE_SOLID:
+	    dlg_listbox_select(ctrl, dlg, 0); break;
+	case WINFRIPP_BGIMG_TYPE_IMAGE:
+	    dlg_listbox_select(ctrl, dlg, 1); break;
+	default:
+	    WINFRIPP_DEBUG_FAIL(); break;
+	}
 	dlg_update_done(ctrl, dlg);
 	break;
 
     case EVENT_SELCHANGE:
     case EVENT_VALCHANGE:
-	conf_set_int(conf, CONF_frip_bgimg_type, dlg_listbox_index(ctrl, dlg));
+	conf_set_int(conf, CONF_frip_bgimg_type,
+		     dlg_listbox_getid(ctrl, dlg,
+				       dlg_listbox_index(ctrl, dlg)));
 	break;
     }
 }

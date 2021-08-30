@@ -34,7 +34,6 @@ void winfrip_config_panel(struct controlbox *b);
     X(INT, NONE, frip_bgimg_type)											\
     X(BOOL, NONE, frip_general_always_on_top)										\
     X(BOOL, NONE, frip_general_minimise_to_systray)									\
-    X(INT, NONE, frip_general_store_backend)										\
     X(BOOL, NONE, frip_mouse_font_size_wheel)										\
     X(INT, NONE, frip_transp_custom)											\
     X(INT, NONE, frip_transp_opaque_on)											\
@@ -60,7 +59,6 @@ void winfrip_config_panel(struct controlbox *b);
     gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);							\
     gppb((sesskey), "FripGeneralAlwaysOnTop", false, (conf), CONF_frip_general_always_on_top);				\
     gppb((sesskey), "FripGeneralMinimiseToSysTray", true, (conf), CONF_frip_general_minimise_to_systray);		\
-    gppi((sesskey), "FripGeneralStoreBackEnd", 0, (conf), CONF_frip_general_store_backend);				\
     gppb((sesskey), "FripMouseFontSizeWheel", true, (conf), CONF_frip_mouse_font_size_wheel);				\
     gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);						\
     gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);					\
@@ -85,7 +83,6 @@ void winfrip_config_panel(struct controlbox *b);
     write_setting_i((sesskey), "FripBgImgType", conf_get_int((conf), CONF_frip_bgimg_type));				\
     write_setting_b((sesskey), "FripGeneralAlwaysOnTop", conf_get_bool((conf), CONF_frip_general_always_on_top));	\
     write_setting_b((sesskey), "FripGeneralMinimiseToSysTray", conf_get_bool((conf), CONF_frip_general_minimise_to_systray));\
-    write_setting_i((sesskey), "FripGeneralStoreBackEnd", conf_get_int((conf), CONF_frip_general_store_backend));	\
     write_setting_b((sesskey), "FripMouseFontSizeWheel", conf_get_bool((conf), CONF_frip_mouse_font_size_wheel));	\
     write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));			\
     write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_transp_opaque_on));			\
