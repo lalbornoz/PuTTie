@@ -206,9 +206,17 @@ void winfrip_config_panel(struct controlbox *b)
 void winfrip_debug_init(void)
 {
 #ifdef WINFRIP_DEBUG
+    COORD dwSize = {.X = 125, .Y = 50 * 25};
+    SMALL_RECT consoleWindow = {.Left = 0, .Top = 0, .Right = dwSize.X - 1, .Bottom = (dwSize.Y / 25) - 1};
+    HANDLE hConsoleOutput;
+
+
     AllocConsole();
     AttachConsole(GetCurrentProcessId());
     freopen("CON", "w", stdout);
     freopen("CON", "w", stderr);
+    hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    (void)SetConsoleScreenBufferSize(hConsoleOutput, dwSize);
+    (void)SetConsoleWindowInfo(hConsoleOutput, TRUE, &consoleWindow);
 #endif
 }
