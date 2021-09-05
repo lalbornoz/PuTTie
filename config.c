@@ -827,6 +827,8 @@ static void sessionsaver_handler(union control *ctrl, dlgparam *dlg,
             int i;
             dlg_update_start(ctrl, dlg);
             dlg_listbox_clear(ctrl, dlg);
+            get_sesslist(&ssd->sesslist, false);
+            get_sesslist(&ssd->sesslist, true);
             for (i = 0; i < ssd->sesslist.nsessions; i++)
                 dlg_listbox_add(ctrl, dlg, ssd->sesslist.sessions[i]);
             dlg_update_done(ctrl, dlg);

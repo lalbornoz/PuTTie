@@ -69,9 +69,9 @@ you should use FySTY:
    Canaanite deity down everyone's throats, Sīn-lēq-unnínni, Mursili I,
    despite his anger issues, Šubši-mašrā-šakkan, bonus points for having
    a badass name, ʿammu Rāpī the Amorite, utilising the ST100 ancestor
-   of VT100, Šarrukīn I of Akkad, all of the Anunnaki except for Inanna-Ištar
+   of the VT100, Šarrukīn I of Akkad, all of the Anunnaki except for Inanna-Ištar
    because she's an arsehole, and also except for Ellil because he doesn't
-   know how be nice to people, and Gudea of Lagaš.  
+   know how to be nice to people, and Gudea of Lagaš.  
   
    **Don't you want to be like them?** (except for Inanna-Ištar because she's an arsehole)
 
@@ -85,17 +85,17 @@ you should use FySTY:
    Optionally in conjunction with background images, configurable opacity on {focus,focus loss} behaviour
 3. **Clickable URLs**, similarly to the mintty[[7](#r7)] implementation  
    Configurable URL regular expressions via pcre2[[12](#r12)] and ``ShellExecute()``[[24](#r24)]  
-   Configurable ``ShellExecute()`` browser application or verb[[24](#r24)]  
+   Configurable ``ShellExecute()`` browser application[[24](#r24)]  
    Configurable mouse motion and LMB click modifiers:
    \<Ctrl\>, \<Alt\>, \<RightAlt|AltGr\>, \<RightCtrl\>,
    and optionally as well as additionally \<Shift\> or \<RightShift\>  
    Configurable underline and/or reverse video on highlight/click, resp. behaviour  
    Regular expressions may contain/match on whitespaces, etc. pp.
-4. **Change font size with \<Shift\> + \<Mouse wheel\>**, similarly to the mintty[[7](#r7)] and PuTTYTray[[11](#r11)] implementations  
+4. **Change font size with \<Ctrl\> + \<Mouse wheel\>**, similarly to the mintty[[7](#r7)] and PuTTYTray[[11](#r11)] implementations  
 5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation
 6. **Minimise to system tray[[2](#r2)]**, similarly to[[11](#r11)]
 
-## Built & tested on
+## Built with & tested on
 1. MinGW w/ GCC v11.2.0 & cmake v3.20.0 on Cygwin v3.2.0(0.340/5/3) & Windows 8.1 x64, resp.
 
 ## How to build

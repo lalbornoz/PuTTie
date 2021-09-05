@@ -63,7 +63,8 @@ static void winfripp_general_config_panel_store_backend_handler(union control *c
 	dlg_listbox_addwithid(ctrl, dlg, "Ephemeral", WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL);
 	dlg_listbox_addwithid(ctrl, dlg, "File", WINFRIP_GENERAL_STORE_BACKEND_FILE);
 
-	switch (winfrip_confstore_backend_get()) {
+#if 0
+	switch (wfc_backend_get()) {
 	case WINFRIP_GENERAL_STORE_BACKEND_REGISTRY:
 	    dlg_listbox_select(ctrl, dlg, 0); break;
 	case WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL:
@@ -73,13 +74,16 @@ static void winfripp_general_config_panel_store_backend_handler(union control *c
 	default:
 	    WINFRIPP_DEBUG_FAIL(); break;
 	}
+#endif
 	dlg_update_done(ctrl, dlg);
 	break;
 
     case EVENT_SELCHANGE:
     case EVENT_VALCHANGE:
 	id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
-	winfrip_confstore_backend_set(id);
+#if 0
+	wfc_backend_set(id);
+#endif
 	break;
     }
 }
