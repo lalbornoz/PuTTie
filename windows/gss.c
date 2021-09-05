@@ -1,9 +1,5 @@
 #ifndef NO_GSSAPI
 
-/* {{{ winfrip */
-#include "FySTY/winfrip_confstore_pre.h"
-/* winfrip }}} */
-
 #include <limits.h>
 #include "putty.h"
 
@@ -15,11 +11,6 @@
 #include "ssh/gssc.h"
 
 #include "misc.h"
-
-/* {{{ winfrip */
-#include "FySTY/winfrip_confstore_post.h"
-#include "FySTY/winfrip.h"
-/* winfrip }}} */
 
 #define UNIX_EPOCH      11644473600ULL  /* Seconds from Windows epoch */
 #define CNS_PERSEC      10000000ULL     /* # 100ns per second */

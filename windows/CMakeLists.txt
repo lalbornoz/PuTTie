@@ -96,8 +96,7 @@ add_executable(putty
   putty.rc
   ../FySTY/winfrip.c
   ../FySTY/winfrip_bgimg.c
-  ../FySTY/winfrip_confstore.c
-  ../FySTY/winfrip_confstore_priv.c
+  ../FySTY/winfrip_storage_file.c
   ../FySTY/winfrip_general.c
   ../FySTY/winfrip_mouse.c
   ../FySTY/winfrip_pcre2.c
@@ -127,8 +126,7 @@ add_executable(puttytel
   puttytel.rc
   ../FySTY/winfrip.c
   ../FySTY/winfrip_bgimg.c
-  ../FySTY/winfrip_confstore.c
-  ../FySTY/winfrip_confstore_priv.c
+  ../FySTY/winfrip_storage_file.c
   ../FySTY/winfrip_general.c
   ../FySTY/winfrip_mouse.c
   ../FySTY/winfrip_pcre2.c
@@ -156,8 +154,7 @@ add_executable(puttygen
   ${CMAKE_SOURCE_DIR}/sshrand.c
   controls.c
   puttygen.rc
-  ../FySTY/winfrip_confstore.c
-  ../FySTY/winfrip_confstore_priv.c)
+  ../FySTY/winfrip_storage_file.c)
 add_dependencies(puttygen generated_licence_h)
 target_link_libraries(puttygen
   keygen guimisc crypto utils

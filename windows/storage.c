@@ -3,15 +3,14 @@
  * defined in storage.h.
  */
 
-/* {{{ winfrip */
-#include "FySTY/winfrip_confstore_pre.h"
-/* winfrip }}} */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <assert.h>
 #include "putty.h"
+/* {{{ winfrip */
+#include "FySTY/winfrip_storage_wrap.h"
+/* winfrip }}} */
 #include "storage.h"
 
 #include <shlobj.h>
@@ -21,11 +20,6 @@
 #ifndef CSIDL_LOCAL_APPDATA
 #define CSIDL_LOCAL_APPDATA 0x001c
 #endif
-
-/* {{{ winfrip */
-#include "FySTY/winfrip_confstore_post.h"
-#include "FySTY/winfrip.h"
-/* winfrip }}} */
 
 static const char *const reg_jumplist_key = PUTTY_REG_POS "\\Jumplist";
 static const char *const reg_jumplist_value = "Recent sessions";
