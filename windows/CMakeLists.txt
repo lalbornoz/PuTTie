@@ -97,8 +97,6 @@ add_executable(putty
   window.c
   putty.c
   help.c
-<<<<<<< HEAD
-  ${CMAKE_SOURCE_DIR}/be_all_s.c
   putty.rc
   ../FySTY/winfrip.c
   ../FySTY/winfrip_bgimg.c
@@ -108,10 +106,7 @@ add_executable(putty
   ../FySTY/winfrip_pcre2.c
   ../FySTY/winfrip_transp.c
   ../FySTY/winfrip_urls.c)
-=======
-  putty.rc)
 be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
->>>>>>> 7143e3612c568b54c07eac1b529fa2c9ea70b174
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
   guiterminal guimisc eventloop sshclient otherbackends settings network crypto
@@ -128,12 +123,10 @@ add_executable(puttytel
   window.c
   putty.c
   help.c
-<<<<<<< HEAD
-  ${CMAKE_SOURCE_DIR}/be_nos_s.c
-  ${CMAKE_SOURCE_DIR}/nogss.c
-  ${CMAKE_SOURCE_DIR}/norand.c
-  ${CMAKE_SOURCE_DIR}/nocproxy.c
-  ${CMAKE_SOURCE_DIR}/nosshproxy.c
+  ${CMAKE_SOURCE_DIR}/stubs/nogss.c
+  ${CMAKE_SOURCE_DIR}/stubs/norand.c
+  ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
+  ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
   puttytel.rc
   ../FySTY/winfrip.c
   ../FySTY/winfrip_bgimg.c
@@ -143,14 +136,7 @@ add_executable(puttytel
   ../FySTY/winfrip_pcre2.c
   ../FySTY/winfrip_transp.c
   ../FySTY/winfrip_urls.c)
-=======
-  ${CMAKE_SOURCE_DIR}/stubs/nogss.c
-  ${CMAKE_SOURCE_DIR}/stubs/norand.c
-  ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
-  ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
-  puttytel.rc)
 be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
->>>>>>> 7143e3612c568b54c07eac1b529fa2c9ea70b174
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel
   guiterminal guimisc eventloop otherbackends settings network utils
