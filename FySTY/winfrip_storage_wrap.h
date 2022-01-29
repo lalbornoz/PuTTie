@@ -26,7 +26,7 @@
 #define enum_settings_next	enum_settings_next_PuTTY
 #define enum_settings_finish	enum_settings_finish_PuTTY
 
-#define verify_host_key		verify_host_key_PuTTY
+#define check_stored_host_key	check_stored_host_key_PuTTY
 #define store_host_key		store_host_key_PuTTY
 
 #define read_random_seed	read_random_seed_PuTTY

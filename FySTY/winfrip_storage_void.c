@@ -118,7 +118,7 @@ void enum_settings_finish(settings_e *handle)
 }
 
 
-int verify_host_key(const char *hostname, int port,
+int check_stored_host_key(const char *hostname, int port,
 			  const char *keytype, const char *key)
 {
     (void)hostname; (void)port; (void)keytype; (void)key;
