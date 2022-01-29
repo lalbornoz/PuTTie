@@ -73,8 +73,6 @@ static bool ssh2_transport_get_specials(
     PacketProtocolLayer *ppl, add_special_fn_t add_special, void *ctx);
 static void ssh2_transport_special_cmd(PacketProtocolLayer *ppl,
                                        SessionSpecialCode code, int arg);
-static bool ssh2_transport_want_user_input(PacketProtocolLayer *ppl);
-static void ssh2_transport_got_user_input(PacketProtocolLayer *ppl);
 static void ssh2_transport_reconfigure(PacketProtocolLayer *ppl, Conf *conf);
 static size_t ssh2_transport_queued_data_size(PacketProtocolLayer *ppl);
 
@@ -87,8 +85,6 @@ static const PacketProtocolLayerVtable ssh2_transport_vtable = {
     .process_queue = ssh2_transport_process_queue,
     .get_specials = ssh2_transport_get_specials,
     .special_cmd = ssh2_transport_special_cmd,
-    .want_user_input = ssh2_transport_want_user_input,
-    .got_user_input = ssh2_transport_got_user_input,
     .reconfigure = ssh2_transport_reconfigure,
     .queued_data_size = ssh2_transport_queued_data_size,
     .name = NULL, /* no protocol name for this layer */
@@ -101,7 +97,7 @@ static void ssh2_transport_gss_update(struct ssh2_transport_state *s,
 
 static bool ssh2_transport_timer_update(struct ssh2_transport_state *s,
                                         unsigned long rekey_time);
-static int ssh2_transport_confirm_weak_crypto_primitive(
+static SeatPromptResult ssh2_transport_confirm_weak_crypto_primitive(
     struct ssh2_transport_state *s, const char *type, const char *name,
     const void *alg);
 
@@ -1269,11 +1265,11 @@ static void ssh2_transport_process_queue(PacketProtocolLayer *ppl)
     }
 
     if (s->warn_kex) {
-        s->dlgret = ssh2_transport_confirm_weak_crypto_primitive(
+        s->spr = ssh2_transport_confirm_weak_crypto_primitive(
             s, "key-exchange algorithm", s->kex_alg->name, s->kex_alg);
-        crMaybeWaitUntilV(s->dlgret >= 0);
-        if (s->dlgret == 0) {
-            ssh_user_close(s->ppl.ssh, "User aborted at kex warning");
+        crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
+        if (spr_is_abort(s->spr)) {
+            ssh_spr_close(s->ppl.ssh, s->spr, "kex warning");
             return;
         }
     }
@@ -1314,44 +1310,44 @@ static void ssh2_transport_process_queue(PacketProtocolLayer *ppl)
             }
         }
         if (betteralgs) {
-                /* Use the special warning prompt that lets us provide
-                 * a list of better algorithms */
-                s->dlgret = seat_confirm_weak_cached_hostkey(
-                    s->ppl.seat, s->hostkey_alg->ssh_id, betteralgs,
-                    ssh2_transport_dialog_callback, s);
+            /* Use the special warning prompt that lets us provide
+             * a list of better algorithms */
+            s->spr = seat_confirm_weak_cached_hostkey(
+                ppl_get_iseat(&s->ppl), s->hostkey_alg->ssh_id, betteralgs,
+                ssh2_transport_dialog_callback, s);
             sfree(betteralgs);
         } else {
-                /* If none exist, use the more general 'weak crypto'
-                 * warning prompt */
-                s->dlgret = ssh2_transport_confirm_weak_crypto_primitive(
-                    s, "host key type", s->hostkey_alg->ssh_id,
-                    s->hostkey_alg);
+            /* If none exist, use the more general 'weak crypto'
+             * warning prompt */
+            s->spr = ssh2_transport_confirm_weak_crypto_primitive(
+                s, "host key type", s->hostkey_alg->ssh_id,
+                s->hostkey_alg);
         }
-        crMaybeWaitUntilV(s->dlgret >= 0);
-        if (s->dlgret == 0) {
-            ssh_user_close(s->ppl.ssh, "User aborted at host key warning");
+        crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
+        if (spr_is_abort(s->spr)) {
+            ssh_spr_close(s->ppl.ssh, s->spr, "host key warning");
             return;
         }
     }
 
     if (s->warn_cscipher) {
-        s->dlgret = ssh2_transport_confirm_weak_crypto_primitive(
+        s->spr = ssh2_transport_confirm_weak_crypto_primitive(
             s, "client-to-server cipher", s->out.cipher->ssh2_id,
             s->out.cipher);
-        crMaybeWaitUntilV(s->dlgret >= 0);
-        if (s->dlgret == 0) {
-            ssh_user_close(s->ppl.ssh, "User aborted at cipher warning");
+        crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
+        if (spr_is_abort(s->spr)) {
+            ssh_spr_close(s->ppl.ssh, s->spr, "cipher warning");
             return;
         }
     }
 
     if (s->warn_sccipher) {
-        s->dlgret = ssh2_transport_confirm_weak_crypto_primitive(
+        s->spr = ssh2_transport_confirm_weak_crypto_primitive(
             s, "server-to-client cipher", s->in.cipher->ssh2_id,
             s->in.cipher);
-        crMaybeWaitUntilV(s->dlgret >= 0);
-        if (s->dlgret == 0) {
-            ssh_user_close(s->ppl.ssh, "User aborted at cipher warning");
+        crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
+        if (spr_is_abort(s->spr)) {
+            ssh_spr_close(s->ppl.ssh, s->spr, "cipher warning");
             return;
         }
     }
@@ -1819,10 +1815,10 @@ static bool ssh2_transport_timer_update(struct ssh2_transport_state *s,
     return false;
 }
 
-void ssh2_transport_dialog_callback(void *loginv, int ret)
+void ssh2_transport_dialog_callback(void *vctx, SeatPromptResult spr)
 {
-    struct ssh2_transport_state *s = (struct ssh2_transport_state *)loginv;
-    s->dlgret = ret;
+    struct ssh2_transport_state *s = (struct ssh2_transport_state *)vctx;
+    s->spr = spr;
     ssh_ppl_process_queue(&s->ppl);
 }
 
@@ -1926,7 +1922,7 @@ static void ssh2_transport_gss_update(struct ssh2_transport_state *s,
     s->gss_status |= GSS_KEX_CAPABLE;
 
     /*
-     * When rekeying to cascade, avoding doing this too close to the
+     * When rekeying to cascade, avoid doing this too close to the
      * context expiration time, since the key exchange might fail.
      */
     if (s->gss_ctxt_lifetime < MIN_CTXT_LIFETIME)
@@ -2132,24 +2128,6 @@ static void ssh2_transport_reconfigure(PacketProtocolLayer *ppl, Conf *conf)
     ssh_ppl_reconfigure(s->higher_layer, conf);
 }
 
-static bool ssh2_transport_want_user_input(PacketProtocolLayer *ppl)
-{
-    struct ssh2_transport_state *s =
-        container_of(ppl, struct ssh2_transport_state, ppl);
-
-    /* Just delegate this to the higher layer */
-    return ssh_ppl_want_user_input(s->higher_layer);
-}
-
-static void ssh2_transport_got_user_input(PacketProtocolLayer *ppl)
-{
-    struct ssh2_transport_state *s =
-        container_of(ppl, struct ssh2_transport_state, ppl);
-
-    /* Just delegate this to the higher layer */
-    ssh_ppl_got_user_input(s->higher_layer);
-}
-
 static int weak_algorithm_compare(void *av, void *bv)
 {
     uintptr_t a = (uintptr_t)av, b = (uintptr_t)bv;
@@ -2161,16 +2139,16 @@ static int weak_algorithm_compare(void *av, void *bv)
  * tree234 s->weak_algorithms_consented_to to ensure we ask at most
  * once about any given crypto primitive.
  */
-static int ssh2_transport_confirm_weak_crypto_primitive(
+static SeatPromptResult ssh2_transport_confirm_weak_crypto_primitive(
     struct ssh2_transport_state *s, const char *type, const char *name,
     const void *alg)
 {
     if (find234(s->weak_algorithms_consented_to, (void *)alg, NULL))
-        return 1;
+        return SPR_OK;
     add234(s->weak_algorithms_consented_to, (void *)alg);
 
     return seat_confirm_weak_crypto_primitive(
-        s->ppl.seat, type, name, ssh2_transport_dialog_callback, s);
+        ppl_get_iseat(&s->ppl), type, name, ssh2_transport_dialog_callback, s);
 }
 
 static size_t ssh2_transport_queued_data_size(PacketProtocolLayer *ppl)

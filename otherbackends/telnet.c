@@ -171,12 +171,14 @@ static const struct Opt *const opts[] = {
 typedef struct Telnet Telnet;
 struct Telnet {
     Socket *s;
+    bool socket_connected;
     bool closed_on_socket_error;
 
     Seat *seat;
     LogContext *logctx;
     Ldisc *ldisc;
     int term_width, term_height;
+    char *description;
 
     int opt_states[NUM_OPTS];
 
@@ -186,7 +188,6 @@ struct Telnet {
     bool in_synch;
     int sb_opt;
     strbuf *sb_buf;
-    bool session_started;
 
     enum {
         TOP_LEVEL, SEENIAC, SEENWILL, SEENWONT, SEENDO, SEENDONT,
@@ -199,6 +200,7 @@ struct Telnet {
 
     Plug plug;
     Backend backend;
+    Interactor interactor;
 };
 
 #define TELNET_MAX_BACKLOG 4096
@@ -218,7 +220,7 @@ static void log_option(Telnet *telnet, const char *sender, int cmd, int option)
      * trigraph - a double question mark followed by > maps to a
      * closing brace character!
      */
-    logeventf(telnet->logctx, "%s:\t%s %s", sender,
+    logeventf(telnet->logctx, "%s negotiation: %s %s", sender,
               (cmd == WILL ? "WILL" : cmd == WONT ? "WONT" :
                cmd == DO ? "DO" : cmd == DONT ? "DONT" : "<?""?>"),
               telopt(option));
@@ -374,11 +376,13 @@ static void process_subneg(Telnet *telnet)
             b[n] = IAC;
             b[n + 1] = SE;
             telnet->bufsize = sk_write(telnet->s, b, n + 2);
-            logevent(telnet->logctx, "server:\tSB TSPEED SEND");
-            logeventf(telnet->logctx, "client:\tSB TSPEED IS %s", termspeed);
+            logevent(telnet->logctx, "server subnegotiation: SB TSPEED SEND");
+            logeventf(telnet->logctx,
+                      "client subnegotiation: SB TSPEED IS %s", termspeed);
             sfree(b);
         } else
-            logevent(telnet->logctx, "server:\tSB TSPEED <something weird>");
+            logevent(telnet->logctx,
+                     "server subnegotiation: SB TSPEED <something weird>");
         break;
       case TELOPT_TTYPE:
         if (telnet->sb_buf->len == 1 && telnet->sb_buf->u[0] == TELQUAL_SEND) {
@@ -396,11 +400,14 @@ static void process_subneg(Telnet *telnet)
             b[n + 5] = SE;
             telnet->bufsize = sk_write(telnet->s, b, n + 6);
             b[n + 4] = 0;
-            logevent(telnet->logctx, "server:\tSB TTYPE SEND");
-            logeventf(telnet->logctx, "client:\tSB TTYPE IS %s", b + 4);
+            logevent(telnet->logctx,
+                     "server subnegotiation: SB TTYPE SEND");
+            logeventf(telnet->logctx,
+                      "client subnegotiation: SB TTYPE IS %s", b + 4);
             sfree(b);
         } else
-            logevent(telnet->logctx, "server:\tSB TTYPE <something weird>\r\n");
+            logevent(telnet->logctx,
+                     "server subnegotiation: SB TTYPE <something weird>\r\n");
         break;
       case TELOPT_OLD_ENVIRON:
       case TELOPT_NEW_ENVIRON:
@@ -408,7 +415,7 @@ static void process_subneg(Telnet *telnet)
         q = p + telnet->sb_buf->len;
         if (p < q && *p == TELQUAL_SEND) {
             p++;
-            logeventf(telnet->logctx, "server:\tSB %s SEND",
+            logeventf(telnet->logctx, "server subnegotiation: SB %s SEND",
                       telopt(telnet->sb_opt));
             if (telnet->sb_opt == TELOPT_OLD_ENVIRON) {
                 if (conf_get_bool(telnet->conf, CONF_rfc_environ)) {
@@ -482,20 +489,21 @@ static void process_subneg(Telnet *telnet)
             b[n++] = SE;
             telnet->bufsize = sk_write(telnet->s, b, n);
             if (n == 6) {
-                logeventf(telnet->logctx, "client:\tSB %s IS <nothing>",
+                logeventf(telnet->logctx,
+                          "client subnegotiation: SB %s IS <nothing>",
                           telopt(telnet->sb_opt));
             } else {
-                logeventf(telnet->logctx, "client:\tSB %s IS:",
+                logeventf(telnet->logctx, "client subnegotiation: SB %s IS:",
                           telopt(telnet->sb_opt));
                 for (eval = conf_get_str_strs(telnet->conf, CONF_environmt,
                                              NULL, &ekey);
                      eval != NULL;
                      eval = conf_get_str_strs(telnet->conf, CONF_environmt,
                                              ekey, &ekey)) {
-                    logeventf(telnet->logctx, "\t%s=%s", ekey, eval);
+                    logeventf(telnet->logctx, "    %s=%s", ekey, eval);
                 }
                 if (user)
-                    logeventf(telnet->logctx, "\tUSER=%s", user);
+                    logeventf(telnet->logctx, "    USER=%s", user);
             }
             sfree(b);
             sfree(user);
@@ -619,11 +627,16 @@ static void telnet_log(Plug *plug, PlugLogType type, SockAddr *addr, int port,
     Telnet *telnet = container_of(plug, Telnet, plug);
     backend_socket_log(telnet->seat, telnet->logctx, type, addr, port,
                        error_msg, error_code, telnet->conf,
-                       telnet->session_started);
+                       telnet->socket_connected);
+    if (type == PLUGLOG_CONNECT_SUCCESS) {
+        telnet->socket_connected = true;
+        if (telnet->ldisc)
+            ldisc_check_sendok(telnet->ldisc);
+    }
 }
 
-static void telnet_closing(Plug *plug, const char *error_msg, int error_code,
-                           bool calling_back)
+static void telnet_closing(Plug *plug, PlugCloseType type,
+                           const char *error_msg)
 {
     Telnet *telnet = container_of(plug, Telnet, plug);
 
@@ -641,9 +654,10 @@ static void telnet_closing(Plug *plug, const char *error_msg, int error_code,
         seat_notify_remote_exit(telnet->seat);
         seat_notify_remote_disconnect(telnet->seat);
     }
-    if (error_msg) {
+    if (type != PLUGCLOSE_NORMAL) {
         logevent(telnet->logctx, error_msg);
-        seat_connection_fatal(telnet->seat, "%s", error_msg);
+        if (type != PLUGCLOSE_USER_ABORT)
+            seat_connection_fatal(telnet->seat, "%s", error_msg);
     }
     /* Otherwise, the remote side closed the connection normally. */
 }
@@ -654,7 +668,6 @@ static void telnet_receive(
     Telnet *telnet = container_of(plug, Telnet, plug);
     if (urgent)
         telnet->in_synch = true;
-    telnet->session_started = true;
     do_telnet_read(telnet, data, len);
 }
 
@@ -670,6 +683,37 @@ static const PlugVtable Telnet_plugvt = {
     .closing = telnet_closing,
     .receive = telnet_receive,
     .sent = telnet_sent,
+};
+
+static char *telnet_description(Interactor *itr)
+{
+    Telnet *telnet = container_of(itr, Telnet, interactor);
+    return dupstr(telnet->description);
+}
+
+static LogPolicy *telnet_logpolicy(Interactor *itr)
+{
+    Telnet *telnet = container_of(itr, Telnet, interactor);
+    return log_get_policy(telnet->logctx);
+}
+
+static Seat *telnet_get_seat(Interactor *itr)
+{
+    Telnet *telnet = container_of(itr, Telnet, interactor);
+    return telnet->seat;
+}
+
+static void telnet_set_seat(Interactor *itr, Seat *seat)
+{
+    Telnet *telnet = container_of(itr, Telnet, interactor);
+    telnet->seat = seat;
+}
+
+static const InteractorVtable Telnet_interactorvt = {
+    .description = telnet_description,
+    .logpolicy = telnet_logpolicy,
+    .get_seat = telnet_get_seat,
+    .set_seat = telnet_set_seat,
 };
 
 /*
@@ -691,14 +735,15 @@ static char *telnet_init(const BackendVtable *vt, Seat *seat,
     char *loghost;
     int addressfamily;
 
-    /* No local authentication phase in this protocol */
-    seat_set_trust_status(seat, false);
-
     telnet = snew(Telnet);
+    memset(telnet, 0, sizeof(Telnet));
     telnet->plug.vt = &Telnet_plugvt;
     telnet->backend.vt = vt;
+    telnet->interactor.vt = &Telnet_interactorvt;
+    telnet->backend.interactor = &telnet->interactor;
     telnet->conf = conf_copy(conf);
     telnet->s = NULL;
+    telnet->socket_connected = false;
     telnet->closed_on_socket_error = false;
     telnet->echoing = true;
     telnet->editing = true;
@@ -711,7 +756,7 @@ static char *telnet_init(const BackendVtable *vt, Seat *seat,
     telnet->state = TOP_LEVEL;
     telnet->ldisc = NULL;
     telnet->pinger = NULL;
-    telnet->session_started = true;
+    telnet->description = default_description(vt, host, port);
     *backend_handle = &telnet->backend;
 
     /*
@@ -732,9 +777,13 @@ static char *telnet_init(const BackendVtable *vt, Seat *seat,
      * Open socket.
      */
     telnet->s = new_connection(addr, *realhost, port, false, true, nodelay,
-                               keepalive, &telnet->plug, telnet->conf);
+                               keepalive, &telnet->plug, telnet->conf,
+                               &telnet->interactor);
     if ((err = sk_socket_error(telnet->s)) != NULL)
         return dupstr(err);
+
+    /* No local authentication phase in this protocol */
+    seat_set_trust_status(telnet->seat, false);
 
     telnet->pinger = pinger_new(telnet->conf, &telnet->backend);
 
@@ -789,12 +838,15 @@ static void telnet_free(Backend *be)
 {
     Telnet *telnet = container_of(be, Telnet, backend);
 
+    if (is_tempseat(telnet->seat))
+        tempseat_free(telnet->seat);
     strbuf_free(telnet->sb_buf);
     if (telnet->s)
         sk_close(telnet->s);
     if (telnet->pinger)
         pinger_free(telnet->pinger);
     conf_free(telnet->conf);
+    sfree(telnet->description);
     sfree(telnet);
 }
 /*
@@ -813,7 +865,7 @@ static void telnet_reconfig(Backend *be, Conf *conf)
 /*
  * Called to send data down the Telnet connection.
  */
-static size_t telnet_send(Backend *be, const char *buf, size_t len)
+static void telnet_send(Backend *be, const char *buf, size_t len)
 {
     Telnet *telnet = container_of(be, Telnet, backend);
     unsigned char *p, *end;
@@ -824,7 +876,7 @@ static size_t telnet_send(Backend *be, const char *buf, size_t len)
 #endif
 
     if (telnet->s == NULL)
-        return 0;
+        return;
 
     p = (unsigned char *)buf;
     end = (unsigned char *)(buf + len);
@@ -841,8 +893,6 @@ static size_t telnet_send(Backend *be, const char *buf, size_t len)
             p++;
         }
     }
-
-    return telnet->bufsize;
 }
 
 /*
@@ -883,7 +933,7 @@ static void telnet_size(Backend *be, int width, int height)
     b[n++] = IAC;
     b[n++] = SE;
     telnet->bufsize = sk_write(telnet->s, b, n);
-    logeventf(telnet->logctx, "client:\tSB NAWS %d,%d",
+    logeventf(telnet->logctx, "client subnegotiation: SB NAWS %d,%d",
               telnet->term_width, telnet->term_height);
 }
 
@@ -1003,8 +1053,8 @@ static bool telnet_connected(Backend *be)
 
 static bool telnet_sendok(Backend *be)
 {
-    /* Telnet *telnet = container_of(be, Telnet, backend); */
-    return true;
+    Telnet *telnet = container_of(be, Telnet, backend);
+    return telnet->socket_connected;
 }
 
 static void telnet_unthrottle(Backend *be, size_t backlog)
@@ -1066,7 +1116,8 @@ const BackendVtable telnet_backend = {
     .unthrottle = telnet_unthrottle,
     .cfg_info = telnet_cfg_info,
     .id = "telnet",
-    .displayname = "Telnet",
+    .displayname_tc = "Telnet",
+    .displayname_lc = "Telnet", /* proper name, so capitalise it anyway */
     .protocol = PROT_TELNET,
     .default_port = 23,
 };

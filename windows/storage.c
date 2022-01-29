@@ -1,5 +1,5 @@
 /*
- * winstore.c: Windows-specific implementation of the interface
+ * storage.c: Windows-specific implementation of the interface
  * defined in storage.h.
  */
 
@@ -321,12 +321,12 @@ void enum_settings_finish(settings_e *e)
 static void hostkey_regname(strbuf *sb, const char *hostname,
                             int port, const char *keytype)
 {
-    strbuf_catf(sb, "%s@%d:", keytype, port);
+    put_fmt(sb, "%s@%d:", keytype, port);
     escape_registry_key(hostname, sb);
 }
 
-int verify_host_key(const char *hostname, int port,
-                    const char *keytype, const char *key)
+int check_stored_host_key(const char *hostname, int port,
+                          const char *keytype, const char *key)
 {
     char *otherstr;
     strbuf *regname;
@@ -440,10 +440,10 @@ bool have_ssh_host_key(const char *hostname, int port,
                       const char *keytype)
 {
     /*
-     * If we have a host key, verify_host_key will return 0 or 2.
+     * If we have a host key, check_stored_host_key will return 0 or 2.
      * If we don't have one, it'll return 1.
      */
-    return verify_host_key(hostname, port, keytype, "") != 1;
+    return check_stored_host_key(hostname, port, keytype, "") != 1;
 }
 
 void store_host_key(const char *hostname, int port,

@@ -1,5 +1,5 @@
 /*
- * uxstore.c: Unix-specific implementation of the interface defined
+ * storage.c: Unix-specific implementation of the interface defined
  * in storage.h.
  */
 
@@ -173,7 +173,7 @@ static char *make_filename(int index, const char *subname)
     if (index == INDEX_SESSION) {
         strbuf *sb = strbuf_new();
         tmp = make_filename(INDEX_SESSIONDIR, NULL);
-        strbuf_catf(sb, "%s/", tmp);
+        put_fmt(sb, "%s/", tmp);
         sfree(tmp);
         make_session_filename(subname, sb);
         return strbuf_to_str(sb);
@@ -557,7 +557,7 @@ bool enum_settings_next(settings_e *handle, strbuf *out)
     fullpath = strbuf_new();
 
     char *sessiondir = make_filename(INDEX_SESSIONDIR, NULL);
-    put_datapl(fullpath, ptrlen_from_asciz(sessiondir));
+    put_dataz(fullpath, sessiondir);
     sfree(sessiondir);
     put_byte(fullpath, '/');
 
@@ -565,7 +565,7 @@ bool enum_settings_next(settings_e *handle, strbuf *out)
 
     while ( (de = readdir(handle->dp)) != NULL ) {
         strbuf_shrink_to(fullpath, baselen);
-        put_datapl(fullpath, ptrlen_from_asciz(de->d_name));
+        put_dataz(fullpath, de->d_name);
 
         if (stat(fullpath->s, &st) < 0 || !S_ISREG(st.st_mode))
             continue;                  /* try another one */
@@ -595,8 +595,8 @@ void enum_settings_finish(settings_e *handle)
  *
  *   rsa@22:foovax.example.org 0x23,0x293487364395345345....2343
  */
-int verify_host_key(const char *hostname, int port,
-                    const char *keytype, const char *key)
+int check_stored_host_key(const char *hostname, int port,
+                          const char *keytype, const char *key)
 {
     FILE *fp;
     char *filename;
@@ -668,10 +668,10 @@ bool have_ssh_host_key(const char *hostname, int port,
                        const char *keytype)
 {
     /*
-     * If we have a host key, verify_host_key will return 0 or 2.
+     * If we have a host key, check_stored_host_key will return 0 or 2.
      * If we don't have one, it'll return 1.
      */
-    return verify_host_key(hostname, port, keytype, "") != 1;
+    return check_stored_host_key(hostname, port, keytype, "") != 1;
 }
 
 void store_host_key(const char *hostname, int port,

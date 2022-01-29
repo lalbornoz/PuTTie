@@ -1,5 +1,5 @@
 /*
- * wincons.c - various interactive-prompt routines shared between
+ * console.c - various interactive-prompt routines shared between
  * the Windows console PuTTY tools
  */
 
@@ -32,43 +32,39 @@ void console_print_error_msg(const char *prefix, const char *msg)
     fflush(stderr);
 }
 
-int console_verify_ssh_host_key(
+SeatPromptResult console_confirm_ssh_host_key(
     Seat *seat, const char *host, int port, const char *keytype,
-    char *keystr, const char *keydisp, char **fingerprints,
-    void (*callback)(void *ctx, int result), void *ctx)
+    char *keystr, const char *keydisp, char **fingerprints, bool mismatch,
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
-    int ret;
     HANDLE hin;
     DWORD savemode, i;
-    const char *common_fmt, *intro, *prompt;
+    char *common;
+    const char *intro, *prompt;
 
     char line[32];
-
-    /*
-     * Verify the key against the registry.
-     */
-    ret = verify_host_key(host, port, keytype, keystr);
-
-    if (ret == 0)                      /* success - key matched OK */
-        return 1;
-
-    if (ret == 2) {                    /* key was different */
-        common_fmt = hk_wrongmsg_common_fmt;
-        intro = hk_wrongmsg_interactive_intro;
-        prompt = hk_wrongmsg_interactive_prompt;
-    } else {                           /* key was absent */
-        common_fmt = hk_absentmsg_common_fmt;
-        intro = hk_absentmsg_interactive_intro;
-        prompt = hk_absentmsg_interactive_prompt;
-    }
 
     FingerprintType fptype_default =
         ssh2_pick_default_fingerprint(fingerprints);
 
-    fprintf(stderr, common_fmt, keytype, fingerprints[fptype_default]);
+    if (mismatch) {                    /* key was different */
+        common = hk_wrongmsg_common(host, port, keytype,
+                                    fingerprints[fptype_default]);
+        intro = hk_wrongmsg_interactive_intro;
+        prompt = hk_wrongmsg_interactive_prompt;
+    } else {                           /* key was absent */
+        common = hk_absentmsg_common(host, port, keytype,
+                                     fingerprints[fptype_default]);
+        intro = hk_absentmsg_interactive_intro;
+        prompt = hk_absentmsg_interactive_prompt;
+    }
+
+    fputs(common, stderr);
+    sfree(common);
+
     if (console_batch_mode) {
         fputs(console_abandoned_msg, stderr);
-        return 0;
+        return SPR_SW_ABORT("Cannot confirm a host key in batch mode");
     }
 
     fputs(intro, stderr);
@@ -106,16 +102,16 @@ int console_verify_ssh_host_key(
         line[0] != 'q' && line[0] != 'Q') {
         if (line[0] == 'y' || line[0] == 'Y')
             store_host_key(host, port, keytype, keystr);
-        return 1;
+        return SPR_OK;
     } else {
         fputs(console_abandoned_msg, stderr);
-        return 0;
+        return SPR_USER_ABORT;
     }
 }
 
-int console_confirm_weak_crypto_primitive(
+SeatPromptResult console_confirm_weak_crypto_primitive(
     Seat *seat, const char *algtype, const char *algname,
-    void (*callback)(void *ctx, int result), void *ctx)
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     HANDLE hin;
     DWORD savemode, i;
@@ -126,7 +122,8 @@ int console_confirm_weak_crypto_primitive(
 
     if (console_batch_mode) {
         fputs(console_abandoned_msg, stderr);
-        return 0;
+        return SPR_SW_ABORT("Cannot confirm a weak crypto primitive "
+                            "in batch mode");
     }
 
     fputs(console_continue_prompt, stderr);
@@ -140,16 +137,16 @@ int console_confirm_weak_crypto_primitive(
     SetConsoleMode(hin, savemode);
 
     if (line[0] == 'y' || line[0] == 'Y') {
-        return 1;
+        return SPR_OK;
     } else {
         fputs(console_abandoned_msg, stderr);
-        return 0;
+        return SPR_USER_ABORT;
     }
 }
 
-int console_confirm_weak_cached_hostkey(
+SeatPromptResult console_confirm_weak_cached_hostkey(
     Seat *seat, const char *algname, const char *betteralgs,
-    void (*callback)(void *ctx, int result), void *ctx)
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     HANDLE hin;
     DWORD savemode, i;
@@ -160,7 +157,8 @@ int console_confirm_weak_cached_hostkey(
 
     if (console_batch_mode) {
         fputs(console_abandoned_msg, stderr);
-        return 0;
+        return SPR_SW_ABORT("Cannot confirm a weak cached host key "
+                            "in batch mode");
     }
 
     fputs(console_continue_prompt, stderr);
@@ -174,10 +172,10 @@ int console_confirm_weak_cached_hostkey(
     SetConsoleMode(hin, savemode);
 
     if (line[0] == 'y' || line[0] == 'Y') {
-        return 1;
+        return SPR_OK;
     } else {
         fputs(console_abandoned_msg, stderr);
-        return 0;
+        return SPR_USER_ABORT;
     }
 }
 
@@ -187,26 +185,44 @@ bool is_interactive(void)
 }
 
 bool console_antispoof_prompt = true;
-bool console_set_trust_status(Seat *seat, bool trusted)
+
+void console_set_trust_status(Seat *seat, bool trusted)
 {
-    if (console_batch_mode || !is_interactive() || !console_antispoof_prompt) {
+    /* Do nothing in response to a change of trust status, because
+     * there's nothing we can do in a console environment. However,
+     * the query function below will make a fiddly decision about
+     * whether to tell the backend to enable fallback handling. */
+}
+
+bool console_can_set_trust_status(Seat *seat)
+{
+    if (console_batch_mode) {
         /*
          * In batch mode, we don't need to worry about the server
          * mimicking our interactive authentication, because the user
          * already knows not to expect any.
-         *
-         * If standard input isn't connected to a terminal, likewise,
-         * because even if the server did send a spoof authentication
-         * prompt, the user couldn't respond to it via the terminal
-         * anyway.
-         *
-         * We also vacuously return success if the user has purposely
-         * disabled the antispoof prompt.
          */
         return true;
     }
 
     return false;
+}
+
+bool console_has_mixed_input_stream(Seat *seat)
+{
+    if (!is_interactive() || !console_antispoof_prompt) {
+        /*
+         * If standard input isn't connected to a terminal, then even
+         * if the server did send a spoof authentication prompt, the
+         * user couldn't respond to it via the terminal anyway.
+         *
+         * We also pretend this is true if the user has purposely
+         * disabled the antispoof prompt.
+         */
+        return false;
+    }
+
+    return true;
 }
 
 /*
@@ -329,7 +345,7 @@ static void console_write(HANDLE hout, ptrlen data)
     WriteFile(hout, data.ptr, data.len, &dummy, NULL);
 }
 
-int console_get_userpass_input(prompts_t *p)
+SeatPromptResult console_get_userpass_input(prompts_t *p)
 {
     HANDLE hin = INVALID_HANDLE_VALUE, hout = INVALID_HANDLE_VALUE;
     size_t curr_prompt;
@@ -351,7 +367,8 @@ int console_get_userpass_input(prompts_t *p)
      */
     if (p->n_prompts) {
         if (console_batch_mode)
-            return 0;
+            return SPR_SW_ABORT("Cannot answer interactive prompts "
+                                "in batch mode");
         hin = GetStdHandle(STD_INPUT_HANDLE);
         if (hin == INVALID_HANDLE_VALUE) {
             fprintf(stderr, "Cannot get standard input handle\n");
@@ -404,6 +421,7 @@ int console_get_userpass_input(prompts_t *p)
         console_write(hout, ptrlen_from_asciz(pr->prompt));
 
         bool failed = false;
+        SeatPromptResult spr;
         while (1) {
             /*
              * Amount of data to try to read from the console in one
@@ -426,8 +444,17 @@ int console_get_userpass_input(prompts_t *p)
             void *ptr = strbuf_append(pr->result, toread);
 
             DWORD ret = 0;
-            if (!ReadFile(hin, ptr, toread, &ret, NULL) || ret == 0) {
+            if (!ReadFile(hin, ptr, toread, &ret, NULL)) {
+                /* An OS error when reading from the console is treated as an
+                 * unexpected error and reported to the user. */
                 failed = true;
+                spr = make_spr_sw_abort_winerror(
+                    "Error reading from console", GetLastError());
+                break;
+            } else if (ret == 0) {
+                /* Regard EOF on the terminal as a deliberate user-abort */
+                failed = true;
+                spr = SPR_USER_ABORT;
                 break;
             }
 
@@ -443,10 +470,9 @@ int console_get_userpass_input(prompts_t *p)
         if (!pr->echo)
             console_write(hout, PTRLEN_LITERAL("\r\n"));
 
-        if (failed) {
-            return 0;                  /* failure due to read error */
-        }
+        if (failed)
+            return spr;
     }
 
-    return 1; /* success */
+    return SPR_OK;
 }

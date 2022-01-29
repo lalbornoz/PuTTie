@@ -294,6 +294,7 @@ static char *serial_init(const BackendVtable *vt, Seat *seat,
     seat_set_trust_status(seat, false);
 
     serial = snew(Serial);
+    memset(serial, 0, sizeof(Serial));
     serial->backend.vt = vt;
     *backend_handle = &serial->backend;
 
@@ -461,17 +462,15 @@ static void serial_try_write(Serial *serial)
 /*
  * Called to send data down the serial connection.
  */
-static size_t serial_send(Backend *be, const char *buf, size_t len)
+static void serial_send(Backend *be, const char *buf, size_t len)
 {
     Serial *serial = container_of(be, Serial, backend);
 
     if (serial->fd < 0)
-        return 0;
+        return;
 
     bufchain_add(&serial->output_data, buf, len);
     serial_try_write(serial);
-
-    return bufchain_size(&serial->output_data);
 }
 
 /*
@@ -585,7 +584,8 @@ const BackendVtable serial_backend = {
     .unthrottle = serial_unthrottle,
     .cfg_info = serial_cfg_info,
     .id = "serial",
-    .displayname = "Serial",
+    .displayname_tc = "Serial",
+    .displayname_lc = "serial",
     .protocol = PROT_SERIAL,
     .serial_parity_mask = ((1 << SER_PAR_NONE) |
                            (1 << SER_PAR_ODD) |

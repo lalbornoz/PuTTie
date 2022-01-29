@@ -73,7 +73,8 @@ static size_t serial_gotdata(
     }
 }
 
-static void serial_sentdata(struct handle *h, size_t new_backlog, int err)
+static void serial_sentdata(struct handle *h, size_t new_backlog, int err,
+                            bool close)
 {
     Serial *serial = (Serial *)handle_get_privdata(h);
     if (err) {
@@ -211,6 +212,7 @@ static char *serial_init(const BackendVtable *vt, Seat *seat,
     seat_set_trust_status(seat, false);
 
     serial = snew(Serial);
+    memset(serial, 0, sizeof(Serial));
     serial->port = INVALID_HANDLE_VALUE;
     serial->out = serial->in = NULL;
     serial->bufsize = 0;
@@ -306,15 +308,14 @@ static void serial_reconfig(Backend *be, Conf *conf)
 /*
  * Called to send data down the serial connection.
  */
-static size_t serial_send(Backend *be, const char *buf, size_t len)
+static void serial_send(Backend *be, const char *buf, size_t len)
 {
     Serial *serial = container_of(be, Serial, backend);
 
     if (serial->out == NULL)
-        return 0;
+        return;
 
     serial->bufsize = handle_write(serial->out, buf, len);
-    return serial->bufsize;
 }
 
 /*
@@ -452,7 +453,8 @@ const BackendVtable serial_backend = {
     .unthrottle = serial_unthrottle,
     .cfg_info = serial_cfg_info,
     .id = "serial",
-    .displayname = "Serial",
+    .displayname_tc = "Serial",
+    .displayname_lc = "serial",
     .protocol = PROT_SERIAL,
     .serial_parity_mask = ((1 << SER_PAR_NONE) |
                            (1 << SER_PAR_ODD) |

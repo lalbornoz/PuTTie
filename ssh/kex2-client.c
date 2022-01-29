@@ -118,7 +118,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
          * Now generate and send e for Diffie-Hellman.
          */
         seat_set_busy_status(s->ppl.seat, BUSY_CPU);
-        s->e = dh_create_e(s->dh_ctx, s->nbits * 2);
+        s->e = dh_create_e(s->dh_ctx);
         pktout = ssh_bpp_new_pktout(s->ppl.bpp, s->kex_init_value);
         put_mp_ssh2(pktout, s->e);
         pq_push(s->ppl.out_pq, pktout);
@@ -322,7 +322,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                      "exchange with hash %s", ssh_hash_alg(s->exhash)->text_name);
         /* Now generate e for Diffie-Hellman. */
         seat_set_busy_status(s->ppl.seat, BUSY_CPU);
-        s->e = dh_create_e(s->dh_ctx, s->nbits * 2);
+        s->e = dh_create_e(s->dh_ctx);
 
         if (s->shgss->lib->gsslogmsg)
             ppl_logevent("%s", s->shgss->lib->gsslogmsg);
@@ -843,39 +843,32 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
              * Authenticate remote host: verify host key. (We've already
              * checked the signature of the exchange hash.)
              */
-            char **fingerprints = ssh2_all_fingerprints(s->hkey);
-            FingerprintType fptype_default =
-                ssh2_pick_default_fingerprint(fingerprints);
-            ppl_logevent("Host key fingerprint is:");
-            ppl_logevent("%s", fingerprints[fptype_default]);
-            /* First check against manually configured host keys. */
-            s->dlgret = verify_ssh_manual_host_key(
-                s->conf, fingerprints, s->hkey);
-            if (s->dlgret == 0) {          /* did not match */
-                ssh2_free_all_fingerprints(fingerprints);
-                ssh_sw_abort(s->ppl.ssh, "Host key did not appear in manually "
-                             "configured list");
-                *aborted = true;
-                return;
-            } else if (s->dlgret < 0) { /* none configured; use standard handling */
+            {
                 ssh2_userkey uk = { .key = s->hkey, .comment = NULL };
                 char *keydisp = ssh2_pubkey_openssh_str(&uk);
-                s->dlgret = seat_verify_ssh_host_key(
-                    s->ppl.seat, s->savedhost, s->savedport,
-                    ssh_key_cache_id(s->hkey), s->keystr, keydisp,
+                char **fingerprints = ssh2_all_fingerprints(s->hkey);
+
+                FingerprintType fptype_default =
+                    ssh2_pick_default_fingerprint(fingerprints);
+                ppl_logevent("Host key fingerprint is:");
+                ppl_logevent("%s", fingerprints[fptype_default]);
+
+                s->spr = verify_ssh_host_key(
+                    ppl_get_iseat(&s->ppl), s->conf, s->savedhost, s->savedport,
+                    s->hkey, ssh_key_cache_id(s->hkey), s->keystr, keydisp,
                     fingerprints, ssh2_transport_dialog_callback, s);
-                sfree(keydisp);
+
                 ssh2_free_all_fingerprints(fingerprints);
+                sfree(keydisp);
+            }
 #ifdef FUZZING
-                s->dlgret = 1;
+            s->spr = SPR_OK;
 #endif
-                crMaybeWaitUntilV(s->dlgret >= 0);
-                if (s->dlgret == 0) {
-                    ssh_user_close(s->ppl.ssh,
-                                   "User aborted at host key verification");
-                    *aborted = true;
-                    return;
-                }
+            crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
+            if (spr_is_abort(s->spr)) {
+                *aborted = true;
+                ssh_spr_close(s->ppl.ssh, s->spr, "host key verification");
+                return;
             }
 
             /*

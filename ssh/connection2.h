@@ -16,6 +16,7 @@ struct ssh2_connection_state {
     int session_attempt, session_status;
     int term_width, term_height;
     bool want_user_input;
+    bufchain *user_input;
 
     bool ssh_is_simple;
     bool persistent;
@@ -36,7 +37,7 @@ struct ssh2_connection_state {
     bool portfwdmgr_configured;
 
     prompts_t *antispoof_prompt;
-    int antispoof_ret;
+    SeatPromptResult antispoof_ret;
 
     const SftpServerVtable *sftpserver_vt;
     const SshServerConfig *ssc;

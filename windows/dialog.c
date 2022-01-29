@@ -1,5 +1,5 @@
 /*
- * windlg.c - dialogs for PuTTY(tel), including the configuration dialog.
+ * dialog.c - dialogs for PuTTY(tel), including the configuration dialog.
  */
 
 #include <stdio.h>
@@ -846,6 +846,8 @@ void showabout(HWND hwnd)
 struct hostkey_dialog_ctx {
     const char *const *keywords;
     const char *const *values;
+    const char *host;
+    int port;
     FingerprintType fptype_default;
     char **fingerprints;
     const char *keydisp;
@@ -908,7 +910,7 @@ static INT_PTR CALLBACK HostKeyDialogProc(HWND hwnd, UINT msg,
                     for (size_t i = 0; ctx->keywords[i]; i++) {
                         if (strstartswith(p, ctx->keywords[i])) {
                             p += strlen(ctx->keywords[i]);
-                            put_datapl(sb, ptrlen_from_asciz(ctx->values[i]));
+                            put_dataz(sb, ctx->values[i]);
                             goto matched;
                         }
                     }
@@ -921,6 +923,11 @@ static INT_PTR CALLBACK HostKeyDialogProc(HWND hwnd, UINT msg,
             SetDlgItemText(hwnd, id, sb->s);
         }
         strbuf_free(sb);
+
+        char *hostport = dupprintf("%s (port %d)", ctx->host, ctx->port);
+        SetDlgItemText(hwnd, IDC_HK_HOST, hostport);
+        sfree(hostport);
+        MakeDlgItemBorderless(hwnd, IDC_HK_HOST);
 
         SetDlgItemText(hwnd, IDC_HK_FINGERPRINT,
                        ctx->fingerprints[ctx->fptype_default]);
@@ -990,60 +997,53 @@ static INT_PTR CALLBACK HostKeyDialogProc(HWND hwnd, UINT msg,
     return 0;
 }
 
-int win_seat_verify_ssh_host_key(
+SeatPromptResult win_seat_confirm_ssh_host_key(
     Seat *seat, const char *host, int port, const char *keytype,
-    char *keystr, const char *keydisp, char **fingerprints,
-    void (*callback)(void *ctx, int result), void *ctx)
+    char *keystr, const char *keydisp, char **fingerprints, bool mismatch,
+    void (*callback)(void *ctx, SeatPromptResult result), void *vctx)
 {
-    int ret;
-
     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
 
-    /*
-     * Verify the key against the registry.
-     */
-    ret = verify_host_key(host, port, keytype, keystr);
+    static const char *const keywords[] =
+        { "{KEYTYPE}", "{APPNAME}", NULL };
 
-    if (ret == 0)                      /* success - key matched OK */
-        return 1;
-    else {
-        static const char *const keywords[] =
-            { "{KEYTYPE}", "{APPNAME}", NULL };
+    const char *values[2];
+    values[0] = keytype;
+    values[1] = appname;
 
-        const char *values[2];
-        values[0] = keytype;
-        values[1] = appname;
-
-        struct hostkey_dialog_ctx ctx[1];
-        ctx->keywords = keywords;
-        ctx->values = values;
-        ctx->fingerprints = fingerprints;
-        ctx->fptype_default = ssh2_pick_default_fingerprint(fingerprints);
-        ctx->keydisp = keydisp;
-        ctx->iconid = (ret == 2 ? IDI_WARNING : IDI_QUESTION);
-        ctx->helpctx = (ret == 2 ? WINHELP_CTX_errors_hostkey_changed :
-                        WINHELP_CTX_errors_hostkey_absent);
-        int dlgid = (ret == 2 ? IDD_HK_WRONG : IDD_HK_ABSENT);
-        int mbret = DialogBoxParam(
-            hinst, MAKEINTRESOURCE(dlgid), wgs->term_hwnd,
-            HostKeyDialogProc, (LPARAM)ctx);
-        assert(mbret==IDC_HK_ACCEPT || mbret==IDC_HK_ONCE || mbret==IDCANCEL);
-        if (mbret == IDC_HK_ACCEPT) {
-            store_host_key(host, port, keytype, keystr);
-            return 1;
-        } else if (mbret == IDC_HK_ONCE)
-            return 1;
+    struct hostkey_dialog_ctx ctx[1];
+    ctx->keywords = keywords;
+    ctx->values = values;
+    ctx->fingerprints = fingerprints;
+    ctx->fptype_default = ssh2_pick_default_fingerprint(fingerprints);
+    ctx->keydisp = keydisp;
+    ctx->iconid = (mismatch ? IDI_WARNING : IDI_QUESTION);
+    ctx->helpctx = (mismatch ? WINHELP_CTX_errors_hostkey_changed :
+                    WINHELP_CTX_errors_hostkey_absent);
+    ctx->host = host;
+    ctx->port = port;
+    int dlgid = (mismatch ? IDD_HK_WRONG : IDD_HK_ABSENT);
+    int mbret = DialogBoxParam(
+        hinst, MAKEINTRESOURCE(dlgid), wgs->term_hwnd,
+        HostKeyDialogProc, (LPARAM)ctx);
+    assert(mbret==IDC_HK_ACCEPT || mbret==IDC_HK_ONCE || mbret==IDCANCEL);
+    if (mbret == IDC_HK_ACCEPT) {
+        store_host_key(host, port, keytype, keystr);
+        return SPR_OK;
+    } else if (mbret == IDC_HK_ONCE) {
+        return SPR_OK;
     }
-    return 0;   /* abandon the connection */
+
+    return SPR_USER_ABORT;
 }
 
 /*
  * Ask whether the selected algorithm is acceptable (since it was
  * below the configured 'warn' threshold).
  */
-int win_seat_confirm_weak_crypto_primitive(
+SeatPromptResult win_seat_confirm_weak_crypto_primitive(
     Seat *seat, const char *algtype, const char *algname,
-    void (*callback)(void *ctx, int result), void *ctx)
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     static const char mbtitle[] = "%s Security Alert";
     static const char msg[] =
@@ -1062,14 +1062,14 @@ int win_seat_confirm_weak_crypto_primitive(
     sfree(message);
     sfree(title);
     if (mbret == IDYES)
-        return 1;
+        return SPR_OK;
     else
-        return 0;
+        return SPR_USER_ABORT;
 }
 
-int win_seat_confirm_weak_cached_hostkey(
+SeatPromptResult win_seat_confirm_weak_cached_hostkey(
     Seat *seat, const char *algname, const char *betteralgs,
-    void (*callback)(void *ctx, int result), void *ctx)
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     static const char mbtitle[] = "%s Security Alert";
     static const char msg[] =
@@ -1090,9 +1090,9 @@ int win_seat_confirm_weak_cached_hostkey(
     sfree(message);
     sfree(title);
     if (mbret == IDYES)
-        return 1;
+        return SPR_OK;
     else
-        return 0;
+        return SPR_USER_ABORT;
 }
 
 /*

@@ -1,5 +1,5 @@
 /*
- * uxfdsock.c: implementation of Socket that just talks to two
+ * fd-socket.c: implementation of Socket that just talks to two
  * existing input and output file descriptors.
  */
 
@@ -14,7 +14,8 @@
 #include "network.h"
 
 typedef struct FdSocket {
-    int outfd, infd, inerrfd;
+    int outfd, infd, inerrfd;          /* >= 0 if socket is open */
+    DeferredSocketOpener *opener;      /* non-NULL if not opened yet */
 
     bufchain pending_output_data;
     bufchain pending_input_data;
@@ -23,6 +24,8 @@ typedef struct FdSocket {
 
     int pending_error;
 
+    SockAddr *addr;
+    int port;
     Plug *plug;
 
     Socket sock;
@@ -113,6 +116,9 @@ static void fdsocket_close(Socket *s)
 {
     FdSocket *fds = container_of(s, FdSocket, sock);
 
+    if (fds->opener)
+        deferred_socket_opener_free(fds->opener);
+
     if (fds->outfd >= 0) {
         del234(fdsocket_by_outfd, fds);
         uxsel_del(fds->outfd);
@@ -134,6 +140,9 @@ static void fdsocket_close(Socket *s)
     bufchain_clear(&fds->pending_input_data);
     bufchain_clear(&fds->pending_output_data);
 
+    if (fds->addr)
+        sk_addr_free(fds->addr);
+
     delete_callbacks_for_context(fds);
 
     sfree(fds);
@@ -153,13 +162,15 @@ static void fdsocket_error_callback(void *vs)
     /*
      * An error has occurred on this socket. Pass it to the plug.
      */
-    plug_closing(fds->plug, strerror(fds->pending_error),
-                 fds->pending_error, 0);
+    plug_closing_errno(fds->plug, fds->pending_error);
 }
 
 static int fdsocket_try_send(FdSocket *fds)
 {
     int sent = 0;
+
+    if (fds->opener)
+        return sent;
 
     while (bufchain_size(&fds->pending_output_data) > 0) {
         ssize_t ret;
@@ -260,15 +271,16 @@ static void fdsocket_select_result_input(int fd, int event)
     if (retd > 0) {
         plug_receive(fds->plug, 0, buf, retd);
     } else {
-        if (retd < 0) {
-            plug_closing(fds->plug, strerror(errno), errno, 0);
-        } else {
-            plug_closing(fds->plug, NULL, 0, 0);
-        }
         del234(fdsocket_by_infd, fds);
         uxsel_del(fds->infd);
         close(fds->infd);
         fds->infd = -1;
+
+        if (retd < 0) {
+            plug_closing_errno(fds->plug, errno);
+        } else {
+            plug_closing_normal(fds->plug);
+        }
     }
 }
 
@@ -314,23 +326,26 @@ static const SocketVtable FdSocket_sockvt = {
     .peer_info = NULL,
 };
 
-Socket *make_fd_socket(int infd, int outfd, int inerrfd, Plug *plug)
+static void fdsocket_connect_success_callback(void *ctx)
 {
-    FdSocket *fds;
+    FdSocket *fds = (FdSocket *)ctx;
+    plug_log(fds->plug, PLUGLOG_CONNECT_SUCCESS, fds->addr, fds->port,
+             NULL, 0);
+}
 
-    fds = snew(FdSocket);
-    fds->sock.vt = &FdSocket_sockvt;
-    fds->plug = plug;
-    fds->outgoingeof = EOF_NO;
-    fds->pending_error = 0;
+void setup_fd_socket(Socket *s, int infd, int outfd, int inerrfd)
+{
+    FdSocket *fds = container_of(s, FdSocket, sock);
+    assert(fds->sock.vt == &FdSocket_sockvt);
+
+    if (fds->opener) {
+        deferred_socket_opener_free(fds->opener);
+        fds->opener = NULL;
+    }
 
     fds->infd = infd;
     fds->outfd = outfd;
     fds->inerrfd = inerrfd;
-
-    bufchain_init(&fds->pending_input_data);
-    bufchain_init(&fds->pending_output_data);
-    psb_init(&fds->psb);
 
     if (fds->outfd >= 0) {
         if (!fdsocket_by_outfd)
@@ -353,5 +368,43 @@ Socket *make_fd_socket(int infd, int outfd, int inerrfd, Plug *plug)
         uxsel_set(fds->inerrfd, SELECT_R, fdsocket_select_result_input_error);
     }
 
+    queue_toplevel_callback(fdsocket_connect_success_callback, fds);
+}
+
+static FdSocket *make_fd_socket_internal(SockAddr *addr, int port, Plug *plug)
+{
+    FdSocket *fds;
+
+    fds = snew(FdSocket);
+    fds->sock.vt = &FdSocket_sockvt;
+    fds->addr = addr;
+    fds->port = port;
+    fds->plug = plug;
+    fds->outgoingeof = EOF_NO;
+    fds->pending_error = 0;
+
+    fds->opener = NULL;
+    fds->infd = fds->outfd = fds->inerrfd = -1;
+
+    bufchain_init(&fds->pending_input_data);
+    bufchain_init(&fds->pending_output_data);
+    psb_init(&fds->psb);
+
+    return fds;
+}
+
+Socket *make_fd_socket(int infd, int outfd, int inerrfd,
+                       SockAddr *addr, int port, Plug *plug)
+{
+    FdSocket *fds = make_fd_socket_internal(addr, port, plug);
+    setup_fd_socket(&fds->sock, infd, outfd, inerrfd);
+    return &fds->sock;
+}
+
+Socket *make_deferred_fd_socket(DeferredSocketOpener *opener,
+                                SockAddr *addr, int port, Plug *plug)
+{
+    FdSocket *fds = make_fd_socket_internal(addr, port, plug);
+    fds->opener = opener;
     return &fds->sock;
 }

@@ -47,7 +47,7 @@ struct ssh1_login_state {
     char *publickey_comment;
     bool privatekey_available, privatekey_encrypted;
     prompts_t *cur_prompt;
-    int userpass_ret;
+    SeatPromptResult spr;
     char c;
     int pwpkt_type;
     void *agent_response_to_free;
@@ -58,10 +58,8 @@ struct ssh1_login_state {
     size_t agent_key_index, agent_key_limit;
     bool authed;
     RSAKey key;
-    int dlgret;
     Filename *keyfile;
     RSAKey servkey, hostkey;
-    bool want_user_input;
 
     StripCtrlChars *tis_scc;
     bool tis_scc_initialised;
@@ -71,11 +69,9 @@ struct ssh1_login_state {
 
 static void ssh1_login_free(PacketProtocolLayer *);
 static void ssh1_login_process_queue(PacketProtocolLayer *);
-static void ssh1_login_dialog_callback(void *, int);
+static void ssh1_login_dialog_callback(void *, SeatPromptResult);
 static void ssh1_login_special_cmd(PacketProtocolLayer *ppl,
                                    SessionSpecialCode code, int arg);
-static bool ssh1_login_want_user_input(PacketProtocolLayer *ppl);
-static void ssh1_login_got_user_input(PacketProtocolLayer *ppl);
 static void ssh1_login_reconfigure(PacketProtocolLayer *ppl, Conf *conf);
 
 static const PacketProtocolLayerVtable ssh1_login_vtable = {
@@ -83,8 +79,6 @@ static const PacketProtocolLayerVtable ssh1_login_vtable = {
     .process_queue = ssh1_login_process_queue,
     .get_specials = ssh1_common_get_specials,
     .special_cmd = ssh1_login_special_cmd,
-    .want_user_input = ssh1_login_want_user_input,
-    .got_user_input = ssh1_login_got_user_input,
     .reconfigure = ssh1_login_reconfigure,
     .queued_data_size = ssh_ppl_default_queued_data_size,
     .name = NULL, /* no layer names in SSH-1 */
@@ -243,42 +237,28 @@ static void ssh1_login_process_queue(PacketProtocolLayer *ppl)
      * Verify the host key.
      */
     {
-        /*
-         * First format the key into a string.
-         */
         char *keystr = rsastr_fmt(&s->hostkey);
+        char *keydisp = ssh1_pubkey_str(&s->hostkey);
         char **fingerprints = rsa_ssh1_fake_all_fingerprints(&s->hostkey);
 
-        /* First check against manually configured host keys. */
-        s->dlgret = verify_ssh_manual_host_key(s->conf, fingerprints, NULL);
-        if (s->dlgret == 0) {          /* did not match */
-            ssh2_free_all_fingerprints(fingerprints);
-            sfree(keystr);
-            ssh_proto_error(s->ppl.ssh, "Host key did not appear in manually "
-                            "configured list");
-            return;
-        } else if (s->dlgret < 0) { /* none configured; use standard handling */
-            char *keydisp = ssh1_pubkey_str(&s->hostkey);
-            s->dlgret = seat_verify_ssh_host_key(
-                s->ppl.seat, s->savedhost, s->savedport, "rsa", keystr,
-                keydisp, fingerprints, ssh1_login_dialog_callback, s);
-            sfree(keydisp);
-            ssh2_free_all_fingerprints(fingerprints);
-            sfree(keystr);
-#ifdef FUZZING
-            s->dlgret = 1;
-#endif
-            crMaybeWaitUntilV(s->dlgret >= 0);
+        s->spr = verify_ssh_host_key(
+            ppl_get_iseat(&s->ppl), s->conf, s->savedhost, s->savedport, NULL,
+            "rsa", keystr, keydisp, fingerprints,
+            ssh1_login_dialog_callback, s);
 
-            if (s->dlgret == 0) {
-                ssh_user_close(s->ppl.ssh,
-                               "User aborted at host key verification");
-                return;
-            }
-        } else {
-            ssh2_free_all_fingerprints(fingerprints);
-            sfree(keystr);
-        }
+        ssh2_free_all_fingerprints(fingerprints);
+        sfree(keydisp);
+        sfree(keystr);
+    }
+
+#ifdef FUZZING
+    s->spr = SPR_OK;
+#endif
+    crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
+
+    if (spr_is_abort(s->spr)) {
+        ssh_spr_close(s->ppl.ssh, s->spr, "host key verification");
+        return;
     }
 
     for (i = 0; i < 32; i++) {
@@ -342,12 +322,12 @@ static void ssh1_login_process_queue(PacketProtocolLayer *ppl)
 
         /* Warn about chosen cipher if necessary. */
         if (warn) {
-            s->dlgret = seat_confirm_weak_crypto_primitive(
-                s->ppl.seat, "cipher", cipher_string,
+            s->spr = seat_confirm_weak_crypto_primitive(
+                ppl_get_iseat(&s->ppl), "cipher", cipher_string,
                 ssh1_login_dialog_callback, s);
-            crMaybeWaitUntilV(s->dlgret >= 0);
-            if (s->dlgret == 0) {
-                ssh_user_close(s->ppl.ssh, "User aborted at cipher warning");
+            crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
+            if (spr_is_abort(s->spr)) {
+                ssh_spr_close(s->ppl.ssh, s->spr, "cipher warning");
                 return;
             }
         }
@@ -404,31 +384,23 @@ static void ssh1_login_process_queue(PacketProtocolLayer *ppl)
     ppl_logevent("Successfully started encryption");
 
     if ((s->username = get_remote_username(s->conf)) == NULL) {
-        s->cur_prompt = new_prompts();
+        s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
         s->cur_prompt->to_server = true;
         s->cur_prompt->from_server = false;
         s->cur_prompt->name = dupstr("SSH login name");
         add_prompt(s->cur_prompt, dupstr("login as: "), true);
-        s->userpass_ret = seat_get_userpass_input(
-            s->ppl.seat, s->cur_prompt, NULL);
-        while (1) {
-            while (s->userpass_ret < 0 &&
-                   bufchain_size(s->ppl.user_input) > 0)
-                s->userpass_ret = seat_get_userpass_input(
-                    s->ppl.seat, s->cur_prompt, s->ppl.user_input);
-
-            if (s->userpass_ret >= 0)
-                break;
-
-            s->want_user_input = true;
+        s->spr = seat_get_userpass_input(
+            ppl_get_iseat(&s->ppl), s->cur_prompt);
+        while (s->spr.kind == SPRK_INCOMPLETE) {
             crReturnV;
-            s->want_user_input = false;
+            s->spr = seat_get_userpass_input(
+                ppl_get_iseat(&s->ppl), s->cur_prompt);
         }
-        if (!s->userpass_ret) {
+        if (spr_is_abort(s->spr)) {
             /*
              * Failed to get a username. Terminate.
              */
-            ssh_user_close(s->ppl.ssh, "No username provided");
+            ssh_spr_close(s->ppl.ssh, s->spr, "username prompt");
             return;
         }
         s->username = prompt_get_result(s->cur_prompt->prompts[0]);
@@ -707,32 +679,23 @@ static void ssh1_login_process_queue(PacketProtocolLayer *ppl)
                         ppl_printf("No passphrase required.\r\n");
                     passphrase = NULL;
                 } else {
-                    s->cur_prompt = new_prompts();
+                    s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
                     s->cur_prompt->to_server = false;
                     s->cur_prompt->from_server = false;
                     s->cur_prompt->name = dupstr("SSH key passphrase");
                     add_prompt(s->cur_prompt,
                                dupprintf("Passphrase for key \"%s\": ",
                                          s->publickey_comment), false);
-                    s->userpass_ret = seat_get_userpass_input(
-                        s->ppl.seat, s->cur_prompt, NULL);
-                    while (1) {
-                        while (s->userpass_ret < 0 &&
-                               bufchain_size(s->ppl.user_input) > 0)
-                            s->userpass_ret = seat_get_userpass_input(
-                                s->ppl.seat, s->cur_prompt, s->ppl.user_input);
-
-                        if (s->userpass_ret >= 0)
-                            break;
-
-                        s->want_user_input = true;
+                    s->spr = seat_get_userpass_input(
+                        ppl_get_iseat(&s->ppl), s->cur_prompt);
+                    while (s->spr.kind == SPRK_INCOMPLETE) {
                         crReturnV;
-                        s->want_user_input = false;
+                        s->spr = seat_get_userpass_input(
+                            ppl_get_iseat(&s->ppl), s->cur_prompt);
                     }
-                    if (!s->userpass_ret) {
+                    if (spr_is_abort(s->spr)) {
                         /* Failed to get a passphrase. Terminate. */
-                        ssh_user_close(s->ppl.ssh,
-                                       "User aborted at passphrase prompt");
+                        ssh_spr_close(s->ppl.ssh, s->spr, "passphrase prompt");
                         return;
                     }
                     passphrase = prompt_get_result(s->cur_prompt->prompts[0]);
@@ -846,7 +809,7 @@ static void ssh1_login_process_queue(PacketProtocolLayer *ppl)
         /*
          * Otherwise, try various forms of password-like authentication.
          */
-        s->cur_prompt = new_prompts();
+        s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
 
         if (conf_get_bool(s->conf, CONF_try_tis_auth) &&
             (s->supported_auths_mask & (1 << SSH1_AUTH_TIS)) &&
@@ -977,28 +940,20 @@ static void ssh1_login_process_queue(PacketProtocolLayer *ppl)
          * or CryptoCard exchange if we're doing TIS or CryptoCard
          * authentication.
          */
-        s->userpass_ret = seat_get_userpass_input(
-            s->ppl.seat, s->cur_prompt, NULL);
-        while (1) {
-            while (s->userpass_ret < 0 &&
-                   bufchain_size(s->ppl.user_input) > 0)
-                s->userpass_ret = seat_get_userpass_input(
-                    s->ppl.seat, s->cur_prompt, s->ppl.user_input);
-
-            if (s->userpass_ret >= 0)
-                break;
-
-            s->want_user_input = true;
+        s->spr = seat_get_userpass_input(
+            ppl_get_iseat(&s->ppl), s->cur_prompt);
+        while (s->spr.kind == SPRK_INCOMPLETE) {
             crReturnV;
-            s->want_user_input = false;
+            s->spr = seat_get_userpass_input(
+                ppl_get_iseat(&s->ppl), s->cur_prompt);
         }
-        if (!s->userpass_ret) {
+        if (spr_is_abort(s->spr)) {
             /*
              * Failed to get a password (for example
              * because one was supplied on the command line
              * which has already failed to work). Terminate.
              */
-            ssh_user_close(s->ppl.ssh, "User aborted at password prompt");
+            ssh_spr_close(s->ppl.ssh, s->spr, "password prompt");
             return;
         }
 
@@ -1183,10 +1138,10 @@ static void ssh1_login_setup_tis_scc(struct ssh1_login_state *s)
     s->tis_scc_initialised = true;
 }
 
-static void ssh1_login_dialog_callback(void *loginv, int ret)
+static void ssh1_login_dialog_callback(void *loginv, SeatPromptResult spr)
 {
     struct ssh1_login_state *s = (struct ssh1_login_state *)loginv;
-    s->dlgret = ret;
+    s->spr = spr;
     ssh_ppl_process_queue(&s->ppl);
 }
 
@@ -1229,21 +1184,6 @@ static void ssh1_login_special_cmd(PacketProtocolLayer *ppl,
             pq_push(s->ppl.out_pq, pktout);
         }
     }
-}
-
-static bool ssh1_login_want_user_input(PacketProtocolLayer *ppl)
-{
-    struct ssh1_login_state *s =
-        container_of(ppl, struct ssh1_login_state, ppl);
-    return s->want_user_input;
-}
-
-static void ssh1_login_got_user_input(PacketProtocolLayer *ppl)
-{
-    struct ssh1_login_state *s =
-        container_of(ppl, struct ssh1_login_state, ppl);
-    if (s->want_user_input)
-        queue_idempotent_callback(&s->ppl.ic_process_queue);
 }
 
 static void ssh1_login_reconfigure(PacketProtocolLayer *ppl, Conf *conf)
