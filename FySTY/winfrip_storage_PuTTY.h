@@ -26,7 +26,7 @@ settings_e *enum_settings_start_PuTTY(void);
 bool enum_settings_next_PuTTY(settings_e *handle, strbuf *out);
 void enum_settings_finish_PuTTY(settings_e *handle);
 
-int verify_host_key_PuTTY(const char *hostname, int port, const char *keytype, const char *key);
+int check_stored_host_key_PuTTY(const char *hostname, int port, const char *keytype, const char *key);
 void store_host_key_PuTTY(const char *hostname, int port, const char *keytype, const char *key);
 
 typedef void (*noise_consumer_t_PuTTY) (void *data, int len);

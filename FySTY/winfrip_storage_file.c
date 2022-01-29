@@ -165,10 +165,10 @@ void enum_settings_finish(settings_e *handle)
  * or 2 (entry exists in database and is different).
  */
 
-int verify_host_key(const char *hostname, int port,
-		    const char *keytype, const char *key)
+int check_stored_host_key(const char *hostname, int port,
+			  const char *keytype, const char *key)
 {
-    return verify_host_key_PuTTY(hostname, port, keytype, key);
+    return check_stored_host_key_PuTTY(hostname, port, keytype, key);
 }
 
 /*
