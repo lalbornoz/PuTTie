@@ -37,7 +37,7 @@ build_configure() {
 	if ! [ -e FySTY/pcre2@master/CMakeCache.txt ]\
 	|| ! [ -e FySTY/pcre2@master/CMakeFiles/ ]; then
 		cd FySTY/pcre2@master;
-		cmake .	\
+		"${CMAKE}" . \
 			-DCMAKE_BUILD_TYPE="${_build_type}"				\
 			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -g3 -O0"				\
 			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
@@ -68,7 +68,7 @@ build_configure() {
 	|| ! [ -e CMakeFiles/ ]\
 	|| ! [ -e windows/CMakeCache.txt ]\
 	|| ! [ -e windows/CMakeFiles/ ]; then
-		cmake .	\
+		"${CMAKE}" . \
 			-DCMAKE_BUILD_TYPE="${_build_type}"				\
 			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -DWINFRIP_DEBUG -g3 -O0"		\
 			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
@@ -83,12 +83,12 @@ build_make() {
 		_install_dname="${5}" _jflag="${6}" _Rflag="${7}" _tflag="${8}";
 
 	cd FySTY/pcre2@master;
-	cmake --build . --parallel "${_jflag:-1}";
+	"${CMAKE}" --build . --parallel "${_jflag:-1}";
 	if [ "x${_build_type}" = "xDebug" ]; then
 		ln -fs "libpcre2-16d.a" "libpcre2-16.a";
 	fi;
 	cd "${OLDPWD}";
-	cmake --build . --parallel "${_jflag:-1}" ${_tflag:+--target "${_tflag}"};
+	"${CMAKE}" --build . --parallel "${_jflag:-1}" ${_tflag:+--target "${_tflag}"};
 };
 # }}}
 # {{{ build_install($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
@@ -136,7 +136,8 @@ buildp_usage() {
 
 build() {
 	local	_build_type="Release" _cflag=0 _dflag=0 _iflag=0 _jflag=1	\
-		_Rflag=0 _tflag="" _install_dname="" _opt="";
+		_Rflag=0 _tflag="" _install_dname="" _opt=""			\
+		CMAKE="${CMAKE:-cmake}";
 
 	while getopts cdhij:Rt: _opt; do
 	case "${_opt}" in
