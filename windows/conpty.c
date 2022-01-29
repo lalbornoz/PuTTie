@@ -120,7 +120,8 @@ static size_t conpty_gotdata(
     }
 }
 
-static void conpty_sentdata(struct handle *h, size_t new_backlog, int err)
+static void conpty_sentdata(struct handle *h, size_t new_backlog, int err,
+                            bool close)
 {
     ConPTY *conpty = (ConPTY *)handle_get_privdata(h);
     if (err) {
@@ -231,6 +232,7 @@ static char *conpty_init(const BackendVtable *vt, Seat *seat,
     seat_set_trust_status(seat, false);
 
     conpty = snew(ConPTY);
+    memset(conpty, 0, sizeof(ConPTY));
     conpty->pseudoconsole = pcon;
     pcon_needs_cleanup = false;
     conpty->outpipe = in_w;
@@ -287,15 +289,14 @@ static void conpty_reconfig(Backend *be, Conf *conf)
 {
 }
 
-static size_t conpty_send(Backend *be, const char *buf, size_t len)
+static void conpty_send(Backend *be, const char *buf, size_t len)
 {
     ConPTY *conpty = container_of(be, ConPTY, backend);
 
     if (conpty->out == NULL)
-        return 0;
+        return;
 
     conpty->bufsize = handle_write(conpty->out, buf, len);
-    return conpty->bufsize;
 }
 
 static size_t conpty_sendbuffer(Backend *be)
@@ -385,6 +386,7 @@ const BackendVtable conpty_backend = {
     .unthrottle = conpty_unthrottle,
     .cfg_info = conpty_cfg_info,
     .id = "conpty",
-    .displayname = "ConPTY",
+    .displayname_tc = "ConPTY",
+    .displayname_lc = "ConPTY", /* proper name, so capitalise it anyway */
     .protocol = -1,
 };

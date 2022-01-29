@@ -8,7 +8,7 @@
 #include "tree234.h"
 #include "putty.h"
 #include "network.h"
-#include "proxy.h"
+#include "proxy/proxy.h"
 #include "ssh.h"
 
 #include "security-api.h"
@@ -38,11 +38,11 @@ HANDLE connect_to_named_pipe(const char *pipename, char **err)
         }
 
         /*
-         * If we got ERROR_PIPE_BUSY, wait for the server to
-         * create a new pipe instance. (Since the server is
-         * expected to be winnps.c, which will do that immediately
-         * after a previous connection is accepted, that shouldn't
-         * take excessively long.)
+         * If we got ERROR_PIPE_BUSY, wait for the server to create a
+         * new pipe instance. (Since the server is expected to be
+         * named-pipe-server.c, which will do that immediately after a
+         * previous connection is accepted, that shouldn't take
+         * excessively long.)
          */
         if (!WaitNamedPipe(pipename, NMPWAIT_USE_DEFAULT_WAIT)) {
             *err = dupprintf(
@@ -90,5 +90,6 @@ Socket *new_named_pipe_client(const char *pipename, Plug *plug)
     if (pipehandle == INVALID_HANDLE_VALUE)
         return new_error_socket_consume_string(plug, err);
     else
-        return make_handle_socket(pipehandle, pipehandle, NULL, plug, true);
+        return make_handle_socket(pipehandle, pipehandle, NULL, NULL, 0,
+                                  plug, true);
 }

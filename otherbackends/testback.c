@@ -39,9 +39,10 @@ static char *loop_init(const BackendVtable *, Seat *, Backend **, LogContext *,
 static void null_free(Backend *);
 static void loop_free(Backend *);
 static void null_reconfig(Backend *, Conf *);
-static size_t null_send(Backend *, const char *, size_t);
-static size_t loop_send(Backend *, const char *, size_t);
+static void null_send(Backend *, const char *, size_t);
+static void loop_send(Backend *, const char *, size_t);
 static size_t null_sendbuffer(Backend *);
+static size_t loop_sendbuffer(Backend *);
 static void null_size(Backend *, int, int);
 static void null_special(Backend *, SessionSpecialCode, int);
 static const SessionSpecial *null_get_specials(Backend *);
@@ -70,7 +71,8 @@ const BackendVtable null_backend = {
     .unthrottle = null_unthrottle,
     .cfg_info = null_cfg_info,
     .id = "null",
-    .displayname = "null",
+    .displayname_tc = "Null",
+    .displayname_lc = "null",
     .protocol = -1,
     .default_port = 0,
 };
@@ -80,7 +82,7 @@ const BackendVtable loop_backend = {
     .free = loop_free,
     .reconfig = null_reconfig,
     .send = loop_send,
-    .sendbuffer = null_sendbuffer,
+    .sendbuffer = loop_sendbuffer,
     .size = null_size,
     .special = null_special,
     .get_specials = null_get_specials,
@@ -92,7 +94,8 @@ const BackendVtable loop_backend = {
     .unthrottle = null_unthrottle,
     .cfg_info = null_cfg_info,
     .id = "loop",
-    .displayname = "loop",
+    .displayname_tc = "Loop",
+    .displayname_lc = "loop",
     .protocol = -1,
     .default_port = 0,
 };
@@ -100,6 +103,7 @@ const BackendVtable loop_backend = {
 struct loop_state {
     Seat *seat;
     Backend backend;
+    size_t sendbuffer;
 };
 
 static char *null_init(const BackendVtable *vt, Seat *seat,
@@ -143,20 +147,25 @@ static void null_reconfig(Backend *be, Conf *conf) {
 
 }
 
-static size_t null_send(Backend *be, const char *buf, size_t len) {
+static void null_send(Backend *be, const char *buf, size_t len) {
 
-    return 0;
 }
 
-static size_t loop_send(Backend *be, const char *buf, size_t len) {
+static void loop_send(Backend *be, const char *buf, size_t len) {
     struct loop_state *st = container_of(be, struct loop_state, backend);
 
-    return seat_output(st->seat, 0, buf, len);
+    st->sendbuffer = seat_output(st->seat, 0, buf, len);
 }
 
 static size_t null_sendbuffer(Backend *be) {
 
     return 0;
+}
+
+static size_t loop_sendbuffer(Backend *be) {
+    struct loop_state *st = container_of(be, struct loop_state, backend);
+
+    return st->sendbuffer;
 }
 
 static void null_size(Backend *be, int width, int height) {
@@ -204,11 +213,3 @@ static int null_cfg_info(Backend *be)
 {
     return 0;
 }
-
-
-/*
- * Emacs magic:
- * Local Variables:
- * c-file-style: "simon"
- * End:
- */

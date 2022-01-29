@@ -19,12 +19,18 @@ struct dh_extra {
 
 static void dh_group1_construct(dh_ctx *ctx)
 {
+    /* Command to recompute, from the expression in RFC 2412 section E.2:
+spigot -B16 '2^1024 - 2^960 - 1 + 2^64 * ( floor(2^894 pi) + 129093 )'
+     */
     ctx->p = MP_LITERAL(0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF);
     ctx->g = mp_from_integer(2);
 }
 
 static void dh_group14_construct(dh_ctx *ctx)
 {
+    /* Command to recompute, from the expression in RFC 3526 section 3:
+spigot -B16 '2^2048 - 2^1984 - 1 + 2^64 * ( floor(2^1918 pi) + 124476 )'
+     */
     ctx->p = MP_LITERAL(0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF);
     ctx->g = mp_from_integer(2);
 }
@@ -33,7 +39,7 @@ static const struct dh_extra extra_group1 = {
     false, dh_group1_construct,
 };
 
-static const ssh_kex ssh_diffiehellman_group1_sha1 = {
+const ssh_kex ssh_diffiehellman_group1_sha1 = {
     "diffie-hellman-group1-sha1", "group1",
     KEXTYPE_DH, &ssh_sha1, &extra_group1,
 };
@@ -48,12 +54,12 @@ static const struct dh_extra extra_group14 = {
     false, dh_group14_construct,
 };
 
-static const ssh_kex ssh_diffiehellman_group14_sha256 = {
+const ssh_kex ssh_diffiehellman_group14_sha256 = {
     "diffie-hellman-group14-sha256", "group14",
     KEXTYPE_DH, &ssh_sha256, &extra_group14,
 };
 
-static const ssh_kex ssh_diffiehellman_group14_sha1 = {
+const ssh_kex ssh_diffiehellman_group14_sha1 = {
     "diffie-hellman-group14-sha1", "group14",
     KEXTYPE_DH, &ssh_sha1, &extra_group14,
 };
@@ -194,19 +200,8 @@ void dh_cleanup(dh_ctx *ctx)
 /*
  * DH stage 1: invent a number x between 1 and q, and compute e =
  * g^x mod p. Return e.
- *
- * If `nbits' is greater than zero, it is used as an upper limit
- * for the number of bits in x. This is safe provided that (a) you
- * use twice as many bits in x as the number of bits you expect to
- * use in your session key, and (b) the DH group is a safe prime
- * (which SSH demands that it must be).
- *
- * P. C. van Oorschot, M. J. Wiener
- * "On Diffie-Hellman Key Agreement with Short Exponents".
- * Advances in Cryptology: Proceedings of Eurocrypt '96
- * Springer-Verlag, May 1996.
  */
-mp_int *dh_create_e(dh_ctx *ctx, int nbits)
+mp_int *dh_create_e(dh_ctx *ctx)
 {
     /*
      * Lower limit is just 2.
@@ -218,12 +213,6 @@ mp_int *dh_create_e(dh_ctx *ctx, int nbits)
      */
     mp_int *hi = mp_copy(ctx->q);
     mp_sub_integer_into(hi, hi, 1);
-    if (nbits) {
-        mp_int *pow2 = mp_power_2(nbits+1);
-        mp_min_into(pow2, pow2, hi);
-        mp_free(hi);
-        hi = pow2;
-    }
 
     /*
      * Make a random number in that range.

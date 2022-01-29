@@ -55,9 +55,19 @@ add_custom_target(cmake_commit_c
   DEPENDS check_git_commit ${INTERMEDIATE_COMMIT_C}
   COMMENT "Updating cmake_commit.c")
 
+if(CMAKE_VERSION VERSION_LESS 3.12)
+  function(add_compile_definitions)
+    foreach(i ${ARGN})
+      add_compile_options(-D${i})
+    endforeach()
+  endfunction()
+endif()
+
 function(add_sources_from_current_dir target)
-  set(sources ${ARGN})
-  list(TRANSFORM sources PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
+  set(sources)
+  foreach(i ${ARGN})
+    set(sources ${sources} ${CMAKE_CURRENT_SOURCE_DIR}/${i})
+  endforeach()
   target_sources(${target} PRIVATE ${sources})
 endfunction()
 
@@ -67,6 +77,20 @@ if(CMAKE_SYSTEM_NAME MATCHES "Windows" OR WINELIB)
 else()
   set(platform unix)
 endif()
+
+function(be_list TARGET NAME)
+  cmake_parse_arguments(OPT "SSH;SERIAL;OTHERBACKENDS" "" "" "${ARGN}")
+  add_library(${TARGET}-be-list OBJECT ${CMAKE_SOURCE_DIR}/be_list.c)
+  foreach(setting SSH SERIAL OTHERBACKENDS)
+    if(OPT_${setting})
+      target_compile_definitions(${TARGET}-be-list PRIVATE ${setting}=1)
+    else()
+      target_compile_definitions(${TARGET}-be-list PRIVATE ${setting}=0)
+    endif()
+  endforeach()
+  target_compile_definitions(${TARGET}-be-list PRIVATE APPNAME=${NAME})
+  target_sources(${TARGET} PRIVATE $<TARGET_OBJECTS:${TARGET}-be-list>)
+endfunction()
 
 include(cmake/platforms/${platform}.cmake)
 

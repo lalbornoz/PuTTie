@@ -41,8 +41,6 @@
 #include "ssh.h"
 #include "ssh/server.h"
 
-const char *const appname = "psusan";
-
 void modalfatalbox(const char *p, ...)
 {
     va_list ap;
@@ -273,10 +271,11 @@ static void server_log(Plug *plug, PlugLogType type, SockAddr *addr, int port,
     log_to_stderr(-1, error_msg);
 }
 
-static void server_closing(Plug *plug, const char *error_msg, int error_code,
-                           bool calling_back)
+static void server_closing(Plug *plug, PlugCloseType type,
+                           const char *error_msg)
 {
-    log_to_stderr(-1, error_msg);
+    if (type != PLUGCLOSE_NORMAL)
+        log_to_stderr(-1, error_msg);
 }
 
 static int server_accepting(Plug *p, accept_fn_t constructor, accept_ctx_t ctx)
@@ -411,7 +410,7 @@ int main(int argc, char **argv)
     } else {
         struct server_instance *inst;
         Plug *plug = server_conn_plug(&scfg, &inst);
-        ssh_server_start(plug, make_fd_socket(0, 1, -1, plug));
+        ssh_server_start(plug, make_fd_socket(0, 1, -1, NULL, 0, plug));
         log_to_stderr(inst->id, "running directly on stdio");
     }
 

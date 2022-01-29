@@ -7,7 +7,6 @@
 
 #include "putty.h"
 
-const char *const appname = "pterm";
 const bool use_event_log = false;      /* pterm doesn't need it */
 const bool new_session = false, saved_sessions = false; /* or these */
 const bool dup_check_launchable = false; /* no need to check host name
@@ -16,7 +15,7 @@ const bool use_pty_argv = true;
 
 const unsigned cmdline_tooltype = TOOLTYPE_NONNETWORK;
 
-/* gtkwin.c will call this, and in pterm it's not needed */
+/* window.c will call this, and in pterm it's not needed */
 void noise_ultralight(NoiseSourceId id, unsigned long data) { }
 
 const struct BackendVtable *select_backend(Conf *conf)

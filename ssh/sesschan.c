@@ -177,7 +177,7 @@ static const LogPolicyVtable sesschan_logpolicy_vt = {
 };
 
 static size_t sesschan_seat_output(
-    Seat *, bool is_stderr, const void *, size_t);
+    Seat *, SeatOutputType type, const void *, size_t);
 static bool sesschan_seat_eof(Seat *);
 static void sesschan_notify_remote_exit(Seat *seat);
 static void sesschan_connection_fatal(Seat *seat, const char *message);
@@ -187,14 +187,16 @@ static const SeatVtable sesschan_seat_vt = {
     .output = sesschan_seat_output,
     .eof = sesschan_seat_eof,
     .sent = nullseat_sent,
+    .banner = nullseat_banner,
     .get_userpass_input = nullseat_get_userpass_input,
+    .notify_session_started = nullseat_notify_session_started,
     .notify_remote_exit = sesschan_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = sesschan_connection_fatal,
     .update_specials_menu = nullseat_update_specials_menu,
     .get_ttymode = nullseat_get_ttymode,
     .set_busy_status = nullseat_set_busy_status,
-    .verify_ssh_host_key = nullseat_verify_ssh_host_key,
+    .confirm_ssh_host_key = nullseat_confirm_ssh_host_key,
     .confirm_weak_crypto_primitive = nullseat_confirm_weak_crypto_primitive,
     .confirm_weak_cached_hostkey = nullseat_confirm_weak_cached_hostkey,
     .is_utf8 = nullseat_is_never_utf8,
@@ -204,6 +206,8 @@ static const SeatVtable sesschan_seat_vt = {
     .get_window_pixel_size = sesschan_get_window_pixel_size,
     .stripctrl_new = nullseat_stripctrl_new,
     .set_trust_status = nullseat_set_trust_status,
+    .can_set_trust_status = nullseat_can_set_trust_status_no,
+    .has_mixed_input_stream = nullseat_has_mixed_input_stream_no,
     .verbose = nullseat_verbose_no,
     .interactive = nullseat_interactive_no,
     .get_cursor_position = nullseat_get_cursor_position,
@@ -226,7 +230,7 @@ Channel *sesschan_new(SshChannel *c, LogContext *logctx,
     sess->conf = conf_new();
     load_open_settings(NULL, sess->conf);
 
-    /* Set close-on-exit = true to suppress uxpty.c's "[pterm: process
+    /* Set close-on-exit = true to suppress pty.c's "[pterm: process
      * terminated with status x]" message */
     conf_set_int(sess->conf, CONF_close_on_exit, FORCE_ON);
 
@@ -269,7 +273,8 @@ static size_t sesschan_send(Channel *chan, bool is_stderr,
     if (!sess->backend || sess->ignoring_input)
         return 0;
 
-    return backend_send(sess->backend, data, length);
+    backend_send(sess->backend, data, length);
+    return backend_sendbuffer(sess->backend);
 }
 
 static void sesschan_send_eof(Channel *chan)
@@ -298,7 +303,7 @@ static void sesschan_start_backend(sesschan *sess, const char *cmd)
      * will be set as part of X or agent forwarding, and shouldn't be
      * confusingly set in the absence of that.
      *
-     * (DISPLAY must also be cleared, but uxpty.c will do that anyway
+     * (DISPLAY must also be cleared, but pty.c will do that anyway
      * when our get_x_display method returns NULL.)
      */
     static const char *const env_to_unset[] = {
@@ -363,8 +368,7 @@ bool sesschan_run_subsystem(Channel *chan, ptrlen subsys)
 static void fwd_log(Plug *plug, PlugLogType type, SockAddr *addr, int port,
                     const char *error_msg, int error_code)
 { /* don't expect any weirdnesses from a listening socket */ }
-static void fwd_closing(Plug *plug, const char *error_msg, int error_code,
-                        bool calling_back)
+static void fwd_closing(Plug *plug, PlugCloseType type, const char *error_msg)
 { /* not here, either */ }
 
 static int xfwd_accepting(Plug *p, accept_fn_t constructor, accept_ctx_t ctx)
@@ -556,7 +560,7 @@ bool sesschan_send_break(Channel *chan, unsigned length)
 
     if (sess->backend) {
         /* We ignore the break length. We could pass it through as the
-         * 'arg' parameter, and have uxpty.c collect it and pass it on
+         * 'arg' parameter, and have pty.c collect it and pass it on
          * to tcsendbreak, but since tcsendbreak in turn assigns
          * implementation-defined semantics to _its_ duration
          * parameter, this all just sounds too difficult. */
@@ -609,10 +613,10 @@ bool sesschan_change_window_size(
 }
 
 static size_t sesschan_seat_output(
-    Seat *seat, bool is_stderr, const void *data, size_t len)
+    Seat *seat, SeatOutputType type, const void *data, size_t len)
 {
     sesschan *sess = container_of(seat, sesschan, seat);
-    return sshfwd_write_ext(sess->c, is_stderr, data, len);
+    return sshfwd_write_ext(sess->c, type == SEAT_OUTPUT_STDERR, data, len);
 }
 
 static void sesschan_check_close_callback(void *vctx)

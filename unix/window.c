@@ -1,5 +1,5 @@
 /*
- * gtkwin.c: the main code that runs a PuTTY terminal emulator and
+ * window.c: the main code that runs a PuTTY terminal emulator and
  * backend in a GTK window.
  */
 
@@ -89,6 +89,7 @@ struct GtkFrontend {
     gboolean sbar_visible;
     gboolean drawing_area_got_size, drawing_area_realised;
     gboolean drawing_area_setup_needed;
+    bool drawing_area_setup_called;
     GtkBox *hbox;
     GtkAdjustment *sbar_adjust;
     GtkWidget *menu, *specialsmenu, *specialsitem1, *specialsitem2,
@@ -318,11 +319,18 @@ static char *gtk_seat_get_ttymode(Seat *seat, const char *mode)
     return term_get_ttymode(inst->term, mode);
 }
 
-static size_t gtk_seat_output(Seat *seat, bool is_stderr,
+static size_t gtk_seat_output(Seat *seat, SeatOutputType type,
                               const void *data, size_t len)
 {
     GtkFrontend *inst = container_of(seat, GtkFrontend, seat);
-    return term_data(inst->term, is_stderr, data, len);
+    return term_data(inst->term, data, len);
+}
+
+static void gtkwin_unthrottle(TermWin *win, size_t bufsize)
+{
+    GtkFrontend *inst = container_of(win, GtkFrontend, termwin);
+    if (inst->backend)
+        backend_unthrottle(inst->backend, bufsize);
 }
 
 static bool gtk_seat_eof(Seat *seat)
@@ -331,15 +339,14 @@ static bool gtk_seat_eof(Seat *seat)
     return true;   /* do respond to incoming EOF with outgoing */
 }
 
-static int gtk_seat_get_userpass_input(Seat *seat, prompts_t *p,
-                                       bufchain *input)
+static SeatPromptResult gtk_seat_get_userpass_input(Seat *seat, prompts_t *p)
 {
     GtkFrontend *inst = container_of(seat, GtkFrontend, seat);
-    int ret;
-    ret = cmdline_get_passwd_input(p);
-    if (ret == -1)
-        ret = term_get_userpass_input(inst->term, p, input);
-    return ret;
+    SeatPromptResult spr;
+    spr = cmdline_get_passwd_input(p);
+    if (spr.kind == SPRK_INCOMPLETE)
+        spr = term_get_userpass_input(inst->term, p);
+    return spr;
 }
 
 static bool gtk_seat_is_utf8(Seat *seat)
@@ -383,21 +390,24 @@ static const char *gtk_seat_get_x_display(Seat *seat);
 #ifndef NOT_X_WINDOWS
 static bool gtk_seat_get_windowid(Seat *seat, long *id);
 #endif
-static bool gtk_seat_set_trust_status(Seat *seat, bool trusted);
+static void gtk_seat_set_trust_status(Seat *seat, bool trusted);
+static bool gtk_seat_can_set_trust_status(Seat *seat);
 static bool gtk_seat_get_cursor_position(Seat *seat, int *x, int *y);
 
 static const SeatVtable gtk_seat_vt = {
     .output = gtk_seat_output,
     .eof = gtk_seat_eof,
     .sent = nullseat_sent,
+    .banner = nullseat_banner_to_stderr,
     .get_userpass_input = gtk_seat_get_userpass_input,
+    .notify_session_started = nullseat_notify_session_started,
     .notify_remote_exit = gtk_seat_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = gtk_seat_connection_fatal,
     .update_specials_menu = gtk_seat_update_specials_menu,
     .get_ttymode = gtk_seat_get_ttymode,
     .set_busy_status = gtk_seat_set_busy_status,
-    .verify_ssh_host_key = gtk_seat_verify_ssh_host_key,
+    .confirm_ssh_host_key = gtk_seat_confirm_ssh_host_key,
     .confirm_weak_crypto_primitive = gtk_seat_confirm_weak_crypto_primitive,
     .confirm_weak_cached_hostkey = gtk_seat_confirm_weak_cached_hostkey,
     .is_utf8 = gtk_seat_is_utf8,
@@ -411,6 +421,8 @@ static const SeatVtable gtk_seat_vt = {
     .get_window_pixel_size = gtk_seat_get_window_pixel_size,
     .stripctrl_new = gtk_seat_stripctrl_new,
     .set_trust_status = gtk_seat_set_trust_status,
+    .can_set_trust_status = gtk_seat_can_set_trust_status,
+    .has_mixed_input_stream = nullseat_has_mixed_input_stream_yes,
     .verbose = nullseat_verbose_yes,
     .interactive = nullseat_interactive_yes,
     .get_cursor_position = gtk_seat_get_cursor_position,
@@ -647,12 +659,13 @@ gint delete_window(GtkWidget *widget, GdkEvent *event, GtkFrontend *inst)
 }
 
 #if GTK_CHECK_VERSION(2,0,0)
-static void window_state_event(GtkWidget *widget, GdkEventWindowState *event,
-                               gpointer user_data)
+static gboolean window_state_event(
+    GtkWidget *widget, GdkEventWindowState *event, gpointer user_data)
 {
     GtkFrontend *inst = (GtkFrontend *)user_data;
     term_notify_minimised(
         inst->term, event->new_window_state & GDK_WINDOW_STATE_ICONIFIED);
+    return false;
 }
 #endif
 
@@ -695,7 +708,6 @@ static void draw_backing_rect(GtkFrontend *inst);
 static void drawing_area_setup(GtkFrontend *inst, int width, int height)
 {
     int w, h, new_scale;
-    bool need_size = false;
 
     /*
      * See if the terminal size has changed.
@@ -711,11 +723,7 @@ static void drawing_area_setup(GtkFrontend *inst, int width, int height)
         conf_set_int(inst->conf, CONF_width, inst->width);
         conf_set_int(inst->conf, CONF_height, inst->height);
         /*
-         * We'll need to tell terminal.c about the resize below.
-         */
-        need_size = true;
-        /*
-         * And we must refresh the window's backing image.
+         * We must refresh the window's backing image.
          */
         inst->drawing_area_setup_needed = true;
     }
@@ -737,10 +745,23 @@ static void drawing_area_setup(GtkFrontend *inst, int width, int height)
         inst->drawing_area_setup_needed = true;
 
     /*
-     * This event might be spurious; some GTK setups have been known
-     * to call it when nothing at all has changed. Check if we have
-     * any reason to proceed.
+     * GTK will sometimes send us configure events when nothing about
+     * the window size has actually changed. In some situations this
+     * can happen quite often, so it's a worthwhile optimisation to
+     * detect that situation and avoid the expensive reinitialisation
+     * of the backing surface / image, and so on.
+     *
+     * However, we must still communicate to the terminal that we
+     * received a resize event, because sometimes a trivial resize
+     * event (to the same size we already were) is a signal from the
+     * window system that a _nontrivial_ resize we recently asked for
+     * has failed to happen.
      */
+
+    inst->drawing_area_setup_called = true;
+    if (inst->term)
+        term_size(inst->term, h, w, conf_get_int(inst->conf, CONF_savelines));
+
     if (!inst->drawing_area_setup_needed)
         return;
 
@@ -771,10 +792,6 @@ static void drawing_area_setup(GtkFrontend *inst, int width, int height)
 
     draw_backing_rect(inst);
 
-    if (need_size && inst->term) {
-        term_size(inst->term, h, w, conf_get_int(inst->conf, CONF_savelines));
-    }
-
     if (inst->term)
         term_invalidate(inst->term);
 
@@ -799,6 +816,14 @@ static void drawing_area_setup_simple(GtkFrontend *inst)
     GtkAllocation alloc = inst->area->allocation;
 #endif
     drawing_area_setup(inst, alloc.width, alloc.height);
+}
+
+static void drawing_area_setup_cb(void *vctx)
+{
+    GtkFrontend *inst = (GtkFrontend *)vctx;
+
+    if (!inst->drawing_area_setup_called)
+        drawing_area_setup_simple(inst);
 }
 
 static void area_realised(GtkWidget *widget, GtkFrontend *inst)
@@ -839,6 +864,10 @@ static gboolean window_configured(
         term_notify_window_pos(inst->term, event->x, event->y);
         term_notify_window_size_pixels(
             inst->term, event->width, event->height);
+        if (inst->drawing_area_realised && inst->drawing_area_got_size) {
+            inst->drawing_area_setup_called = false;
+            queue_toplevel_callback(drawing_area_setup_cb, inst);
+        }
     }
     return false;
 }
@@ -1806,6 +1835,8 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
 
         switch (event->keyval) {
             int fkey_number;
+            bool consumed_meta_key;
+
           case GDK_KEY_F1: fkey_number = 1; goto numbered_function_key;
           case GDK_KEY_F2: fkey_number = 2; goto numbered_function_key;
           case GDK_KEY_F3: fkey_number = 3; goto numbered_function_key;
@@ -1827,9 +1858,14 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
           case GDK_KEY_F19: fkey_number = 19; goto numbered_function_key;
           case GDK_KEY_F20: fkey_number = 20; goto numbered_function_key;
           numbered_function_key:
+            consumed_meta_key = false;
             end = 1 + format_function_key(output+1, inst->term, fkey_number,
                                           event->state & GDK_SHIFT_MASK,
-                                          event->state & GDK_CONTROL_MASK);
+                                          event->state & GDK_CONTROL_MASK,
+                                          event->state & inst->meta_mod_mask,
+                                          &consumed_meta_key);
+            if (consumed_meta_key)
+                start = 1; /* supersedes the usual prefixing of Esc */
 #ifdef KEY_EVENT_DIAGNOSTICS
             debug(" - function key F%d", fkey_number);
 #endif
@@ -1873,8 +1909,14 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
           case GDK_KEY_Begin: case GDK_KEY_KP_Begin:
             xkey = 'G'; goto arrow_key;
           arrow_key:
+            consumed_meta_key = false;
             end = 1 + format_arrow_key(output+1, inst->term, xkey,
-                                       event->state & GDK_CONTROL_MASK);
+                                       event->state & GDK_SHIFT_MASK,
+                                       event->state & GDK_CONTROL_MASK,
+                                       event->state & inst->meta_mod_mask,
+                                       &consumed_meta_key);
+            if (consumed_meta_key)
+                start = 1; /* supersedes the usual prefixing of Esc */
 #ifdef KEY_EVENT_DIAGNOSTICS
             debug(" - arrow key");
 #endif
@@ -2432,9 +2474,63 @@ static void compute_whole_window_size(GtkFrontend *inst,
                                       int *wpix, int *hpix);
 #endif
 
+static void gtkwin_deny_term_resize(void *vctx)
+{
+    GtkFrontend *inst = (GtkFrontend *)vctx;
+    if (inst->term)
+        term_size(inst->term, inst->term->rows, inst->term->cols,
+                  inst->term->savelines);
+}
+
 static void gtkwin_request_resize(TermWin *tw, int w, int h)
 {
     GtkFrontend *inst = container_of(tw, GtkFrontend, termwin);
+
+#if GTK_CHECK_VERSION(2,0,0)
+    /*
+     * Initial check: don't even try to resize a window if it's in one
+     * of the states that make that impossible. This includes being
+     * maximised; being full-screen (if we ever implement that); or
+     * being in various tiled states.
+     *
+     * On X11, the effect of trying to resize the window when it can't
+     * be resized should be that the window manager sends us a
+     * synthetic ConfigureNotify event restating our existing size
+     * (ICCCM section 4.1.5 "Configuring the Window"). That's awkward
+     * to deal with, but not impossible; so for X11 alone, we might
+     * not bother with this check.
+     *
+     * (In any case, X11 has other reasons why a window resize might
+     * be rejected, which this enumeration can't be aware of in any
+     * case. For example, if your window manager is a tiling one, then
+     * all your windows are _de facto_ tiled, but not _de jure_ in a
+     * way that GDK will know about. So we have to handle those
+     * synthetic ConfigureNotifies in any case.)
+     *
+     * On Wayland, as of GTK 3.24.20, the effects are much worse: it
+     * looks to me as if GTK stops ever sending us "draw" events, or
+     * even a size_allocate, so the display locks up completely until
+     * you toggle the maximised state of the window by some other
+     * means. So it's worth checking!
+     */
+    GdkWindow *gdkwin = gtk_widget_get_window(inst->window);
+    if (gdkwin) {
+        GdkWindowState state = gdk_window_get_state(gdkwin);
+        if (state & (GDK_WINDOW_STATE_MAXIMIZED |
+                     GDK_WINDOW_STATE_FULLSCREEN |
+#if GTK_CHECK_VERSION(3,0,0)
+                     GDK_WINDOW_STATE_TILED |
+                     GDK_WINDOW_STATE_TOP_TILED |
+                     GDK_WINDOW_STATE_RIGHT_TILED |
+                     GDK_WINDOW_STATE_BOTTOM_TILED |
+                     GDK_WINDOW_STATE_LEFT_TILED |
+#endif
+                     0)) {
+            queue_toplevel_callback(gtkwin_deny_term_resize, inst);
+            return;
+        }
+    }
+#endif
 
 #if !GTK_CHECK_VERSION(3,0,0)
 
@@ -3098,7 +3194,7 @@ static void selection_received(GtkWidget *widget, GtkSelectionData *seldata,
         text = retrieve_cutbuffer(inst, &length);
         if (length == 0)
             return;
-        /* Xterm is rumoured to expect Latin-1, though I havn't checked the
+        /* Xterm is rumoured to expect Latin-1, though I haven't checked the
          * source, so use that as a de-facto standard. */
         charset = CS_ISO8859_1;
         free_required = true;
@@ -3246,19 +3342,31 @@ static void set_window_titles(GtkFrontend *inst)
                                  inst->icontitle);
 }
 
-static void gtkwin_set_title(TermWin *tw, const char *title)
+static void gtkwin_set_title(TermWin *tw, const char *title, int codepage)
 {
     GtkFrontend *inst = container_of(tw, GtkFrontend, termwin);
     sfree(inst->wintitle);
-    inst->wintitle = dupstr(title);
+    if (codepage != CP_UTF8) {
+        wchar_t *title_w = dup_mb_to_wc(codepage, 0, title);
+        inst->wintitle = encode_wide_string_as_utf8(title_w);
+        sfree(title_w);
+    } else {
+        inst->wintitle = dupstr(title);
+    }
     set_window_titles(inst);
 }
 
-static void gtkwin_set_icon_title(TermWin *tw, const char *title)
+static void gtkwin_set_icon_title(TermWin *tw, const char *title, int codepage)
 {
     GtkFrontend *inst = container_of(tw, GtkFrontend, termwin);
     sfree(inst->icontitle);
-    inst->icontitle = dupstr(title);
+    if (codepage != CP_UTF8) {
+        wchar_t *title_w = dup_mb_to_wc(codepage, 0, title);
+        inst->icontitle = encode_wide_string_as_utf8(title_w);
+        sfree(title_w);
+    } else {
+        inst->icontitle = dupstr(title);
+    }
     set_window_titles(inst);
 }
 
@@ -4335,7 +4443,7 @@ static void compute_geom_hints(GtkFrontend *inst, GdkGeometry *geom)
 
 #if GTK_CHECK_VERSION(3,0,0)
     /*
-     * And if we're running a gtkapp.c based program and
+     * And if we're running a main-gtk-application.c based program and
      * GtkApplicationWindow has given us a menu bar inside the window,
      * then we must take that into account as well.
      *
@@ -4380,6 +4488,35 @@ static void compute_geom_hints(GtkFrontend *inst, GdkGeometry *geom)
 
 void set_geom_hints(GtkFrontend *inst)
 {
+    /*
+     * 2021-12-20: I've found that on Ubuntu 20.04 Wayland (using GTK
+     * 3.24.20), setting geometry hints causes the window size to come
+     * out wrong. As far as I can tell, that's because the GDK Wayland
+     * backend internally considers windows to be a lot larger than
+     * their obvious display size (*even* considering visible window
+     * furniture like title bars), with an extra margin on every side
+     * to account for surrounding effects like shadows. And the
+     * geometry hints like base size and resize increment are applied
+     * to that larger size rather than the more obvious 'client area'
+     * size. So when we ask for a window of exactly the size we want,
+     * it gets modified by GDK based on the geometry hints, but
+     * applying this extra margin, which causes the size to be a
+     * little bit too small.
+     *
+     * I don't know how you can sensibly find out the size of that
+     * margin. If I did, I could account for it in the geometry hints.
+     * But I also see that gtk_window_set_geometry_hints is removed in
+     * GTK 4, which suggests that probably doing a lot of hard work to
+     * fix this is not the way forward.
+     *
+     * So instead, I simply avoid setting geometry hints at all on any
+     * GDK backend other than X11, and hopefully that's a workaround.
+     */
+#if GTK_CHECK_VERSION(3,0,0)
+    if (!GDK_IS_X11_DISPLAY(gdk_display_get_default()))
+        return;
+#endif
+
     const struct BackendVtable *vt;
     GdkGeometry geom;
     gint flags = GDK_HINT_MIN_SIZE | GDK_HINT_BASE_SIZE | GDK_HINT_RESIZE_INC;
@@ -4392,8 +4529,8 @@ void set_geom_hints(GtkFrontend *inst)
     if (vt && vt->flags & BACKEND_RESIZE_FORBIDDEN) {
         /* Window resizing forbidden.  Set both minimum and maximum
          * dimensions to be the initial size. */
-        geom.min_width = inst->width*inst->font_width + 2*inst->window_border;
-        geom.min_height = inst->height*inst->font_height + 2*inst->window_border;
+        geom.min_width = geom.base_width + geom.width_inc * inst->width;
+        geom.min_height = geom.base_height + geom.height_inc * inst->height;
         geom.max_width = geom.min_width;
         geom.max_height = geom.min_height;
         flags |= GDK_HINT_MAX_SIZE;
@@ -5055,6 +5192,7 @@ static const TermWinVtable gtk_termwin_vt = {
     .set_zorder = gtkwin_set_zorder,
     .palette_set = gtkwin_palette_set,
     .palette_get_overrides = gtkwin_palette_get_overrides,
+    .unthrottle = gtkwin_unthrottle,
 };
 
 void new_session_window(Conf *conf, const char *geometry_string)
@@ -5162,6 +5300,14 @@ void new_session_window(Conf *conf, const char *geometry_string)
 #endif
         }
     }
+
+#if GTK_CHECK_VERSION(2,0,0)
+    {
+        const BackendVtable *vt = select_backend(inst->conf);
+        if (vt && vt->flags & BACKEND_RESIZE_FORBIDDEN)
+            gtk_window_set_resizable(GTK_WINDOW(inst->window), false);
+    }
+#endif
 
     inst->width = conf_get_int(inst->conf, CONF_width);
     inst->height = conf_get_int(inst->conf, CONF_height);
@@ -5415,10 +5561,14 @@ void new_session_window(Conf *conf, const char *geometry_string)
         ldisc_echoedit_update(inst->ldisc); /* cause ldisc to notice changes */
 }
 
-static bool gtk_seat_set_trust_status(Seat *seat, bool trusted)
+static void gtk_seat_set_trust_status(Seat *seat, bool trusted)
 {
     GtkFrontend *inst = container_of(seat, GtkFrontend, seat);
     term_set_trust_status(inst->term, trusted);
+}
+
+static bool gtk_seat_can_set_trust_status(Seat *seat)
+{
     return true;
 }
 

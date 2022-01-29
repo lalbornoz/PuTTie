@@ -25,6 +25,7 @@ struct ssh1_connection_state {
     bool want_user_input;
     bool session_terminated;
     int term_width, term_height, term_width_orig, term_height_orig;
+    bufchain *user_input;
 
     bool X11_fwd_enabled;
     struct X11Display *x11disp;
@@ -49,7 +50,7 @@ struct ssh1_connection_state {
     bool sent_exit_status;             /* also for server mode */
 
     prompts_t *antispoof_prompt;
-    int antispoof_ret;
+    SeatPromptResult antispoof_ret;
 
     const SshServerConfig *ssc;
 

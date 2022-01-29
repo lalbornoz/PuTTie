@@ -39,6 +39,7 @@ struct Ssh {
 
     Plug plug;
     Backend backend;
+    Interactor interactor;
 
     Ldisc *ldisc;
     LogContext *logctx;
@@ -57,6 +58,7 @@ struct Ssh {
     char *savedhost;
     int savedport;
     char *fullhostname;
+    char *description;
 
     bool fallback_cmd;
     int exitcode;
@@ -165,8 +167,8 @@ static void ssh_connect_bpp(Ssh *ssh)
 static void ssh_connect_ppl(Ssh *ssh, PacketProtocolLayer *ppl)
 {
     ppl->bpp = ssh->bpp;
-    ppl->user_input = &ssh->user_input;
     ppl->seat = ssh->seat;
+    ppl->interactor = &ssh->interactor;
     ppl->ssh = ssh;
     ppl->logctx = ssh->logctx;
     ppl->remote_bugs = ssh->remote_bugs;
@@ -241,7 +243,7 @@ static void ssh_got_ssh_version(struct ssh_version_receiver *rcv,
 
             connection_layer = ssh2_connection_new(
                 ssh, ssh->connshare, is_simple, ssh->conf,
-                ssh_verstring_get_remote(old_bpp), &ssh->cl);
+                ssh_verstring_get_remote(old_bpp), &ssh->user_input, &ssh->cl);
             ssh_connect_ppl(ssh, connection_layer);
 
             if (conf_get_bool(ssh->conf, CONF_ssh_no_userauth)) {
@@ -299,7 +301,8 @@ static void ssh_got_ssh_version(struct ssh_version_receiver *rcv,
             ssh->bpp = ssh1_bpp_new(ssh->logctx);
             ssh_connect_bpp(ssh);
 
-            connection_layer = ssh1_connection_new(ssh, ssh->conf, &ssh->cl);
+            connection_layer = ssh1_connection_new(
+                ssh, ssh->conf, &ssh->user_input, &ssh->cl);
             ssh_connect_ppl(ssh, connection_layer);
 
             ssh->base_layer = ssh1_login_new(
@@ -314,7 +317,7 @@ static void ssh_got_ssh_version(struct ssh_version_receiver *rcv,
 
         connection_layer = ssh2_connection_new(
             ssh, ssh->connshare, false, ssh->conf,
-            ssh_verstring_get_remote(old_bpp), &ssh->cl);
+            ssh_verstring_get_remote(old_bpp), &ssh->user_input, &ssh->cl);
         ssh_connect_ppl(ssh, connection_layer);
         ssh->base_layer = connection_layer;
     }
@@ -600,11 +603,12 @@ static void ssh_socket_log(Plug *plug, PlugLogType type, SockAddr *addr,
                            ssh->session_started);
 }
 
-static void ssh_closing(Plug *plug, const char *error_msg, int error_code,
-                        bool calling_back)
+static void ssh_closing(Plug *plug, PlugCloseType type, const char *error_msg)
 {
     Ssh *ssh = container_of(plug, Ssh, plug);
-    if (error_msg) {
+    if (type == PLUGCLOSE_USER_ABORT) {
+        ssh_user_close(ssh, "%s", error_msg);
+    } else if (type != PLUGCLOSE_NORMAL) {
         ssh_remote_error(ssh, "%s", error_msg);
     } else if (ssh->bpp) {
         ssh->bpp->input_eof = true;
@@ -716,6 +720,37 @@ static const PlugVtable Ssh_plugvt = {
     .sent = ssh_sent,
 };
 
+static char *ssh_description(Interactor *itr)
+{
+    Ssh *ssh = container_of(itr, Ssh, interactor);
+    return dupstr(ssh->description);
+}
+
+static LogPolicy *ssh_logpolicy(Interactor *itr)
+{
+    Ssh *ssh = container_of(itr, Ssh, interactor);
+    return log_get_policy(ssh->logctx);
+}
+
+static Seat *ssh_get_seat(Interactor *itr)
+{
+    Ssh *ssh = container_of(itr, Ssh, interactor);
+    return ssh->seat;
+}
+
+static void ssh_set_seat(Interactor *itr, Seat *seat)
+{
+    Ssh *ssh = container_of(itr, Ssh, interactor);
+    ssh->seat = seat;
+}
+
+static const InteractorVtable Ssh_interactorvt = {
+    .description = ssh_description,
+    .logpolicy = ssh_logpolicy,
+    .get_seat = ssh_get_seat,
+    .set_seat = ssh_set_seat,
+};
+
 /*
  * Connect to specified host and port.
  * Returns an error message, or NULL on success.
@@ -723,16 +758,12 @@ static const PlugVtable Ssh_plugvt = {
  * freed by the caller.
  */
 static char *connect_to_host(
-    Ssh *ssh, const char *host, int port, char **realhost,
+    Ssh *ssh, const char *host, int port, char *loghost, char **realhost,
     bool nodelay, bool keepalive)
 {
     SockAddr *addr;
     const char *err;
-    char *loghost;
     int addressfamily, sshprot;
-
-    ssh_hostport_setup(host, port, ssh->conf,
-                       &ssh->savedhost, &ssh->savedport, &loghost);
 
     ssh->plug.vt = &Ssh_plugvt;
 
@@ -789,7 +820,7 @@ static char *connect_to_host(
 
         ssh->s = new_connection(addr, *realhost, port,
                                 false, true, nodelay, keepalive,
-                                &ssh->plug, ssh->conf);
+                                &ssh->plug, ssh->conf, &ssh->interactor);
         if ((err = sk_socket_error(ssh->s)) != NULL) {
             ssh->s = NULL;
             seat_notify_remote_exit(ssh->seat);
@@ -921,6 +952,8 @@ static char *ssh_init(const BackendVtable *vt, Seat *seat,
     ssh->term_height = conf_get_int(ssh->conf, CONF_height);
 
     ssh->backend.vt = vt;
+    ssh->interactor.vt = &Ssh_interactorvt;
+    ssh->backend.interactor = &ssh->interactor;
     *backend_handle = &ssh->backend;
 
     ssh->bare_connection = (vt->protocol == PROT_SSHCONN);
@@ -929,11 +962,17 @@ static char *ssh_init(const BackendVtable *vt, Seat *seat,
     ssh->cl_dummy.vt = &dummy_connlayer_vtable;
     ssh->cl_dummy.logctx = ssh->logctx = logctx;
 
+    char *loghost;
+
+    ssh_hostport_setup(host, port, ssh->conf,
+                       &ssh->savedhost, &ssh->savedport, &loghost);
+    ssh->description = default_description(vt, ssh->savedhost, ssh->savedport);
+
     random_ref(); /* do this now - may be needed by sharing setup code */
     ssh->need_random_unref = true;
 
     char *conn_err = connect_to_host(
-        ssh, host, port, realhost, nodelay, keepalive);
+        ssh, host, port, loghost, realhost, nodelay, keepalive);
     if (conn_err) {
         /* Call random_unref now instead of waiting until the caller
          * frees this useless Ssh object, in case the caller is
@@ -954,6 +993,9 @@ static void ssh_free(Backend *be)
 
     ssh_shutdown(ssh);
 
+    if (is_tempseat(ssh->seat))
+        tempseat_free(ssh->seat);
+
     conf_free(ssh->conf);
     if (ssh->connshare)
         sharestate_free(ssh->connshare);
@@ -973,6 +1015,7 @@ static void ssh_free(Backend *be)
 #endif
 
     sfree(ssh->deferred_abort_message);
+    sfree(ssh->description);
 
     delete_callbacks_for_context(ssh); /* likely to catch ic_out_raw */
 
@@ -1003,18 +1046,16 @@ static void ssh_reconfig(Backend *be, Conf *conf)
 /*
  * Called to send data down the SSH connection.
  */
-static size_t ssh_send(Backend *be, const char *buf, size_t len)
+static void ssh_send(Backend *be, const char *buf, size_t len)
 {
     Ssh *ssh = container_of(be, Ssh, backend);
 
     if (ssh == NULL || ssh->s == NULL)
-        return 0;
+        return;
 
     bufchain_add(&ssh->user_input, buf, len);
-    if (ssh->base_layer)
-        ssh_ppl_got_user_input(ssh->base_layer);
-
-    return backend_sendbuffer(&ssh->backend);
+    if (ssh->cl)
+        ssh_got_user_input(ssh->cl);
 }
 
 /*
@@ -1142,7 +1183,15 @@ static bool ssh_connected(Backend *be)
 static bool ssh_sendok(Backend *be)
 {
     Ssh *ssh = container_of(be, Ssh, backend);
-    return ssh->base_layer && ssh_ppl_want_user_input(ssh->base_layer);
+    return ssh->cl && ssh_get_wants_user_input(ssh->cl);
+}
+
+void ssh_check_sendok(Ssh *ssh)
+{
+    /* Called when the connection layer might have caused ssh_sendok
+     * to start returning true */
+    if (ssh->ldisc)
+        ldisc_check_sendok(ssh->ldisc);
 }
 
 void ssh_ldisc_update(Ssh *ssh)
@@ -1197,7 +1246,7 @@ static int ssh_cfg_info(Backend *be)
 
 /*
  * Gross hack: pscp will try to start SFTP but fall back to scp1 if
- * that fails. This variable is the means by which scp.c can reach
+ * that fails. This variable is the means by which pscp.c can reach
  * into the SSH code and find out which one it got.
  */
 extern bool ssh_fallback_cmd(Backend *be)
@@ -1230,9 +1279,10 @@ const BackendVtable ssh_backend = {
     .test_for_upstream = ssh_test_for_upstream,
     .close_warn_text = ssh_close_warn_text,
     .id = "ssh",
-    .displayname = "SSH",
+    .displayname_tc = "SSH",
+    .displayname_lc = "SSH", /* proper name, so capitalise it anyway */
     .protocol = PROT_SSH,
-    .flags = BACKEND_SUPPORTS_NC_HOST,
+    .flags = BACKEND_SUPPORTS_NC_HOST | BACKEND_NOTIFIES_SESSION_START,
     .default_port = 22,
 };
 
@@ -1255,7 +1305,8 @@ const BackendVtable sshconn_backend = {
     .test_for_upstream = ssh_test_for_upstream,
     .close_warn_text = ssh_close_warn_text,
     .id = "ssh-connection",
-    .displayname = "Bare ssh-connection",
+    .displayname_tc = "Bare ssh-connection",
+    .displayname_lc = "bare ssh-connection",
     .protocol = PROT_SSHCONN,
-    .flags = BACKEND_SUPPORTS_NC_HOST,
+    .flags = BACKEND_SUPPORTS_NC_HOST | BACKEND_NOTIFIES_SESSION_START,
 };

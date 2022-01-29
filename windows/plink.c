@@ -50,8 +50,9 @@ static void plink_echoedit_update(Seat *seat, bool echo, bool edit)
 }
 
 static size_t plink_output(
-    Seat *seat, bool is_stderr, const void *data, size_t len)
+    Seat *seat, SeatOutputType type, const void *data, size_t len)
 {
+    bool is_stderr = type != SEAT_OUTPUT_STDOUT;
     BinarySink *bs = is_stderr ? stderr_bs : stdout_bs;
     put_data(bs, data, len);
 
@@ -64,13 +65,13 @@ static bool plink_eof(Seat *seat)
     return false;   /* do not respond to incoming EOF with outgoing */
 }
 
-static int plink_get_userpass_input(Seat *seat, prompts_t *p, bufchain *input)
+static SeatPromptResult plink_get_userpass_input(Seat *seat, prompts_t *p)
 {
-    int ret;
-    ret = cmdline_get_passwd_input(p);
-    if (ret == -1)
-        ret = console_get_userpass_input(p);
-    return ret;
+    SeatPromptResult spr;
+    spr = cmdline_get_passwd_input(p);
+    if (spr.kind == SPRK_INCOMPLETE)
+        spr = console_get_userpass_input(p);
+    return spr;
 }
 
 static bool plink_seat_interactive(Seat *seat)
@@ -84,14 +85,16 @@ static const SeatVtable plink_seat_vt = {
     .output = plink_output,
     .eof = plink_eof,
     .sent = nullseat_sent,
+    .banner = nullseat_banner_to_stderr,
     .get_userpass_input = plink_get_userpass_input,
+    .notify_session_started = nullseat_notify_session_started,
     .notify_remote_exit = nullseat_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = console_connection_fatal,
     .update_specials_menu = nullseat_update_specials_menu,
     .get_ttymode = nullseat_get_ttymode,
     .set_busy_status = nullseat_set_busy_status,
-    .verify_ssh_host_key = console_verify_ssh_host_key,
+    .confirm_ssh_host_key = console_confirm_ssh_host_key,
     .confirm_weak_crypto_primitive = console_confirm_weak_crypto_primitive,
     .confirm_weak_cached_hostkey = console_confirm_weak_cached_hostkey,
     .is_utf8 = nullseat_is_never_utf8,
@@ -101,6 +104,8 @@ static const SeatVtable plink_seat_vt = {
     .get_window_pixel_size = nullseat_get_window_pixel_size,
     .stripctrl_new = console_stripctrl_new,
     .set_trust_status = console_set_trust_status,
+    .can_set_trust_status = console_can_set_trust_status,
+    .has_mixed_input_stream = console_has_mixed_input_stream,
     .verbose = cmdline_seat_verbose,
     .interactive = plink_seat_interactive,
     .get_cursor_position = nullseat_get_cursor_position,
@@ -135,7 +140,7 @@ static void usage(void)
     printf("  -sercfg configuration-string (e.g. 19200,8,n,1,X)\n");
     printf("            Specify the serial configuration (serial only)\n");
     printf("The following options only apply to SSH connections:\n");
-    printf("  -pw passw login with specified password\n");
+    printf("  -pwfile file   login with password read from specified file\n");
     printf("  -D [listen-IP:]listen-port\n");
     printf("            Dynamic SOCKS-based port forwarding\n");
     printf("  -L [listen-IP:]listen-port:host:port\n");
@@ -203,7 +208,8 @@ size_t stdin_gotdata(struct handle *h, const void *data, size_t len, int err)
     noise_ultralight(NOISE_SOURCE_IOLEN, len);
     if (backend_connected(backend)) {
         if (len > 0) {
-            return backend_send(backend, data, len);
+            backend_send(backend, data, len);
+            return backend_sendbuffer(backend);
         } else {
             backend_special(backend, SS_EOF, 0);
             return 0;
@@ -212,8 +218,14 @@ size_t stdin_gotdata(struct handle *h, const void *data, size_t len, int err)
         return 0;
 }
 
-void stdouterr_sent(struct handle *h, size_t new_backlog, int err)
+void stdouterr_sent(struct handle *h, size_t new_backlog, int err, bool close)
 {
+    if (close) {
+        CloseHandle(outhandle);
+        CloseHandle(errhandle);
+        outhandle = errhandle = INVALID_HANDLE_VALUE;
+    }
+
     if (err) {
         char buf[4096];
         FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, err, 0,
@@ -354,7 +366,7 @@ int main(int argc, char **argv)
             while (argc > 0) {
                 if (cmdbuf->len > 0)
                     put_byte(cmdbuf, ' '); /* add space separator */
-                put_datapl(cmdbuf, ptrlen_from_asciz(p));
+                put_dataz(cmdbuf, p);
                 if (--argc > 0)
                     p = *++argv;
             }
@@ -405,7 +417,7 @@ int main(int argc, char **argv)
     if (vt->flags & BACKEND_NEEDS_TERMINAL) {
         fprintf(stderr,
                 "Plink doesn't support %s, which needs terminal emulation\n",
-                vt->displayname);
+                vt->displayname_lc);
         return 1;
     }
 
@@ -431,7 +443,7 @@ int main(int argc, char **argv)
     if (just_test_share_exists) {
         if (!vt->test_for_upstream) {
             fprintf(stderr, "Connection sharing not supported for this "
-                    "connection type (%s)'\n", vt->displayname);
+                    "connection type (%s)'\n", vt->displayname_lc);
             return 1;
         }
         if (vt->test_for_upstream(conf_get_str(conf, CONF_host),

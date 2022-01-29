@@ -1,5 +1,5 @@
 /*
- * gtkcomm.c: machinery in the GTK front end which is common to all
+ * gtk-common.c: machinery in the GTK front end which is common to all
  * programs that run a session in a terminal window, and also common
  * across all _sessions_ rather than specific to one session. (Timers,
  * uxsel etc.)
@@ -44,8 +44,6 @@
 #include <X11/Xatom.h>
 #endif
 
-#define CAT2(x,y) x ## y
-#define CAT(x,y) CAT2(x,y)
 #define ASSERT(x) enum {CAT(assertion_,__LINE__) = 1 / (x)}
 
 #if GTK_CHECK_VERSION(2,0,0)
@@ -88,6 +86,8 @@ gboolean fd_input_func(GIOChannel *source, GIOCondition condition,
     if (condition & G_IO_OUT)
         select_result(sourcefd, SELECT_W);
 
+    run_toplevel_callbacks();
+
     return true;
 }
 #else
@@ -99,6 +99,8 @@ void fd_input_func(gpointer data, gint sourcefd, GdkInputCondition condition)
         select_result(sourcefd, SELECT_R);
     if (condition & GDK_INPUT_WRITE)
         select_result(sourcefd, SELECT_W);
+
+    run_toplevel_callbacks();
 }
 #endif
 

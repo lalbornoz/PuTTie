@@ -9,6 +9,7 @@
 #include "putty.h"
 #include "mpint.h"
 #include "ssh.h"
+#include "storage.h"
 #include "bpp.h"
 #include "ppl.h"
 #include "channel.h"
@@ -682,7 +683,6 @@ void ssh_ppl_replace(PacketProtocolLayer *old, PacketProtocolLayer *new)
     new->bpp = old->bpp;
     ssh_ppl_setup_queues(new, old->in_pq, old->out_pq);
     new->selfptr = old->selfptr;
-    new->user_input = old->user_input;
     new->seat = old->seat;
     new->ssh = old->ssh;
 
@@ -737,6 +737,19 @@ size_t ssh_ppl_default_queued_data_size(PacketProtocolLayer *ppl)
     return ppl->out_pq->pqb.total_size;
 }
 
+static void ssh_ppl_prompts_callback(void *ctx)
+{
+    ssh_ppl_process_queue((PacketProtocolLayer *)ctx);
+}
+
+prompts_t *ssh_ppl_new_prompts(PacketProtocolLayer *ppl)
+{
+    prompts_t *p = new_prompts();
+    p->callback = ssh_ppl_prompts_callback;
+    p->callback_ctx = ppl;
+    return p;
+}
+
 /* ----------------------------------------------------------------------
  * Common helper functions for clients and implementations of
  * BinaryPacketProtocol.
@@ -786,8 +799,10 @@ void ssh2_bpp_queue_disconnect(BinaryPacketProtocol *bpp,
     pq_push(&bpp->out_pq, pkt);
 }
 
-#define BITMAP_UNIVERSAL(y, name, value)         \
-    | (value >= y && value < y+32 ? 1UL << (value-y) : 0)
+#define BITMAP_UNIVERSAL(y, name, value)                        \
+    | (value >= y && value < y+32                               \
+       ? 1UL << (value >= y && value < y+32 ? (value-y) : 0)    \
+       : 0)
 #define BITMAP_CONDITIONAL(y, name, value, ctx) \
     BITMAP_UNIVERSAL(y, name, value)
 #define SSH2_BITMAP_WORD(y) \
@@ -823,58 +838,91 @@ bool ssh2_bpp_check_unimplemented(BinaryPacketProtocol *bpp, PktIn *pktin)
 #undef SSH1_BITMAP_WORD
 
 /* ----------------------------------------------------------------------
- * Function to check a host key against any manually configured in Conf.
+ * Centralised component of SSH host key verification.
+ *
+ * verify_ssh_host_key is called from both the SSH-1 and SSH-2
+ * transport layers, and does the initial work of checking whether the
+ * host key is already known. If so, it returns success on its own
+ * account; otherwise, it calls out to the Seat to give an interactive
+ * prompt (the nature of which varies depending on the Seat itself).
  */
 
-int verify_ssh_manual_host_key(Conf *conf, char **fingerprints, ssh_key *key)
+SeatPromptResult verify_ssh_host_key(
+    InteractionReadySeat iseat, Conf *conf, const char *host, int port,
+    ssh_key *key, const char *keytype, char *keystr, const char *keydisp,
+    char **fingerprints, void (*callback)(void *ctx, SeatPromptResult result),
+    void *ctx)
 {
-    if (!conf_get_str_nthstrkey(conf, CONF_ssh_manual_hostkeys, 0))
-        return -1;                     /* no manual keys configured */
+    /*
+     * First, check if the Conf includes a manual specification of the
+     * expected host key. If so, that completely supersedes everything
+     * else, including the normal host key cache _and_ including
+     * manual overrides: we return success or failure immediately,
+     * entirely based on whether the key matches the Conf.
+     */
+    if (conf_get_str_nthstrkey(conf, CONF_ssh_manual_hostkeys, 0)) {
+        if (fingerprints) {
+            for (size_t i = 0; i < SSH_N_FPTYPES; i++) {
+                /*
+                 * Each fingerprint string we've been given will have
+                 * things like 'ssh-rsa 2048' at the front of it. Strip
+                 * those off and narrow down to just the hash at the end
+                 * of the string.
+                 */
+                const char *fingerprint = fingerprints[i];
+                if (!fingerprint)
+                    continue;
+                const char *p = strrchr(fingerprint, ' ');
+                fingerprint = p ? p+1 : fingerprint;
+                if (conf_get_str_str_opt(conf, CONF_ssh_manual_hostkeys,
+                                         fingerprint))
+                    return SPR_OK;
+            }
+        }
 
-    if (fingerprints) {
-        for (size_t i = 0; i < SSH_N_FPTYPES; i++) {
+        if (key) {
             /*
-             * Each fingerprint string we've been given will have
-             * things like 'ssh-rsa 2048' at the front of it. Strip
-             * those off and narrow down to just the hash at the end
-             * of the string.
+             * Construct the base64-encoded public key blob and see if
+             * that's listed.
              */
-            const char *fingerprint = fingerprints[i];
-            if (!fingerprint)
-                continue;
-            const char *p = strrchr(fingerprint, ' ');
-            fingerprint = p ? p+1 : fingerprint;
+            strbuf *binblob;
+            char *base64blob;
+            int atoms, i;
+            binblob = strbuf_new();
+            ssh_key_public_blob(key, BinarySink_UPCAST(binblob));
+            atoms = (binblob->len + 2) / 3;
+            base64blob = snewn(atoms * 4 + 1, char);
+            for (i = 0; i < atoms; i++)
+                base64_encode_atom(binblob->u + 3*i,
+                                   binblob->len - 3*i, base64blob + 4*i);
+            base64blob[atoms * 4] = '\0';
+            strbuf_free(binblob);
             if (conf_get_str_str_opt(conf, CONF_ssh_manual_hostkeys,
-                                     fingerprint))
-                return 1;                  /* success */
-        }
-    }
-
-    if (key) {
-        /*
-         * Construct the base64-encoded public key blob and see if
-         * that's listed.
-         */
-        strbuf *binblob;
-        char *base64blob;
-        int atoms, i;
-        binblob = strbuf_new();
-        ssh_key_public_blob(key, BinarySink_UPCAST(binblob));
-        atoms = (binblob->len + 2) / 3;
-        base64blob = snewn(atoms * 4 + 1, char);
-        for (i = 0; i < atoms; i++)
-            base64_encode_atom(binblob->u + 3*i,
-                               binblob->len - 3*i, base64blob + 4*i);
-        base64blob[atoms * 4] = '\0';
-        strbuf_free(binblob);
-        if (conf_get_str_str_opt(conf, CONF_ssh_manual_hostkeys, base64blob)) {
+                                     base64blob)) {
+                sfree(base64blob);
+                return SPR_OK;
+            }
             sfree(base64blob);
-            return 1;                  /* success */
         }
-        sfree(base64blob);
+
+        return SPR_SW_ABORT("Host key not in manually configured list");
     }
 
-    return 0;
+    /*
+     * Next, check the host key cache.
+     */
+    int storage_status = check_stored_host_key(host, port, keytype, keystr);
+    if (storage_status == 0) /* matching key was found in the cache */
+        return SPR_OK;
+
+    /*
+     * The key is either missing from the cache, or does not match.
+     * Either way, fall back to an interactive prompt from the Seat.
+     */
+    bool mismatch = (storage_status != 1);
+    return seat_confirm_ssh_host_key(
+        iseat, host, port, keytype, keystr, keydisp, fingerprints, mismatch,
+        callback, ctx);
 }
 
 /* ----------------------------------------------------------------------
@@ -943,4 +991,23 @@ void ssh1_compute_session_id(
         put_byte(hash, mp_get_byte(servkey->modulus, i));
     put_data(hash, cookie, 8);
     ssh_hash_final(hash, session_id);
+}
+
+/* ----------------------------------------------------------------------
+ * Wrapper function to handle the abort-connection modes of a
+ * SeatPromptResult without a lot of verbiage at every call site.
+ *
+ * Can become ssh_sw_abort or ssh_user_close, depending on the kind of
+ * negative SeatPromptResult.
+ */
+void ssh_spr_close(Ssh *ssh, SeatPromptResult spr, const char *context)
+{
+    if (spr.kind == SPRK_USER_ABORT) {
+        ssh_user_close(ssh, "User aborted at %s", context);
+    } else {
+        assert(spr.kind == SPRK_SW_ABORT);
+        char *err = spr_get_error_message(spr);
+        ssh_sw_abort(ssh, "%s", err);
+        sfree(err);
+    }
 }

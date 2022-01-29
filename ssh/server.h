@@ -21,7 +21,6 @@ struct SshServerConfig {
 
     bool stunt_pretend_to_accept_any_pubkey;
     bool stunt_open_unconditional_agent_socket;
-    bool stunt_allow_none_auth;
     bool stunt_allow_trivial_ki_auth;
     bool stunt_return_success_to_pubkey_offer;
 };
@@ -138,7 +137,7 @@ int platform_make_x11_server(Plug *plug, const char *progname, int mindisp,
 
 Conf *make_ssh_server_conf(void);
 
-/* Provided by Unix front end programs to uxsftpserver.c */
+/* Provided by Unix front end programs to unix/sftpserver.c */
 void make_unix_sftp_filehandle_key(void *data, size_t size);
 
 typedef struct agentfwd agentfwd;

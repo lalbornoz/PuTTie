@@ -1,7 +1,10 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 add_sources_from_current_dir(utils
+  utils/agent_mutex_name.c
+  utils/agent_named_pipe_name.c
   utils/arm_arch_queries.c
+  utils/aux_match_opt.c
   utils/cryptoapi.c
   utils/defaults.c
   utils/dll_hijacking_protection.c
@@ -12,10 +15,12 @@ add_sources_from_current_dir(utils
   utils/getdlgitemtext_alloc.c
   utils/get_system_dir.c
   utils/get_username.c
+  utils/interprocess_mutex.c
   utils/is_console_handle.c
   utils/load_system32_dll.c
   utils/ltime.c
   utils/makedlgitemborderless.c
+  utils/make_spr_sw_abort_winerror.c
   utils/message_box.c
   utils/minefield.c
   utils/open_for_write_would_lose_data.c
@@ -92,6 +97,7 @@ add_executable(putty
   window.c
   putty.c
   help.c
+<<<<<<< HEAD
   ${CMAKE_SOURCE_DIR}/be_all_s.c
   putty.rc
   ../FySTY/winfrip.c
@@ -102,6 +108,10 @@ add_executable(putty
   ../FySTY/winfrip_pcre2.c
   ../FySTY/winfrip_transp.c
   ../FySTY/winfrip_urls.c)
+=======
+  putty.rc)
+be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
+>>>>>>> 7143e3612c568b54c07eac1b529fa2c9ea70b174
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
   guiterminal guimisc eventloop sshclient otherbackends settings network crypto
@@ -118,6 +128,7 @@ add_executable(puttytel
   window.c
   putty.c
   help.c
+<<<<<<< HEAD
   ${CMAKE_SOURCE_DIR}/be_nos_s.c
   ${CMAKE_SOURCE_DIR}/nogss.c
   ${CMAKE_SOURCE_DIR}/norand.c
@@ -132,6 +143,14 @@ add_executable(puttytel
   ../FySTY/winfrip_pcre2.c
   ../FySTY/winfrip_transp.c
   ../FySTY/winfrip_urls.c)
+=======
+  ${CMAKE_SOURCE_DIR}/stubs/nogss.c
+  ${CMAKE_SOURCE_DIR}/stubs/norand.c
+  ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
+  ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
+  puttytel.rc)
+be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
+>>>>>>> 7143e3612c568b54c07eac1b529fa2c9ea70b174
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel
   guiterminal guimisc eventloop otherbackends settings network utils
@@ -145,7 +164,7 @@ installed_program(puttytel)
 
 add_executable(puttygen
   puttygen.c
-  ${CMAKE_SOURCE_DIR}/notiming.c
+  ${CMAKE_SOURCE_DIR}/stubs/notiming.c
   noise.c
   no-jump-list.c
   storage.c
@@ -170,11 +189,11 @@ if(HAVE_CONPTY)
     pterm.c
     help.c
     conpty.c
-    be_conpty.c
-    ${CMAKE_SOURCE_DIR}/nogss.c
-    ${CMAKE_SOURCE_DIR}/norand.c
-    ${CMAKE_SOURCE_DIR}/nosshproxy.c
+    ${CMAKE_SOURCE_DIR}/stubs/nogss.c
+    ${CMAKE_SOURCE_DIR}/stubs/norand.c
+    ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
     pterm.rc)
+  be_list(pterm pterm)
   add_dependencies(pterm generated_licence_h)
   target_link_libraries(pterm
     guiterminal guimisc eventloop settings network utils

@@ -299,9 +299,15 @@ struct ConnectionLayerVtable {
      * subsequent channel-opens). */
     void (*enable_x_fwd)(ConnectionLayer *cl);
 
-    /* Communicate to the connection layer whether the main session
-     * channel currently wants user input. */
+    /* Communicate / query whether the main session channel currently
+     * wants user input. The set function is called by mainchan; the
+     * query function is called by the top-level ssh.c. */
     void (*set_wants_user_input)(ConnectionLayer *cl, bool wanted);
+    bool (*get_wants_user_input)(ConnectionLayer *cl);
+
+    /* Notify the connection layer that more data has been added to
+     * the user input queue. */
+    void (*got_user_input)(ConnectionLayer *cl);
 };
 
 struct ConnectionLayer {
@@ -371,6 +377,10 @@ static inline void ssh_enable_x_fwd(ConnectionLayer *cl)
 { cl->vt->enable_x_fwd(cl); }
 static inline void ssh_set_wants_user_input(ConnectionLayer *cl, bool wanted)
 { cl->vt->set_wants_user_input(cl, wanted); }
+static inline bool ssh_get_wants_user_input(ConnectionLayer *cl)
+{ return cl->vt->get_wants_user_input(cl); }
+static inline void ssh_got_user_input(ConnectionLayer *cl)
+{ cl->vt->got_user_input(cl); }
 
 /* Exports from portfwd.c */
 PortFwdManager *portfwdmgr_new(ConnectionLayer *cl);
@@ -397,6 +407,7 @@ LogContext *ssh_get_logctx(Ssh *ssh);
 void ssh_throttle_conn(Ssh *ssh, int adjust);
 void ssh_got_exitcode(Ssh *ssh, int status);
 void ssh_ldisc_update(Ssh *ssh);
+void ssh_check_sendok(Ssh *ssh);
 void ssh_got_fallback_cmd(Ssh *ssh);
 bool ssh_is_bare(Ssh *ssh);
 
@@ -412,6 +423,7 @@ void ssh_proto_error(Ssh *ssh, const char *fmt, ...) PRINTF_LIKE(2, 3);
 void ssh_sw_abort(Ssh *ssh, const char *fmt, ...) PRINTF_LIKE(2, 3);
 void ssh_sw_abort_deferred(Ssh *ssh, const char *fmt, ...) PRINTF_LIKE(2, 3);
 void ssh_user_close(Ssh *ssh, const char *fmt, ...) PRINTF_LIKE(2, 3);
+void ssh_spr_close(Ssh *ssh, SeatPromptResult spr, const char *context);
 
 /* Bit positions in the SSH-1 cipher protocol word */
 #define SSH1_CIPHER_IDEA        1
@@ -723,7 +735,7 @@ static inline const char *ssh2_mac_text_name(ssh2_mac *m)
 static inline const ssh2_macalg *ssh2_mac_alg(ssh2_mac *m)
 { return m->vt; }
 
-/* Centralised 'methods' for ssh2_mac, defined in sshmac.c. These run
+/* Centralised 'methods' for ssh2_mac, defined in mac.c. These run
  * the MAC in a specifically SSH-2 style, i.e. taking account of a
  * packet sequence number as well as the data to be authenticated. */
 bool ssh2_mac_verresult(ssh2_mac *, const void *);
@@ -1012,6 +1024,9 @@ extern const ssh_hashalg ssh_blake2b;
 extern const ssh_kexes ssh_diffiehellman_group1;
 extern const ssh_kexes ssh_diffiehellman_group14;
 extern const ssh_kexes ssh_diffiehellman_gex;
+extern const ssh_kex ssh_diffiehellman_group1_sha1;
+extern const ssh_kex ssh_diffiehellman_group14_sha256;
+extern const ssh_kex ssh_diffiehellman_group14_sha1;
 extern const ssh_kexes ssh_gssk5_sha1_kex;
 extern const ssh_kexes ssh_rsa_kex;
 extern const ssh_kex ssh_ec_kex_curve25519;
@@ -1060,13 +1075,13 @@ extern const char sshver[];
 
 /*
  * Gross hack: pscp will try to start SFTP but fall back to scp1 if
- * that fails. This variable is the means by which scp.c can reach
+ * that fails. This variable is the means by which pscp.c can reach
  * into the SSH code and find out which one it got.
  */
 extern bool ssh_fallback_cmd(Backend *backend);
 
 /*
- * The PRNG type, defined in sshprng.c. Visible data fields are
+ * The PRNG type, defined in prng.c. Visible data fields are
  * 'savesize', which suggests how many random bytes you should request
  * from a particular PRNG instance to write to putty.rnd, and a
  * BinarySink implementation which you can use to write seed data in
@@ -1075,7 +1090,7 @@ extern bool ssh_fallback_cmd(Backend *backend);
 struct prng {
     size_t savesize;
     BinarySink_IMPLEMENTATION;
-    /* (also there's a surrounding implementation struct in sshprng.c) */
+    /* (also there's a surrounding implementation struct in prng.c) */
 };
 prng *prng_new(const ssh_hashalg *hashalg);
 void prng_free(prng *p);
@@ -1146,10 +1161,6 @@ struct X11FakeAuth {
     ssh_sharing_connstate *share_cs;
     share_channel *share_chan;
 };
-void *x11_make_greeting(int endian, int protomajor, int protominor,
-                        int auth_proto, const void *auth_data, int auth_len,
-                        const char *peer_ip, int peer_port,
-                        int *outlen);
 int x11_authcmp(void *av, void *bv); /* for putting X11FakeAuth in a tree234 */
 /*
  * x11_setup_display() parses the display variable and fills in an
@@ -1179,7 +1190,7 @@ SockAddr *platform_get_x11_unix_address(const char *path, int displaynum);
     /* make up a SockAddr naming the address for displaynum */
 char *platform_get_x_display(void);
     /* allocated local X display string, if any */
-/* Callbacks in x11.c usable _by_ platform X11 functions */
+/* X11-related helper functions in utils */
 /*
  * This function does the job of platform_get_x11_auth, provided
  * it is told where to find a normally formatted .Xauthority file:
@@ -1198,6 +1209,10 @@ void x11_get_auth_from_authfile(struct X11Display *display,
 void x11_format_auth_for_authfile(
     BinarySink *bs, SockAddr *addr, int display_no,
     ptrlen authproto, ptrlen authdata);
+void *x11_make_greeting(int endian, int protomajor, int protominor,
+                        int auth_proto, const void *auth_data, int auth_len,
+                        const char *peer_ip, int peer_port,
+                        int *outlen);
 int x11_identify_auth_proto(ptrlen protoname);
 void *x11_dehexify(ptrlen hex, int *outlen);
 bool x11_parse_ip(const char *addr_string, unsigned long *ip);
@@ -1209,7 +1224,7 @@ dh_ctx *dh_setup_group(const ssh_kex *kex);
 dh_ctx *dh_setup_gex(mp_int *pval, mp_int *gval);
 int dh_modulus_bit_size(const dh_ctx *ctx);
 void dh_cleanup(dh_ctx *);
-mp_int *dh_create_e(dh_ctx *, int nbits);
+mp_int *dh_create_e(dh_ctx *);
 const char *dh_validate_f(dh_ctx *, mp_int *f);
 mp_int *dh_find_K(dh_ctx *, mp_int *f);
 
@@ -1399,8 +1414,7 @@ void aes256_decrypt_pubkey(const void *key, const void *iv,
 void des_encrypt_xdmauth(const void *key, void *blk, int len);
 void des_decrypt_xdmauth(const void *key, void *blk, int len);
 
-void openssh_bcrypt(const char *passphrase,
-                    const unsigned char *salt, int saltbytes,
+void openssh_bcrypt(ptrlen passphrase, ptrlen salt,
                     int rounds, unsigned char *out, int outbytes);
 
 /*
@@ -1696,7 +1710,11 @@ unsigned alloc_channel_id_general(tree234 *channels, size_t localid_offset);
 void add_to_commasep(strbuf *buf, const char *data);
 bool get_commasep_word(ptrlen *list, ptrlen *word);
 
-int verify_ssh_manual_host_key(Conf *conf, char **fingerprints, ssh_key *key);
+SeatPromptResult verify_ssh_host_key(
+    InteractionReadySeat iseat, Conf *conf, const char *host, int port,
+    ssh_key *key, const char *keytype, char *keystr, const char *keydisp,
+    char **fingerprints, void (*callback)(void *ctx, SeatPromptResult result),
+    void *ctx);
 
 typedef struct ssh_transient_hostkey_cache ssh_transient_hostkey_cache;
 ssh_transient_hostkey_cache *ssh_transient_hostkey_cache_new(void);
