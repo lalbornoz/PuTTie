@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2018, 2019, 2020, 2021 Lucio Andrés Illanes Albornoz <lucio@lucioillanes.de>
+# Copyright (c) 2018, 2019, 2020, 2021 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
 #
 
 # {{{ build_clean($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)

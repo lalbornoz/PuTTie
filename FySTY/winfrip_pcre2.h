@@ -1,6 +1,6 @@
 /*
  * winfrip_pcre2.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018 Lucio Andrés Illanes Albornoz <lucio@lucioillanes.de>
+ * Copyright (c) 2018 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_PCRE2_H

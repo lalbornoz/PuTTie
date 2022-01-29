@@ -1,6 +1,6 @@
 /*
  * winfrip_storage_wrap.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2021 Lucio Andrés Illanes Albornoz <lucio@lucioillanes.de>
+ * Copyright (c) 2018, 2021 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_STORAGE_WRAP_H
