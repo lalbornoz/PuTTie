@@ -152,6 +152,10 @@ build() {
 	esac; done; shift $((${OPTIND}-1));
 	_install_dname="FySTY-${_build_type}-$(git rev-parse --short HEAD)";
 
+	if [ "$(uname -o 2>/dev/null)" = "Cygwin" ]; then
+		export CMAKE="/usr/bin/cmake";
+	fi;
+
 	build_clean "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
 	build_configure "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
 	build_make "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
