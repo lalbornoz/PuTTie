@@ -124,7 +124,7 @@ FontSpec *read_setting_fontspec(settings_r *handle, const char *key)
 
 void close_settings_r(settings_r *handle)
 {
-    close_settings_r(handle);
+    close_settings_r_PuTTY(handle);
 }
 
 /*
