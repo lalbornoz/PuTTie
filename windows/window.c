@@ -115,7 +115,12 @@ static void process_clipdata(HGLOBAL clipdata, bool unicode);
 static void setup_clipboards(Terminal *, Conf *);
 
 /* Window layout information */
+/* {{{ winfrip */
+void reset_window(int);
+/* winfrip }}} */
+#if 0
 static void reset_window(int);
+#endif
 static int extra_width, extra_height;
 static int font_width, font_height;
 static bool font_dualwidth, font_varpitch;
@@ -1709,7 +1714,12 @@ static void recompute_window_offset(void)
     }
 }
 
+/* {{{ winfrip */
+void reset_window(int reinit) {
+/* winfrip }}} */
+#if 0
 static void reset_window(int reinit) {
+#endif
     /*
      * This function decides how to resize or redraw when the
      * user changes something.
