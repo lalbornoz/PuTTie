@@ -67,7 +67,17 @@ void interactor_return_seat(Interactor *itr)
      * same state as if the seat had never been borrowed, i.e. in the
      * starting trust state.
      */
-    seat_set_trust_status(realseat, true);
+    /*
+     * N.B.	As the starting trust state isn't actually tracked and
+     *		in some cases, incorrectly, assumed to be true invariably,
+     *		assume the much more likely to be correct false instead.
+     *
+     *		This fixes screen corruption w/ local proxies where the
+     *		trust sigil is incorrectly prefixed to every line.
+     *
+     *			-- Lucía Andrea Illanes Albornoz
+     */
+    seat_set_trust_status(realseat, false);
 }
 
 InteractionReadySeat interactor_announce(Interactor *itr)
