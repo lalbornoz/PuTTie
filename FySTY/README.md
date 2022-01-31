@@ -19,68 +19,24 @@ likely to succumb to the inevitability of bit rot and loss of maintainers.
 Still not convinced? Here are five (5) *extremely convincing* reasons why
 you should use FySTY:  
   
-1. It may or may not cause Simon Tatham to say things like "frippery" again.
+1. It's really cute!
 
-2. If you do not use FySTY, **I will FUCKING MURDER YOU.**
-   (peacefully, of course.)
+2. It can totally dance the Melbourne shuffle!
 
-3. FySTY has been scientifically proven to end climate change, heal minor
-   cuts and abrasions, cure Vitamine D deficiency, prolong life indefinitely,
-   cause climate change, usher in an era of eternal bliss and merriment beyond
-   belief, and exhaustively explicate the wider purpose of Boris Johnson.
-   Also, kade likes FySTY:  
+3. kade likes FySTY:  
    ![kade likes FySTY!](https://github.com/lalbornoz/FySTY/raw/master/FySTY/kade_FySTY_endorsement.png "kade likes FySTY!")
 
-4. By leveraging the groundbreaking *This Is All Made Up (TIAMU)* methodology,
-   bla bli **Cryptocurrencies** ble blu **Agile** bli **Deep AI** bla
-   **Blockchain** blö **ANN** blü bli **Cloud-Based** ble **Cybercrimes**
-   bli blø **Kamelåså**:  
-  
-   |                                  | FySTY                | PuTTY              |
-   |----------------------------------|----------------------|--------------------|
-   | Scalability                      | infinite             | huh?               |
-   | Total Cost of Ownership          | -infinity            | wa?                |
-   | Security track record            | IMPENETRABLE CASTLE  | HELP               |
-   | Simon Tatham involvement         | NEIN                 | i want to die :(   |
-   | Amortised molecular weight at 0K | 2.176434(24)×10−8 kg | er..               |
-   | Environmental cost               | -infinity            | where am i?        |
-   | Wingspan at cruising speed       | 22-34mm              | help im trapped ple|
-   | Cluck cluck, cluMEOW ROAAHHHHHHHH| [x]                  | [ ]                |
+4. It's really really cute!
 
-5. The following people/deities have found FySTY to have been critical to
-   their immeasurable contributions to mankind in general:  
-  
-   kade, Brigadier-Sergeant Corporal Erran Morad, nadia, Tupac Shakur, Rainer
-   Maria Rilke, Big L, Michael Ende, Taktlo$$, Omar Souleyman, King Kool Savas,
-   Adolf Nətanyāhū, Christian J. Kiewiet, David N. Cutler Sr., Naftālī
-   Heydrich, Usāmah b. Muḥammad b. Awaḍ bin Lādin, Angela Dornimarsch
-   Stalin, Recep Tayyip Goatfucker, Kāẓim Finjān al-Ḥammāmi, Aḥmad
-   al-Asīr, James Thomas "Baby Huey" Ramey, Federico García Lorca, Miguel
-   de Unamuno y Jugo, Fyodor Dostoevsky, Immanuel Kant, Ivan the Terrible,
-   Geoffrey Chaucer, the bloke what made Sir Gawain and the Green Knight
-   but he said I'm not supposed to share his name, Moses Šem-Ṭо̄v de
-   León, Šəlо̄mо̄ b. Yəhūḏā b. Gābīrо̄l, Abū Muḥammad
-   ʿAlī b. Ḥazm, Abū Ḥāmid al-Ġazālī, Abū al-Ṭayyib Aḥmad
-   al-Mutanabbī, ʿubādah al-Qazzāz, Abū ʿUthman ʿAmr al-Jāḥiẓ of
-   Baṣrah, ʿAbd al-Malik al-Aṣmaʿī, Heraclitus of Ephesos, Parmenides
-   of Elea, Ecclesiastes, none of the Biblical Patriarchs because most
-   of them either never existed anyway and/or were appropriated from old
-   Mesopotamia for the purposes of ramming divine sovereignty of a lower
-   Canaanite deity down everyone's throats, Sīn-lēq-unnínni, Mursili I,
-   despite his anger issues, Šubši-mašrā-šakkan, bonus points for having
-   a badass name, ʿammu Rāpī the Amorite, utilising the ST100 ancestor
-   of the VT100, Šarrukīn I of Akkad, all of the Anunnaki except for Inanna-Ištar
-   because she's an arsehole, and also except for Ellil because he doesn't
-   know how to be nice to people, and Gudea of Lagaš.  
-  
-   **Don't you want to be like them?** (except for Inanna-Ištar because she's an arsehole)
+5. It stabilises your Estradiol and Progesterone levels and prevents PMS!
 
 ## Screenshot
 ![Screenshot](https://github.com/lalbornoz/FySTY/raw/master/FySTY/FySTY.png "Screenshot")
 
 ## List of newly introduced features
 1. **Background {BMP,EMF,GIF,ICO,JPEG,PNG,TIFF,WMF}[[10](#r10)] images**, similarly to[[6](#r6)]  
-   Absolute positioning, centered, scaled, or tiled, with configurable opacity
+   Absolute positioning, centered, scaled, or tiled, with configurable opacity  
+   Melbourne shuffle slideshow with configurable frequency
 2. **Transparency**, similarly to the mintty[[7](#r7)] implementation  
    Optionally in conjunction with background images, configurable opacity on {focus,focus loss} behaviour
 3. **Clickable URLs**, similarly to the mintty[[7](#r7)] implementation  
@@ -132,7 +88,7 @@ usage: ./FySTY/build.sh [-c] [-d] [-h] [-i] [-j jobs] [-R] [[--] cmake args...]
 5. **New feature**: ephemeral configuration store backend  
    Selectable w/ command-line option in plink, pscp, psftp, puttygen, PuTTY & PuTTYtel
 6. **New feature**: store configuration in disk file[[1](#r1)], similarly to[[11](#r11)]
-7. **New feature**: clickabe URLs spanning >1 line(s)
+7. **New feature**: clickable URLs spanning >1 line(s)
 
 ## Pull requests policy
 Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn,
