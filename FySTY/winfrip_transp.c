@@ -152,13 +152,11 @@ void winfrip_transp_op(WinFripTranspOp op, Conf *conf, HWND hwnd)
 	    WINFRIPP_DEBUG_FAIL(); return;
 	case WINFRIPP_TRANSP_OPAQUE_FOCUS_KILL:
 	    ex_style = GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED;
-	    WINFRIPP_DEBUG_ASSERT(ex_style > 0);
 	    opacity = 255;
 	    break;
 	case WINFRIPP_TRANSP_OPAQUE_NEVER:
 	case WINFRIPP_TRANSP_OPAQUE_FOCUS_SET:
 	    ex_style = GetWindowLongPtr(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED;
-	    WINFRIPP_DEBUG_ASSERT(ex_style > 0);
 	    break;
 	}
 	break;
@@ -168,13 +166,11 @@ void winfrip_transp_op(WinFripTranspOp op, Conf *conf, HWND hwnd)
 	    WINFRIPP_DEBUG_FAIL(); return;
 	case WINFRIPP_TRANSP_OPAQUE_FOCUS_SET:
 	    ex_style = GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED;
-	    WINFRIPP_DEBUG_ASSERT(ex_style > 0);
 	    opacity = 255;
 	    break;
 	case WINFRIPP_TRANSP_OPAQUE_NEVER:
 	case WINFRIPP_TRANSP_OPAQUE_FOCUS_KILL:
 	    ex_style = GetWindowLongPtr(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED;
-	    WINFRIPP_DEBUG_ASSERT(ex_style > 0);
 	    break;
 	}
 	break;
