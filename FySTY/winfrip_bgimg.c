@@ -5,6 +5,7 @@
 
 #include "putty.h"
 #include "dialog.h"
+#include "windows/win-gui-seat.h"
 #include "FySTY/winfrip.h"
 #include "FySTY/winfrip_priv.h"
 
@@ -40,7 +41,14 @@ typedef struct WinfrippBgimgContext_s {
 } WinfrippBgimgContext;
 
 /*
- * {External,Static} variables
+ * External variables
+ */
+
+/* window.c */
+extern WinGuiSeat wgs;
+
+/*
+ * Private variables
  */
 
 static char *winfripp_bgimg_dname = NULL;
@@ -71,14 +79,15 @@ static void winfripp_bgimg_config_panel_slideshow(union control *ctrl, dlgparam 
 static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg, void *data, int event);
 static void winfripp_bgimg_config_panel_type(union control *ctrl, dlgparam *dlg, void *data, int event);
 
-static void winfripp_bgimg_reconf_slideshow(Conf *conf);
-
 static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **pbg_bmp_fname_w, BOOL *pbg_bmpfl);
 static BOOL winfripp_bgimg_set_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
 static BOOL winfripp_bgimg_set_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
 static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, Conf *conf, HDC hdc);
 static BOOL winfripp_bgimg_set_process_blend(HDC bg_hdc, int bg_height, int bg_width, Conf *conf);
 static BOOL winfripp_bgimg_set(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle);
+
+static void winfripp_bgimg_slideshow_reconf(Conf *conf);
+static BOOL winfripp_bgimg_slideshow_shuffle(Conf *conf);
 
 static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now);
 
@@ -192,7 +201,7 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 {
     char *bg_fname = NULL;
     Filename *bg_fname_conf;
-    size_t bg_fname_idx, bg_fname_len;
+    size_t bg_fname_len;
 
     BOOL rc;
 
@@ -211,34 +220,12 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 
     case WINFRIPP_BGIMG_SLIDESHOW_SHUFFLE:
 	if (reshuffle || !winfripp_bgimg_fname) {
-	    if ((winfripp_bgimg_dname_filec > 0) && (winfripp_bgimg_dname_filev != NULL)) {
-		srand((unsigned)time(NULL));
-		bg_fname_idx = (rand() % winfripp_bgimg_dname_filec);
-		bg_fname_len = strlen(winfripp_bgimg_dname_filev[bg_fname_idx] ? winfripp_bgimg_dname_filev[bg_fname_idx] : "");
-
-		if ((winfripp_bgimg_dname_len == 0) || (winfripp_bgimg_dname_filev[bg_fname_idx] == NULL) || (bg_fname_len == 0)) {
-		    WINFRIPP_DEBUG_FAIL();
-		    return FALSE;
-		} else if (!(bg_fname = snewn(winfripp_bgimg_dname_len + 1 + bg_fname_len + 1, char))) {
-		    WINFRIPP_DEBUG_FAIL();
-		    return FALSE;
-		} else {
-		    snprintf(bg_fname, winfripp_bgimg_dname_len + 1 + bg_fname_len + 1, "%*.*s\\%s",
-			     winfripp_bgimg_dname_len, winfripp_bgimg_dname_len, winfripp_bgimg_dname,
-			     winfripp_bgimg_dname_filev[bg_fname_idx]);
-
-		    if (winfripp_bgimg_fname) {
-			sfree(winfripp_bgimg_fname);
-		    }
-		    winfripp_bgimg_fname = dupstr(bg_fname);
-		}
-	    } else {
+	    if (!winfripp_bgimg_slideshow_shuffle(conf)) {
 		WINFRIPP_DEBUG_FAIL();
 		return FALSE;
 	    }
-	} else {
-	    bg_fname = winfripp_bgimg_fname;
 	}
+	bg_fname = winfripp_bgimg_fname;
 	break;
     }
 
@@ -265,19 +252,17 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 		}
 		break;
 	    }
-
 	    return rc;
 	}
     }
 
     switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
     case WINFRIPP_BGIMG_SLIDESHOW_SHUFFLE:
-	if (bg_fname) {
+	if (bg_fname && (bg_fname != winfripp_bgimg_fname)) {
 	    sfree(bg_fname);
 	}
 	break;
     }
-
     return FALSE;
 }
 
@@ -635,77 +620,7 @@ static BOOL winfripp_bgimg_set(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle)
     return FALSE;
 }
 
-static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now)
-{
-    WinfrippBgimgContext *context = (WinfrippBgimgContext *)ctx;
-    HDC hDC;
-    HWND hWnd = GetActiveWindow();
-
-    (void)now;
-
-    schedule_timer(conf_get_int(context->conf,
-		   CONF_frip_bgimg_slideshow_freq) * 1000,
-		   winfripp_bgimg_timer_fn, ctx);
-    hDC = GetDC(hWnd);
-    winfripp_bgimg_set(context->conf, hDC, TRUE, TRUE);
-    ReleaseDC(hWnd, hDC);
-    InvalidateRect(hWnd, NULL, TRUE);
-    reset_window(2);
-}
-
-/*
- * Public subroutines private to FySTY/winfrip*.c
- */
-
-void winfripp_bgimg_config_panel(struct controlbox *b)
-{
-    struct controlset *s_bgimg_settings, *s_bgimg_params, *s_slideshow;
-
-    WINFRIPP_DEBUG_ASSERT(b);
-
-    /*
-     * The Frippery: background panel.
-     */
-
-    ctrl_settitle(b, "Frippery/Background", "Configure pointless frippery: background image");
-
-    /*
-     * The Frippery: Background image settings controls box.
-     */
-
-    s_bgimg_settings = ctrl_getset(b, "Frippery/Background", "frip_bgimg_settings", "Background image settings");
-    ctrl_filesel(s_bgimg_settings, "Image file/directory:", 'i',
-		 WINFRIPP_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
-		 P(WINFRIPP_HELP_CTX), conf_filesel_handler, I(CONF_frip_bgimg_filename));
-    ctrl_text(s_bgimg_settings, "In order to select an image directory for slideshows, select "
-				"an arbitrary file inside the directory in question.", P(WINFRIPP_HELP_CTX));
-    ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, P(WINFRIPP_HELP_CTX),
-		  winfripp_bgimg_config_panel_type, P(NULL));
-    ctrl_droplist(s_bgimg_settings, "Style:", 's', 45, P(WINFRIPP_HELP_CTX),
-		  winfripp_bgimg_config_panel_style, P(NULL));
-
-    /*
-     * The Frippery: Background image parameters control box.
-     */
-
-    s_bgimg_params = ctrl_getset(b, "Frippery/Background", "frip_bgimg_params", "Background image parameters");
-    ctrl_editbox(s_bgimg_params, "Opacity (0-100):", 'p', 15, P(WINFRIPP_HELP_CTX),
-		 conf_editbox_handler, I(CONF_frip_bgimg_opacity), I(-1));
-    ctrl_editbox(s_bgimg_params, "Fit padding (0-100):", 'n', 15, P(WINFRIPP_HELP_CTX),
-		 conf_editbox_handler, I(CONF_frip_bgimg_padding), I(-1));
-
-    /*
-     * The Frippery: Slideshow settings control box.
-     */
-
-    s_slideshow = ctrl_getset(b, "Frippery/Background", "frip_bgimg_slideshow", "Slideshow settings");
-    ctrl_droplist(s_slideshow, "Slideshow:", 'd', 45, P(WINFRIPP_HELP_CTX),
-		  winfripp_bgimg_config_panel_slideshow, P(NULL));
-    ctrl_editbox(s_slideshow, "Slideshow frequency (in seconds):", 'f', 20, P(WINFRIPP_HELP_CTX),
-		 conf_editbox_handler, I(CONF_frip_bgimg_slideshow_freq), I(-1));
-}
-
-static void winfripp_bgimg_reconf_slideshow(Conf *conf)
+static void winfripp_bgimg_slideshow_reconf(Conf *conf)
 {
     char *bg_dname;
     Filename *bg_dname_conf;
@@ -860,6 +775,109 @@ fail:
     WINFRIPP_DEBUG_FAIL();
 }
 
+static BOOL winfripp_bgimg_slideshow_shuffle(Conf *conf)
+{
+    char *bg_fname = NULL;
+    size_t bg_fname_idx, bg_fname_len;
+
+
+    if ((winfripp_bgimg_dname_filec > 0) && (winfripp_bgimg_dname_filev != NULL)) {
+	srand((unsigned)time(NULL));
+	bg_fname_idx = (rand() % winfripp_bgimg_dname_filec);
+	bg_fname_len = strlen(winfripp_bgimg_dname_filev[bg_fname_idx] ? winfripp_bgimg_dname_filev[bg_fname_idx] : "");
+
+	if ((winfripp_bgimg_dname_len == 0) || (winfripp_bgimg_dname_filev[bg_fname_idx] == NULL) || (bg_fname_len == 0)) {
+	    WINFRIPP_DEBUG_FAIL();
+	    return FALSE;
+	} else if (!(bg_fname = snewn(winfripp_bgimg_dname_len + 1 + bg_fname_len + 1, char))) {
+	    WINFRIPP_DEBUG_FAIL();
+	    return FALSE;
+	} else {
+	    snprintf(bg_fname, winfripp_bgimg_dname_len + 1 + bg_fname_len + 1, "%*.*s\\%s",
+		     winfripp_bgimg_dname_len, winfripp_bgimg_dname_len, winfripp_bgimg_dname,
+		     winfripp_bgimg_dname_filev[bg_fname_idx]);
+
+	    if (winfripp_bgimg_fname) {
+		sfree(winfripp_bgimg_fname);
+	    }
+	    winfripp_bgimg_fname = dupstr(bg_fname);
+	    return TRUE;
+	}
+    } else {
+	WINFRIPP_DEBUG_FAIL();
+	return FALSE;
+    }
+}
+
+static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now)
+{
+    WinfrippBgimgContext *context = (WinfrippBgimgContext *)ctx;
+    HDC hDC;
+
+    (void)now;
+
+    schedule_timer(conf_get_int(context->conf,
+		   CONF_frip_bgimg_slideshow_freq) * 1000,
+		   winfripp_bgimg_timer_fn, ctx);
+    hDC = GetDC(wgs.term_hwnd);
+    winfripp_bgimg_set(context->conf, hDC, TRUE, TRUE);
+    ReleaseDC(wgs.term_hwnd, hDC);
+    InvalidateRect(wgs.term_hwnd, NULL, TRUE);
+    reset_window(2);
+}
+
+/*
+ * Public subroutines private to FySTY/winfrip*.c
+ */
+
+void winfripp_bgimg_config_panel(struct controlbox *b)
+{
+    struct controlset *s_bgimg_settings, *s_bgimg_params, *s_slideshow;
+
+    WINFRIPP_DEBUG_ASSERT(b);
+
+    /*
+     * The Frippery: background panel.
+     */
+
+    ctrl_settitle(b, "Frippery/Background", "Configure pointless frippery: background image");
+
+    /*
+     * The Frippery: Background image settings controls box.
+     */
+
+    s_bgimg_settings = ctrl_getset(b, "Frippery/Background", "frip_bgimg_settings", "Background image settings");
+    ctrl_filesel(s_bgimg_settings, "Image file/directory:", 'i',
+		 WINFRIPP_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
+		 P(WINFRIPP_HELP_CTX), conf_filesel_handler, I(CONF_frip_bgimg_filename));
+    ctrl_text(s_bgimg_settings, "In order to select an image directory for slideshows, select "
+				"an arbitrary file inside the directory in question.", P(WINFRIPP_HELP_CTX));
+    ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, P(WINFRIPP_HELP_CTX),
+		  winfripp_bgimg_config_panel_type, P(NULL));
+    ctrl_droplist(s_bgimg_settings, "Style:", 's', 45, P(WINFRIPP_HELP_CTX),
+		  winfripp_bgimg_config_panel_style, P(NULL));
+
+    /*
+     * The Frippery: Background image parameters control box.
+     */
+
+    s_bgimg_params = ctrl_getset(b, "Frippery/Background", "frip_bgimg_params", "Background image parameters");
+    ctrl_editbox(s_bgimg_params, "Opacity (0-100):", 'p', 15, P(WINFRIPP_HELP_CTX),
+		 conf_editbox_handler, I(CONF_frip_bgimg_opacity), I(-1));
+    ctrl_editbox(s_bgimg_params, "Fit padding (0-100):", 'n', 15, P(WINFRIPP_HELP_CTX),
+		 conf_editbox_handler, I(CONF_frip_bgimg_padding), I(-1));
+
+    /*
+     * The Frippery: Slideshow settings control box.
+     */
+
+    s_slideshow = ctrl_getset(b, "Frippery/Background", "frip_bgimg_slideshow", "Slideshow settings");
+    ctrl_droplist(s_slideshow, "Slideshow:", 'd', 45, P(WINFRIPP_HELP_CTX),
+		  winfripp_bgimg_config_panel_slideshow, P(NULL));
+    ctrl_editbox(s_slideshow, "Slideshow frequency (in seconds):", 'f', 20, P(WINFRIPP_HELP_CTX),
+		 conf_editbox_handler, I(CONF_frip_bgimg_slideshow_freq), I(-1));
+}
+
 /*
  * Public subroutines
  */
@@ -919,11 +937,11 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 	}
 
     case WINFRIP_BGIMG_OP_INIT:
-	winfripp_bgimg_reconf_slideshow(conf);
+	winfripp_bgimg_slideshow_reconf(conf);
 	break;
 
     case WINFRIP_BGIMG_OP_RECONF:
-	winfripp_bgimg_reconf_slideshow(conf);
+	winfripp_bgimg_slideshow_reconf(conf);
 	if (winfripp_bgimg_set(conf, hdc, TRUE, TRUE)) {
 	    rc = WINFRIP_RETURN_CONTINUE;
 	    goto out;
