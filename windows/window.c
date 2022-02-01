@@ -368,7 +368,12 @@ static const SeatVtable win_seat_vt = {
     .interactive = nullseat_interactive_yes,
     .get_cursor_position = win_seat_get_cursor_position,
 };
+/* {{{ winfrip */
+WinGuiSeat wgs = { .seat.vt = &win_seat_vt,
+/* winfrip }}} */
+#if 0
 static WinGuiSeat wgs = { .seat.vt = &win_seat_vt,
+#endif
                           .logpolicy.vt = &win_gui_logpolicy_vt };
 
 static void start_backend(void)
