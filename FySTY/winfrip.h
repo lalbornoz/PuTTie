@@ -125,8 +125,9 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 
 typedef enum WinFripBgImgOp {
     WINFRIP_BGIMG_OP_DRAW			= 1,
-    WINFRIP_BGIMG_OP_RECONF			= 2,
-    WINFRIP_BGIMG_OP_SIZE			= 3,
+    WINFRIP_BGIMG_OP_INIT			= 2,
+    WINFRIP_BGIMG_OP_RECONF			= 3,
+    WINFRIP_BGIMG_OP_SIZE			= 4,
 } WinFripBgImgOp;
 WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
 

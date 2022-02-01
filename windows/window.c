@@ -2169,6 +2169,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         }
         return 0;
       case WM_CREATE:
+	/* {{{ winfrip */
+	winfrip_bgimg_op(WINFRIP_BGIMG_OP_INIT, NULL, conf,
+			 NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
+	/* winfrip }}} */
         break;
       case WM_CLOSE: {
         char *title, *msg, *additional = NULL;
