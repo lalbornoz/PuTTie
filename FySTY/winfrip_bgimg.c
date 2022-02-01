@@ -68,7 +68,6 @@ void reset_window(int);
  */
 
 static void winfripp_bgimg_config_panel_slideshow(union control *ctrl, dlgparam *dlg, void *data, int event);
-static void winfripp_bgimg_config_panel_slideshow_freq(union control *ctrl, dlgparam *dlg, void *data, int event);
 static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg, void *data, int event);
 static void winfripp_bgimg_config_panel_type(union control *ctrl, dlgparam *dlg, void *data, int event);
 
@@ -114,20 +113,6 @@ static void winfripp_bgimg_config_panel_slideshow(union control *ctrl, dlgparam 
 	conf_set_int(conf, CONF_frip_bgimg_slideshow,
 		     dlg_listbox_getid(ctrl, dlg,
 				       dlg_listbox_index(ctrl, dlg)));
-	winfripp_bgimg_reconf_slideshow(conf);
-	break;
-    }
-}
-
-static void winfripp_bgimg_config_panel_slideshow_freq(union control *ctrl, dlgparam *dlg, void *data, int event)
-{
-    Conf *conf = (Conf *)data;
-
-    conf_editbox_handler(ctrl, dlg, data, event);
-    switch (event) {
-    case EVENT_SELCHANGE:
-    case EVENT_VALCHANGE:
-	winfripp_bgimg_reconf_slideshow(conf);
 	break;
     }
 }
@@ -717,7 +702,7 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
     ctrl_droplist(s_slideshow, "Slideshow:", 'd', 45, P(WINFRIPP_HELP_CTX),
 		  winfripp_bgimg_config_panel_slideshow, P(NULL));
     ctrl_editbox(s_slideshow, "Slideshow frequency (in seconds):", 'f', 20, P(WINFRIPP_HELP_CTX),
-		 winfripp_bgimg_config_panel_slideshow_freq, I(CONF_frip_bgimg_slideshow_freq), I(-1));
+		 conf_editbox_handler, I(CONF_frip_bgimg_slideshow_freq), I(-1));
 }
 
 static void winfripp_bgimg_reconf_slideshow(Conf *conf)
@@ -933,7 +918,12 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 	    goto out;
 	}
 
+    case WINFRIP_BGIMG_OP_INIT:
+	winfripp_bgimg_reconf_slideshow(conf);
+	break;
+
     case WINFRIP_BGIMG_OP_RECONF:
+	winfripp_bgimg_reconf_slideshow(conf);
 	if (winfripp_bgimg_set(conf, hdc, TRUE, TRUE)) {
 	    rc = WINFRIP_RETURN_CONTINUE;
 	    goto out;
