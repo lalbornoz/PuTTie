@@ -30,6 +30,7 @@ void winfrip_config_panel(struct controlbox *b);
 #define WINFRIP_CONFIG_OPTIONS(X)											\
     X(FILENAME, NONE, frip_bgimg_filename)										\
     X(INT, NONE, frip_bgimg_opacity)											\
+    X(INT, NONE, frip_bgimg_padding)											\
     X(INT, NONE, frip_bgimg_slideshow)											\
     X(INT, NONE, frip_bgimg_slideshow_freq)										\
     X(INT, NONE, frip_bgimg_style)											\
@@ -57,6 +58,7 @@ void winfrip_config_panel(struct controlbox *b);
 #define WINFRIP_LOAD_OPEN_SETTINGS(sesskey, conf) do {									\
     gppfile((sesskey), "FripBgImgFile", (conf), CONF_frip_bgimg_filename);						\
     gppi((sesskey), "FripBgImgOpacity", 75, (conf), CONF_frip_bgimg_opacity);						\
+    gppi((sesskey), "FripBgImgPadding", 10, (conf), CONF_frip_bgimg_padding);						\
     gppi((sesskey), "FripBgImgSlideshow", 0, (conf), CONF_frip_bgimg_slideshow);					\
     gppi((sesskey), "FripBgImgSlideshowFreq", 3600, (conf), CONF_frip_bgimg_slideshow_freq);				\
     gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);						\
@@ -83,6 +85,7 @@ void winfrip_config_panel(struct controlbox *b);
 #define WINFRIP_SAVE_OPEN_SETTINGS(sesskey, conf) do {									\
     write_setting_filename((sesskey), "FripBgImgFile", conf_get_filename((conf), CONF_frip_bgimg_filename));		\
     write_setting_i((sesskey), "FripBgImgOpacity", conf_get_int((conf), CONF_frip_bgimg_opacity));			\
+    write_setting_i((sesskey), "FripBgImgPadding", conf_get_int((conf), CONF_frip_bgimg_padding));			\
     write_setting_i((sesskey), "FripBgImgSlideshow", conf_get_int((conf), CONF_frip_bgimg_slideshow));			\
     write_setting_i((sesskey), "FripBgImgSlideshowFreq", conf_get_int((conf), CONF_frip_bgimg_slideshow_freq));		\
     write_setting_i((sesskey), "FripBgImgStyle", conf_get_int((conf), CONF_frip_bgimg_style));				\

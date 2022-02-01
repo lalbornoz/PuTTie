@@ -142,6 +142,7 @@ static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg
 	dlg_listbox_clear(ctrl, dlg);
 	dlg_listbox_addwithid(ctrl, dlg, "Absolute", WINFRIPP_BGIMG_STYLE_ABSOLUTE);
 	dlg_listbox_addwithid(ctrl, dlg, "Center", WINFRIPP_BGIMG_STYLE_CENTER);
+	dlg_listbox_addwithid(ctrl, dlg, "Fit", WINFRIPP_BGIMG_STYLE_FIT);
 	dlg_listbox_addwithid(ctrl, dlg, "Stretch", WINFRIPP_BGIMG_STYLE_STRETCH);
 	dlg_listbox_addwithid(ctrl, dlg, "Tile", WINFRIPP_BGIMG_STYLE_TILE);
 
@@ -150,10 +151,12 @@ static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg
 	    dlg_listbox_select(ctrl, dlg, 0); break;
 	case WINFRIPP_BGIMG_STYLE_CENTER:
 	    dlg_listbox_select(ctrl, dlg, 1); break;
-	case WINFRIPP_BGIMG_STYLE_STRETCH:
+	case WINFRIPP_BGIMG_STYLE_FIT:
 	    dlg_listbox_select(ctrl, dlg, 2); break;
-	case WINFRIPP_BGIMG_STYLE_TILE:
+	case WINFRIPP_BGIMG_STYLE_STRETCH:
 	    dlg_listbox_select(ctrl, dlg, 3); break;
+	case WINFRIPP_BGIMG_STYLE_TILE:
+	    dlg_listbox_select(ctrl, dlg, 4); break;
 	default:
 	    WINFRIPP_DEBUG_FAIL(); break;
 	}
@@ -392,16 +395,26 @@ static BOOL winfripp_bgimg_set_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
 
 static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, Conf *conf, HDC hdc)
 {
-    int bgimg_style;
     HBRUSH bg_brush;
     int bg_hdc_sb_mode;
     RECT bg_rect, cr;
+    int bgimg_style;
+
     int bmp_offset_x, bmp_offset_y;
     HDC bmp_src_hdc;
     BITMAP bmp_src_obj;
     HGDIOBJ bmp_src_old;
+
+    int cr_height, cr_width;
+
     HWND hwnd;
+
+    int padding;
+    float ratio, ratioH, ratioW;
+
     BOOL rc = FALSE;
+
+    int x, y;
 
 
     WINFRIPP_DEBUG_ASSERT(bg_hdc);
@@ -418,10 +431,12 @@ static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, 
 
     case WINFRIPP_BGIMG_STYLE_ABSOLUTE:
     case WINFRIPP_BGIMG_STYLE_CENTER:
+    case WINFRIPP_BGIMG_STYLE_FIT:
     case WINFRIPP_BGIMG_STYLE_STRETCH:
 	if ((bmp_src_hdc = CreateCompatibleDC(bg_hdc))) {
 	    GetObject(bmp_src, sizeof(bmp_src_obj), &bmp_src_obj);
 	    bmp_src_old = SelectObject(bmp_src_hdc, bmp_src);
+
 	    switch (bgimg_style) {
 	    default:
 		WINFRIPP_DEBUG_FAIL(); break;
@@ -435,18 +450,47 @@ static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, 
 	    case WINFRIPP_BGIMG_STYLE_CENTER:
 		hwnd = WindowFromDC(hdc);
 		GetClientRect(hwnd, &cr);
-		if ((cr.right - cr.left) > bmp_src_obj.bmWidth) {
-		    bmp_offset_x = ((cr.right - cr.left) - bmp_src_obj.bmWidth) / 2;
+		cr_height = (cr.bottom - cr.top), cr_width = (cr.right - cr.left);
+
+		if (cr_width > bmp_src_obj.bmWidth) {
+		    bmp_offset_x = (cr_width - bmp_src_obj.bmWidth) / 2;
 		    bg_rect.left += bmp_offset_x; bg_rect.right -= bmp_offset_x;
 		}
-		if ((cr.bottom - cr.top) > bmp_src_obj.bmHeight) {
-		    bmp_offset_y = ((cr.bottom - cr.top) - bmp_src_obj.bmHeight) / 2;
+		if (cr_height > bmp_src_obj.bmHeight) {
+		    bmp_offset_y = (cr_height - bmp_src_obj.bmHeight) / 2;
 		    bg_rect.top += bmp_offset_y; bg_rect.bottom -= bmp_offset_y;
 		}
 		rc = BitBlt(bg_hdc, bg_rect.left, bg_rect.top,
 			    bg_rect.right - bg_rect.left,
 			    bg_rect.bottom - bg_rect.top,
 			    bmp_src_hdc, 0, 0, SRCCOPY) > 0;
+		break;
+
+	    case WINFRIPP_BGIMG_STYLE_FIT:
+		hwnd = WindowFromDC(hdc);
+		GetClientRect(hwnd, &cr);
+		cr_height = (cr.bottom - cr.top), cr_width = (cr.right - cr.left);
+
+		ratioH = (float)cr_height / (float)bmp_src_obj.bmHeight;
+		ratioW = (float)cr_width / (float)bmp_src_obj.bmWidth;
+		if ((padding = (conf_get_int(conf, CONF_frip_bgimg_padding) % 100)) > 0) {
+		    ratioH -= ((float)padding / 100) * ratioH;
+		    ratioW -= ((float)padding / 100) * ratioW;
+		}
+		ratio = ratioH < ratioW ? ratioH : ratioW;
+
+		x = (int)(((float)cr_width - ((float)bmp_src_obj.bmWidth * ratio)) / 2);
+		y = (int)(((float)cr_height - ((float)bmp_src_obj.bmHeight * ratio)) / 2);
+
+		bg_hdc_sb_mode = SetStretchBltMode(bg_hdc, HALFTONE);
+		rc = StretchBlt(bg_hdc, x, y,
+				(int)((float)bmp_src_obj.bmWidth * ratio),
+				(int)((float)bmp_src_obj.bmHeight * ratio),
+				bmp_src_hdc,
+				0, 0,
+				bmp_src_obj.bmWidth, bmp_src_obj.bmHeight,
+				SRCCOPY) > 0;
+		SetStretchBltMode(bg_hdc, bg_hdc_sb_mode);
 		break;
 
 	    case WINFRIPP_BGIMG_STYLE_STRETCH:
@@ -630,7 +674,7 @@ static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now)
 
 void winfripp_bgimg_config_panel(struct controlbox *b)
 {
-    struct controlset *s;
+    struct controlset *s_bgimg_settings, *s_bgimg_params, *s_slideshow;
 
     WINFRIPP_DEBUG_ASSERT(b);
 
@@ -639,21 +683,40 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
      */
 
     ctrl_settitle(b, "Frippery/Background", "Configure pointless frippery: background image");
-    s = ctrl_getset(b, "Frippery/Background", "frip_bgimg", "Background image settings");
-    ctrl_filesel(s, "Image file:", 'i',
+
+    /*
+     * The Frippery: Background image settings controls box.
+     */
+
+    s_bgimg_settings = ctrl_getset(b, "Frippery/Background", "frip_bgimg_settings", "Background image settings");
+    ctrl_filesel(s_bgimg_settings, "Image file/directory:", 'i',
 		 WINFRIPP_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
 		 P(WINFRIPP_HELP_CTX), conf_filesel_handler, I(CONF_frip_bgimg_filename));
-    ctrl_text(s, "In order to select an image directory for slideshows, select "
-		 "an arbitrary file inside the directory in question.", P(WINFRIPP_HELP_CTX));
-    ctrl_editbox(s, "Opacity (0-100):", 'p', 20, P(WINFRIPP_HELP_CTX),
-		 conf_editbox_handler, I(CONF_frip_bgimg_opacity), I(-1));
-    ctrl_droplist(s, "Style:", 's', 45, P(WINFRIPP_HELP_CTX),
-		  winfripp_bgimg_config_panel_style, P(NULL));
-    ctrl_droplist(s, "Type:", 't', 45, P(WINFRIPP_HELP_CTX),
+    ctrl_text(s_bgimg_settings, "In order to select an image directory for slideshows, select "
+				"an arbitrary file inside the directory in question.", P(WINFRIPP_HELP_CTX));
+    ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, P(WINFRIPP_HELP_CTX),
 		  winfripp_bgimg_config_panel_type, P(NULL));
-    ctrl_droplist(s, "Slideshow:", 'd', 45, P(WINFRIPP_HELP_CTX),
+    ctrl_droplist(s_bgimg_settings, "Style:", 's', 45, P(WINFRIPP_HELP_CTX),
+		  winfripp_bgimg_config_panel_style, P(NULL));
+
+    /*
+     * The Frippery: Background image parameters control box.
+     */
+
+    s_bgimg_params = ctrl_getset(b, "Frippery/Background", "frip_bgimg_params", "Background image parameters");
+    ctrl_editbox(s_bgimg_params, "Opacity (0-100):", 'p', 15, P(WINFRIPP_HELP_CTX),
+		 conf_editbox_handler, I(CONF_frip_bgimg_opacity), I(-1));
+    ctrl_editbox(s_bgimg_params, "Fit padding (0-100):", 'n', 15, P(WINFRIPP_HELP_CTX),
+		 conf_editbox_handler, I(CONF_frip_bgimg_padding), I(-1));
+
+    /*
+     * The Frippery: Slideshow settings control box.
+     */
+
+    s_slideshow = ctrl_getset(b, "Frippery/Background", "frip_bgimg_slideshow", "Slideshow settings");
+    ctrl_droplist(s_slideshow, "Slideshow:", 'd', 45, P(WINFRIPP_HELP_CTX),
 		  winfripp_bgimg_config_panel_slideshow, P(NULL));
-    ctrl_editbox(s, "Slideshow frequency (in seconds):", 'f', 35, P(WINFRIPP_HELP_CTX),
+    ctrl_editbox(s_slideshow, "Slideshow frequency (in seconds):", 'f', 20, P(WINFRIPP_HELP_CTX),
 		 winfripp_bgimg_config_panel_slideshow_freq, I(CONF_frip_bgimg_slideshow_freq), I(-1));
 }
 
@@ -892,6 +955,7 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 	    rc = WINFRIP_RETURN_CONTINUE;
 	    goto out;
 	case WINFRIPP_BGIMG_STYLE_CENTER:
+	case WINFRIPP_BGIMG_STYLE_FIT:
 	case WINFRIPP_BGIMG_STYLE_STRETCH:
 	    if (winfripp_bgimg_set(conf, hdc, TRUE, FALSE)) {
 		rc = WINFRIP_RETURN_CONTINUE;

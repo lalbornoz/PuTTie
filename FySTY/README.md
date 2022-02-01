@@ -35,7 +35,7 @@ you should use FySTY:
 
 ## List of newly introduced features
 1. **Background {BMP,EMF,GIF,ICO,JPEG,PNG,TIFF,WMF}[[10](#r10)] images**, similarly to[[6](#r6)]  
-   Absolute positioning, centered, scaled, or tiled, with configurable opacity  
+   Absolute positioning, centered, fit w/ optional padding, scaled, or tiled, with configurable opacity  
    Melbourne shuffle slideshow with configurable frequency
 2. **Transparency**, similarly to the mintty[[7](#r7)] implementation  
    Optionally in conjunction with background images, configurable opacity on {focus,focus loss} behaviour
