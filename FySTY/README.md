@@ -23,8 +23,8 @@ you should use FySTY:
 
 2. It can totally dance the Melbourne shuffle!
 
-3. kade likes FySTY:  
-   ![kade likes FySTY!](https://github.com/lalbornoz/FySTY/raw/master/FySTY/kade_FySTY_endorsement.png "kade likes FySTY!")
+3. kade, nadia, roarie and arab like FySTY:  
+   ![kade, nadia, roarie and arab like FySTY!](https://github.com/lalbornoz/FySTY/raw/master/FySTY/FySTY_endorsements.png "kade, nadia, roarie and arab like FySTY!")
 
 4. It's really really cute!
 
