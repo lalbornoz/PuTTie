@@ -28,7 +28,7 @@ you should use FySTY:
 
 4. It's really really cute!
 
-5. It stabilises your Estradiol and Progesterone levels and prevents PMS!
+5. It ~~stabilises your Estradiol and Progesterone levels~~ kindly tells your hypothalamus to be nice and prevents PMS!
 
 ## Screenshot
 ![Screenshot](https://github.com/lalbornoz/FySTY/raw/master/FySTY/FySTY.png "Screenshot")
