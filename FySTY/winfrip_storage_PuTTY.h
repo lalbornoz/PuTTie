@@ -1,6 +1,6 @@
 /*
  * winfrip_storage_PuTTY.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2021 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2021, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_STORAGE_PUTTY_H
@@ -36,3 +36,7 @@ void write_random_seed_PuTTY(void *data, int len);
 void cleanup_all_PuTTY(void);
 
 #endif /* !PUTTY_WINFRIP_STORAGE_PUTTY_H */
+
+/*
+ * vim:noexpandtab sw=4 ts=4 tw=0
+ */
