@@ -55,24 +55,24 @@ settings_w *open_settings_w(const char *sessionname, char **errmsg)
 
 void write_setting_s(settings_w *handle, const char *key, const char *value)
 {
-	write_setting_s(handle, key, value);
+	write_setting_s_PuTTY(handle, key, value);
 }
 
 void write_setting_i(settings_w *handle, const char *key, int value)
 {
-	write_setting_i(handle, key, value);
+	write_setting_i_PuTTY(handle, key, value);
 }
 
 void write_setting_filename(settings_w *handle,
 							const char *key, Filename *value)
 {
-	write_setting_filename(handle, key, value);
+	write_setting_filename_PuTTY(handle, key, value);
 }
 
 void write_setting_fontspec(settings_w *handle,
 							const char *key, FontSpec *font)
 {
-	write_setting_fontspec(handle, key, font);
+	write_setting_fontspec_PuTTY(handle, key, font);
 }
 
 void close_settings_w(settings_w *handle)
