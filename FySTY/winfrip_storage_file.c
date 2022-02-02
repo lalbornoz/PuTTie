@@ -1,6 +1,6 @@
 /*
  * winfrip_storage_file.c - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2021 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2021, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #include "putty.h"
@@ -50,34 +50,34 @@ typedef struct settings_r {
 
 settings_w *open_settings_w(const char *sessionname, char **errmsg)
 {
-    return open_settings_w_PuTTY(sessionname, errmsg);
+	return open_settings_w_PuTTY(sessionname, errmsg);
 }
 
 void write_setting_s(settings_w *handle, const char *key, const char *value)
 {
-    write_setting_s(handle, key, value);
+	write_setting_s(handle, key, value);
 }
 
 void write_setting_i(settings_w *handle, const char *key, int value)
 {
-    write_setting_i(handle, key, value);
+	write_setting_i(handle, key, value);
 }
 
 void write_setting_filename(settings_w *handle,
-			    const char *key, Filename *value)
+							const char *key, Filename *value)
 {
-    write_setting_filename(handle, key, value);
+	write_setting_filename(handle, key, value);
 }
 
 void write_setting_fontspec(settings_w *handle,
-			    const char *key, FontSpec *font)
+							const char *key, FontSpec *font)
 {
-    write_setting_fontspec(handle, key, font);
+	write_setting_fontspec(handle, key, font);
 }
 
 void close_settings_w(settings_w *handle)
 {
-    close_settings_w_PuTTY(handle);
+	close_settings_w_PuTTY(handle);
 }
 
 /*
@@ -99,32 +99,32 @@ void close_settings_w(settings_w *handle)
 
 settings_r *open_settings_r(const char *sessionname)
 {
-    return open_settings_r_PuTTY(sessionname);
+	return open_settings_r_PuTTY(sessionname);
 }
 
 char *read_setting_s(settings_r *handle, const char *key)
 {
-    return read_setting_s_PuTTY(handle, key);
+	return read_setting_s_PuTTY(handle, key);
 }
 
 int read_setting_i(settings_r *handle, const char *key, int defvalue)
 {
-    return read_setting_i_PuTTY(handle, key, defvalue);
+	return read_setting_i_PuTTY(handle, key, defvalue);
 }
 
 Filename *read_setting_filename(settings_r *handle, const char *key)
 {
-    return read_setting_filename_PuTTY(handle, key);
+	return read_setting_filename_PuTTY(handle, key);
 }
 
 FontSpec *read_setting_fontspec(settings_r *handle, const char *key)
 {
-    return read_setting_fontspec_PuTTY(handle, key);
+	return read_setting_fontspec_PuTTY(handle, key);
 }
 
 void close_settings_r(settings_r *handle)
 {
-    close_settings_r_PuTTY(handle);
+	close_settings_r_PuTTY(handle);
 }
 
 /*
@@ -133,7 +133,7 @@ void close_settings_r(settings_r *handle)
 
 void del_settings(const char *sessionname)
 {
-    del_settings_PuTTY(sessionname);
+	del_settings_PuTTY(sessionname);
 }
 
 /*
@@ -142,17 +142,17 @@ void del_settings(const char *sessionname)
 
 settings_e *enum_settings_start(void)
 {
-    return enum_settings_start_PuTTY();
+	return enum_settings_start_PuTTY();
 }
 
 bool enum_settings_next(settings_e *handle, strbuf *out)
 {
-    return enum_settings_next_PuTTY(handle, out);
+	return enum_settings_next_PuTTY(handle, out);
 }
 
 void enum_settings_finish(settings_e *handle)
 {
-    enum_settings_finish_PuTTY(handle);
+	enum_settings_finish_PuTTY(handle);
 }
 
 /* ----------------------------------------------------------------------
@@ -166,9 +166,9 @@ void enum_settings_finish(settings_e *handle)
  */
 
 int check_stored_host_key(const char *hostname, int port,
-			  const char *keytype, const char *key)
+						  const char *keytype, const char *key)
 {
-    return check_stored_host_key_PuTTY(hostname, port, keytype, key);
+	return check_stored_host_key_PuTTY(hostname, port, keytype, key);
 }
 
 /*
@@ -177,9 +177,9 @@ int check_stored_host_key(const char *hostname, int port,
  */
 
 void store_host_key(const char *hostname, int port,
-		    const char *keytype, const char *key)
+					const char *keytype, const char *key)
 {
-    store_host_key_PuTTY(hostname, port, keytype, key);
+	store_host_key_PuTTY(hostname, port, keytype, key);
 }
 
 /* ----------------------------------------------------------------------
@@ -195,7 +195,7 @@ typedef void (*noise_consumer_t) (void *data, int len);
 
 void read_random_seed(noise_consumer_t consumer)
 {
-    read_random_seed_PuTTY(consumer);
+	read_random_seed_PuTTY(consumer);
 }
 
 /*
@@ -204,7 +204,7 @@ void read_random_seed(noise_consumer_t consumer)
 
 void write_random_seed(void *data, int len)
 {
-    write_random_seed_PuTTY(data, len);
+	write_random_seed_PuTTY(data, len);
 }
 
 /* ----------------------------------------------------------------------
@@ -213,7 +213,7 @@ void write_random_seed(void *data, int len)
 
 void cleanup_all(void)
 {
-    cleanup_all_PuTTY();
+	cleanup_all_PuTTY();
 }
 
 #if 0
@@ -231,106 +231,106 @@ static bool wfsp_file_match(WfspKey *key);
 
 static LONG wfsp_file_load_parse(char *line, WfspValueMap *value_map)
 {
-    int name_begin, name_end;
-    LONG rc;
-    int type_begin, type_end;
-    int value_begin, value_end;
+	int name_begin, name_end;
+	LONG rc;
+	int type_begin, type_end;
+	int value_begin, value_end;
 
 
-    WFCP_DEBUG_ASSERT(line);
-    WFCP_DEBUG_ASSERT(value_map);
+	WFCP_DEBUG_ASSERT(line);
+	WFCP_DEBUG_ASSERT(value_map);
 
-    /*
-     * XXX
-     */
+	/*
+	 * XXX
+	 */
 
-    if ((line[0] == '#') || (strlen(line) == 0)) {
-	return ERROR_SUCCESS;
-    }
+	if ((line[0] == '#') || (strlen(line) == 0)) {
+		return ERROR_SUCCESS;
+	}
 
-    /*
-     * XXX
-     */
+	/*
+	 * XXX
+	 */
 
-    name_begin = name_end = -1;
-    sscanf(line, "%n%*[^=]%n=", &name_begin, &name_end);
-    if ((name_begin == -1) || (name_end == -1)) {
-	WFCP_DEBUG_FAIL();
-	return ERROR_INVALID_PARAMETER;
-    } else {
-	value_begin = value_end = -1;
-	sscanf(&line[name_end + 1], "\"%n%*[^\n]%n", &value_begin, &value_end);
-	if ((value_begin == -1) || (value_end == -1)) {
-	    type_begin = type_end = -1;
-	    sscanf(&line[name_end + 1], "%n%*[^:]%n:%n%*[^\n]%n", &type_begin, &type_end, &value_begin, &value_end);
-	    if ((type_begin == -1) || (type_end == -1)
-	    ||  (value_begin == -1) || (value_end == -1)) {
+	name_begin = name_end = -1;
+	sscanf(line, "%n%*[^=]%n=", &name_begin, &name_end);
+	if ((name_begin == -1) || (name_end == -1)) {
 		WFCP_DEBUG_FAIL();
 		return ERROR_INVALID_PARAMETER;
-	    } else {
+	} else {
+		value_begin = value_end = -1;
+		sscanf(&line[name_end + 1], "\"%n%*[^\n]%n", &value_begin, &value_end);
+		if ((value_begin == -1) || (value_end == -1)) {
+			type_begin = type_end = -1;
+			sscanf(&line[name_end + 1], "%n%*[^:]%n:%n%*[^\n]%n", &type_begin, &type_end, &value_begin, &value_end);
+			if ((type_begin == -1) || (type_end == -1)
+			||  (value_begin == -1) || (value_end == -1)) {
+				WFCP_DEBUG_FAIL();
+				return ERROR_INVALID_PARAMETER;
+			} else {
 
-		/*
-		 * XXX
-		 */
+				/*
+				 * XXX
+				 */
 
-		if (strncmp(&line[name_end + 1 + type_begin], "dword", type_end - type_begin) == 0) {
-		    if ((rc = wfsp_add_value(
-			    value_map,
-			    value_end - value_begin, REG_DWORD, &line[name_end + 1 + value_begin],
-			    name_end - name_begin, &line[name_begin])) != ERROR_SUCCESS) {
+				if (strncmp(&line[name_end + 1 + type_begin], "dword", type_end - type_begin) == 0) {
+					if ((rc = wfsp_add_value(
+							value_map,
+							value_end - value_begin, REG_DWORD, &line[name_end + 1 + value_begin],
+							name_end - name_begin, &line[name_begin])) != ERROR_SUCCESS) {
+						return rc;
+					}
+				} else {
+					WFCP_DEBUG_FAIL();
+					return ERROR_INVALID_PARAMETER;
+				}
+			}
+		} else if ((rc = wfsp_add_value(
+				value_map,
+				value_end - value_begin - 1, REG_SZ, &line[name_end + 1 + value_begin],
+				name_end - name_begin, &line[name_begin])) != ERROR_SUCCESS) {
 			return rc;
-		    }
-		} else {
-		    WFCP_DEBUG_FAIL();
-		    return ERROR_INVALID_PARAMETER;
 		}
-	    }
-	} else if ((rc = wfsp_add_value(
-		value_map,
-		value_end - value_begin - 1, REG_SZ, &line[name_end + 1 + value_begin],
-		name_end - name_begin, &line[name_begin])) != ERROR_SUCCESS) {
-	    return rc;
 	}
-    }
 
-    return ERROR_SUCCESS;
+	return ERROR_SUCCESS;
 }
 
 static bool wfsp_file_match(WfspKey *key)
 {
-    static WfspMatchTable *match_table = NULL;
-    LONG rc;
+	static WfspMatchTable *match_table = NULL;
+	LONG rc;
 
 
-    WFCP_DEBUG_ASSERT(key);
+	WFCP_DEBUG_ASSERT(key);
 
-    /*
-     * XXX
-     */
+	/*
+	 * XXX
+	 */
 
-    if (!match_table) {
-	if ((rc = wfsp_match_add(&match_table, "Software\\SimonTatham\\PuTTY\\CHMPath", false) != ERROR_SUCCESS)
-	||  (rc = wfsp_match_add(&match_table, "Software\\SimonTatham\\PuTTY64\\CHMPath", false) != ERROR_SUCCESS)
-	||  (rc = wfsp_match_add(&match_table, "SOFTWARE\\SimonTatham\\PuTTY\\Jumplist", false) != ERROR_SUCCESS)
-	||  (rc = wfsp_match_add(&match_table, "SOFTWARE\\SimonTatham\\PuTTY\\SshHostKeys", false) != ERROR_SUCCESS)
-	||  (rc = wfsp_match_add(&match_table, "SOFTWARE\\SimonTatham\\PuTTY\\Sessions", false) != ERROR_SUCCESS)
-	||  (rc = wfsp_match_add(&match_table, "SOFTWARE\\SimonTatham\\PuTTY\\Sessions", true) != ERROR_SUCCESS)) {
-	    wfsp_match_clear(&match_table);
-	    WFCP_DEBUG_FAIL();
-	    return false;
+	if (!match_table) {
+		if ((rc = wfsp_match_add(&match_table, "Software\\SimonTatham\\PuTTY\\CHMPath", false) != ERROR_SUCCESS)
+		||  (rc = wfsp_match_add(&match_table, "Software\\SimonTatham\\PuTTY64\\CHMPath", false) != ERROR_SUCCESS)
+		||  (rc = wfsp_match_add(&match_table, "SOFTWARE\\SimonTatham\\PuTTY\\Jumplist", false) != ERROR_SUCCESS)
+		||  (rc = wfsp_match_add(&match_table, "SOFTWARE\\SimonTatham\\PuTTY\\SshHostKeys", false) != ERROR_SUCCESS)
+		||  (rc = wfsp_match_add(&match_table, "SOFTWARE\\SimonTatham\\PuTTY\\Sessions", false) != ERROR_SUCCESS)
+		||  (rc = wfsp_match_add(&match_table, "SOFTWARE\\SimonTatham\\PuTTY\\Sessions", true) != ERROR_SUCCESS)) {
+			wfsp_match_clear(&match_table);
+			WFCP_DEBUG_FAIL();
+			return false;
+		}
 	}
-    }
 
-    /*
-     * XXX
-     */
+	/*
+	 * XXX
+	 */
 
-    if ((key->root_hkey == HKEY_CURRENT_USER)
-    &&  wfsp_match(match_table, key)) {
-	return true;
-    } else {
-	return false;
-    }
+	if ((key->root_hkey == HKEY_CURRENT_USER)
+	&&  wfsp_match(match_table, key)) {
+		return true;
+	} else {
+		return false;
+	}
 }
 /* }}} */
 
@@ -341,200 +341,204 @@ static bool wfsp_file_match(WfspKey *key)
 /* {{{ */
 LONG wfsp_file_load(WfspHKEYMap *hkey_map, WfspKey **pkey_list, HKEY hKey)
 {
-    struct dirent *dire;
-    DIR *dirp = NULL;
-    FILE *file = NULL;
-    char *file_buffer = NULL;
-    char fname[MAX_PATH + 1];
-    bool foundfl = false;
-    WfspHKEY *hkey_item;
-    WfspKey *key_item;
-    char *line, *line_sep, *p;
-    const char *name;
-    LONG rc = ERROR_SUCCESS;
-    struct stat statbuf;
-    WfspHash subkey_hash;
-    WfspKey *subkey_item_new = NULL, *subkey_item_last = NULL;
-    size_t subkey_len;
-    char *subkey_name;
+	struct dirent *dire;
+	DIR *dirp = NULL;
+	FILE *file = NULL;
+	char *file_buffer = NULL;
+	char fname[MAX_PATH + 1];
+	bool foundfl = false;
+	WfspHKEY *hkey_item;
+	WfspKey *key_item;
+	char *line, *line_sep, *p;
+	const char *name;
+	LONG rc = ERROR_SUCCESS;
+	struct stat statbuf;
+	WfspHash subkey_hash;
+	WfspKey *subkey_item_new = NULL, *subkey_item_last = NULL;
+	size_t subkey_len;
+	char *subkey_name;
 
 
-    WFCP_DEBUG_ASSERT(hkey_map);
-    WFCP_DEBUG_ASSERT(hkey_map->bitmap);
-    WFCP_DEBUG_ASSERT(hkey_map->bitmap_bits);
-    WFCP_DEBUG_ASSERT(pkey_list);
-    WFCP_DEBUG_ASSERT(hKey);
-
-    /*
-     * XXX
-     */
-
-    if (((size_t)hKey == 0)
-    ||  ((size_t)hKey > hkey_map->bitmap_bits)
-    ||  !(hkey_item = hkey_map->hkeyv[(size_t)hKey - 1])) {
-	WFCP_DEBUG_FAIL();
-	return ERROR_INVALID_HANDLE;
-    }
-
-    /*
-     * XXX
-     */
-
-    for (key_item = *pkey_list; key_item != NULL; key_item = key_item->next) {
-	if ((hkey_item->root_hkey == key_item->root_hkey)
-	&&  (hkey_item->key_hash == key_item->key_hash)) {
-	    foundfl = true; break;
-	}
-    }
-    if (!foundfl) {
-	WFCP_DEBUG_FAIL();
-	return ERROR_INVALID_HANDLE;
-    }
-
-    /*
-     * XXX
-     */
-
-    if (!wfsp_file_match(key_item)) {
-	rc = ERROR_FILE_NOT_FOUND; goto err;
-    } else {
-	wfsp_get_basename(key_item, &name, NULL);
-	ZeroMemory(fname, sizeof(fname));
-	snprintf(fname, sizeof(fname), "%s.ini", name);
-    }
-
-    /*
-     * XXX
-     */
-
-    if (stat(fname, &statbuf) < 0) {
-	if (errno != ENOENT) {
-	    rc = ERROR_INVALID_HANDLE; goto err;
-	}
-    } else if (!(file = fopen(fname, "rb"))) {
-	rc = ERROR_FILE_NOT_FOUND; goto err;
-    } else if (!(file_buffer = snewn(statbuf.st_size + 1, char))) {
-	rc = ERROR_NOT_ENOUGH_MEMORY; goto err;
-    } else if (fread(file_buffer, statbuf.st_size, 1, file) != 1) {
-	rc = ERROR_HANDLE_EOF; goto err;
-    } else {
+	WFCP_DEBUG_ASSERT(hkey_map);
+	WFCP_DEBUG_ASSERT(hkey_map->bitmap);
+	WFCP_DEBUG_ASSERT(hkey_map->bitmap_bits);
+	WFCP_DEBUG_ASSERT(pkey_list);
+	WFCP_DEBUG_ASSERT(hKey);
 
 	/*
 	 * XXX
 	 */
 
-	wfsp_clear_values(key_item);
-	file_buffer[statbuf.st_size] = '\0', p = &file_buffer[0];
-	do {
-	    line = p; line_sep = strchr(line, '\n');
-	    if (line_sep) {
-		*line_sep = '\0', p = line_sep + 1;
-		if ((line_sep[-1] == '\r')
-		&&  (&line_sep[-1] >= line)) {
-		    line_sep[-1] = '\0';
-		}
-	    }
-	    (void)wfsp_file_load_parse(line, &(*pkey_list)->value_map);
-	} while (line_sep && (p < &file_buffer[statbuf.st_size]));
-    }
-
-    /*
-     * XXX
-     */
-
-    if (stat(name, &statbuf) <00) {
-	if (errno != ENOENT) {
-	    rc = ERROR_INVALID_HANDLE; goto err;
+	if (((size_t)hKey == 0)
+	||  ((size_t)hKey > hkey_map->bitmap_bits)
+	||  !(hkey_item = hkey_map->hkeyv[(size_t)hKey - 1])) {
+		WFCP_DEBUG_FAIL();
+		return ERROR_INVALID_HANDLE;
 	}
-    } else if (S_ISDIR(statbuf.st_mode)) {
-	if (!(dirp = opendir(name))) {
-	    rc = ERROR_INVALID_HANDLE; goto err;
+
+	/*
+	 * XXX
+	 */
+
+	for (key_item = *pkey_list; key_item != NULL; key_item = key_item->next) {
+		if ((hkey_item->root_hkey == key_item->root_hkey)
+		&&  (hkey_item->key_hash == key_item->key_hash)) {
+			foundfl = true; break;
+		}
+	}
+	if (!foundfl) {
+		WFCP_DEBUG_FAIL();
+		return ERROR_INVALID_HANDLE;
+	}
+
+	/*
+	 * XXX
+	 */
+
+	if (!wfsp_file_match(key_item)) {
+		rc = ERROR_FILE_NOT_FOUND; goto err;
 	} else {
-	    errno = 0;
-	    while ((dire = readdir(dirp))) {
-
-		/*
-		 * XXX
-		 */
-
-		if ((dire->d_name[0] == '.')
-		&&  (dire->d_name[1] == '\0')) {
-		    continue;
-		} else if ((dire->d_name[0] == '.')
-		       &&  (dire->d_name[1] == '.')
-		       &&  (dire->d_name[2] == '\0')) {
-		    continue;
-		}
-
-		/*
-		 * XXX
-		 */
-
-		subkey_len = strlen(dire->d_name);
-		if (!(subkey_item_new = snew(WfspKey))) {
-		    rc = ERROR_NOT_ENOUGH_MEMORY; goto err;
-		} else if (!(subkey_name = snewn(subkey_len + 1, char))) {
-		    sfree(subkey_item_new);
-		    rc = ERROR_NOT_ENOUGH_MEMORY; goto err;
-		} else {
-		    strncpy(subkey_name, dire->d_name, subkey_len); subkey_name[subkey_len] = '\0';
-		    if ((p = strstr(subkey_name, ".ini"))) {
-			*p = '\0';
-		    }
-		    subkey_hash = wfsp_fnv32a(subkey_name, subkey_len, sizeof(subkey_hash) * 8);
-		}
-
-		/*
-		 * XXX
-		 */
-
-		*subkey_item_new = WFCP_KEY_EMPTY;
-		if (subkey_item_last) {
-		    subkey_item_last->next = subkey_item_new;
-		} else {
-		    key_item->subkey_list = subkey_item_new;
-		}
-
-		subkey_item_last = subkey_item_new;
-		subkey_item_new->root_hkey = key_item->root_hkey;
-		subkey_item_new->root_name = key_item->root_name;
-		subkey_item_new->key_name = subkey_name;
-		subkey_item_new->key_hash = subkey_hash;
-	    }
-	    if (errno != 0) {
-		rc = ERROR_INVALID_HANDLE; goto err;
-	    }
+		wfsp_get_basename(key_item, &name, NULL);
+		ZeroMemory(fname, sizeof(fname));
+		snprintf(fname, sizeof(fname), "%s.ini", name);
 	}
-    }
 
-    /*
-     * XXX
-     */
+	/*
+	 * XXX
+	 */
+
+	if (stat(fname, &statbuf) < 0) {
+		if (errno != ENOENT) {
+			rc = ERROR_INVALID_HANDLE; goto err;
+		}
+	} else if (!(file = fopen(fname, "rb"))) {
+		rc = ERROR_FILE_NOT_FOUND; goto err;
+	} else if (!(file_buffer = snewn(statbuf.st_size + 1, char))) {
+		rc = ERROR_NOT_ENOUGH_MEMORY; goto err;
+	} else if (fread(file_buffer, statbuf.st_size, 1, file) != 1) {
+		rc = ERROR_HANDLE_EOF; goto err;
+	} else {
+
+		/*
+		 * XXX
+		 */
+
+		wfsp_clear_values(key_item);
+		file_buffer[statbuf.st_size] = '\0', p = &file_buffer[0];
+		do {
+			line = p; line_sep = strchr(line, '\n');
+			if (line_sep) {
+				*line_sep = '\0', p = line_sep + 1;
+				if ((line_sep[-1] == '\r')
+				&&  (&line_sep[-1] >= line)) {
+					line_sep[-1] = '\0';
+				}
+			}
+			(void)wfsp_file_load_parse(line, &(*pkey_list)->value_map);
+		} while (line_sep && (p < &file_buffer[statbuf.st_size]));
+	}
+
+	/*
+	 * XXX
+	 */
+
+	if (stat(name, &statbuf) < 0) {
+		if (errno != ENOENT) {
+			rc = ERROR_INVALID_HANDLE; goto err;
+		}
+	} else if (S_ISDIR(statbuf.st_mode)) {
+		if (!(dirp = opendir(name))) {
+			rc = ERROR_INVALID_HANDLE; goto err;
+		} else {
+			errno = 0;
+			while ((dire = readdir(dirp))) {
+
+				/*
+				 * XXX
+				 */
+
+				if ((dire->d_name[0] == '.')
+				&&  (dire->d_name[1] == '\0')) {
+					continue;
+				} else if ((dire->d_name[0] == '.')
+					   &&  (dire->d_name[1] == '.')
+					   &&  (dire->d_name[2] == '\0')) {
+					continue;
+				}
+
+				/*
+				 * XXX
+				 */
+
+				subkey_len = strlen(dire->d_name);
+				if (!(subkey_item_new = snew(WfspKey))) {
+					rc = ERROR_NOT_ENOUGH_MEMORY; goto err;
+				} else if (!(subkey_name = snewn(subkey_len + 1, char))) {
+					sfree(subkey_item_new);
+					rc = ERROR_NOT_ENOUGH_MEMORY; goto err;
+				} else {
+					strncpy(subkey_name, dire->d_name, subkey_len); subkey_name[subkey_len] = '\0';
+					if ((p = strstr(subkey_name, ".ini"))) {
+						*p = '\0';
+					}
+					subkey_hash = wfsp_fnv32a(subkey_name, subkey_len, sizeof(subkey_hash) * 8);
+				}
+
+				/*
+				 * XXX
+				 */
+
+				*subkey_item_new = WFCP_KEY_EMPTY;
+				if (subkey_item_last) {
+					subkey_item_last->next = subkey_item_new;
+				} else {
+					key_item->subkey_list = subkey_item_new;
+				}
+
+				subkey_item_last = subkey_item_new;
+				subkey_item_new->root_hkey = key_item->root_hkey;
+				subkey_item_new->root_name = key_item->root_name;
+				subkey_item_new->key_name = subkey_name;
+				subkey_item_new->key_hash = subkey_hash;
+			}
+			if (errno != 0) {
+				rc = ERROR_INVALID_HANDLE; goto err;
+			}
+		}
+	}
+
+	/*
+	 * XXX
+	 */
 
 out:
-    if (dirp) {
-	closedir(dirp);
-    }
-    if (file) {
-	fclose(file);
-    }
-    if (file_buffer) {
-	sfree(file_buffer);
-    }
-    return rc;
+	if (dirp) {
+		closedir(dirp);
+	}
+	if (file) {
+		fclose(file);
+	}
+	if (file_buffer) {
+		sfree(file_buffer);
+	}
+	return rc;
 
 err:
-    if (foundfl) {
-	wfsp_clear_subkeys(key_item);
-	wfsp_clear_values(key_item);
-    }
-    goto out;
+	if (foundfl) {
+		wfsp_clear_subkeys(key_item);
+		wfsp_clear_values(key_item);
+	}
+	goto out;
 }
 
 LONG wfsp_file_save(WfspHKEYMap *hkey_map, WfspKey *key_list, HKEY hKey)
 {
-    // FIXME TODO XXX
-    return ERROR_INVALID_FUNCTION;
+	// FIXME TODO XXX
+	return ERROR_INVALID_FUNCTION;
 }
 /* }}} */
 #endif
+
+/*
+ * vim:noexpandtab sw=4 ts=4 tw=0
+ */
