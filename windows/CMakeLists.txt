@@ -113,6 +113,7 @@ target_link_libraries(putty
   utils
   ${CMAKE_SOURCE_DIR}/FySTY/pcre2@master/libpcre2-16.a
   gdiplus.lib msimg32.lib
+  bcrypt.lib
   ${platform_libraries})
 set_target_properties(putty PROPERTIES
   WIN32_EXECUTABLE ON
@@ -142,6 +143,7 @@ target_link_libraries(puttytel
   guiterminal guimisc eventloop otherbackends settings network utils
   ${CMAKE_SOURCE_DIR}/FySTY/pcre2@master/libpcre2-16.a
   gdiplus.lib msimg32.lib
+  bcrypt.lib
   ${platform_libraries})
 set_target_properties(puttytel PROPERTIES
   WIN32_EXECUTABLE ON

@@ -9,11 +9,11 @@
 #include "FySTY/winfrip.h"
 #include "FySTY/winfrip_priv.h"
 
+#include <bcrypt.h>
+#include <ntstatus.h>
+
 #include <gdiplus/gdiplus.h>
 #include <gdiplus/gdiplusflat.h>
-
-#include <stdlib.h>
-#include <time.h>
 
 /*
  * Preprocessor macros
@@ -56,6 +56,8 @@ static size_t winfripp_bgimg_dname_len = 0;
 static size_t winfripp_bgimg_dname_filec = 0;
 static char **winfripp_bgimg_dname_filev = NULL;
 static char *winfripp_bgimg_fname = NULL;
+
+static BCRYPT_ALG_HANDLE winfripp_bgimg_hAlgorithm = NULL;
 
 static HDC winfripp_bgimg_hdc = NULL;
 static HGDIOBJ winfripp_bgimg_hdc_old = NULL;
@@ -784,12 +786,29 @@ static BOOL winfripp_bgimg_slideshow_shuffle(Conf *conf)
 {
 	char *bg_fname = NULL;
 	size_t bg_fname_idx, bg_fname_len;
+	NTSTATUS status;
 
 
 	if ((winfripp_bgimg_dname_filec > 0) && (winfripp_bgimg_dname_filev != NULL)) {
-		srand((unsigned)time(NULL));
-		bg_fname_idx = (rand() % winfripp_bgimg_dname_filec);
-		bg_fname_len = strlen(winfripp_bgimg_dname_filev[bg_fname_idx] ? winfripp_bgimg_dname_filev[bg_fname_idx] : "");
+		if (winfripp_bgimg_hAlgorithm == NULL) {
+			if ((status = BCryptOpenAlgorithmProvider(
+					&winfripp_bgimg_hAlgorithm,
+					BCRYPT_RNG_ALGORITHM, NULL, 0)) != STATUS_SUCCESS) {
+				WINFRIPP_DEBUG_FAIL();
+				return FALSE;
+			}
+		}
+		if ((status = BCryptGenRandom(
+				winfripp_bgimg_hAlgorithm, (PUCHAR)&bg_fname_idx,
+				sizeof(bg_fname_idx), 0) != STATUS_SUCCESS)) {
+			WINFRIPP_DEBUG_FAIL();
+			return FALSE;
+		} else {
+			bg_fname_idx %= winfripp_bgimg_dname_filec;
+			bg_fname_len = strlen(
+				winfripp_bgimg_dname_filev[bg_fname_idx]
+				? winfripp_bgimg_dname_filev[bg_fname_idx] : "");
+		}
 
 		if ((winfripp_bgimg_dname_len == 0) || (winfripp_bgimg_dname_filev[bg_fname_idx] == NULL) || (bg_fname_len == 0)) {
 			WINFRIPP_DEBUG_FAIL();
