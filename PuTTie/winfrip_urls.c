@@ -71,8 +71,8 @@ static WinFrippUrlsState winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
  */
 
 static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, int x, int y);
-static void winfripp_urls_config_panel_modifier_key_handler(union control *ctrl, dlgparam *dlg, void *data, int event);
-static void winfripp_urls_config_panel_modifier_shift_handler(union control *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_urls_config_panel_modifier_key_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_urls_config_panel_modifier_shift_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static WinFripReturn winfripp_urls_reconfig(Conf *conf);
 static void winfripp_urls_reconfig_modifier_key(Conf *conf);
 static void winfripp_urls_reconfig_modifier_shift(Conf *conf);
@@ -176,7 +176,7 @@ static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend,
 	return FALSE;
 }
 
-static void winfripp_urls_config_panel_modifier_key_handler(union control *ctrl, dlgparam *dlg, void *data, int event)
+static void winfripp_urls_config_panel_modifier_key_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
 {
 	Conf *conf = (Conf *)data;
 	int id;
@@ -215,7 +215,7 @@ static void winfripp_urls_config_panel_modifier_key_handler(union control *ctrl,
 	}
 }
 
-static void winfripp_urls_config_panel_modifier_shift_handler(union control *ctrl, dlgparam *dlg, void *data, int event)
+static void winfripp_urls_config_panel_modifier_shift_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
 {
 	Conf *conf = (Conf *)data;
 	int id;
