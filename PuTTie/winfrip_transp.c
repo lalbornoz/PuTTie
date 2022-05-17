@@ -12,14 +12,14 @@
  * Private subroutine prototypes
  */
 
-static void winfripp_transp_config_panel_opaque(union control *ctrl, dlgparam *dlg, void *data, int event);
-static void winfripp_transp_config_panel_setting(union control *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_transp_config_panel_opaque(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_transp_config_panel_setting(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 /*
  * Private subroutines
  */
 
-static void winfripp_transp_config_panel_opaque(union control *ctrl, dlgparam *dlg, void *data, int event)
+static void winfripp_transp_config_panel_opaque(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
 {
 	Conf *conf = (Conf *)data;
 
@@ -53,7 +53,7 @@ static void winfripp_transp_config_panel_opaque(union control *ctrl, dlgparam *d
 	}
 }
 
-static void winfripp_transp_config_panel_setting(union control *ctrl, dlgparam *dlg, void *data, int event)
+static void winfripp_transp_config_panel_setting(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
 {
 	Conf *conf = (Conf *)data;
 

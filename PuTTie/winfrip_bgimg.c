@@ -77,9 +77,9 @@ void reset_window(int);
  * Private subroutine prototypes
  */
 
-static void winfripp_bgimg_config_panel_slideshow(union control *ctrl, dlgparam *dlg, void *data, int event);
-static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg, void *data, int event);
-static void winfripp_bgimg_config_panel_type(union control *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_bgimg_config_panel_slideshow(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_bgimg_config_panel_style(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_bgimg_config_panel_type(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **pbg_bmp_fname_w, BOOL *pbg_bmpfl);
 static BOOL winfripp_bgimg_set_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
@@ -97,7 +97,7 @@ static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now);
  * Private subroutines
  */
 
-static void winfripp_bgimg_config_panel_slideshow(union control *ctrl, dlgparam *dlg, void *data, int event)
+static void winfripp_bgimg_config_panel_slideshow(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
 {
 	Conf *conf = (Conf *)data;
 
@@ -128,7 +128,7 @@ static void winfripp_bgimg_config_panel_slideshow(union control *ctrl, dlgparam 
 	}
 }
 
-static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg, void *data, int event)
+static void winfripp_bgimg_config_panel_style(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
 {
 	Conf *conf = (Conf *)data;
 
@@ -168,7 +168,7 @@ static void winfripp_bgimg_config_panel_style(union control *ctrl, dlgparam *dlg
 	}
 }
 
-static void winfripp_bgimg_config_panel_type(union control *ctrl, dlgparam *dlg, void *data, int event)
+static void winfripp_bgimg_config_panel_type(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
 {
 	Conf *conf = (Conf *)data;
 

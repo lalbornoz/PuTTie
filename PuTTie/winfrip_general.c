@@ -39,7 +39,7 @@ static NOTIFYICONDATAA winfripp_general_notifyicon;
  * Private subroutine prototypes
  */
 
-static void winfripp_general_config_panel_store_backend_handler(union control *ctrl, dlgparam *dlg, void *data, int event);
+static void winfripp_general_config_panel_store_backend_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static void winfripp_general_systray_init(HINSTANCE hinst, HWND hwnd);
 static void winfripp_general_systray_minimise(Conf *conf, HWND hwnd);
 static WinFripReturn winfripp_general_systray_wm_menu(HWND hwnd, WPARAM wParam);
@@ -49,11 +49,9 @@ static void winfripp_general_systray_wm_other(HWND hwnd, LPARAM lParam);
  * Private subroutines
  */
 
-static void winfripp_general_config_panel_store_backend_handler(union control *ctrl, dlgparam *dlg, void *data, int event)
+static void winfripp_general_config_panel_store_backend_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
 {
-	Conf *conf = (Conf *)data;
 	int id;
-
 
 	switch (event) {
 	case EVENT_REFRESH:
