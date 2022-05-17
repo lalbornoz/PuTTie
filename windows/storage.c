@@ -9,7 +9,7 @@
 #include <assert.h>
 #include "putty.h"
 /* {{{ winfrip */
-#include "FySTY/winfrip_storage_wrap.h"
+#include "PuTTie/winfrip_storage_wrap.h"
 /* winfrip }}} */
 #include "storage.h"
 

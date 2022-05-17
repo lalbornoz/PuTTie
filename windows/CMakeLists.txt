@@ -101,20 +101,20 @@ add_executable(putty
   putty.c
   help.c
   putty.rc
-  ../FySTY/winfrip.c
-  ../FySTY/winfrip_bgimg.c
-  ../FySTY/winfrip_storage_file.c
-  ../FySTY/winfrip_general.c
-  ../FySTY/winfrip_mouse.c
-  ../FySTY/winfrip_pcre2.c
-  ../FySTY/winfrip_transp.c
-  ../FySTY/winfrip_urls.c)
+  ../PuTTie/winfrip.c
+  ../PuTTie/winfrip_bgimg.c
+  ../PuTTie/winfrip_storage_file.c
+  ../PuTTie/winfrip_general.c
+  ../PuTTie/winfrip_mouse.c
+  ../PuTTie/winfrip_pcre2.c
+  ../PuTTie/winfrip_transp.c
+  ../PuTTie/winfrip_urls.c)
 be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
   guiterminal guimisc eventloop sshclient otherbackends settings network crypto
   utils
-  ${CMAKE_SOURCE_DIR}/FySTY/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
   gdiplus.lib msimg32.lib
   bcrypt.lib
   ${platform_libraries})
@@ -133,19 +133,19 @@ add_executable(puttytel
   ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
   ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
   puttytel.rc
-  ../FySTY/winfrip.c
-  ../FySTY/winfrip_bgimg.c
-  ../FySTY/winfrip_storage_file.c
-  ../FySTY/winfrip_general.c
-  ../FySTY/winfrip_mouse.c
-  ../FySTY/winfrip_pcre2.c
-  ../FySTY/winfrip_transp.c
-  ../FySTY/winfrip_urls.c)
+  ../PuTTie/winfrip.c
+  ../PuTTie/winfrip_bgimg.c
+  ../PuTTie/winfrip_storage_file.c
+  ../PuTTie/winfrip_general.c
+  ../PuTTie/winfrip_mouse.c
+  ../PuTTie/winfrip_pcre2.c
+  ../PuTTie/winfrip_transp.c
+  ../PuTTie/winfrip_urls.c)
 be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel
   guiterminal guimisc eventloop otherbackends settings network utils
-  ${CMAKE_SOURCE_DIR}/FySTY/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
   gdiplus.lib msimg32.lib
   bcrypt.lib
   ${platform_libraries})
@@ -165,7 +165,7 @@ add_executable(puttygen
   ${CMAKE_SOURCE_DIR}/sshrand.c
   controls.c
   puttygen.rc
-  ../FySTY/winfrip_storage_file.c)
+  ../PuTTie/winfrip_storage_file.c)
 add_dependencies(puttygen generated_licence_h)
 target_link_libraries(puttygen
   keygen guimisc crypto utils

@@ -1,9 +1,9 @@
-# **FY**odor do**ST**oevsky's telet**Y**pe!
+# PuTTie 💚
 PuTTY plus *pointless frippery* and tremendous amounts of *bloat*[[1](#r1)][[2](#r2)][[3](#r3)][[4](#r4)][[5](#r5)][[9](#r9)]
 
-## What is FySTY, and how is it different?
+## What is PuTTie, and how is it different?
 
-Unlike the other extant and past PuTTY forks, FySTY is meticulously
+Unlike the other extant and past PuTTY forks, PuTTie is meticulously
 engineered such as to minimise the amount and quality of changes required
 to the actual PuTTY ~~pigsty~~ ~~incoherent heap of rotten, fermenting
 bat manure~~ source code, yet without sacrificing in range of features or
@@ -12,26 +12,34 @@ the quality of their implementation.
 This is additionally required as PuTTY's upstream is ~~an insecure, socially
 inept, belligerent, obstinate, covetous arsehole~~ particularly hostile to
 both users, change, reality, contributors, as well as maintainers of PuTTY
-forks. As FySTY has, empirically speaking as well over the course of its
+forks. As PuTTie has, empirically speaking as well over the course of its
 existence since late June 2018, very low maintenance cost, it is much less
 likely to succumb to the inevitability of bit rot and loss of maintainers.
   
-Still not convinced? Here are five (5) *extremely convincing* reasons why
-you should use FySTY:  
+Still not convinced? Here are seven (7) *extremely convincing* reasons why
+you should use PuTTie:  
   
 1. It's really cute!
 
-2. It can totally dance the Melbourne shuffle!
+2. It has a really cute name!
 
-3. kade, nadia, roarie and arab like FySTY:  
-   ![kade, nadia, roarie and arab like FySTY!](https://github.com/lalbornoz/FySTY/raw/master/FySTY/FySTY_endorsements.png "kade, nadia, roarie and arab like FySTY!")
+3. It has a green heart next to its really cute name because PuTTie loves you!
 
-4. It's really really cute!
+4. It can totally dance the Melbourne shuffle!
 
-5. It ~~stabilises your Estradiol and Progesterone levels~~ kindly tells your hypothalamus to be nice and prevents PMS!
+5. kade, nadia, roarie and arab like PuTTie:  
+   ![kade, nadia, roarie and arab like PuTTie!](https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/PuTTie_endorsements.png "kade, nadia, roarie and arab like PuTTie!")
+
+6. It's really really cute!
+
+7. It ~~stabilises your Estradiol and Progesterone levels~~ ~~kindly tells
+   your hypothalamus to be nice~~ gives your Estrogen Receptors a hug so they
+   won't feel underappreciated when they're like doing a lot of hard work
+   and being really adaptive to considerably dynamic hormonal circumstances
+   and stuff and totally prevents PMS!
 
 ## Screenshot
-![Screenshot](https://github.com/lalbornoz/FySTY/raw/master/FySTY/FySTY.png "Screenshot")
+![Screenshot](https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/PuTTie.png "Screenshot")
 
 ## List of newly introduced features
 1. **Background {BMP,EMF,GIF,ICO,JPEG,PNG,TIFF,WMF}[[10](#r10)] images**, similarly to[[6](#r6)]  
@@ -56,22 +64,22 @@ you should use FySTY:
 
 ## How to build
 ```shell
-$ git clone --recurse https://github.com/lalbornoz/FySTY
+$ git clone --recurse https://github.com/lalbornoz/PuTTie
 
 #
 # Release build, create release archive, no build parallelisation/max. 4 jobs, resp.:
-$ ./FySTY/build.sh -c -R
-$ ./FySTY/build.sh -c -R -j 4
+$ ./PuTTie/build.sh -c -R
+$ ./PuTTie/build.sh -c -R -j 4
 
 #
 # Debug build, create release archive, no build parallelisation/max. 4 jobs, resp.:
-$ ./FySTY/build.sh -c -d -R
-$ ./FySTY/build.sh -c -d -R -j 4
+$ ./PuTTie/build.sh -c -d -R
+$ ./PuTTie/build.sh -c -d -R -j 4
 
 #
 # Help screen:
-$ ./FySTY/build.sh -h
-usage: ./FySTY/build.sh [-c] [-d] [-h] [-i] [-j jobs] [-R] [[--] cmake args...]
+$ ./PuTTie/build.sh -h
+usage: ./PuTTie/build.sh [-c] [-d] [-h] [-i] [-j jobs] [-R] [[--] cmake args...]
        -c.......: clean cmake(1) cache file(s) and output directory/ies before build
        -d.......: select Debug (vs. Release) build
        -h.......: show this screen

@@ -6,13 +6,13 @@
 #include "putty.h"
 #include "dialog.h"
 #include "terminal.h"
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
 
 #include <stdarg.h>
 
 /*
- * Public subroutines private to FySTY/winfrip*.c
+ * Public subroutines private to PuTTie/winfrip*.c
  */
 
 #ifdef WINFRIP_DEBUG

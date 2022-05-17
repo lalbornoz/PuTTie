@@ -7,9 +7,9 @@
 #include "dialog.h"
 #include "terminal.h"
 
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
-#include "FySTY/winfrip_pcre2.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
+#include "PuTTie/winfrip_pcre2.h"
 
 /*
  * Preprocessor macros
@@ -397,7 +397,7 @@ static void winfripp_urls_state_reset(Terminal *term, bool update_term)
 }
 
 /*
- * Public subroutines private to FySTY/winfrip*.c
+ * Public subroutines private to PuTTie/winfrip*.c
  */
 
 void winfripp_urls_config_panel(struct controlbox *b)

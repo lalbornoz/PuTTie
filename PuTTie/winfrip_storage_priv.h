@@ -7,7 +7,7 @@
 #define PUTTY_WINFRIP_STORAGE_PRIV_H
 
 /*
- * Preprocessor macros private to FySTY/winfrip_storage*.c
+ * Preprocessor macros private to PuTTie/winfrip_storage*.c
  */
 
 /*
@@ -53,7 +53,7 @@
 #endif /* WINFRIP_STORAGE_DEBUG */
 
 /*
- * Type definitions private to FySTY/winfrip_storage*.c prototypes
+ * Type definitions private to PuTTie/winfrip_storage*.c prototypes
  */
 
 /*
@@ -233,7 +233,7 @@ typedef struct WfspItem {
 	})
 
 /*
- * Public subroutines private to FySTY/winfrip_storage*.c prototypes
+ * Public subroutines private to PuTTie/winfrip_storage*.c prototypes
  * defined in winfrip_storage_priv.c
  */
 

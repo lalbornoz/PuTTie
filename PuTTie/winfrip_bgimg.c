@@ -6,8 +6,8 @@
 #include "putty.h"
 #include "dialog.h"
 #include "windows/win-gui-seat.h"
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
 
 #include <bcrypt.h>
 #include <ntstatus.h>
@@ -850,7 +850,7 @@ static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now)
 }
 
 /*
- * Public subroutines private to FySTY/winfrip*.c
+ * Public subroutines private to PuTTie/winfrip*.c
  */
 
 void winfripp_bgimg_config_panel(struct controlbox *b)
