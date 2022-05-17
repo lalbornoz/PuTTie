@@ -104,7 +104,7 @@ target_link_libraries(bidi_test guiterminal utils ${platform_libraries})
 
 add_executable(plink
   ${platform}/plink.c
-  FySTY/winfrip_storage_file.c)
+  PuTTie/winfrip_storage_file.c)
 # Note: if we ever port Plink to a platform where we can't implement a
 # serial backend, this be_list command will need to become platform-
 # dependent, so that it only sets the SERIAL option on platforms where
@@ -119,7 +119,7 @@ installed_program(plink)
 
 add_executable(pscp
   pscp.c
-  FySTY/winfrip_storage_file.c)
+  PuTTie/winfrip_storage_file.c)
 be_list(pscp PSCP SSH)
 target_link_libraries(pscp
   sftpclient eventloop console sshclient settings network crypto utils
@@ -128,7 +128,7 @@ installed_program(pscp)
 
 add_executable(psftp
   psftp.c
-  FySTY/winfrip_storage_file.c)
+  PuTTie/winfrip_storage_file.c)
 be_list(psftp PSFTP SSH)
 target_link_libraries(psftp
   sftpclient eventloop console sshclient settings network crypto utils
@@ -142,7 +142,7 @@ add_executable(psocks
   proxy/nocproxy.c
   proxy/nosshproxy.c
   ssh/portfwd.c
-  FySTY/winfrip_storage_void.c)
+  PuTTie/winfrip_storage_void.c)
 target_link_libraries(psocks
   eventloop console network utils
   ${platform_libraries})

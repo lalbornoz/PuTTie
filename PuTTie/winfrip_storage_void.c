@@ -6,10 +6,10 @@
 #include "putty.h"
 #include "storage.h"
 
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
-#include "FySTY/winfrip_storage_priv.h"
-#include "FySTY/winfrip_storage_PuTTY.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
+#include "PuTTie/winfrip_storage_priv.h"
+#include "PuTTie/winfrip_storage_PuTTY.h"
 
 #include <stdlib.h>
 #include <sys/stat.h>

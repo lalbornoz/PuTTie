@@ -11,7 +11,7 @@
 #include "marshal.h"
 
 /* {{{ winfrip */
-#include "FySTY/winfrip.h"
+#include "PuTTie/winfrip.h"
 /* winfrip }}} */
 
 /*

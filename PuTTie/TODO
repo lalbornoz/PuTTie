@@ -1,0 +1,17 @@
+1) cmdline args (-{ephemeral{,={file,registry}},file,registry}) for: ps{cp,ftp}, plink, putty{,gen,tel}
+2) integrate Jumplist\Recent sessions
+3) full UI (clean, clear, copy, delete, export, load, rename, save)
+4) move PUTTY.RND beneath %APPDATA%\PuTTie
+
+1) fix upstream memory leak upon repeatedly reloading the same session, etc.
+2) upstream bug where putty insists that session A B C are there when theyre not @ sesslist
+3) rename to PuTTie (including @ title bar etc)
+4) version info @ about panel
+5) cleanup other winfrip*.[ch] wrt. style, move into subdirs, etc.
+6) error handling/messages/... everywhere
+7) fully exclude winfrip* stuff from non-windows builds
+8) bgimg shuffle: watch dir for changes
+
+bug: reset bgimg * after alt-tabbing from dx fullscreen app
+dont necessarily minimise to tary on alt-tab
+bug: shuffle applies twice each timer turn

@@ -5,11 +5,11 @@
 
 #include "putty.h"
 #include "dialog.h"
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
 
 /*
- * Public subroutines private to FySTY/winfrip*.c
+ * Public subroutines private to PuTTie/winfrip*.c
  */
 
 void winfripp_mouse_config_panel(struct controlbox *b)

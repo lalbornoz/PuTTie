@@ -4,12 +4,12 @@
  */
 
 #include "putty.h"
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
-#include "FySTY/winfrip_pcre2.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
+#include "PuTTie/winfrip_pcre2.h"
 
 /*
- * Public subroutines private to FySTY/winfrip*.c prototypes
+ * Public subroutines private to PuTTie/winfrip*.c prototypes
  */
 
 void winfripp_pcre2_init(WinFrippP2MGState *state, pcre2_code *code, size_t length, pcre2_match_data *md, wchar_t *subject)

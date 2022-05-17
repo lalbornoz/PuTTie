@@ -6,8 +6,8 @@
 #include "putty.h"
 #include "dialog.h"
 #include "windows/putty-rc.h"
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
 
 /*
  * Preprocessor macros
@@ -155,7 +155,7 @@ static void winfripp_general_systray_wm_other(HWND hwnd, LPARAM lParam)
 }
 
 /*
- * Public subroutines private to FySTY/winfrip*.c
+ * Public subroutines private to PuTTie/winfrip*.c
  */
 
 void winfripp_general_config_panel(struct controlbox *b)

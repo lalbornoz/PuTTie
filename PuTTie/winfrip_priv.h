@@ -90,7 +90,7 @@ typedef enum WinFrippUrlsState {
 } WinFrippUrlsState;
 
 /*
- * Public subroutines private to FySTY/winfrip*.c prototypes
+ * Public subroutines private to PuTTie/winfrip*.c prototypes
  */
 
 void winfripp_bgimg_config_panel(struct controlbox *b);

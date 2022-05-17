@@ -22,7 +22,7 @@
 #include "tree234.h"
 
 /* {{{ winfrip */
-#include "FySTY/winfrip.h"
+#include "PuTTie/winfrip.h"
 /* winfrip }}} */
 
 #ifndef NO_MULTIMON

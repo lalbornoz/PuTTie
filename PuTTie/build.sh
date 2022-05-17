@@ -14,15 +14,15 @@ build_clean() {
 			CMakeFiles/						\
 			windows/CMakeCache.txt					\
 			windows/CMakeFiles/					\
-			FySTY/pcre2@master/CMakeCache.txt			\
-			FySTY/pcre2@master/CMakeFiles/				\
-			FySTY/pcre2@master/libpcre2-16.a			\
-			FySTY/pcre2@master/libpcre2-16d.a			\
+			PuTTie/pcre2@master/CMakeCache.txt			\
+			PuTTie/pcre2@master/CMakeFiles/				\
+			PuTTie/pcre2@master/libpcre2-16.a			\
+			PuTTie/pcre2@master/libpcre2-16d.a			\
 			;
 		if [ "${_iflag:-0}" -eq 1 ]\
-		&& [ -e "FySTY/${_install_dname}" ]; then
+		&& [ -e "PuTTie/${_install_dname}" ]; then
 			IFS="
-";			for _fname in $(find "FySTY/${_install_dname}" -type f); do
+";			for _fname in $(find "PuTTie/${_install_dname}" -type f); do
 				rm -fr "${_fname}";
 			done; IFS="${_IFS0}";
 		fi;
@@ -34,9 +34,9 @@ build_configure() {
 	local	_build_type="${1}" _cflag="${2}" _dflag="${3}" _iflag="${4}"		\
 		_install_dname="${5}" _jflag="${6}" _Rflag="${7}" _tflag="${8}";
 
-	if ! [ -e FySTY/pcre2@master/CMakeCache.txt ]\
-	|| ! [ -e FySTY/pcre2@master/CMakeFiles/ ]; then
-		cd FySTY/pcre2@master;
+	if ! [ -e PuTTie/pcre2@master/CMakeCache.txt ]\
+	|| ! [ -e PuTTie/pcre2@master/CMakeFiles/ ]; then
+		cd PuTTie/pcre2@master;
 		"${CMAKE}" . \
 			-DCMAKE_BUILD_TYPE="${_build_type}"				\
 			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -g3 -O0"				\
@@ -82,7 +82,7 @@ build_make() {
 	local	_build_type="${1}" _cflag="${2}" _dflag="${3}" _iflag="${4}"\
 		_install_dname="${5}" _jflag="${6}" _Rflag="${7}" _tflag="${8}";
 
-	cd FySTY/pcre2@master;
+	cd PuTTie/pcre2@master;
 	"${CMAKE}" --build . --parallel "${_jflag:-1}";
 	if [ "x${_build_type}" = "xDebug" ]; then
 		ln -fs "libpcre2-16d.a" "libpcre2-16.a";
@@ -98,8 +98,8 @@ build_install() {
 		_fname="" _IFS0="${IFS:- 	}";
 
 	if [ "${_iflag:-0}" -eq 1 ]; then
-		if ! [ -d "FySTY/${_install_dname}" ]; then
-			mkdir -p "FySTY/${_install_dname}";
+		if ! [ -d "PuTTie/${_install_dname}" ]; then
+			mkdir -p "PuTTie/${_install_dname}";
 		fi;
 		IFS="
 ";		for _fname in $(find .						\
@@ -109,16 +109,16 @@ build_install() {
 				\( -not -name test\* \)				\
 				-type f); do
 			_fname="${_fname#./}";
-			cp -a "${_fname}" "FySTY/${_install_dname}";
-			stat "FySTY/${_install_dname}/${_fname}";
+			cp -a "${_fname}" "PuTTie/${_install_dname}";
+			stat "PuTTie/${_install_dname}/${_fname}";
 		done; IFS="${_IFS0}";
 	fi;
 	if [ "${_Rflag:-0}" -eq 1 ]; then
-		if [ -e "FySTY/${_install_dname}.zip" ]; then
-			rm -f "FySTY/${_install_dname}.zip";
+		if [ -e "PuTTie/${_install_dname}.zip" ]; then
+			rm -f "PuTTie/${_install_dname}.zip";
 		fi;
-		cd FySTY; zip -r "${_install_dname}.zip" "${_install_dname}"; cd "${OLDPWD}";
-		stat "FySTY/${_install_dname}.zip";
+		cd PuTTie; zip -r "${_install_dname}.zip" "${_install_dname}"; cd "${OLDPWD}";
+		stat "PuTTie/${_install_dname}.zip";
 	fi;
 };
 # }}}
@@ -150,7 +150,7 @@ build() {
 	t)	_tflag="${OPTARG}"; ;;
 	*)	buildp_usage; exit 1; ;;
 	esac; done; shift $((${OPTIND}-1));
-	_install_dname="FySTY-${_build_type}-$(git rev-parse --short HEAD)";
+	_install_dname="PuTTie-${_build_type}-$(git rev-parse --short HEAD)";
 
 	if [ "$(uname -o 2>/dev/null)" = "Cygwin" ]; then
 		export CMAKE="/usr/bin/cmake";

@@ -8,7 +8,7 @@
 
 #define PCRE2_CODE_UNIT_WIDTH	16
 #define PCRE2_STATIC			1
-#include "../FySTY/pcre2@master/pcre2.h"
+#include "../PuTTie/pcre2@master/pcre2.h"
 
 /*
  * Public enumeration and struct types
@@ -34,7 +34,7 @@ typedef struct WinFrippP2MGState {
 } WinFrippP2MGState;
 
 /*
- * Public subroutines private to FySTY/winfrip*.c prototypes
+ * Public subroutines private to PuTTie/winfrip*.c prototypes
  */
 
 void winfripp_pcre2_init(WinFrippP2MGState *state, pcre2_code *code, size_t length, pcre2_match_data *md, wchar_t *subject);

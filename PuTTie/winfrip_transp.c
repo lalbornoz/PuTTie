@@ -5,8 +5,8 @@
 
 #include "putty.h"
 #include "dialog.h"
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
 
 /*
  * Private subroutine prototypes
@@ -94,7 +94,7 @@ static void winfripp_transp_config_panel_setting(union control *ctrl, dlgparam *
 }
 
 /*
- * Public subroutines private to FySTY/winfrip*.c
+ * Public subroutines private to PuTTie/winfrip*.c
  */
 
 void winfripp_transp_config_panel(struct controlbox *b)

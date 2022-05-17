@@ -5,9 +5,9 @@
 
 #include "putty.h"
 
-#include "FySTY/winfrip.h"
-#include "FySTY/winfrip_priv.h"
-#include "FySTY/winfrip_storage_priv.h"
+#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_priv.h"
+#include "PuTTie/winfrip_storage_priv.h"
 
 /*
  * Private subroutine prototypes
@@ -100,7 +100,7 @@ err:
 }
 
 /*
- * Public subroutines private to FySTY/winfrip_storage*.c prototypes
+ * Public subroutines private to PuTTie/winfrip_storage*.c prototypes
  * defined in winfrip_storage_priv.c
  */
 
