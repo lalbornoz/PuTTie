@@ -8,11 +8,13 @@
 #cmakedefine01 HAVE_WINRES_H
 #cmakedefine01 HAVE_WIN_H
 #cmakedefine01 HAVE_NO_STDINT_H
+#cmakedefine01 HAVE_AFUNIX_H
 #cmakedefine01 HAVE_GCP_RESULTSW
 #cmakedefine01 HAVE_ADDDLLDIRECTORY
 #cmakedefine01 HAVE_GETNAMEDPIPECLIENTPROCESSID
 #cmakedefine01 HAVE_SETDEFAULTDLLDIRECTORIES
 #cmakedefine01 HAVE_STRTOUMAX
+#cmakedefine01 HAVE_DWMAPI_H
 
 #cmakedefine NOT_X_WINDOWS
 

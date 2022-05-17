@@ -156,7 +156,9 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                 return;
             }
         }
-        s->K = dh_find_K(s->dh_ctx, s->f);
+        mp_int *K = dh_find_K(s->dh_ctx, s->f);
+        put_mp_ssh2(s->kex_shared_secret, K);
+        mp_free(K);
 
         /* We assume everything from now on will be quick, and it might
          * involve user interaction. */
@@ -183,13 +185,14 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
             mp_free(s->p); s->p = NULL;
         }
     } else if (s->kex_alg->main_type == KEXTYPE_ECDH) {
-
-        ppl_logevent("Doing ECDH key exchange with curve %s and hash %s",
-                     ssh_ecdhkex_curve_textname(s->kex_alg),
+        char *desc = ecdh_keyalg_description(s->kex_alg);
+        ppl_logevent("Doing %s, using hash %s", desc,
                      ssh_hash_alg(s->exhash)->text_name);
+        sfree(desc);
+
         s->ppl.bpp->pls->kctx = SSH2_PKTCTX_ECDHKEX;
 
-        s->ecdh_key = ssh_ecdhkex_newkey(s->kex_alg);
+        s->ecdh_key = ecdh_key_new(s->kex_alg, false);
         if (!s->ecdh_key) {
             ssh_sw_abort(s->ppl.ssh, "Unable to generate key for ECDH");
             *aborted = true;
@@ -199,7 +202,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_KEX_ECDH_INIT);
         {
             strbuf *pubpoint = strbuf_new();
-            ssh_ecdhkex_getpublic(s->ecdh_key, BinarySink_UPCAST(pubpoint));
+            ecdh_key_getpublic(s->ecdh_key, BinarySink_UPCAST(pubpoint));
             put_stringsb(pktout, pubpoint);
         }
 
@@ -222,7 +225,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
 
         {
             strbuf *pubpoint = strbuf_new();
-            ssh_ecdhkex_getpublic(s->ecdh_key, BinarySink_UPCAST(pubpoint));
+            ecdh_key_getpublic(s->ecdh_key, BinarySink_UPCAST(pubpoint));
             put_string(s->exhash, pubpoint->u, pubpoint->len);
             strbuf_free(pubpoint);
         }
@@ -230,8 +233,9 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         {
             ptrlen keydata = get_string(pktin);
             put_stringpl(s->exhash, keydata);
-            s->K = ssh_ecdhkex_getkey(s->ecdh_key, keydata);
-            if (!get_err(pktin) && !s->K) {
+            bool ok = ecdh_key_getkey(s->ecdh_key, keydata,
+                                      BinarySink_UPCAST(s->kex_shared_secret));
+            if (!get_err(pktin) && !ok) {
                 ssh_proto_error(s->ppl.ssh, "Received invalid elliptic curve "
                                 "point in ECDH reply");
                 *aborted = true;
@@ -246,7 +250,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
             return;
         }
 
-        ssh_ecdhkex_freekey(s->ecdh_key);
+        ecdh_key_free(s->ecdh_key);
         s->ecdh_key = NULL;
 #ifndef NO_GSSAPI
     } else if (s->kex_alg->main_type == KEXTYPE_GSS) {
@@ -485,7 +489,9 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                 return;
             }
         }
-        s->K = dh_find_K(s->dh_ctx, s->f);
+        mp_int *K = dh_find_K(s->dh_ctx, s->f);
+        put_mp_ssh2(s->kex_shared_secret, K);
+        mp_free(K);
 
         /* We assume everything from now on will be quick, and it might
          * involve user interaction. */
@@ -584,15 +590,21 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
             strbuf *buf, *outstr;
 
             mp_int *tmp = mp_random_bits(nbits - 1);
-            s->K = mp_power_2(nbits - 1);
-            mp_add_into(s->K, s->K, tmp);
+            mp_int *K = mp_power_2(nbits - 1);
+            mp_add_into(K, K, tmp);
             mp_free(tmp);
 
             /*
              * Encode this as an mpint.
              */
             buf = strbuf_new_nm();
-            put_mp_ssh2(buf, s->K);
+            put_mp_ssh2(buf, K);
+
+            /*
+             * Store a copy as the output shared secret from the kex.
+             */
+            put_mp_ssh2(s->kex_shared_secret, K);
+            mp_free(K);
 
             /*
              * Encrypt it with the given RSA key.
@@ -706,7 +718,8 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         }
     }
 
-    s->keystr = (s->hkey ? ssh_key_cache_str(s->hkey) : NULL);
+    s->keystr = (s->hkey && !ssh_key_alg(s->hkey)->is_certificate ?
+                 ssh_key_cache_str(s->hkey) : NULL);
 #ifndef NO_GSSAPI
     if (s->gss_kex_used) {
         /*
@@ -839,19 +852,84 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                 }
             }
 
-            /*
-             * Authenticate remote host: verify host key. (We've already
-             * checked the signature of the exchange hash.)
-             */
-            {
-                ssh2_userkey uk = { .key = s->hkey, .comment = NULL };
-                char *keydisp = ssh2_pubkey_openssh_str(&uk);
-                char **fingerprints = ssh2_all_fingerprints(s->hkey);
+            ssh2_userkey uk = { .key = s->hkey, .comment = NULL };
+            char **fingerprints = ssh2_all_fingerprints(s->hkey);
 
-                FingerprintType fptype_default =
-                    ssh2_pick_default_fingerprint(fingerprints);
-                ppl_logevent("Host key fingerprint is:");
-                ppl_logevent("%s", fingerprints[fptype_default]);
+            FingerprintType fptype_default =
+                ssh2_pick_default_fingerprint(fingerprints);
+            ppl_logevent("Host key fingerprint is:");
+            ppl_logevent("%s", fingerprints[fptype_default]);
+
+            /*
+             * Authenticate remote host: verify host key, either by
+             * certification or by the local host key cache.
+             *
+             * (We've already checked the signature of the exchange
+             * hash.)
+             */
+            if (ssh_key_alg(s->hkey)->is_certificate) {
+                ssh2_free_all_fingerprints(fingerprints);
+
+                char *base_fp = ssh2_fingerprint(ssh_key_base_key(s->hkey),
+                                                 fptype_default);
+                ppl_logevent("Host key is a certificate, whose base key has "
+                             "fingerprint:");
+                ppl_logevent("%s", base_fp);
+                sfree(base_fp);
+
+                strbuf *id_string = strbuf_new();
+                StripCtrlChars *id_string_scc = stripctrl_new(
+                    BinarySink_UPCAST(id_string), false, L'\0');
+                ssh_key_cert_id_string(
+                    s->hkey, BinarySink_UPCAST(id_string_scc));
+                stripctrl_free(id_string_scc);
+                ppl_logevent("Certificate ID string is \"%s\"", id_string->s);
+                strbuf_free(id_string);
+
+                strbuf *ca_pub = strbuf_new();
+                ssh_key_ca_public_blob(s->hkey, BinarySink_UPCAST(ca_pub));
+                host_ca hca_search = { .ca_public_key = ca_pub };
+                host_ca *hca_found = find234(s->host_cas, &hca_search, NULL);
+
+                char *ca_fp = ssh2_fingerprint_blob(ptrlen_from_strbuf(ca_pub),
+                                                    fptype_default);
+                ppl_logevent("Fingerprint of certification authority:");
+                ppl_logevent("%s", ca_fp);
+                sfree(ca_fp);
+
+                strbuf_free(ca_pub);
+
+                strbuf *error = strbuf_new();
+                bool cert_ok = false;
+
+                if (!hca_found) {
+                    put_fmt(error, "Certification authority is not trusted");
+                } else {
+                    ppl_logevent("Certification authority matches '%s'",
+                                 hca_found->name);
+                    cert_ok = ssh_key_check_cert(
+                        s->hkey,
+                        true, /* host certificate */
+                        ptrlen_from_asciz(s->savedhost),
+                        time(NULL),
+                        &hca_found->opts,
+                        BinarySink_UPCAST(error));
+                }
+                if (cert_ok) {
+                    strbuf_free(error);
+                    ppl_logevent("Accepted certificate");
+                } else {
+                    ppl_logevent("Rejected host key certificate: %s",
+                                 error->s);
+                    ssh_sw_abort(s->ppl.ssh,
+                                 "Rejected host key certificate: %s",
+                                 error->s);
+                    *aborted = true;
+                    strbuf_free(error);
+                    return;
+                }
+            } else {
+                char *keydisp = ssh2_pubkey_openssh_str(&uk);
 
                 s->spr = verify_ssh_host_key(
                     ppl_get_iseat(&s->ppl), s->conf, s->savedhost, s->savedport,
@@ -860,23 +938,23 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
 
                 ssh2_free_all_fingerprints(fingerprints);
                 sfree(keydisp);
-            }
 #ifdef FUZZING
-            s->spr = SPR_OK;
+                s->spr = SPR_OK;
 #endif
-            crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
-            if (spr_is_abort(s->spr)) {
-                *aborted = true;
-                ssh_spr_close(s->ppl.ssh, s->spr, "host key verification");
-                return;
+                crMaybeWaitUntilV(s->spr.kind != SPRK_INCOMPLETE);
+                if (spr_is_abort(s->spr)) {
+                    *aborted = true;
+                    ssh_spr_close(s->ppl.ssh, s->spr, "host key verification");
+                    return;
+                }
             }
 
             /*
              * Save this host key, to check against the one presented in
              * subsequent rekeys.
              */
-            s->hostkey_str = s->keystr;
-            s->keystr = NULL;
+            strbuf_clear(s->hostkeyblob);
+            ssh_key_public_blob(s->hkey, BinarySink_UPCAST(s->hostkeyblob));
         } else if (s->cross_certifying) {
             assert(s->hkey);
             assert(ssh_key_alg(s->hkey) == s->cross_certifying);
@@ -892,8 +970,8 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
              * Don't forget to store the new key as the one we'll be
              * re-checking in future normal rekeys.
              */
-            s->hostkey_str = s->keystr;
-            s->keystr = NULL;
+            strbuf_clear(s->hostkeyblob);
+            ssh_key_public_blob(s->hkey, BinarySink_UPCAST(s->hostkeyblob));
         } else {
             /*
              * In a rekey, we never present an interactive host key
@@ -901,8 +979,12 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
              * enforce that the key we're seeing this time is identical to
              * the one we saw before.
              */
-            assert(s->keystr);         /* filled in by prior key exchange */
-            if (strcmp(s->hostkey_str, s->keystr)) {
+            strbuf *thisblob = strbuf_new();
+            ssh_key_public_blob(s->hkey, BinarySink_UPCAST(thisblob));
+            bool match = ptrlen_eq_ptrlen(ptrlen_from_strbuf(thisblob),
+                                          ptrlen_from_strbuf(s->hostkeyblob));
+            strbuf_free(thisblob);
+            if (!match) {
 #ifndef FUZZING
                 ssh_sw_abort(s->ppl.ssh,
                              "Host key was different in repeat key exchange");

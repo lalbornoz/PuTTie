@@ -8,7 +8,7 @@ import functools
 import contextlib
 import hashlib
 import binascii
-import base64
+from base64 import b64decode as b64
 import json
 try:
     from math import gcd
@@ -18,13 +18,9 @@ except ImportError:
 from eccref import *
 from testcrypt import *
 from ssh import *
+from ca import CertType, make_signature_preimage, sign_cert_via_testcrypt
 
 assert sys.version_info[:2] >= (3,0), "This is Python 3 code"
-
-try:
-    base64decode = base64.decodebytes
-except AttributeError:
-    base64decode = base64.decodestring
 
 def unhex(s):
     return binascii.unhexlify(s.replace(" ", "").replace("\n", ""))
@@ -1274,6 +1270,107 @@ class keygen(MyTestBase):
         mr = miller_rabin_new(n)
         self.assertEqual(miller_rabin_test(mr, 0x251), "failed")
 
+class ntru(MyTestBase):
+    def testMultiply(self):
+        self.assertEqual(
+            ntru_ring_multiply([1,1,1,1,1,1], [1,1,1,1,1,1], 11, 59),
+            [1,2,3,4,5,6,5,4,3,2,1])
+        self.assertEqual(ntru_ring_multiply(
+            [1,0,1,2,0,0,1,2,0,1,2], [2,0,0,1,0,1,2,2,2,0,2], 11, 3),
+                         [1,0,0,0,0,0,0,0,0,0,0])
+
+    def testInvert(self):
+        # Over GF(3), x^11-x-1 factorises as
+        # (x^3+x^2+2) * (x^8+2*x^7+x^6+2*x^4+2*x^3+x^2+x+1)
+        # so we expect that 2,0,1,1 has no inverse, being one of those factors.
+        self.assertEqual(ntru_ring_invert([0], 11, 3), None)
+        self.assertEqual(ntru_ring_invert([1], 11, 3),
+                         [1,0,0,0,0,0,0,0,0,0,0])
+        self.assertEqual(ntru_ring_invert([2,0,1,1], 11, 3), None)
+        self.assertEqual(ntru_ring_invert([1,0,1,2,0,0,1,2,0,1,2], 11, 3),
+                         [2,0,0,1,0,1,2,2,2,0,2])
+
+        self.assertEqual(ntru_ring_invert([1,0,1,2,0,0,1,2,0,1,2], 11, 59),
+                         [1,26,10,1,38,48,34,37,53,3,53])
+
+    def testMod3Round3(self):
+        # Try a prime congruent to 1 mod 3
+        self.assertEqual(ntru_mod3([4,5,6,0,1,2,3], 7, 7),
+                         [0,1,-1,0,1,-1,0])
+        self.assertEqual(ntru_round3([4,5,6,0,1,2,3], 7, 7),
+                         [-3,-3,0,0,0,3,3])
+
+        # And one congruent to 2 mod 3
+        self.assertEqual(ntru_mod3([6,7,8,9,10,0,1,2,3,4,5], 11, 11),
+                         [1,-1,0,1,-1,0,1,-1,0,1,-1])
+        self.assertEqual(ntru_round3([6,7,8,9,10,0,1,2,3,4,5], 11, 11),
+                         [-6,-3,-3,-3,0,0,0,3,3,3,6])
+
+    def testBiasScale(self):
+        self.assertEqual(ntru_bias([0,1,2,3,4,5,6,7,8,9,10], 4, 11, 11),
+                         [4,5,6,7,8,9,10,0,1,2,3])
+        self.assertEqual(ntru_scale([0,1,2,3,4,5,6,7,8,9,10], 4, 11, 11),
+                         [0,4,8,1,5,9,2,6,10,3,7])
+
+    def testEncode(self):
+        # Test a small case. Worked through in detail:
+        #
+        # Pass 1:
+        #   Input list is (89:123, 90:234, 344:345, 432:456, 222:567)
+        #   (89:123, 90:234) -> (89+123*90 : 123*234) = (11159:28782)
+        #   Emit low byte of 11159 = 0x97, and get (43:113)
+        #   (344:345, 432:456) -> (344+345*432 : 345*456) = (149384:157320)
+        #   Emit low byte of 149384 = 0x88, and get (583:615)
+        #   Odd pair (222:567) is copied to end of new list
+        #   Final list is (43:113, 583:615, 222:567)
+        # Pass 2:
+        #   Input list is (43:113, 583:615, 222:567)
+        #   (43:113, 583:615) -> (43+113*583, 113*615) = (65922:69495)
+        #   Emit low byte of 65922 = 0x82, and get (257:272)
+        #   Odd pair (222:567) is copied to end of new list
+        #   Final list is (257:272, 222:567)
+        # Pass 3:
+        #   Input list is (257:272, 222:567)
+        #   (257:272, 222:567) -> (257+272*222, 272*567) = (60641:154224)
+        #   Emit low byte of 60641 = 0xe1, and get (236:603)
+        #   Final list is (236:603)
+        # Cleanup:
+        #   Emit low byte of 236 = 0xec, and get (0:3)
+        #   Emit low byte of 0 = 0x00, and get (0:1)
+
+        ms = [123,234,345,456,567]
+        rs = [89,90,344,432,222]
+        encoding = unhex('978882e1ec00')
+        sched = ntru_encode_schedule(ms)
+        self.assertEqual(sched.encode(rs), encoding)
+        self.assertEqual(sched.decode(encoding), rs)
+
+        # Encode schedules for sntrup761 public keys and ciphertexts
+        pubsched = ntru_encode_schedule([4591]*761)
+        self.assertEqual(pubsched.length(), 1158)
+        ciphersched = ntru_encode_schedule([1531]*761)
+        self.assertEqual(ciphersched.length(), 1007)
+
+        # Test round-trip encoding using those schedules
+        testlist = list(range(761))
+        pubtext = pubsched.encode(testlist)
+        self.assertEqual(pubsched.decode(pubtext), testlist)
+        ciphertext = ciphersched.encode(testlist)
+        self.assertEqual(ciphersched.decode(ciphertext), testlist)
+
+    def testCore(self):
+        # My own set of NTRU Prime parameters, satisfying all the
+        # requirements and tiny enough for convenient testing
+        p, q, w = 11, 59, 3
+
+        with random_prng('ntru keygen seed'):
+            keypair = ntru_keygen(p, q, w)
+            plaintext = ntru_gen_short(p, w)
+
+        ciphertext = ntru_encrypt(plaintext, ntru_pubkey(keypair), p, q)
+        recovered = ntru_decrypt(ciphertext, keypair)
+        self.assertEqual(plaintext, recovered)
+
 class crypt(MyTestBase):
     def testSSH1Fingerprint(self):
         # Example key and reference fingerprint value generated by
@@ -1285,9 +1382,9 @@ class crypt(MyTestBase):
 
     def testSSH2Fingerprints(self):
         # A sensible key blob that we can make sense of.
-        sensible_blob = base64.decodebytes(
-            b'AAAAC3NzaC1lZDI1NTE5AAAAICWiV0VAD4lQ7taUN7vZ5Rkc'
-            b'SLJBW5ubn6ZINwCOzpn3')
+        sensible_blob = b64(
+            'AAAAC3NzaC1lZDI1NTE5AAAAICWiV0VAD4lQ7taUN7vZ5Rkc'
+            'SLJBW5ubn6ZINwCOzpn3')
         self.assertEqual(ssh2_fingerprint_blob(sensible_blob, "sha256"),
                          b'ssh-ed25519 255 SHA256:'
                          b'E4VmaHW0sUF7SUgSEOmMJ8WBtt0e/j3zbsKvyqfFnu4')
@@ -1772,13 +1869,13 @@ class crypt(MyTestBase):
         ]
 
         with random_prng("doesn't matter"):
-            ecdh25519 = ssh_ecdhkex_newkey('curve25519')
-            ecdh448 = ssh_ecdhkex_newkey('curve448')
+            ecdh25519 = ecdh_key_new('curve25519', False)
+            ecdh448 = ecdh_key_new('curve448', False)
         for pub in bad_keys_25519:
-            key = ssh_ecdhkex_getkey(ecdh25519, unhex(pub))
+            key = ecdh_key_getkey(ecdh25519, unhex(pub))
             self.assertEqual(key, None)
         for pub in bad_keys_448:
-            key = ssh_ecdhkex_getkey(ecdh448, unhex(pub))
+            key = ecdh_key_getkey(ecdh448, unhex(pub))
             self.assertEqual(key, None)
 
     def testPRNG(self):
@@ -2199,8 +2296,8 @@ culpa qui officia deserunt mollit anim id est laborum.
 
         for alg, pubb64, privb64, bits, cachestr, siglist in test_keys:
             # Decode the blobs in the above test data.
-            pubblob = base64decode(pubb64.encode('ASCII'))
-            privblob = base64decode(privb64.encode('ASCII'))
+            pubblob = b64(pubb64)
+            privblob = b64(privb64)
 
             # Check the method that examines a public blob directly
             # and returns an integer showing the key size.
@@ -2234,7 +2331,7 @@ culpa qui officia deserunt mollit anim id est laborum.
             # value.
             for flags, sigb64 in siglist:
                 # Decode the signature blob from the test data.
-                sigblob = base64decode(sigb64.encode('ASCII'))
+                sigblob = b64(sigb64)
 
                 # Sign our test message, and check it produces exactly
                 # the expected signature blob.
@@ -2322,7 +2419,7 @@ Private-MAC: 6f5e588e475e55434106ec2c3569695b03f423228b44993a9e97d52ffe7be5a8
                          (True, algorithm, public_blob, comment, None))
         self.assertEqual(ppk_loadpub_s("not a key file"),
                          (False, None, b'', None,
-                          b'not a PuTTY SSH-2 private key'))
+                          b'not a public key or a PuTTY SSH-2 private key'))
 
         k1, c, e = ppk_load_s(input_clear_key, None)
         self.assertEqual((c, e), (comment, None))
@@ -2384,7 +2481,7 @@ Private-MAC: 5b1f6f4cc43eb0060d2c3e181bc0129343adba2b
                          (True, algorithm, public_blob, comment, None))
         self.assertEqual(ppk_loadpub_s("not a key file"),
                          (False, None, b'', None,
-                          b'not a PuTTY SSH-2 private key'))
+                          b'not a public key or a PuTTY SSH-2 private key'))
 
         k1, c, e = ppk_load_s(v2_clear_key, None)
         self.assertEqual((c, e), (comment, None))
@@ -2460,6 +2557,295 @@ Private-MAC: 5b1f6f4cc43eb0060d2c3e181bc0129343adba2b
         with queued_specific_random_data(unhex("99f3")):
             self.assertEqual(rsa1_save_sb(k2, comment, pp),
                              input_encrypted_key)
+
+    def testOpenSSHCert(self):
+        def per_base_keytype_tests(alg, run_validation_tests=False,
+                                   run_ca_rsa_tests=False, ca_signflags=None):
+            cert_pub = sign_cert_via_testcrypt(
+                make_signature_preimage(
+                    key_to_certify = base_key.public_blob(),
+                    ca_key = ca_key,
+                    certtype = CertType.user,
+                    keyid = b'id',
+                    serial = 111,
+                    principals = [b'username'],
+                    valid_after = 1000,
+                    valid_before = 2000), ca_key, signflags=ca_signflags)
+
+            certified_key = ssh_key_new_priv(alg + '-cert', cert_pub,
+                                             base_key.private_blob())
+
+            # Check the simple certificate methods
+            self.assertEqual(certified_key.cert_id_string(), b'id')
+            self.assertEqual(certified_key.ca_public_blob(),
+                             ca_key.public_blob())
+            recovered_base_key = certified_key.base_key()
+            self.assertEqual(recovered_base_key.public_blob(),
+                             base_key.public_blob())
+            self.assertEqual(recovered_base_key.private_blob(),
+                             base_key.private_blob())
+
+            # Check that an ordinary key also supports base_key()
+            redundant_base_key = base_key.base_key()
+            self.assertEqual(redundant_base_key.public_blob(),
+                             base_key.public_blob())
+            self.assertEqual(redundant_base_key.private_blob(),
+                             base_key.private_blob())
+
+            # Test signing and verifying using the certified key type
+            test_string = b'hello, world'
+            base_sig = base_key.sign(test_string, 0)
+            certified_sig = certified_key.sign(test_string, 0)
+            self.assertEqual(base_sig, certified_sig)
+            self.assertEqual(certified_key.verify(base_sig, test_string), True)
+
+            # Check a successful certificate verification
+            result, err = certified_key.check_cert(
+                False, b'username', 1000, '')
+            self.assertEqual(result, True)
+
+            # If the key type is RSA, check that the validator rejects
+            # wrong kinds of CA signature
+            if run_ca_rsa_tests:
+                forbid_all = ",".join(["permit_rsa_sha1=false",
+                                       "permit_rsa_sha256=false,"
+                                       "permit_rsa_sha512=false"])
+                result, err = certified_key.check_cert(
+                    False, b'username', 1000, forbid_all)
+                self.assertEqual(result, False)
+
+                algname = ("rsa-sha2-512" if ca_signflags == 4 else
+                           "rsa-sha2-256" if ca_signflags == 2 else
+                           "ssh-rsa")
+                self.assertEqual(err, (
+                    "Certificate signature uses '{}' signature type "
+                    "(forbidden by user configuration)".format(algname)
+                    .encode("ASCII")))
+
+                permitflag = ("permit_rsa_sha512" if ca_signflags == 4 else
+                              "permit_rsa_sha256" if ca_signflags == 2 else
+                              "permit_rsa_sha1")
+                result, err = certified_key.check_cert(
+                    False, b'username', 1000, "{},{}=true".format(
+                        forbid_all, permitflag))
+                self.assertEqual(result, True)
+
+            # That's the end of the tests we need to repeat for all
+            # the key types. Now we move on to detailed tests of the
+            # validation, which are independent of key type, so we
+            # only need to test this part once.
+            if not run_validation_tests:
+                return
+
+            # Check cert verification at the other end of the valid
+            # time range
+            result, err = certified_key.check_cert(
+                False, b'username', 1999, '')
+            self.assertEqual(result, True)
+
+            # Oops, wrong certificate type
+            result, err = certified_key.check_cert(
+                True, b'username', 1000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err, b'Certificate type is user; expected host')
+
+            # Oops, wrong username
+            result, err = certified_key.check_cert(
+                False, b'someoneelse', 1000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err, b'Certificate\'s username list ["username"] '
+                             b'does not contain expected username "someoneelse"')
+
+            # Oops, time is wrong. (But we can't check the full error
+            # message including the translated start/end times, because
+            # those vary with LC_TIME.)
+            result, err = certified_key.check_cert(
+                False, b'someoneelse', 999, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err[:30], b'Certificate is not valid until')
+            result, err = certified_key.check_cert(
+                False, b'someoneelse', 2000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err[:22], b'Certificate expired at')
+
+            # Modify the certificate so that the signature doesn't validate
+            username_position = cert_pub.index(b'username')
+            bytelist = list(cert_pub)
+            bytelist[username_position] ^= 1
+            miscertified_key = ssh_key_new_priv(alg + '-cert', bytes(bytelist),
+                                                base_key.private_blob())
+            result, err = miscertified_key.check_cert(
+                False, b'username', 1000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err, b"Certificate's signature is invalid")
+
+            # Make a certificate containing a critical option, to test we
+            # reject it
+            cert_pub = sign_cert_via_testcrypt(
+                make_signature_preimage(
+                    key_to_certify = base_key.public_blob(),
+                    ca_key = ca_key,
+                    certtype = CertType.user,
+                    keyid = b'id',
+                    serial = 112,
+                    principals = [b'username'],
+                    critical_options = {b'unknown-option': b'yikes!'}), ca_key)
+            certified_key = ssh_key_new_priv(alg + '-cert', cert_pub,
+                                               base_key.private_blob())
+            result, err = certified_key.check_cert(
+                False, b'username', 1000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err, b'Certificate specifies an unsupported '
+                             b'critical option "unknown-option"')
+
+            # Make a certificate containing a non-critical extension, to
+            # test we _accept_ it
+            cert_pub = sign_cert_via_testcrypt(
+                make_signature_preimage(
+                    key_to_certify = base_key.public_blob(),
+                    ca_key = ca_key,
+                    certtype = CertType.user,
+                    keyid = b'id',
+                    serial = 113,
+                    principals = [b'username'],
+                    extensions = {b'unknown-ext': b'whatever, dude'}), ca_key)
+            certified_key = ssh_key_new_priv(alg + '-cert', cert_pub,
+                                               base_key.private_blob())
+            result, err = certified_key.check_cert(
+                False, b'username', 1000, '')
+            self.assertEqual(result, True)
+
+            # Make a certificate on the CA key, and re-sign the main
+            # key using that, to ensure that two-level certs are rejected
+            ca_self_certificate = sign_cert_via_testcrypt(
+                make_signature_preimage(
+                    key_to_certify = ca_key.public_blob(),
+                    ca_key = ca_key,
+                    certtype = CertType.user,
+                    keyid = b'id',
+                    serial = 111,
+                    principals = [b"doesn't matter"],
+                    valid_after = 1000,
+                    valid_before = 2000), ca_key, signflags=ca_signflags)
+            import base64
+            print(base64.b64encode(ca_self_certificate))
+            self_signed_ca_key = ssh_key_new_pub(
+                alg + '-cert', ca_self_certificate)
+            print(self_signed_ca_key)
+            cert_pub = sign_cert_via_testcrypt(
+                make_signature_preimage(
+                    key_to_certify = base_key.public_blob(),
+                    ca_key = self_signed_ca_key,
+                    certtype = CertType.user,
+                    keyid = b'id',
+                    serial = 111,
+                    principals = [b'username'],
+                    valid_after = 1000,
+                    valid_before = 2000), ca_key, signflags=ca_signflags)
+            print(base64.b64encode(cert_pub))
+            certified_key = ssh_key_new_priv(alg + '-cert', cert_pub,
+                                             base_key.private_blob())
+            result, err = certified_key.check_cert(
+                False, b'username', 1500, '')
+            self.assertEqual(result, False)
+            self.assertEqual(
+                err, b'Certificate is signed with a certified key '
+                b'(forbidden by OpenSSH certificate specification)')
+
+            # Now try a host certificate. We don't need to do _all_ the
+            # checks over again, but at least make sure that setting
+            # CertType.host leads to the certificate validating with
+            # host=True and not with host=False.
+            #
+            # Also, in this test, give two hostnames.
+            cert_pub = sign_cert_via_testcrypt(
+                make_signature_preimage(
+                    key_to_certify = base_key.public_blob(),
+                    ca_key = ca_key,
+                    certtype = CertType.host,
+                    keyid = b'id',
+                    serial = 114,
+                    principals = [b'hostname.example.com',
+                                  b'hostname2.example.com'],
+                    valid_after = 1000,
+                    valid_before = 2000), ca_key)
+
+            certified_key = ssh_key_new_priv(alg + '-cert', cert_pub,
+                                             base_key.private_blob())
+
+            # Check certificate type
+            result, err = certified_key.check_cert(
+                True, b'hostname.example.com', 1000, '')
+            self.assertEqual(result, True)
+            result, err = certified_key.check_cert(
+                False, b'hostname.example.com', 1000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err, b'Certificate type is host; expected user')
+
+            # Check the second hostname and an unknown one
+            result, err = certified_key.check_cert(
+                True, b'hostname2.example.com', 1000, '')
+            self.assertEqual(result, True)
+            result, err = certified_key.check_cert(
+                True, b'hostname3.example.com', 1000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err, b'Certificate\'s hostname list ['
+                             b'"hostname.example.com", "hostname2.example.com"] '
+                             b'does not contain expected hostname '
+                             b'"hostname3.example.com"')
+
+            # And just for luck, try a totally unknown certificate type,
+            # making sure that it's rejected in both modes and gives the
+            # right error message
+            cert_pub = sign_cert_via_testcrypt(
+                make_signature_preimage(
+                    key_to_certify = base_key.public_blob(),
+                    ca_key = ca_key,
+                    certtype = 12345,
+                    keyid = b'id',
+                    serial = 114,
+                    principals = [b'username', b'hostname.example.com'],
+                    valid_after = 1000,
+                    valid_before = 2000), ca_key)
+            certified_key = ssh_key_new_priv(alg + '-cert', cert_pub,
+                                             base_key.private_blob())
+            result, err = certified_key.check_cert(
+                False, b'username', 1000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err, b'Certificate type is unknown value 12345; '
+                             b'expected user')
+            result, err = certified_key.check_cert(
+                True, b'hostname.example.com', 1000, '')
+            self.assertEqual(result, False)
+            self.assertEqual(err, b'Certificate type is unknown value 12345; '
+                             b'expected host')
+
+        ca_key = ssh_key_new_priv('ed25519', b64('AAAAC3NzaC1lZDI1NTE5AAAAIMUJEFAmSV/qtoxSmVOHUgTMKYjqkDy8fTfsfCKV+sN7'), b64('AAAAIK4STyaf63xHidqhvUop9/OKiYqSh/YEWLCp1lL5Vs4u'))
+
+        base_key = ssh_key_new_priv('ed25519', b64('AAAAC3NzaC1lZDI1NTE5AAAAIMt0/CMBL+64GQ/r/JyGxo6oHs86i9bOHhMJYbDbxEJf'), b64('AAAAIB38jy02ZWYb4EXrJG9RIljEhqidrG5DdhZvMvoeOTZs'))
+        per_base_keytype_tests('ed25519', run_validation_tests=True)
+
+        base_key = ssh_key_new_priv('p256', b64('AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBGc8VXplXScdWckJgAw6Hag5PP7g0JEVdLY5lP2ujvVxU5GwwquYLbX3yyj1zY5h2n9GoXrnRxzR5+5g8wsNjTA='), b64('AAAAICVRicPD5MyOHfKdnC/8IP84t+nQ4bqmMUyX7NHyCKjS'))
+        per_base_keytype_tests('p256')
+
+        base_key = ssh_key_new_priv('p384', b64('AAAAE2VjZHNhLXNoYTItbmlzdHAzODQAAAAIbmlzdHAzODQAAABhBLITujAbKwHDEzVDFqWtA+CleAhN/Y+53mHbEoTpU0aof9L+2lHeUshXdxHDLxY69wO5+WfqWJCwSY58PuXIZzIisQkvIKq6LhpzK6C5JpWJ8Kbv7su+qZPf5sYoxx0xZg=='), b64('AAAAMHyQTQYcIA/bR4ZvWS86ohb5Lu0MhzjD8bUb3q8jnROOe3BrE9I8oJcx+l1lddPouA=='))
+        per_base_keytype_tests('p384')
+
+        base_key = ssh_key_new_priv('p521', b64('AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBADButwMRGdLkFhWcSDsLhRhgyrLQq1/A0M8x4GgEmesh4iydo4tGKZR14GhHvx150IWTE1Tre4wyH+1FsTfAlpUBgBDQjsZE0D3u3SLp4qjjhzyrJGhEUDd9J6lsr6JrXbTefz5+LkM9m5l86y9PoAgT+F25OiTYlfvR5qx/pzIPoCnpA=='), b64('AAAAQgFV8xBXC7XZNxdW1oWg6yCZjys2AX4beZVehE9A2R/4m11dHnfqoE1FzbRxj9xqwKvHZRhMOJ//DYuhtcG6+6yHsA=='))
+        per_base_keytype_tests('p521')
+
+        base_key = ssh_key_new_priv('dsa', b64('AAAAB3NzaC1kc3MAAABCAXgDrF9Fw/Ty+QcoljAGjGL/Ph5+NBQqUYADm4wxF+aazjQXLuZ0VW9OdYBisgDZlYDj/w7y9NxCBgax2BSkhDNxAAAAFQC/YwnFzcom6cRRHPXtOUDLi2I29QAAAEIAqGOUYpfFPwzhgAmYXwWKdK8ouSUplNE29FOpv6NYjyf7k+tLSWF3b8oZdtw6XP8lr4vcKXC9Ik0YpKYKM7iKfb8AAABCAUDCcojlDLQmLHg8HhFCtT/CpayNh4OfmSrP8XOwJnFD/eBaSGuPB5EvGd+m6gr+Pc0RSAlWP1aIzUbYkQ33Yk58'), b64('AAAAFQChVuOTNrCwLSJygxlRQhDwHozwSg=='))
+        per_base_keytype_tests('dsa')
+
+        base_key = ssh_key_new_priv('rsa', b64('AAAAB3NzaC1yc2EAAAADAQABAAAAgQDXLnqGPQLL9byoHFQWPiF5Uzcd0KedMRRJmuwyCAWprlh8EN43mL2F7q27Uv54m/ztqW4DsVtiCN6cDYvB9QPNYFR5npwsEAJ06Ro4s9ZpFsZVOvitqeoYIs+jkS8vq5V8X4hwLlJ8vXYPD6rHJhOz6HFpImHmVu40Mu5lq+MCQQ=='), b64('AAAAgH5dBwrJzVilKHK4oBCnz9SFr7pMjAHdjoJi/g2rdFfe0IubBEQ16CY8sb1t0Y5WXEPc2YRFpNp/RurxcX8nOWFPzgNJXEtkKpKO9Juqu5hL4xcf8QKC2aJFk3EXrn/M6dXEdjqN4UhsT6iFTsHKU4b8T6VTtgKzwkOdic/YotaBAAAAQQD6liDTlzTKzLhbypI6l+y2BGA3Kkzz71Y2o7XH/6bZ6HJOFgHuJeL3eNQptzd8Q+ctfvR0fa2PItYydDOlVUeZAAAAQQDb1IsO1/fkflDZhPQT2XOxtrjgQhotKjr6CSmJtDNmo1mOCN+mOgxtDfJ0PNEEM1P9CO2Ia3njtkxt4Ep2EpjpAAAAQQClRxLEHsRK9nMPZ4HW45iyw5dHhYar9pYUql2VnixWQxrHy13ZIaWxi6xwWjuPglrdBgEQfYwH9KGmlFmZXT/Z'))
+        per_base_keytype_tests('rsa')
+
+        # Now switch to an RSA certifying key, and test different RSA
+        # signature subtypes being used to sign the certificate
+        ca_key = ssh_key_new_priv('rsa', b64('AAAAB3NzaC1yc2EAAAADAQABAAAAgQCKHiavhtnAZQLUPtYlzlQmVTHSKq2ChCKZP0cLNtN2YSS0/f4D1hi8W04Qh/JuSXZAdUThTAVjxDmxpiOMNwa/2WDXMuqip47dzZSQxtSdvTfeL9TVC/M1NaOzy8bqFx6pzi37zPATETT4PP1Zt/Pd23ZJYhwjxSyTlqj7529v0w=='), b64('AAAAgCwTZyEIlaCyG28EBm7WI0CAW3/IIsrNxATHjrJjcqQKaB5iF5e90PL66DSaTaEoTFZRlgOXsPiffBHXBO0P+lTyZ2jlq2J2zgeofRH3Yong4BT4xDtqBKtxixgC1MAHmrOnRXjAcDUiLxIGgU0YKSv0uAlgARsUwDsk0GEvK+jBAAAAQQDMi7liRBQ4/Z6a4wDL/rVnIJ9x+2h2UPK9J8U7f97x/THIBtfkbf9O7nDP6onValuSr86tMR24DJZsEXaGPwjDAAAAQQCs3J3D3jNVwwk16oySRSjA5x3tKCEITYMluyXX06cvFew8ldgRCYl1sh8RYAfbBKXhnJD77qIxtVNaF1yl/guxAAAAQFTRdKRUF2wLu/K/Rr34trwKrV6aW0GWyHlLuWvF7FUB85aDmtqYI2BSk92mVCKHBNw2T3cJMabN9JOznjtADiM='))
+        per_base_keytype_tests('rsa', run_ca_rsa_tests=True)
+        per_base_keytype_tests('rsa', run_ca_rsa_tests=True, ca_signflags=2)
+        per_base_keytype_tests('rsa', run_ca_rsa_tests=True, ca_signflags=4)
 
 class standard_test_vectors(MyTestBase):
     def testAES(self):
@@ -3107,9 +3493,9 @@ class standard_test_vectors(MyTestBase):
 
         for method, priv, pub, expected in rfc7748s5_2:
             with queued_specific_random_data(unhex(priv)):
-                ecdh = ssh_ecdhkex_newkey(method)
-            key = ssh_ecdhkex_getkey(ecdh, unhex(pub))
-            self.assertEqual(int(key), expected)
+                ecdh = ecdh_key_new(method, False)
+            key = ecdh_key_getkey(ecdh, unhex(pub))
+            self.assertEqual(key, ssh2_mpint(expected))
 
         # Bidirectional tests, consisting of the input random number
         # strings for both parties, and the expected public values and
@@ -3131,15 +3517,15 @@ class standard_test_vectors(MyTestBase):
 
         for method, apriv, apub, bpriv, bpub, expected in rfc7748s6:
             with queued_specific_random_data(unhex(apriv)):
-                alice = ssh_ecdhkex_newkey(method)
+                alice = ecdh_key_new(method, False)
             with queued_specific_random_data(unhex(bpriv)):
-                bob = ssh_ecdhkex_newkey(method)
-            self.assertEqualBin(ssh_ecdhkex_getpublic(alice), unhex(apub))
-            self.assertEqualBin(ssh_ecdhkex_getpublic(bob), unhex(bpub))
-            akey = ssh_ecdhkex_getkey(alice, unhex(bpub))
-            bkey = ssh_ecdhkex_getkey(bob, unhex(apub))
-            self.assertEqual(int(akey), expected)
-            self.assertEqual(int(bkey), expected)
+                bob = ecdh_key_new(method, False)
+            self.assertEqualBin(ecdh_key_getpublic(alice), unhex(apub))
+            self.assertEqualBin(ecdh_key_getpublic(bob), unhex(bpub))
+            akey = ecdh_key_getkey(alice, unhex(bpub))
+            bkey = ecdh_key_getkey(bob, unhex(apub))
+            self.assertEqual(akey, ssh2_mpint(expected))
+            self.assertEqual(bkey, ssh2_mpint(expected))
 
     def testCRC32(self):
         self.assertEqual(crc32_rfc1662("123456789"), 0xCBF43926)
@@ -3192,8 +3578,7 @@ class standard_test_vectors(MyTestBase):
                   "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v",
                   "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS", 1,
                   "MD5", False]
-        cnonce = base64.decodebytes(
-            b'f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ')
+        cnonce = b64('f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ')
         with queued_specific_random_data(cnonce):
             self.assertEqual(http_digest_response(*params),
                              b'username="Mufasa", '
@@ -3240,8 +3625,7 @@ class standard_test_vectors(MyTestBase):
                   "5TsQWLVdgBdmrQ0XsxbDODV+57QdFR34I9HAbC/RVvkK",
                   "HRPCssKJSGjCrkzDg8OhwpzCiGPChXYjwrI2QmXDnsOS", 1,
                   "SHA-512-256", True]
-        cnonce = base64.decodebytes(
-            b'NTg6RKcb9boFIAS3KrFK9BGeh+iDa/sm6jUMp2wds69v')
+        cnonce = b64('NTg6RKcb9boFIAS3KrFK9BGeh+iDa/sm6jUMp2wds69v')
         with queued_specific_random_data(cnonce):
             self.assertEqual(http_digest_response(*params),
                              b'username="488869477bf257147b804c45308cd62ac4e25eb717b12b298c79e62dcea254ec", '

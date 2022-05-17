@@ -430,6 +430,7 @@ enum {
     KEX_DHGEX,
     KEX_RSA,
     KEX_ECDH,
+    KEX_NTRU_HYBRID,
     KEX_MAX
 };
 
@@ -478,7 +479,8 @@ enum {
      * Proxy types.
      */
     PROXY_NONE, PROXY_SOCKS4, PROXY_SOCKS5,
-    PROXY_HTTP, PROXY_TELNET, PROXY_CMD, PROXY_SSH,
+    PROXY_HTTP, PROXY_TELNET, PROXY_CMD, PROXY_SSH_TCPIP,
+    PROXY_SSH_EXEC, PROXY_SSH_SUBSYSTEM,
     PROXY_FUZZ
 };
 
@@ -1638,6 +1640,17 @@ struct TermWinVtable {
 
     void (*refresh)(TermWin *);
 
+    /* request_resize asks the front end if the terminal can please be
+     * resized to (w,h) in characters. The front end MAY call
+     * term_size() in response to tell the terminal its new size
+     * (which MAY be the requested size, or some other size if the
+     * requested one can't be achieved). The front end MAY also not
+     * call term_size() at all. But the front end MUST reply to this
+     * request by calling term_resize_request_completed(), after the
+     * responding resize event has taken place (if any).
+     *
+     * The calls to term_size and term_resize_request_completed may be
+     * synchronous callbacks from within the call to request_resize(). */
     void (*request_resize)(TermWin *, int w, int h);
 
     void (*set_title)(TermWin *, const char *title, int codepage);
@@ -1782,6 +1795,7 @@ NORETURN void cleanup_exit(int);
     X(BOOL, NONE, change_username) /* allow username switching in SSH-2 */ \
     X(INT, INT, ssh_cipherlist) \
     X(FILENAME, NONE, keyfile) \
+    X(FILENAME, NONE, detached_cert) \
     /* \
      * Which SSH protocol to use. \
      * For historical reasons, the current legal values for CONF_sshprot \
@@ -2137,6 +2151,7 @@ FontSpec *platform_default_fontspec(const char *name);
 Terminal *term_init(Conf *, struct unicode_data *, TermWin *);
 void term_free(Terminal *);
 void term_size(Terminal *, int, int, int);
+void term_resize_request_completed(Terminal *);
 void term_paint(Terminal *, int, int, int, int, bool);
 void term_scroll(Terminal *, int, int);
 void term_scroll_to_selection(Terminal *, int);
@@ -2144,6 +2159,7 @@ void term_pwron(Terminal *, bool);
 void term_clrsb(Terminal *);
 void term_mouse(Terminal *, Mouse_Button, Mouse_Button, Mouse_Action,
                 int, int, bool, bool, bool);
+void term_cancel_selection_drag(Terminal *);
 void term_key(Terminal *, Key_Sym, wchar_t *, size_t, unsigned int,
               unsigned int);
 void term_lost_clipboard_ownership(Terminal *, int clipboard);
@@ -2573,21 +2589,33 @@ void cmdline_error(const char *, ...) PRINTF_LIKE(1, 2);
  * Exports from config.c.
  */
 struct controlbox;
-union control;
-void conf_radiobutton_handler(union control *ctrl, dlgparam *dlg,
+void conf_radiobutton_handler(dlgcontrol *ctrl, dlgparam *dlg,
                               void *data, int event);
 #define CHECKBOX_INVERT (1<<30)
-void conf_checkbox_handler(union control *ctrl, dlgparam *dlg,
+void conf_checkbox_handler(dlgcontrol *ctrl, dlgparam *dlg,
                            void *data, int event);
-void conf_editbox_handler(union control *ctrl, dlgparam *dlg,
+void conf_editbox_handler(dlgcontrol *ctrl, dlgparam *dlg,
                           void *data, int event);
-void conf_filesel_handler(union control *ctrl, dlgparam *dlg,
+void conf_filesel_handler(dlgcontrol *ctrl, dlgparam *dlg,
                           void *data, int event);
-void conf_fontsel_handler(union control *ctrl, dlgparam *dlg,
+void conf_fontsel_handler(dlgcontrol *ctrl, dlgparam *dlg,
                           void *data, int event);
 
 void setup_config_box(struct controlbox *b, bool midsession,
                       int protocol, int protcfginfo);
+
+void setup_ca_config_box(struct controlbox *b);
+
+/* Platforms provide this to be called from config.c */
+void show_ca_config_box(dlgparam *dlg);
+extern const bool has_ca_config_box; /* false if, e.g., we're PuTTYtel */
+
+/* Visible outside config.c so that platforms can use it to recognise
+ * the proxy type control */
+void proxy_type_handler(dlgcontrol *ctrl, dlgparam *dlg,
+                        void *data, int event);
+/* And then they'll set this flag in its generic.context.i */
+#define PROXY_UI_FLAG_LOCAL 1 /* has a local proxy */
 
 /*
  * Exports from bidi.c.

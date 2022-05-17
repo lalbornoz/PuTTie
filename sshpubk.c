@@ -199,8 +199,7 @@ static int rsa1_load_s_internal(BinarySource *src, RSAKey *key, bool pub_only,
         if (enclen & 7)
             goto end;
 
-        buf = strbuf_new_nm();
-        put_datapl(buf, get_data(src, enclen));
+        buf = strbuf_dup_nm(get_data(src, enclen));
 
         unsigned char keybuf[16];
         hash_simple(&ssh_md5, ptrlen_from_asciz(passphrase), keybuf);
@@ -569,6 +568,14 @@ const ssh_keyalg *const all_keyalgs[] = {
     &ssh_ecdsa_nistp521,
     &ssh_ecdsa_ed25519,
     &ssh_ecdsa_ed448,
+    &opensshcert_ssh_dsa,
+    &opensshcert_ssh_rsa,
+    &opensshcert_ssh_rsa_sha256,
+    &opensshcert_ssh_rsa_sha512,
+    &opensshcert_ssh_ecdsa_ed25519,
+    &opensshcert_ssh_ecdsa_nistp256,
+    &opensshcert_ssh_ecdsa_nistp384,
+    &opensshcert_ssh_ecdsa_nistp521,
 };
 const size_t n_keyalgs = lenof(all_keyalgs);
 
@@ -584,6 +591,18 @@ const ssh_keyalg *find_pubkey_alg_len(ptrlen name)
 const ssh_keyalg *find_pubkey_alg(const char *name)
 {
     return find_pubkey_alg_len(ptrlen_from_asciz(name));
+}
+
+ptrlen pubkey_blob_to_alg_name(ptrlen blob)
+{
+    BinarySource src[1];
+    BinarySource_BARE_INIT_PL(src, blob);
+    return get_string(src);
+}
+
+const ssh_keyalg *pubkey_blob_to_alg(ptrlen blob)
+{
+    return find_pubkey_alg_len(pubkey_blob_to_alg_name(blob));
 }
 
 struct ppk_cipher {
@@ -1226,7 +1245,7 @@ bool ppk_loadpub_s(BinarySource *src, char **algorithm, BinarySink *bs,
         bool ret = openssh_loadpub(src, algorithm, bs, commentptr, errorstr);
         return ret;
     } else if (type != SSH_KEYTYPE_SSH2) {
-        error = "not a PuTTY SSH-2 private key";
+        error = "not a public key or a PuTTY SSH-2 private key";
         goto error;
     }
 
@@ -1238,7 +1257,7 @@ bool ppk_loadpub_s(BinarySource *src, char **algorithm, BinarySink *bs,
         if (0 == strncmp(header, "PuTTY-User-Key-File-", 20))
             error = "PuTTY key format too new";
         else
-            error = "not a PuTTY SSH-2 private key";
+            error = "not a public key or a PuTTY SSH-2 private key";
         goto error;
     }
     error = "file format error";
@@ -1378,37 +1397,6 @@ int base64_lines(int datalen)
 {
     /* When encoding, we use 64 chars/line, which equals 48 real chars. */
     return (datalen + 47) / 48;
-}
-
-static void base64_encode_s(BinarySink *bs, const unsigned char *data,
-                            int datalen, int cpl)
-{
-    int linelen = 0;
-    char out[4];
-    int n, i;
-
-    while (datalen > 0) {
-        n = (datalen < 3 ? datalen : 3);
-        base64_encode_atom(data, n, out);
-        data += n;
-        datalen -= n;
-        for (i = 0; i < 4; i++) {
-            if (linelen >= cpl) {
-                linelen = 0;
-                put_byte(bs, '\n');
-            }
-            put_byte(bs, out[i]);
-            linelen++;
-        }
-    }
-    put_byte(bs, '\n');
-}
-
-void base64_encode(FILE *fp, const unsigned char *data, int datalen, int cpl)
-{
-    stdio_sink ss;
-    stdio_sink_init(&ss, fp);
-    base64_encode_s(BinarySink_UPCAST(&ss), data, datalen, cpl);
 }
 
 const ppk_save_parameters ppk_save_default_parameters = {
@@ -1555,7 +1543,7 @@ strbuf *ppk_save_sb(ssh2_userkey *key, const char *passphrase,
     put_fmt(out, "Encryption: %s\n", cipherstr);
     put_fmt(out, "Comment: %s\n", key->comment);
     put_fmt(out, "Public-Lines: %d\n", base64_lines(pub_blob->len));
-    base64_encode_s(BinarySink_UPCAST(out), pub_blob->u, pub_blob->len, 64);
+    base64_encode_bs(BinarySink_UPCAST(out), ptrlen_from_strbuf(pub_blob), 64);
     if (params.fmt_version == 3 && ciphertype->keylen != 0) {
         put_fmt(out, "Key-Derivation: %s\n",
                 params.argon2_flavour == Argon2d ? "Argon2d" :
@@ -1571,8 +1559,8 @@ strbuf *ppk_save_sb(ssh2_userkey *key, const char *passphrase,
         put_fmt(out, "\n");
     }
     put_fmt(out, "Private-Lines: %d\n", base64_lines(priv_encrypted_len));
-    base64_encode_s(BinarySink_UPCAST(out),
-                    priv_blob_encrypted, priv_encrypted_len, 64);
+    base64_encode_bs(BinarySink_UPCAST(out),
+                     make_ptrlen(priv_blob_encrypted, priv_encrypted_len), 64);
     put_fmt(out, "Private-MAC: ");
     for (i = 0; i < macalg->len; i++)
         put_fmt(out, "%02x", priv_mac[i]);
@@ -1935,48 +1923,4 @@ const char *key_type_to_str(int type)
       default:
         unreachable("bad key type in key_type_to_str");
     }
-}
-
-key_components *key_components_new(void)
-{
-    key_components *kc = snew(key_components);
-    kc->ncomponents = 0;
-    kc->componentsize = 0;
-    kc->components = NULL;
-    return kc;
-}
-
-void key_components_add_text(key_components *kc,
-                             const char *name, const char *value)
-{
-    sgrowarray(kc->components, kc->componentsize, kc->ncomponents);
-    size_t n = kc->ncomponents++;
-    kc->components[n].name = dupstr(name);
-    kc->components[n].is_mp_int = false;
-    kc->components[n].text = dupstr(value);
-}
-
-void key_components_add_mp(key_components *kc,
-                           const char *name, mp_int *value)
-{
-    sgrowarray(kc->components, kc->componentsize, kc->ncomponents);
-    size_t n = kc->ncomponents++;
-    kc->components[n].name = dupstr(name);
-    kc->components[n].is_mp_int = true;
-    kc->components[n].mp = mp_copy(value);
-}
-
-void key_components_free(key_components *kc)
-{
-    for (size_t i = 0; i < kc->ncomponents; i++) {
-        sfree(kc->components[i].name);
-        if (kc->components[i].is_mp_int) {
-            mp_free(kc->components[i].mp);
-        } else {
-            smemclr(kc->components[i].text, strlen(kc->components[i].text));
-            sfree(kc->components[i].text);
-        }
-    }
-    sfree(kc->components);
-    sfree(kc);
 }

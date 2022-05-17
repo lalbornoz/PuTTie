@@ -41,6 +41,8 @@ define_negation(NO_MULTIMON HAVE_MULTIMON_H)
 check_include_files("windows.h;htmlhelp.h" HAVE_HTMLHELP_H)
 define_negation(NO_HTMLHELP HAVE_HTMLHELP_H)
 
+check_include_files("winsock2.h;afunix.h" HAVE_AFUNIX_H)
+
 check_symbol_exists(strtoumax "inttypes.h" HAVE_STRTOUMAX)
 check_symbol_exists(AddDllDirectory "windows.h" HAVE_ADDDLLDIRECTORY)
 check_symbol_exists(SetDefaultDllDirectories "windows.h"
@@ -54,6 +56,21 @@ check_c_source_compiles("
 GCP_RESULTSW gcpw;
 int main(void) { return 0; }
 " HAVE_GCP_RESULTSW)
+
+function(dwmapi_test_wrapper)
+  set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} dwmapi.lib)
+  check_c_source_compiles("
+#include <windows.h>
+#include <dwmapi.h>
+volatile HWND hwnd;
+int main(void) {
+  RECT r;
+  DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &r, sizeof(r));
+}
+" HAVE_DWMAPI_H)
+  set(HAVE_DWMAPI_H ${HAVE_DWMAPI_H} PARENT_SCOPE)
+endfunction()
+dwmapi_test_wrapper()
 
 set(NO_SECURITY ${PUTTY_NO_SECURITY})
 
