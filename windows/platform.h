@@ -109,9 +109,13 @@ static inline uintmax_t strtoumax(const char *nptr, char **endptr, int base)
 { return _strtoui64(nptr, endptr, base); }
 #endif
 
-#define BOXFLAGS DLGWINDOWEXTRA
-#define BOXRESULT (DLGWINDOWEXTRA + sizeof(LONG_PTR))
-#define DF_END 0x0001
+typedef INT_PTR (*ShinyDlgProc)(HWND hwnd, UINT msg, WPARAM wParam,
+                                LPARAM lParam, void *ctx);
+int ShinyDialogBox(HINSTANCE hinst, LPCTSTR tmpl, const char *winclass,
+                   HWND hwndparent, ShinyDlgProc proc, void *ctx);
+void ShinyEndDialog(HWND hwnd, int ret);
+
+void centre_window(HWND hwnd);
 
 #ifndef __WINE__
 /* Up-to-date Windows headers warn that the unprefixed versions of
@@ -293,6 +297,7 @@ void socket_reselect_all(void);
 SockAddr *sk_namedpipe_addr(const char *pipename);
 /* Turn a WinSock error code into a string. */
 const char *winsock_error_string(int error);
+Socket *sk_newlistener_unix(const char *socketpath, Plug *plug);
 
 /*
  * network.c dynamically loads WinSock 2 or WinSock 1 depending on
@@ -301,9 +306,9 @@ const char *winsock_error_string(int error);
  * here they are.
  */
 DECL_WINDOWS_FUNCTION(extern, int, WSAAsyncSelect,
-                      (SOCKET, HWND, u_int, long));
+                      (SOCKET, HWND, u_int, LONG));
 DECL_WINDOWS_FUNCTION(extern, int, WSAEventSelect,
-                      (SOCKET, WSAEVENT, long));
+                      (SOCKET, WSAEVENT, LONG));
 DECL_WINDOWS_FUNCTION(extern, int, WSAGetLastError, (void));
 DECL_WINDOWS_FUNCTION(extern, int, WSAEnumNetworkEvents,
                       (SOCKET, WSAEVENT, LPWSANETWORKEVENTS));
@@ -332,6 +337,7 @@ const char *do_select(SOCKET skt, bool enable);
  */
 void winselgui_set_hwnd(HWND hwnd);
 void winselgui_clear_hwnd(void);
+void winselgui_response(WPARAM wParam, LPARAM lParam);
 
 void winselcli_setup(void);
 SOCKET winselcli_unique_socket(void);
@@ -407,7 +413,7 @@ struct dlgparam {
     char *wintitle;                    /* title of actual window */
     char *errtitle;                    /* title of error sub-messageboxes */
     void *data;                        /* data to pass in refresh events */
-    union control *focused, *lastfocused; /* which ctrl has focus now/before */
+    dlgcontrol *focused, *lastfocused; /* which ctrl has focus now/before */
     bool shortcuts[128];               /* track which shortcuts in use */
     bool coloursel_wanted;             /* has an event handler asked for
                                         * a colour selector? */
@@ -431,7 +437,7 @@ HWND doctl(struct ctlpos *cp, RECT r,
 void bartitle(struct ctlpos *cp, char *name, int id);
 void beginbox(struct ctlpos *cp, char *name, int idbox);
 void endbox(struct ctlpos *cp);
-void editboxfw(struct ctlpos *cp, bool password, char *text,
+void editboxfw(struct ctlpos *cp, bool password, bool readonly, char *text,
                int staticid, int editid);
 void radioline(struct ctlpos *cp, char *text, int id, int nacross, ...);
 void bareradioline(struct ctlpos *cp, int nacross, ...);
@@ -484,11 +490,11 @@ void dlg_set_fixed_pitch_flag(dlgparam *dlg, bool flag);
 #define MAX_SHORTCUTS_PER_CTRL 16
 
 /*
- * This structure is what's stored for each `union control' in the
+ * This structure is what's stored for each `dlgcontrol' in the
  * portable-dialog interface.
  */
 struct winctrl {
-    union control *ctrl;
+    dlgcontrol *ctrl;
     /*
      * The control may have several components at the Windows
      * level, with different dialog IDs. To avoid needing N
@@ -519,7 +525,7 @@ struct winctrl {
 };
 /*
  * And this structure holds a set of the above, in two separate
- * tree234s so that it can find an item by `union control' or by
+ * tree234s so that it can find an item by `dlgcontrol' or by
  * dialog ID.
  */
 struct winctrls {
@@ -532,7 +538,7 @@ void winctrl_init(struct winctrls *);
 void winctrl_cleanup(struct winctrls *);
 void winctrl_add(struct winctrls *, struct winctrl *);
 void winctrl_remove(struct winctrls *, struct winctrl *);
-struct winctrl *winctrl_findbyctrl(struct winctrls *, union control *);
+struct winctrl *winctrl_findbyctrl(struct winctrls *, dlgcontrol *);
 struct winctrl *winctrl_findbyid(struct winctrls *, int);
 struct winctrl *winctrl_findbyindex(struct winctrls *, int);
 void winctrl_layout(struct dlgparam *dp, struct winctrls *wc,
@@ -574,6 +580,7 @@ void dll_hijacking_protection(void);
 const char *get_system_dir(void);
 HMODULE load_system32_dll(const char *libname);
 const char *win_strerror(int error);
+bool should_have_security(void);
 void restrict_process_acl(void);
 bool restricted_acl(void);
 void escape_registry_key(const char *in, strbuf *out);
@@ -606,7 +613,6 @@ void EnableSizeTip(bool bEnable);
 /*
  * Exports from unicode.c.
  */
-struct unicode_data;
 void init_ucs(Conf *, struct unicode_data *);
 
 /*
@@ -714,7 +720,20 @@ char *get_jumplist_registry_entries(void);
 #define CLIPUI_DEFAULT_INS CLIPUI_EXPLICIT
 
 /* In utils */
-char *registry_get_string(HKEY root, const char *path, const char *leaf);
+HKEY open_regkey_fn(bool create, HKEY base, const char *path, ...);
+#define open_regkey(create, base, ...) \
+    open_regkey_fn(create, base, __VA_ARGS__, (const char *)NULL)
+void close_regkey(HKEY key);
+void del_regkey(HKEY key, const char *name);
+char *enum_regkey(HKEY key, int index);
+bool get_reg_dword(HKEY key, const char *name, DWORD *out);
+bool put_reg_dword(HKEY key, const char *name, DWORD value);
+char *get_reg_sz(HKEY key, const char *name);
+bool put_reg_sz(HKEY key, const char *name, const char *str);
+strbuf *get_reg_multi_sz(HKEY key, const char *name);
+bool put_reg_multi_sz(HKEY key, const char *name, strbuf *str);
+
+char *get_reg_sz_simple(HKEY key, const char *name, const char *leaf);
 
 /* In cliloop.c */
 typedef bool (*cliloop_pre_t)(void *vctx, const HANDLE **extra_handles,
@@ -756,5 +775,8 @@ AuxMatchOpt aux_match_opt_init(int argc, char **argv, int start_index,
 bool aux_match_arg(AuxMatchOpt *amo, char **val);
 bool aux_match_opt(AuxMatchOpt *amo, char **val, const char *optname, ...);
 bool aux_match_done(AuxMatchOpt *amo);
+
+char *save_screenshot(HWND hwnd, const char *outfile);
+void gui_terminal_ready(HWND hwnd, Seat *seat, Backend *backend);
 
 #endif /* PUTTY_WINDOWS_PLATFORM_H */

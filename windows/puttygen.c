@@ -27,6 +27,8 @@
 #define DEFAULT_EDCURVE_INDEX 0
 
 static char *cmdline_keyfile = NULL;
+static ptrlen cmdline_demo_keystr;
+static const char *demo_screenshot_filename = NULL;
 
 /*
  * Print a modal (Really Bad) message box and perform a fatal exit.
@@ -756,7 +758,8 @@ enum {
     IDC_GIVEHELP,
     IDC_IMPORT,
     IDC_EXPORT_OPENSSH_AUTO, IDC_EXPORT_OPENSSH_NEW,
-    IDC_EXPORT_SSHCOM
+    IDC_EXPORT_SSHCOM,
+    IDC_ADDCERT, IDC_REMCERT,
 };
 
 static const int nokey_ids[] = { IDC_NOKEY, 0 };
@@ -810,6 +813,8 @@ void ui_set_state(HWND hwnd, struct MainDlgState *state, int status)
                        MF_GRAYED|MF_BYCOMMAND);
         EnableMenuItem(state->cvtmenu, IDC_EXPORT_SSHCOM,
                        MF_GRAYED|MF_BYCOMMAND);
+        EnableMenuItem(state->keymenu, IDC_ADDCERT, MF_GRAYED|MF_BYCOMMAND);
+        EnableMenuItem(state->keymenu, IDC_REMCERT, MF_GRAYED|MF_BYCOMMAND);
         break;
       case 1:                          /* generating key */
         hidemany(hwnd, nokey_ids, true);
@@ -843,6 +848,8 @@ void ui_set_state(HWND hwnd, struct MainDlgState *state, int status)
                        MF_GRAYED|MF_BYCOMMAND);
         EnableMenuItem(state->cvtmenu, IDC_EXPORT_SSHCOM,
                        MF_GRAYED|MF_BYCOMMAND);
+        EnableMenuItem(state->keymenu, IDC_ADDCERT, MF_GRAYED|MF_BYCOMMAND);
+        EnableMenuItem(state->keymenu, IDC_REMCERT, MF_GRAYED|MF_BYCOMMAND);
         break;
       case 2:
         hidemany(hwnd, nokey_ids, true);
@@ -882,6 +889,35 @@ void ui_set_state(HWND hwnd, struct MainDlgState *state, int status)
         do_export_menuitem(IDC_EXPORT_OPENSSH_NEW, SSH_KEYTYPE_OPENSSH_NEW);
         do_export_menuitem(IDC_EXPORT_SSHCOM, SSH_KEYTYPE_SSHCOM);
 #undef do_export_menuitem
+        /*
+         * Enable certificate menu items similarly.
+         */
+        {
+            bool add_cert_allowed = false, rem_cert_allowed = false;
+
+            if (state->ssh2 && state->ssh2key.key) {
+                const ssh_keyalg *alg = ssh_key_alg(state->ssh2key.key);
+                if (alg->is_certificate) {
+                    /* If there's a certificate, we can remove it */
+                    rem_cert_allowed = true;
+                    /* And reset to the base algorithm for the next check */
+                    alg = alg->base_alg;
+                }
+
+                /* Now, do we have any certified version of this alg? */
+                for (size_t i = 0; i < n_keyalgs; i++) {
+                    if (all_keyalgs[i]->base_alg == alg) {
+                        add_cert_allowed = true;
+                        break;
+                    }
+                }
+            }
+
+            EnableMenuItem(state->keymenu, IDC_ADDCERT, MF_BYCOMMAND |
+                           (add_cert_allowed ? MF_ENABLED : MF_GRAYED));
+            EnableMenuItem(state->keymenu, IDC_REMCERT, MF_BYCOMMAND |
+                           (rem_cert_allowed ? MF_ENABLED : MF_GRAYED));
+        }
         break;
     }
 }
@@ -992,6 +1028,70 @@ void ui_set_fptype(HWND hwnd, struct MainDlgState *state, int option)
     }
 }
 
+static void update_ui_after_ssh2_pubkey_change(
+    HWND hwnd, struct MainDlgState *state)
+{
+    /* Smaller version of update_ui_after_load which doesn't need to
+     * be told things like the passphrase, which we aren't changing
+     * anyway */
+    char *savecomment = state->ssh2key.comment;
+    state->ssh2key.comment = NULL;
+    char *fp = ssh2_fingerprint(state->ssh2key.key, state->fptype);
+    state->ssh2key.comment = savecomment;
+
+    SetDlgItemText(hwnd, IDC_FINGERPRINT, fp);
+    sfree(fp);
+
+    setupbigedit2(hwnd, IDC_KEYDISPLAY, IDC_PKSTATIC, &state->ssh2key);
+}
+
+static void update_ui_after_load(HWND hwnd, struct MainDlgState *state,
+                                 const char *passphrase, int type,
+                                 RSAKey *newkey1, ssh2_userkey *newkey2)
+{
+    SetDlgItemText(hwnd, IDC_PASSPHRASE1EDIT, passphrase);
+    SetDlgItemText(hwnd, IDC_PASSPHRASE2EDIT, passphrase);
+
+    if (type == SSH_KEYTYPE_SSH1) {
+        char *fingerprint, *savecomment;
+
+        state->ssh2 = false;
+        state->commentptr = &state->key.comment;
+        state->key = *newkey1;         /* structure copy */
+
+        /*
+         * Set the key fingerprint.
+         */
+        savecomment = state->key.comment;
+        state->key.comment = NULL;
+        fingerprint = rsa_ssh1_fingerprint(&state->key);
+        state->key.comment = savecomment;
+        SetDlgItemText(hwnd, IDC_FINGERPRINT, fingerprint);
+        sfree(fingerprint);
+
+        /*
+         * Construct a decimal representation of the key, for pasting
+         * into .ssh/authorized_keys on a Unix box.
+         */
+        setupbigedit1(hwnd, IDC_KEYDISPLAY, IDC_PKSTATIC, &state->key);
+    } else {
+        state->ssh2 = true;
+        state->commentptr = &state->ssh2key.comment;
+        state->ssh2key = *newkey2;      /* structure copy */
+        sfree(newkey2);
+
+        update_ui_after_ssh2_pubkey_change(hwnd, state);
+    }
+    SetDlgItemText(hwnd, IDC_COMMENTEDIT,
+                   *state->commentptr);
+
+    /*
+     * Finally, hide the progress bar and show the key data.
+     */
+    ui_set_state(hwnd, state, 2);
+    state->key_exists = true;
+}
+
 void load_key_file(HWND hwnd, struct MainDlgState *state,
                    Filename *filename, bool was_import_cmd)
 {
@@ -1081,65 +1181,7 @@ void load_key_file(HWND hwnd, struct MainDlgState *state,
          * Now update the key controls with all the
          * key data.
          */
-        {
-            SetDlgItemText(hwnd, IDC_PASSPHRASE1EDIT,
-                           passphrase);
-            SetDlgItemText(hwnd, IDC_PASSPHRASE2EDIT,
-                           passphrase);
-            if (type == SSH_KEYTYPE_SSH1) {
-                char *fingerprint, *savecomment;
-
-                state->ssh2 = false;
-                state->commentptr = &state->key.comment;
-                state->key = newkey1;
-
-                /*
-                 * Set the key fingerprint.
-                 */
-                savecomment = state->key.comment;
-                state->key.comment = NULL;
-                fingerprint = rsa_ssh1_fingerprint(&state->key);
-                state->key.comment = savecomment;
-                SetDlgItemText(hwnd, IDC_FINGERPRINT, fingerprint);
-                sfree(fingerprint);
-
-                /*
-                 * Construct a decimal representation
-                 * of the key, for pasting into
-                 * .ssh/authorized_keys on a Unix box.
-                 */
-                setupbigedit1(hwnd, IDC_KEYDISPLAY,
-                              IDC_PKSTATIC, &state->key);
-            } else {
-                char *fp;
-                char *savecomment;
-
-                state->ssh2 = true;
-                state->commentptr =
-                    &state->ssh2key.comment;
-                state->ssh2key = *newkey2;      /* structure copy */
-                sfree(newkey2);
-
-                savecomment = state->ssh2key.comment;
-                state->ssh2key.comment = NULL;
-                fp = ssh2_fingerprint(state->ssh2key.key, state->fptype);
-                state->ssh2key.comment = savecomment;
-
-                SetDlgItemText(hwnd, IDC_FINGERPRINT, fp);
-                sfree(fp);
-
-                setupbigedit2(hwnd, IDC_KEYDISPLAY,
-                              IDC_PKSTATIC, &state->ssh2key);
-            }
-            SetDlgItemText(hwnd, IDC_COMMENTEDIT,
-                           *state->commentptr);
-        }
-        /*
-         * Finally, hide the progress bar and show
-         * the key data.
-         */
-        ui_set_state(hwnd, state, 2);
-        state->key_exists = true;
+        update_ui_after_load(hwnd, state, passphrase, type, &newkey1, newkey2);
 
         /*
          * If the user has imported a foreign key
@@ -1160,6 +1202,105 @@ void load_key_file(HWND hwnd, struct MainDlgState *state,
         }
     }
     burnstr(passphrase);
+}
+
+void add_certificate(HWND hwnd, struct MainDlgState *state,
+                     Filename *filename)
+{
+    int type = key_type(filename);
+    if (type != SSH_KEYTYPE_SSH2_PUBLIC_RFC4716 &&
+        type != SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH) {
+        char *msg = dupprintf("Couldn't load certificate (%s)",
+                              key_type_to_str(type));
+        message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
+                    HELPCTXID(errors_cantloadkey));
+        sfree(msg);
+        return;
+    }
+
+    char *algname = NULL;
+    char *comment = NULL;
+    const char *error = NULL;
+    strbuf *pub = strbuf_new();
+    if (!ppk_loadpub_f(filename, &algname, BinarySink_UPCAST(pub), &comment,
+                       &error)) {
+        char *msg = dupprintf("Couldn't load certificate (%s)", error);
+        message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
+                    HELPCTXID(errors_cantloadkey));
+        sfree(msg);
+        return;
+    }
+
+    sfree(comment);
+
+    const ssh_keyalg *alg = find_pubkey_alg(algname);
+    if (!alg) {
+        char *msg = dupprintf("Couldn't load certificate (unsupported "
+                              "algorithm name '%s')", algname);
+        message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
+                    HELPCTXID(errors_cantloadkey));
+        sfree(msg);
+        sfree(algname);
+        strbuf_free(pub);
+        return;
+    }
+
+    sfree(algname);
+
+    /* Check the two public keys match apart from certificates */
+    strbuf *old_basepub = strbuf_new();
+    ssh_key_public_blob(ssh_key_base_key(state->ssh2key.key),
+                        BinarySink_UPCAST(old_basepub));
+
+    ssh_key *new_pubkey = ssh_key_new_pub(alg, ptrlen_from_strbuf(pub));
+    strbuf *new_basepub = strbuf_new();
+    ssh_key_public_blob(ssh_key_base_key(new_pubkey),
+                        BinarySink_UPCAST(new_basepub));
+    ssh_key_free(new_pubkey);
+
+    bool match = ptrlen_eq_ptrlen(ptrlen_from_strbuf(old_basepub),
+                                  ptrlen_from_strbuf(new_basepub));
+    strbuf_free(old_basepub);
+    strbuf_free(new_basepub);
+
+    if (!match) {
+        char *msg = dupprintf("Certificate is for a different public key");
+        message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
+                    HELPCTXID(errors_cantloadkey));
+        sfree(msg);
+        strbuf_free(pub);
+        return;
+    }
+
+    strbuf *priv = strbuf_new_nm();
+    ssh_key_private_blob(state->ssh2key.key, BinarySink_UPCAST(priv));
+    ssh_key *newkey = ssh_key_new_priv(
+        alg, ptrlen_from_strbuf(pub), ptrlen_from_strbuf(priv));
+    strbuf_free(pub);
+    strbuf_free(priv);
+
+    if (!newkey) {
+        char *msg = dupprintf("Couldn't combine certificate with key");
+        message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
+                    HELPCTXID(errors_cantloadkey));
+        sfree(msg);
+        return;
+    }
+
+    ssh_key_free(state->ssh2key.key);
+    state->ssh2key.key = newkey;
+
+    update_ui_after_ssh2_pubkey_change(hwnd, state);
+    ui_set_state(hwnd, state, 2);
+}
+
+void remove_certificate(HWND hwnd, struct MainDlgState *state)
+{
+    ssh_key *newkey = ssh_key_clone(ssh_key_base_key(state->ssh2key.key));
+    ssh_key_free(state->ssh2key.key);
+    state->ssh2key.key = newkey;
+    update_ui_after_ssh2_pubkey_change(hwnd, state);
+    ui_set_state(hwnd, state, 2);
 }
 
 static void start_generating_key(HWND hwnd, struct MainDlgState *state)
@@ -1205,6 +1346,7 @@ static void start_generating_key(HWND hwnd, struct MainDlgState *state)
 static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                                 WPARAM wParam, LPARAM lParam)
 {
+    const int DEMO_SCREENSHOT_TIMER_ID = 1230;
     static const char entropy_msg[] =
         "Please generate some randomness by moving the mouse over the blank area.";
     struct MainDlgState *state;
@@ -1245,6 +1387,11 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
 
             menu1 = CreateMenu();
             AppendMenu(menu1, MF_ENABLED, IDC_GENERATE, "&Generate key pair");
+            AppendMenu(menu1, MF_SEPARATOR, 0, 0);
+            AppendMenu(menu1, MF_ENABLED, IDC_ADDCERT,
+                       "Add &certificate to key");
+            AppendMenu(menu1, MF_ENABLED, IDC_REMCERT,
+                       "Remove certificate from key");
             AppendMenu(menu1, MF_SEPARATOR, 0, 0);
             AppendMenu(menu1, MF_ENABLED, IDC_KEYSSH1, "SSH-&1 key (RSA)");
             AppendMenu(menu1, MF_ENABLED, IDC_KEYSSH2RSA, "SSH-2 &RSA key");
@@ -1428,9 +1575,32 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
             Filename *fn = filename_from_str(cmdline_keyfile);
             load_key_file(hwnd, state, fn, false);
             filename_free(fn);
+        } else if (cmdline_demo_keystr.ptr) {
+            BinarySource src[1];
+            BinarySource_BARE_INIT_PL(src, cmdline_demo_keystr);
+            const char *errmsg;
+            ssh2_userkey *k = ppk_load_s(src, NULL, &errmsg);
+            assert(!errmsg);
+
+            update_ui_after_load(hwnd, state, "demo passphrase",
+                                 SSH_KEYTYPE_SSH2, NULL, k);
+
+            SetTimer(hwnd, DEMO_SCREENSHOT_TIMER_ID, TICKSPERSEC, NULL);
         }
 
         return 1;
+      case WM_TIMER:
+        if ((UINT_PTR)wParam == DEMO_SCREENSHOT_TIMER_ID) {
+            KillTimer(hwnd, DEMO_SCREENSHOT_TIMER_ID);
+            char *err = save_screenshot(hwnd, demo_screenshot_filename);
+            if (err) {
+                MessageBox(hwnd, err, "Demo screenshot failure",
+                           MB_OK | MB_ICONERROR);
+                sfree(err);
+            }
+            EndDialog(hwnd, 0);
+        }
+        return 0;
       case WM_MOUSEMOVE:
         state = (struct MainDlgState *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (state->entropy && state->entropy_got < state->entropy_required) {
@@ -1845,6 +2015,30 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                 }
             }
             break;
+          case IDC_ADDCERT:
+            if (HIWORD(wParam) != BN_CLICKED)
+                break;
+            state =
+                (struct MainDlgState *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+            if (state->key_exists && !state->generation_thread_exists) {
+                char filename[FILENAME_MAX];
+                if (prompt_keyfile(hwnd, "Load certificate:", filename, false,
+                                   false)) {
+                    Filename *fn = filename_from_str(filename);
+                    add_certificate(hwnd, state, fn);
+                    filename_free(fn);
+                }
+            }
+            break;
+          case IDC_REMCERT:
+            if (HIWORD(wParam) != BN_CLICKED)
+                break;
+            state =
+                (struct MainDlgState *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+            if (state->key_exists && !state->generation_thread_exists) {
+                remove_certificate(hwnd, state);
+            }
+            break;
         }
         return 0;
       case WM_DONEKEY:
@@ -2175,6 +2369,22 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
                     opt_error("unrecognised PPK parameter '%s'\n", val);
                 }
             }
+        } else if (match_optval("-demo-screenshot")) {
+            demo_screenshot_filename = val;
+            cmdline_demo_keystr = PTRLEN_LITERAL(
+                "PuTTY-User-Key-File-3: ssh-ed25519\n"
+                "Encryption: none\n"
+                "Comment: ed25519-key-20220402\n"
+                "Public-Lines: 2\n"
+                "AAAAC3NzaC1lZDI1NTE5AAAAILzuIFwZ"
+                "8ZhgOlilcSb+9zPuCf/DmKJiloVlmWGy\n"
+                "xa/F\n"
+                "Private-Lines: 1\n"
+                "AAAAIPca6vLwtB2NJhZUpABQISR0gcQH8jjQLta19VyzA3wc\n"
+                "Private-MAC: 1159e9628259b35933b397379bbe8a14"
+                "a1f1d97fe91e446e45a9581a3408b70e\n");
+            params->keybutton = IDC_KEYSSH2EDDSA;
+            argbits = 255;
         } else {
             opt_error("unrecognised option '%s'\n", amo.argv[amo.index]);
         }

@@ -42,6 +42,8 @@
 #define SIZEx "Ix"
 #define SIZEu "Iu"
 uintmax_t strtoumax(const char *nptr, char **endptr, int base);
+/* Also, define a LEGACY_WINDOWS flag to enable other workarounds */
+#define LEGACY_WINDOWS
 #else
 #include <inttypes.h>
 /* Because we still support older MSVC libraries which don't recognise the
@@ -165,12 +167,19 @@ typedef struct ssh_cipher ssh_cipher;
 typedef struct ssh2_ciphers ssh2_ciphers;
 typedef struct dh_ctx dh_ctx;
 typedef struct ecdh_key ecdh_key;
+typedef struct ecdh_keyalg ecdh_keyalg;
+typedef struct NTRUKeyPair NTRUKeyPair;
+typedef struct NTRUEncodeSchedule NTRUEncodeSchedule;
 
 typedef struct dlgparam dlgparam;
+typedef struct dlgcontrol dlgcontrol;
 
 typedef struct settings_w settings_w;
 typedef struct settings_r settings_r;
 typedef struct settings_e settings_e;
+typedef struct ca_options ca_options;
+typedef struct host_ca host_ca;
+typedef struct host_ca_enum host_ca_enum;
 
 typedef struct SessionSpecial SessionSpecial;
 
@@ -191,6 +200,8 @@ typedef struct logblank_t logblank_t;
 
 typedef struct BinaryPacketProtocol BinaryPacketProtocol;
 typedef struct PacketProtocolLayer PacketProtocolLayer;
+
+struct unicode_data;
 
 /* Do a compile-time type-check of 'to_check' (without evaluating it),
  * as a side effect of returning the value 'to_return'. Note that
@@ -236,5 +247,15 @@ typedef struct PacketProtocolLayer PacketProtocolLayer;
 #define STR(x) STR_INNER(x)
 #define CAT_INNER(x,y) x ## y
 #define CAT(x,y) CAT_INNER(x,y)
+
+/*
+ * Structure shared between ssh.h and storage.h, giving strictness
+ * options relating to checking of an OpenSSH certificate. It's a bit
+ * cheaty to put something so specific in here, but more painful to
+ * put it in putty.h.
+ */
+struct ca_options {
+    bool permit_rsa_sha1, permit_rsa_sha256, permit_rsa_sha512;
+};
 
 #endif /* PUTTY_DEFS_H */

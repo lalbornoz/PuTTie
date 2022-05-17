@@ -227,7 +227,8 @@ struct ssh_gss_liblist *ssh_gss_setup(Conf *conf)
         lib->gsslogmsg = "Using SSPI from SECUR32.DLL";
         lib->handle = (void *)module;
 
-        GET_WINDOWS_FUNCTION(module, AcquireCredentialsHandleA);
+        /* No typecheck because Winelib thinks one PVOID is a PLUID */
+        GET_WINDOWS_FUNCTION_NO_TYPECHECK(module, AcquireCredentialsHandleA);
         GET_WINDOWS_FUNCTION(module, InitializeSecurityContextA);
         GET_WINDOWS_FUNCTION(module, FreeContextBuffer);
         GET_WINDOWS_FUNCTION(module, FreeCredentialsHandle);
@@ -465,7 +466,7 @@ static Ssh_gss_stat ssh_sspi_init_sec_context(struct ssh_gss_library *lib,
     SecBufferDesc input_desc ={SECBUFFER_VERSION,1,&wrecv_tok};
     unsigned long flags=ISC_REQ_MUTUAL_AUTH|ISC_REQ_REPLAY_DETECT|
         ISC_REQ_CONFIDENTIALITY|ISC_REQ_ALLOCATE_MEMORY;
-    unsigned long ret_flags=0;
+    ULONG ret_flags=0;
     TimeStamp localexp;
 
     /* check if we have to delegate ... */

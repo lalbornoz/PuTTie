@@ -2,7 +2,10 @@ add_sources_from_current_dir(utils
   antispoof.c
   backend_socket_log.c
   base64_decode_atom.c
+  base64_decode.c
   base64_encode_atom.c
+  base64_encode.c
+  base64_valid.c
   bufchain.c
   buildinfo.c
   burnstr.c
@@ -11,26 +14,33 @@ add_sources_from_current_dir(utils
   conf_dest.c
   conf_launchable.c
   ctrlparse.c
+  ctrlset_normalise.c
   debug.c
+  decode_utf8.c
+  decode_utf8_to_wchar.c
   default_description.c
   dupcat.c
   dupprintf.c
   dupstr.c
   dup_mb_to_wc.c
+  dup_wc_to_mb.c
   encode_utf8.c
   encode_wide_string_as_utf8.c
   fgetline.c
+  host_ca_new_free.c
   host_strchr.c
   host_strchr_internal.c
   host_strcspn.c
   host_strduptrim.c
   host_strrchr.c
+  key_components.c
   log_proxy_stderr.c
   make_spr_sw_abort_static.c
   marshal.c
   memory.c
   memxor.c
   null_lp.c
+  nullkey.c
   nullseat.c
   nullstrcmp.c
   out_of_memory.c
@@ -44,6 +54,7 @@ add_sources_from_current_dir(utils
   smemclr.c
   smemeq.c
   spr_get_error_message.c
+  ssh_key_clone.c
   ssh2_pick_fingerprint.c
   sshutils.c
   strbuf.c

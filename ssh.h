@@ -542,22 +542,34 @@ struct eddsa_key {
 WeierstrassPoint *ecdsa_public(mp_int *private_key, const ssh_keyalg *alg);
 EdwardsPoint *eddsa_public(mp_int *private_key, const ssh_keyalg *alg);
 
+typedef enum KeyComponentType {
+    KCT_TEXT, KCT_BINARY, KCT_MPINT
+} KeyComponentType;
+typedef struct key_component {
+    char *name;
+    KeyComponentType type;
+    union {
+        strbuf *str;                   /* used for KCT_TEXT and KCT_BINARY */
+        mp_int *mp;                    /* used for KCT_MPINT */
+    };
+} key_component;
 typedef struct key_components {
     size_t ncomponents, componentsize;
-    struct {
-        char *name;
-        bool is_mp_int;
-        union {
-            char *text;
-            mp_int *mp;
-        };
-    } *components;
+    key_component *components;
 } key_components;
 key_components *key_components_new(void);
 void key_components_add_text(key_components *kc,
                              const char *name, const char *value);
+void key_components_add_text_pl(key_components *kc,
+                                const char *name, ptrlen value);
+void key_components_add_binary(key_components *kc,
+                               const char *name, ptrlen value);
 void key_components_add_mp(key_components *kc,
                            const char *name, mp_int *value);
+void key_components_add_uint(key_components *kc,
+                             const char *name, uintmax_t value);
+void key_components_add_copy(key_components *kc,
+                             const char *name, const key_component *value);
 void key_components_free(key_components *kc);
 
 /*
@@ -614,15 +626,6 @@ strbuf *ssh_rsakex_encrypt(
     RSAKey *key, const ssh_hashalg *h, ptrlen plaintext);
 mp_int *ssh_rsakex_decrypt(
     RSAKey *key, const ssh_hashalg *h, ptrlen ciphertext);
-
-/*
- * SSH2 ECDH key exchange functions
- */
-const char *ssh_ecdhkex_curve_textname(const ssh_kex *kex);
-ecdh_key *ssh_ecdhkex_newkey(const ssh_kex *kex);
-void ssh_ecdhkex_freekey(ecdh_key *key);
-void ssh_ecdhkex_getpublic(ecdh_key *key, BinarySink *bs);
-mp_int *ssh_ecdhkex_getkey(ecdh_key *key, ptrlen remoteKey);
 
 /*
  * Helper function for k generation in DSA, reused in ECDSA
@@ -806,6 +809,9 @@ struct ssh_kex {
     const char *name, *groupname;
     enum { KEXTYPE_DH, KEXTYPE_RSA, KEXTYPE_ECDH, KEXTYPE_GSS } main_type;
     const ssh_hashalg *hash;
+    union {                  /* publicly visible data for each type */
+        const ecdh_keyalg *ecdh_vt;    /* for KEXTYPE_ECDH */
+    };
     const void *extra;                 /* private to the kex methods */
 };
 
@@ -835,17 +841,31 @@ struct ssh_keyalg {
     void (*public_blob)(ssh_key *key, BinarySink *);
     void (*private_blob)(ssh_key *key, BinarySink *);
     void (*openssh_blob) (ssh_key *key, BinarySink *);
+    bool (*has_private) (ssh_key *key);
     char *(*cache_str) (ssh_key *key);
     key_components *(*components) (ssh_key *key);
+    ssh_key *(*base_key) (ssh_key *key); /* does not confer ownership */
+    /* The following methods can be NULL if !is_certificate */
+    void (*ca_public_blob)(ssh_key *key, BinarySink *);
+    bool (*check_cert)(ssh_key *key, bool host, ptrlen principal,
+                       uint64_t time, const ca_options *opts,
+                       BinarySink *error);
+    void (*cert_id_string)(ssh_key *key, BinarySink *);
 
     /* 'Class methods' that don't deal with an ssh_key at all */
     int (*pubkey_bits) (const ssh_keyalg *self, ptrlen blob);
+    unsigned (*supported_flags) (const ssh_keyalg *self);
+    const char *(*alternate_ssh_id) (const ssh_keyalg *self, unsigned flags);
+    /* The following methods can be NULL if !is_certificate */
+    const ssh_keyalg *(*related_alg)(const ssh_keyalg *self,
+                                     const ssh_keyalg *base);
 
     /* Constant data fields giving information about the key type */
     const char *ssh_id;    /* string identifier in the SSH protocol */
     const char *cache_id;  /* identifier used in PuTTY's host key cache */
     const void *extra;     /* private to the public key methods */
-    const unsigned supported_flags;    /* signature-type flags we understand */
+    bool is_certificate;   /* is this a certified key type? */
+    const ssh_keyalg *base_alg; /* if so, for what underlying key alg? */
 };
 
 static inline ssh_key *ssh_key_new_pub(const ssh_keyalg *self, ptrlen pub)
@@ -871,10 +891,22 @@ static inline void ssh_key_private_blob(ssh_key *key, BinarySink *bs)
 { key->vt->private_blob(key, bs); }
 static inline void ssh_key_openssh_blob(ssh_key *key, BinarySink *bs)
 { key->vt->openssh_blob(key, bs); }
+static inline bool ssh_key_has_private(ssh_key *key)
+{ return key->vt->has_private(key); }
 static inline char *ssh_key_cache_str(ssh_key *key)
 { return key->vt->cache_str(key); }
 static inline key_components *ssh_key_components(ssh_key *key)
 { return key->vt->components(key); }
+static inline ssh_key *ssh_key_base_key(ssh_key *key)
+{ return key->vt->base_key(key); }
+static inline void ssh_key_ca_public_blob(ssh_key *key, BinarySink *bs)
+{ key->vt->ca_public_blob(key, bs); }
+static inline void ssh_key_cert_id_string(ssh_key *key, BinarySink *bs)
+{ key->vt->cert_id_string(key, bs); }
+static inline bool ssh_key_check_cert(
+    ssh_key *key, bool host, ptrlen principal, uint64_t time,
+    const ca_options *opts, BinarySink *error)
+{ return key->vt->check_cert(key, host, principal, time, opts, error); }
 static inline int ssh_key_public_bits(const ssh_keyalg *self, ptrlen blob)
 { return self->pubkey_bits(self, blob); }
 static inline const ssh_keyalg *ssh_key_alg(ssh_key *key)
@@ -883,6 +915,53 @@ static inline const char *ssh_key_ssh_id(ssh_key *key)
 { return key->vt->ssh_id; }
 static inline const char *ssh_key_cache_id(ssh_key *key)
 { return key->vt->cache_id; }
+static inline const unsigned ssh_key_supported_flags(ssh_key *key)
+{ return key->vt->supported_flags(key->vt); }
+static inline const unsigned ssh_keyalg_supported_flags(const ssh_keyalg *self)
+{ return self->supported_flags(self); }
+static inline const char *ssh_keyalg_alternate_ssh_id(
+    const ssh_keyalg *self, unsigned flags)
+{ return self->alternate_ssh_id(self, flags); }
+static inline const ssh_keyalg *ssh_keyalg_related_alg(
+    const ssh_keyalg *self, const ssh_keyalg *base)
+{ return self->related_alg(self, base); }
+
+/* Stub functions shared between multiple key types */
+unsigned nullkey_supported_flags(const ssh_keyalg *self);
+const char *nullkey_alternate_ssh_id(const ssh_keyalg *self, unsigned flags);
+ssh_key *nullkey_base_key(ssh_key *key);
+
+/* Utility functions implemented centrally */
+ssh_key *ssh_key_clone(ssh_key *key);
+
+/*
+ * SSH2 ECDH key exchange vtable
+ */
+struct ecdh_key {
+    const ecdh_keyalg *vt;
+};
+struct ecdh_keyalg {
+    /* Unusually, the 'new' method here doesn't directly take a vt
+     * pointer, because it will also need the containing ssh_kex
+     * structure for top-level parameters, and since that contains a
+     * vt pointer anyway, we might as well _only_ pass that. */
+    ecdh_key *(*new)(const ssh_kex *kex, bool is_server);
+    void (*free)(ecdh_key *key);
+    void (*getpublic)(ecdh_key *key, BinarySink *bs);
+    bool (*getkey)(ecdh_key *key, ptrlen remoteKey, BinarySink *bs);
+    char *(*description)(const ssh_kex *kex);
+};
+static inline ecdh_key *ecdh_key_new(const ssh_kex *kex, bool is_server)
+{ return kex->ecdh_vt->new(kex, is_server); }
+static inline void ecdh_key_free(ecdh_key *key)
+{ key->vt->free(key); }
+static inline void ecdh_key_getpublic(ecdh_key *key, BinarySink *bs)
+{ key->vt->getpublic(key, bs); }
+static inline bool ecdh_key_getkey(ecdh_key *key, ptrlen remoteKey,
+                                   BinarySink *bs)
+{ return key->vt->getkey(key, remoteKey, bs); }
+static inline char *ecdh_keyalg_description(const ssh_kex *kex)
+{ return kex->ecdh_vt->description(kex); }
 
 /*
  * Enumeration of signature flags from draft-miller-ssh-agent-02
@@ -1035,6 +1114,7 @@ extern const ssh_kex ssh_ec_kex_nistp256;
 extern const ssh_kex ssh_ec_kex_nistp384;
 extern const ssh_kex ssh_ec_kex_nistp521;
 extern const ssh_kexes ssh_ecdh_kex;
+extern const ssh_kexes ssh_ntru_hybrid_kex;
 extern const ssh_keyalg ssh_dsa;
 extern const ssh_keyalg ssh_rsa;
 extern const ssh_keyalg ssh_rsa_sha256;
@@ -1044,6 +1124,14 @@ extern const ssh_keyalg ssh_ecdsa_ed448;
 extern const ssh_keyalg ssh_ecdsa_nistp256;
 extern const ssh_keyalg ssh_ecdsa_nistp384;
 extern const ssh_keyalg ssh_ecdsa_nistp521;
+extern const ssh_keyalg opensshcert_ssh_dsa;
+extern const ssh_keyalg opensshcert_ssh_rsa;
+extern const ssh_keyalg opensshcert_ssh_rsa_sha256;
+extern const ssh_keyalg opensshcert_ssh_rsa_sha512;
+extern const ssh_keyalg opensshcert_ssh_ecdsa_ed25519;
+extern const ssh_keyalg opensshcert_ssh_ecdsa_nistp256;
+extern const ssh_keyalg opensshcert_ssh_ecdsa_nistp384;
+extern const ssh_keyalg opensshcert_ssh_ecdsa_nistp521;
 extern const ssh2_macalg ssh_hmac_md5;
 extern const ssh2_macalg ssh_hmac_sha1;
 extern const ssh2_macalg ssh_hmac_sha1_buggy;
@@ -1236,11 +1324,7 @@ static inline bool is_base64_char(char c)
             c == '+' || c == '/' || c == '=');
 }
 
-extern int base64_decode_atom(const char *atom, unsigned char *out);
 extern int base64_lines(int datalen);
-extern void base64_encode_atom(const unsigned char *data, int n, char *out);
-extern void base64_encode(FILE *fp, const unsigned char *data, int datalen,
-                          int cpl);
 
 /* ppk_load_* can return this as an error */
 extern ssh2_userkey ssh2_wrong_passphrase;
@@ -1306,6 +1390,9 @@ extern const ssh_keyalg *const all_keyalgs[];
 extern const size_t n_keyalgs;
 const ssh_keyalg *find_pubkey_alg(const char *name);
 const ssh_keyalg *find_pubkey_alg_len(ptrlen name);
+
+ptrlen pubkey_blob_to_alg_name(ptrlen blob);
+const ssh_keyalg *pubkey_blob_to_alg(ptrlen blob);
 
 /* Convenient wrappers on the LoadedFile mechanism suitable for key files */
 LoadedFile *lf_load_keyfile(const Filename *filename, const char **errptr);
@@ -1708,6 +1795,7 @@ unsigned alloc_channel_id_general(tree234 *channels, size_t localid_offset);
               alloc_channel_id_general(tree, offsetof(type, localid)))
 
 void add_to_commasep(strbuf *buf, const char *data);
+void add_to_commasep_pl(strbuf *buf, ptrlen data);
 bool get_commasep_word(ptrlen *list, ptrlen *word);
 
 SeatPromptResult verify_ssh_host_key(

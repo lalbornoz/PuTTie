@@ -1224,12 +1224,6 @@ static void term_timer(void *ctx, unsigned long now)
 
     if (term->window_update_pending)
         term_update_callback(term);
-
-    if (term->win_resize_pending == WIN_RESIZE_AWAIT_REPLY &&
-        now == term->win_resize_timeout) {
-        term->win_resize_pending = WIN_RESIZE_NO;
-        queue_toplevel_callback(term_out_cb, term);
-    }
 }
 
 static void term_update_callback(void *ctx)
@@ -1430,8 +1424,6 @@ void term_update(Terminal *term)
         term->win_resize_pending = WIN_RESIZE_AWAIT_REPLY;
         win_request_resize(term->win, term->win_resize_pending_w,
                            term->win_resize_pending_h);
-        term->win_resize_timeout = schedule_timer(
-            WIN_RESIZE_TIMEOUT, term_timer, term);
     }
     if (term->win_zorder_pending) {
         win_set_zorder(term->win, term->win_zorder_top);
@@ -2155,14 +2147,6 @@ void term_size(Terminal *term, int newrows, int newcols, int newsavelines)
     int sblen;
     int save_alt_which = term->alt_which;
 
-    /* If we were holding buffered terminal data because we were
-     * waiting for confirmation of a resize, queue a callback to start
-     * processing it again. */
-    if (term->win_resize_pending == WIN_RESIZE_AWAIT_REPLY) {
-        term->win_resize_pending = WIN_RESIZE_NO;
-        queue_toplevel_callback(term_out_cb, term);
-    }
-
     if (newrows == term->rows && newcols == term->cols &&
         newsavelines == term->savelines)
         return;                        /* nothing to do */
@@ -2338,6 +2322,13 @@ void term_size(Terminal *term, int newrows, int newcols, int newsavelines)
     term_schedule_update(term);
     if (term->backend)
         backend_size(term->backend, term->cols, term->rows);
+}
+
+void term_resize_request_completed(Terminal *term)
+{
+    assert(term->win_resize_pending == WIN_RESIZE_AWAIT_REPLY);
+    term->win_resize_pending = WIN_RESIZE_NO;
+    queue_toplevel_callback(term_out_cb, term);
 }
 
 /*
@@ -3827,6 +3818,19 @@ static void term_out(Terminal *term, bool called_from_term_data)
                 }
                 break;
               case '\007': {            /* BEL: Bell */
+                if (term->termstate == SEEN_OSC ||
+                    term->termstate == SEEN_OSC_W) {
+                    /*
+                     * In an OSC context, BEL is one of the ways to terminate
+                     * the whole sequence. We process it as such even if we
+                     * haven't got into the final OSC_STRING state yet, so that
+                     * OSC sequences without a string will be handled cleanly.
+                     */
+                    do_osc(term);
+                    term->termstate = TOPLEVEL;
+                    break;
+                }
+
                 struct beeptime *newbeep;
                 unsigned long ticks;
 
@@ -3912,7 +3916,11 @@ static void term_out(Terminal *term, bool called_from_term_data)
               case '\033':            /* ESC: Escape */
                 if (term->vt52_mode)
                     term->termstate = VT52_ESC;
-                else {
+                else if (term->termstate == SEEN_OSC ||
+                         term->termstate == SEEN_OSC_W) {
+                    /* Be prepared to terminate an OSC early */
+                    term->termstate = OSC_MAYBE_ST;
+                } else {
                     compatibility(ANSIMIN);
                     term->termstate = SEEN_ESC;
                     term->esc_query = 0;
@@ -5161,6 +5169,17 @@ static void term_out(Terminal *term, bool called_from_term_data)
                     else
                         term->esc_args[term->esc_nargs-1] = UINT_MAX;
                     break;
+                  case 0x9C:
+                    /* Terminate even though we aren't in OSC_STRING yet */
+                    do_osc(term);
+                    term->termstate = TOPLEVEL;
+                    break;
+                  case 0xC2:
+                    if (in_utf(term)) {
+                        /* Or be prepared for the UTF-8 version of that */
+                        term->termstate = OSC_MAYBE_ST_UTF8;
+                    }
+                    break;
                   default:
                     /*
                      * _Most_ other characters here terminate the
@@ -5329,6 +5348,17 @@ static void term_out(Terminal *term, bool called_from_term_data)
                         term->esc_args[0] = 10 * term->esc_args[0] + c - '0';
                     else
                         term->esc_args[0] = UINT_MAX;
+                    break;
+                  case 0x9C:
+                    /* Terminate even though we aren't in OSC_STRING yet */
+                    do_osc(term);
+                    term->termstate = TOPLEVEL;
+                    break;
+                  case 0xC2:
+                    if (in_utf(term)) {
+                        /* Or be prepared for the UTF-8 version of that */
+                        term->termstate = OSC_MAYBE_ST_UTF8;
+                    }
                     break;
                   default:
                     term->termstate = OSC_STRING;
@@ -7310,6 +7340,23 @@ void term_mouse(Terminal *term, Mouse_Button braw, Mouse_Button bcooked,
     term_schedule_update(term);
 }
 
+void term_cancel_selection_drag(Terminal *term)
+{
+    /*
+     * In unusual circumstances, a mouse drag might be interrupted by
+     * something that steals the rest of the mouse gesture. An example
+     * is the GTK popup menu appearing. In that situation, we'll never
+     * receive the MA_RELEASE that finishes the DRAGGING state, which
+     * means terminal output could be suppressed indefinitely. Call
+     * this function from the front end in such situations to restore
+     * sensibleness.
+     */
+    if (term->selstate == DRAGGING)
+        term->selstate = NO_SELECTION;
+    term_out(term, false);
+    term_schedule_update(term);
+}
+
 static int shift_bitmap(bool shift, bool ctrl, bool alt, bool *consumed_alt)
 {
     int bitmap = (shift ? 1 : 0) + (alt ? 2 : 0) + (ctrl ? 4 : 0);
@@ -7384,7 +7431,7 @@ int format_function_key(char *buf, Terminal *term, int key_number,
     assert(key_number < lenof(key_number_to_tilde_code));
 
     int index = key_number;
-    if (term->funky_type != FUNKY_XTERM_216) {
+    if (term->funky_type != FUNKY_XTERM_216 && term->funky_type != FUNKY_SCO) {
         if (shift && index <= 10) {
             shift = false;
             index += 10;

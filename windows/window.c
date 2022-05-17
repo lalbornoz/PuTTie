@@ -9,6 +9,7 @@
 #include <time.h>
 #include <limits.h>
 #include <assert.h>
+#include <wchar.h>
 
 #define COMPILE_MULTIMON_STUBS
 
@@ -160,12 +161,6 @@ static Conf *conf;
 static LogContext *logctx;
 static Terminal *term;
 
-struct wm_netevent_params {
-    /* Used to pass data to wm_netevent_callback */
-    WPARAM wParam;
-    LPARAM lParam;
-};
-
 static void conf_cache_data(void);
 static int cursor_type;
 static int vtmode;
@@ -206,6 +201,9 @@ bool tried_pal = false;
 COLORREF colorref_modifier = 0;
 
 enum MONITOR_DPI_TYPE { MDT_EFFECTIVE_DPI, MDT_ANGULAR_DPI, MDT_RAW_DPI, MDT_DEFAULT };
+DECL_WINDOWS_FUNCTION(static, BOOL, GetMonitorInfoA, (HMONITOR, LPMONITORINFO));
+DECL_WINDOWS_FUNCTION(static, HMONITOR, MonitorFromPoint, (POINT, DWORD));
+DECL_WINDOWS_FUNCTION(static, HMONITOR, MonitorFromWindow, (HWND, DWORD));
 DECL_WINDOWS_FUNCTION(static, HRESULT, GetDpiForMonitor, (HMONITOR hmonitor, enum MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY));
 DECL_WINDOWS_FUNCTION(static, HRESULT, GetSystemMetricsForDpi, (int nIndex, UINT dpi));
 DECL_WINDOWS_FUNCTION(static, HRESULT, AdjustWindowRectExForDpi, (LPRECT lpRect, DWORD dwStyle, BOOL bMenu, DWORD dwExStyle, UINT dpi));
@@ -461,6 +459,72 @@ static void close_session(void *ignored_context)
     }
 }
 
+/*
+ * Some machinery to deal with switching the window type between ANSI
+ * and Unicode. We prefer Unicode, but some PuTTY builds still try to
+ * run on machines so old that they don't support that mode. So we're
+ * prepared to fall back to an ANSI window if we have to. For this
+ * purpose, we swap out a few Windows API functions, and wrap
+ * SetWindowText so that if we're not in Unicode mode we first convert
+ * the wide string we're given.
+ */
+static bool unicode_window;
+static BOOL (WINAPI *sw_PeekMessage)(LPMSG, HWND, UINT, UINT, UINT);
+static LRESULT (WINAPI *sw_DispatchMessage)(const MSG *);
+static LRESULT (WINAPI *sw_DefWindowProc)(HWND, UINT, WPARAM, LPARAM);
+static void sw_SetWindowText(HWND hwnd, wchar_t *text)
+{
+    if (unicode_window) {
+        SetWindowTextW(hwnd, text);
+    } else {
+        char *mb = dup_wc_to_mb(DEFAULT_CODEPAGE, 0, text, "?", &ucsdata);
+        SetWindowTextA(hwnd, mb);
+        sfree(mb);
+    }
+}
+
+static HINSTANCE hprev;
+
+/*
+ * Also, registering window classes has to be done in a fiddly way.
+ */
+#define SETUP_WNDCLASS(wndclass, classname) do {                        \
+        wndclass.style = 0;                                             \
+        wndclass.lpfnWndProc = WndProc;                                 \
+        wndclass.cbClsExtra = 0;                                        \
+        wndclass.cbWndExtra = 0;                                        \
+        wndclass.hInstance = hinst;                                     \
+        wndclass.hIcon = LoadIcon(hinst, MAKEINTRESOURCE(IDI_MAINICON)); \
+        wndclass.hCursor = LoadCursor(NULL, IDC_IBEAM);                 \
+        wndclass.hbrBackground = NULL;                                  \
+        wndclass.lpszMenuName = NULL;                                   \
+        wndclass.lpszClassName = classname;                             \
+    } while (0)
+wchar_t *terminal_window_class_w(void)
+{
+    static wchar_t *classname = NULL;
+    if (!classname)
+        classname = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
+    if (!hprev) {
+        WNDCLASSW wndclassw;
+        SETUP_WNDCLASS(wndclassw, classname);
+        RegisterClassW(&wndclassw);
+    }
+    return classname;
+}
+char *terminal_window_class_a(void)
+{
+    static char *classname = NULL;
+    if (!classname)
+        classname = dupcat(appname, ".ansi");
+    if (!hprev) {
+        WNDCLASSA wndclassa;
+        SETUP_WNDCLASS(wndclassa, classname);
+        RegisterClassA(&wndclassa);
+    }
+    return classname;
+}
+
 const unsigned cmdline_tooltype =
     TOOLTYPE_HOST_ARG |
     TOOLTYPE_PORT_ARG |
@@ -481,6 +545,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     dll_hijacking_protection();
 
     hinst = inst;
+    hprev = prev;
 
     sk_init();
 
@@ -529,23 +594,6 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
      */
     gui_term_process_cmdline(conf, cmdline);
 
-    if (!prev) {
-        WNDCLASSW wndclass;
-
-        wndclass.style = 0;
-        wndclass.lpfnWndProc = WndProc;
-        wndclass.cbClsExtra = 0;
-        wndclass.cbWndExtra = 0;
-        wndclass.hInstance = inst;
-        wndclass.hIcon = LoadIcon(inst, MAKEINTRESOURCE(IDI_MAINICON));
-        wndclass.hCursor = LoadCursor(NULL, IDC_IBEAM);
-        wndclass.hbrBackground = NULL;
-        wndclass.lpszMenuName = NULL;
-        wndclass.lpszClassName = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
-
-        RegisterClassW(&wndclass);
-    }
-
     memset(&ucsdata, 0, sizeof(ucsdata));
 
     conf_cache_data();
@@ -581,6 +629,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         if (vt && vt->flags & BACKEND_RESIZE_FORBIDDEN)
             resize_forbidden = true;
         wchar_t *uappname = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
+        window_name = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
+        icon_name = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, appname);
         if (!conf_get_bool(conf, CONF_scrollbar))
             winmode &= ~(WS_VSCROLL);
         if (conf_get_int(conf, CONF_resize_action) == RESIZE_DISABLED ||
@@ -590,15 +640,47 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             exwinmode |= WS_EX_TOPMOST;
         if (conf_get_bool(conf, CONF_sunken_edge))
             exwinmode |= WS_EX_CLIENTEDGE;
+
+#ifdef TEST_ANSI_WINDOW
+        /* For developer testing of ANSI window support, pretend
+         * CreateWindowExW failed */
+        wgs.term_hwnd = NULL;
+        SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+#else
+        unicode_window = true;
+        sw_PeekMessage = PeekMessageW;
+        sw_DispatchMessage = DispatchMessageW;
+        sw_DefWindowProc = DefWindowProcW;
         wgs.term_hwnd = CreateWindowExW(
-            exwinmode, uappname, uappname, winmode, CW_USEDEFAULT,
-            CW_USEDEFAULT, guess_width, guess_height, NULL, NULL, inst, NULL);
+            exwinmode, terminal_window_class_w(), uappname,
+            winmode, CW_USEDEFAULT, CW_USEDEFAULT,
+            guess_width, guess_height, NULL, NULL, inst, NULL);
         /* {{{ winfrip */
         winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, wgs.term_hwnd);
         /* winfrip }}} */
         /* {{{ winfrip */
         (void)winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_INIT, conf, inst, wgs.term_hwnd, -1, -1, -1);
         /* winfrip }}} */
+
+#if defined LEGACY_WINDOWS || defined TEST_ANSI_WINDOW
+        if (!wgs.term_hwnd && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED) {
+            /* Fall back to an ANSI window, swapping in all the ANSI
+             * window message handling functions */
+            unicode_window = false;
+            sw_PeekMessage = PeekMessageA;
+            sw_DispatchMessage = DispatchMessageA;
+            sw_DefWindowProc = DefWindowProcA;
+            wgs.term_hwnd = CreateWindowExA(
+                exwinmode, terminal_window_class_a(), appname,
+                winmode, CW_USEDEFAULT, CW_USEDEFAULT,
+                guess_width, guess_height, NULL, NULL, inst, NULL);
+        }
+#endif
+
+        if (!wgs.term_hwnd) {
+            modalfatalbox("Unable to create terminal window: %s",
+                          win_strerror(GetLastError()));
+        }
         memset(&dpi_info, 0, sizeof(struct _dpi_info));
         init_dpi_info();
         sfree(uappname);
@@ -752,6 +834,8 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     term_set_focus(term, GetForegroundWindow() == wgs.term_hwnd);
     UpdateWindow(wgs.term_hwnd);
 
+    gui_terminal_ready(wgs.term_hwnd, &wgs.seat, backend);
+
     while (1) {
         int n;
         DWORD timeout;
@@ -791,13 +875,13 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             handle_wait_activate(hwl, n - WAIT_OBJECT_0);
         handle_wait_list_free(hwl);
 
-        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+        while (sw_PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT)
                 goto finished;         /* two-level break */
 
             HWND logbox = event_log_window();
             if (!(IsWindow(logbox) && IsDialogMessage(logbox, &msg)))
-                DispatchMessageW(&msg);
+                sw_DispatchMessage(&msg);
 
             /*
              * WM_NETEVENT messages seem to jump ahead of others in
@@ -1141,16 +1225,6 @@ void cmdline_error(const char *fmt, ...)
     exit(1);
 }
 
-/*
- * Actually do the job requested by a WM_NETEVENT
- */
-static void wm_netevent_callback(void *vctx)
-{
-    struct wm_netevent_params *params = (struct wm_netevent_params *)vctx;
-    select_result(params->wParam, params->lParam);
-    sfree(vctx);
-}
-
 static inline rgb rgb_from_colorref(COLORREF cr)
 {
     rgb toret;
@@ -1311,9 +1385,9 @@ static int get_font_width(HDC hdc, const TEXTMETRIC *tm)
 static void init_dpi_info(void)
 {
     if (dpi_info.cur_dpi.x == 0 || dpi_info.cur_dpi.y == 0) {
-        if (p_GetDpiForMonitor) {
+        if (p_GetDpiForMonitor && p_MonitorFromWindow) {
             UINT dpiX, dpiY;
-            HMONITOR currentMonitor = MonitorFromWindow(
+            HMONITOR currentMonitor = p_MonitorFromWindow(
                 wgs.term_hwnd, MONITOR_DEFAULTTOPRIMARY);
             if (p_GetDpiForMonitor(currentMonitor, MDT_EFFECTIVE_DPI,
                                    &dpiX, &dpiY) == S_OK) {
@@ -1616,8 +1690,6 @@ static void deinit_fonts(void)
     trust_icon = INVALID_HANDLE_VALUE;
 }
 
-static bool sent_term_size; /* only live during wintw_request_resize() */
-
 static void wintw_request_resize(TermWin *tw, int w, int h)
 {
     const struct BackendVtable *vt;
@@ -1665,28 +1737,12 @@ static void wintw_request_resize(TermWin *tw, int w, int h)
 
     if (conf_get_int(conf, CONF_resize_action) != RESIZE_FONT &&
         !IsZoomed(wgs.term_hwnd)) {
-        /*
-         * We want to send exactly one term_size() to the terminal,
-         * telling it what size it ended up after this operation.
-         *
-         * If we don't get the size we asked for in SetWindowPos, then
-         * we'll be sent a WM_SIZE message, whose handler will make
-         * that call, all before SetWindowPos even returns to here.
-         *
-         * But if that _didn't_ happen, we'll need to call term_size
-         * ourselves afterwards.
-         */
-        sent_term_size = false;
-
         width = extra_width + font_width * w;
         height = extra_height + font_height * h;
 
         SetWindowPos(wgs.term_hwnd, NULL, 0, 0, width, height,
             SWP_NOACTIVATE | SWP_NOCOPYBITS |
             SWP_NOMOVE | SWP_NOZORDER);
-
-        if (!sent_term_size)
-            term_size(term, h, w, conf_get_int(conf, CONF_savelines));
     } else {
         /*
          * If we're resizing by changing the font, we must tell the
@@ -1697,6 +1753,7 @@ static void wintw_request_resize(TermWin *tw, int w, int h)
         reset_window(0);
     }
 
+    term_resize_request_completed(term);
     InvalidateRect(wgs.term_hwnd, NULL, true);
 }
 
@@ -2142,11 +2199,6 @@ static void wm_size_resize_term(LPARAM lParam, bool border)
     } else {
         term_size(term, h, w,
                   conf_get_int(conf, CONF_savelines));
-        /* If this is happening re-entrantly during the call to
-         * SetWindowPos in wintw_request_resize, let it know that
-         * we've already done a term_size() so that it doesn't have
-         * to. */
-        sent_term_size = true;
     }
 }
 
@@ -2226,7 +2278,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                  * within an interactive scrollbar-drag can be handled
                  * differently. */
                 in_scrollbar_loop = true;
-                LRESULT result = DefWindowProcW(hwnd, message, wParam, lParam);
+                LRESULT result = sw_DefWindowProc(
+                    hwnd, message, wParam, lParam);
                 in_scrollbar_loop = false;
                 return result;
             }
@@ -2626,6 +2679,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
              (conf_get_int(conf, CONF_mouse_is_xterm) == 2))) {
             POINT cursorpos;
 
+            /* Just in case this happened in mid-select */
+            term_cancel_selection_drag(term);
+
             show_mouseptr(true);    /* make sure pointer is visible */
             GetCursorPos(&cursorpos);
             TrackPopupMenu(popup_menus[CTXMENU].menu,
@@ -2686,27 +2742,26 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
                 GetCursorPos(&pt);
 #ifndef NO_MULTIMON
-                {
+                if (p_GetMonitorInfoA && p_MonitorFromPoint) {
                     HMONITOR mon;
                     MONITORINFO mi;
 
-                    mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONULL);
+                    mon = p_MonitorFromPoint(pt, MONITOR_DEFAULTTONULL);
 
                     if (mon != NULL) {
                         mi.cbSize = sizeof(MONITORINFO);
-                        GetMonitorInfo(mon, &mi);
+                        p_GetMonitorInfoA(mon, &mi);
 
                         if (mi.rcMonitor.left == pt.x &&
                             mi.rcMonitor.top == pt.y) {
                             mouse_on_hotspot = true;
                         }
                     }
-                }
-#else
+                } else
+#endif
                 if (pt.x == 0 && pt.y == 0) {
                     mouse_on_hotspot = true;
                 }
-#endif
                 if (is_full_screen() && press &&
                     button == MBT_LEFT && mouse_on_hotspot) {
                     SendMessage(hwnd, WM_SYSCOMMAND, SC_MOUSEMENU,
@@ -2893,21 +2948,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         ShowCaret(hwnd);
         return 0;
       }
-      case WM_NETEVENT: {
-        /*
-         * To protect against re-entrancy when Windows's recv()
-         * immediately triggers a new WSAAsyncSelect window
-         * message, we don't call select_result directly from this
-         * handler but instead wait until we're back out at the
-         * top level of the message loop.
-         */
-        struct wm_netevent_params *params =
-            snew(struct wm_netevent_params);
-        params->wParam = wParam;
-        params->lParam = lParam;
-        queue_toplevel_callback(wm_netevent_callback, params);
+      case WM_NETEVENT:
+        winselgui_response(wParam, lParam);
         return 0;
-      }
       case WM_SETFOCUS:
         /* {{{ winfrip */
         winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, hwnd);
@@ -3076,14 +3119,16 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             term_notify_window_size_pixels(
                 term, r.right - r.left, r.bottom - r.top);
         }
-        if (wParam == SIZE_MINIMIZED)
-            SetWindowTextW(hwnd,
-                           conf_get_bool(conf, CONF_win_name_always) ?
-                           window_name : icon_name);
-        if (wParam == SIZE_MINIMIZED)
-	    (void)winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_MINIMISE, conf, hinst, hwnd, -1, -1, -1);
+        if (wParam == SIZE_MINIMIZED) {
+            sw_SetWindowText(hwnd,
+                             conf_get_bool(conf, CONF_win_name_always) ?
+                             window_name : icon_name);
+            if (wParam == SIZE_MINIMIZED) {
+                (void)winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_MINIMISE, conf, hinst, hwnd, -1, -1, -1);
+            }
+        }
         if (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED)
-            SetWindowTextW(hwnd, window_name);
+            sw_SetWindowText(hwnd, window_name);
         if (wParam == SIZE_RESTORED) {
             processed_resize = false;
             clear_full_screen();
@@ -3309,7 +3354,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             } else {
                 len = TranslateKey(message, wParam, lParam, buf);
                 if (len == -1)
-                    return DefWindowProcW(hwnd, message, wParam, lParam);
+                    return sw_DefWindowProc(hwnd, message, wParam, lParam);
 
                 if (len != 0) {
                     /*
@@ -3407,7 +3452,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
          * post the things to us as part of a macro manoeuvre,
          * we're ready to cope.
          */
-        {
+        if (unicode_window) {
             static wchar_t pending_surrogate = 0;
             wchar_t c = wParam;
 
@@ -3421,6 +3466,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             } else if (!IS_SURROGATE(c)) {
                 term_keyinputw(term, &c, 1);
             }
+        } else {
+            char c = (unsigned char)wParam;
+            term_seen_key_event(term);
+            if (ldisc)
+                term_keyinput(term, CP_ACP, &c, 1);
         }
         return 0;
       case WM_SYSCOLORCHANGE:
@@ -3513,7 +3563,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
      * Any messages we don't process completely above are passed through to
      * DefWindowProc() for default processing.
      */
-    return DefWindowProcW(hwnd, message, wParam, lParam);
+    return sw_DefWindowProc(hwnd, message, wParam, lParam);
 }
 
 /*
@@ -4190,6 +4240,9 @@ static void init_winfuncs(void)
     GET_WINDOWS_FUNCTION(user32_module, FlashWindowEx);
     GET_WINDOWS_FUNCTION(user32_module, ToUnicodeEx);
     GET_WINDOWS_FUNCTION_PP(winmm_module, PlaySound);
+    GET_WINDOWS_FUNCTION_NO_TYPECHECK(user32_module, GetMonitorInfoA);
+    GET_WINDOWS_FUNCTION_NO_TYPECHECK(user32_module, MonitorFromPoint);
+    GET_WINDOWS_FUNCTION_NO_TYPECHECK(user32_module, MonitorFromWindow);
     GET_WINDOWS_FUNCTION_NO_TYPECHECK(shcore_module, GetDpiForMonitor);
     GET_WINDOWS_FUNCTION_NO_TYPECHECK(user32_module, GetSystemMetricsForDpi);
     GET_WINDOWS_FUNCTION_NO_TYPECHECK(user32_module, AdjustWindowRectExForDpi);
@@ -4873,18 +4926,28 @@ static int TranslateKey(UINT message, WPARAM wParam, LPARAM lParam,
 
 static void wintw_set_title(TermWin *tw, const char *title, int codepage)
 {
+    wchar_t *new_window_name = dup_mb_to_wc(codepage, 0, title);
+    if (!wcscmp(new_window_name, window_name)) {
+        sfree(new_window_name);
+        return;
+    }
     sfree(window_name);
-    window_name = dup_mb_to_wc(codepage, 0, title);
+    window_name = new_window_name;
     if (conf_get_bool(conf, CONF_win_name_always) || !IsIconic(wgs.term_hwnd))
-        SetWindowTextW(wgs.term_hwnd, window_name);
+        sw_SetWindowText(wgs.term_hwnd, window_name);
 }
 
 static void wintw_set_icon_title(TermWin *tw, const char *title, int codepage)
 {
+    wchar_t *new_icon_name = dup_mb_to_wc(codepage, 0, title);
+    if (!wcscmp(new_icon_name, icon_name)) {
+        sfree(new_icon_name);
+        return;
+    }
     sfree(icon_name);
-    icon_name = dup_mb_to_wc(codepage, 0, title);
+    icon_name = new_icon_name;
     if (!conf_get_bool(conf, CONF_win_name_always) && IsIconic(wgs.term_hwnd))
-        SetWindowTextW(wgs.term_hwnd, icon_name);
+        sw_SetWindowText(wgs.term_hwnd, icon_name);
 }
 
 static void wintw_set_scrollbar(TermWin *tw, int total, int start, int page)
@@ -5790,23 +5853,24 @@ static bool is_full_screen()
 static bool get_fullscreen_rect(RECT * ss)
 {
 #if defined(MONITOR_DEFAULTTONEAREST) && !defined(NO_MULTIMON)
+    if (p_GetMonitorInfoA && p_MonitorFromWindow) {
         HMONITOR mon;
         MONITORINFO mi;
-        mon = MonitorFromWindow(wgs.term_hwnd, MONITOR_DEFAULTTONEAREST);
+        mon = p_MonitorFromWindow(wgs.term_hwnd, MONITOR_DEFAULTTONEAREST);
         mi.cbSize = sizeof(mi);
-        GetMonitorInfo(mon, &mi);
+        p_GetMonitorInfoA(mon, &mi);
 
         /* structure copy */
         *ss = mi.rcMonitor;
         return true;
-#else
+    }
+#endif
 /* could also use code like this:
         ss->left = ss->top = 0;
         ss->right = GetSystemMetrics(SM_CXSCREEN);
         ss->bottom = GetSystemMetrics(SM_CYSCREEN);
 */
         return GetClientRect(GetDesktopWindow(), ss);
-#endif
 }
 
 

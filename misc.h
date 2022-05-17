@@ -52,6 +52,10 @@ struct strbuf {
 strbuf *strbuf_new(void);
 strbuf *strbuf_new_nm(void);
 
+/* Helpers to allocate a strbuf containing an existing string */
+strbuf *strbuf_dup(ptrlen string);
+strbuf *strbuf_dup_nm(ptrlen string);
+
 void strbuf_free(strbuf *buf);
 void *strbuf_append(strbuf *buf, size_t len);
 void strbuf_shrink_to(strbuf *buf, size_t new_len);
@@ -67,6 +71,10 @@ void strbuf_finalise_agent_query(strbuf *buf);
  * work around the rather deficient interface of mb_to_wc. */
 wchar_t *dup_mb_to_wc_c(int codepage, int flags, const char *string, int len);
 wchar_t *dup_mb_to_wc(int codepage, int flags, const char *string);
+char *dup_wc_to_mb_c(int codepage, int flags, const wchar_t *string, int len,
+                     const char *defchr, struct unicode_data *ucsdata);
+char *dup_wc_to_mb(int codepage, int flags, const wchar_t *string,
+                   const char *defchr, struct unicode_data *ucsdata);
 
 static inline int toint(unsigned u)
 {
@@ -100,6 +108,13 @@ bool strendswith(const char *s, const char *t);
 
 void base64_encode_atom(const unsigned char *data, int n, char *out);
 int base64_decode_atom(const char *atom, unsigned char *out);
+void base64_decode_bs(BinarySink *bs, ptrlen data);
+void base64_decode_fp(FILE *fp, ptrlen data);
+strbuf *base64_decode_sb(ptrlen data);
+void base64_encode_bs(BinarySink *bs, ptrlen data, int cpl);
+void base64_encode_fp(FILE *fp, ptrlen data, int cpl);
+strbuf *base64_encode_sb(ptrlen data, int cpl);
+bool base64_valid(ptrlen data);
 
 struct bufchain_granule;
 struct bufchain_tag {
@@ -203,9 +218,9 @@ void smemclr(void *b, size_t len);
 /* Compare two fixed-length chunks of memory for equality, without
  * data-dependent control flow (so an attacker with a very accurate
  * stopwatch can't try to guess where the first mismatching byte was).
- * Returns false for mismatch or true for equality (unlike memcmp),
- * hinted at by the 'eq' in the name. */
-bool smemeq(const void *av, const void *bv, size_t len);
+ * Returns 0 for mismatch or 1 for equality (unlike memcmp), hinted at
+ * by the 'eq' in the name. */
+unsigned smemeq(const void *av, const void *bv, size_t len);
 
 /* Encode a single UTF-8 character. Assumes that illegal characters
  * (such as things in the surrogate range, or > 0x10FFFF) have already
@@ -216,6 +231,17 @@ size_t encode_utf8(void *output, unsigned long ch);
  * sizeof(wchar_t) == 2, assuming that in that case the wide string is
  * encoded in UTF-16. */
 char *encode_wide_string_as_utf8(const wchar_t *wstr);
+
+/* Decode a single UTF-8 character. Returns U+FFFD for any of the
+ * illegal cases. */
+unsigned long decode_utf8(const char **utf8);
+
+/* Decode a single UTF-8 character to an output buffer of the
+ * platform's wchar_t. May write a pair of surrogates if
+ * sizeof(wchar_t) == 2, assuming that in that case the wide string is
+ * encoded in UTF-16. Otherwise, writes one character. Returns the
+ * number written. */
+size_t decode_utf8_to_wchar(const char **utf8, wchar_t *out);
 
 /* Write a string out in C string-literal format. */
 void write_c_string_literal(FILE *fp, ptrlen str);

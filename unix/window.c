@@ -189,6 +189,24 @@ struct GtkFrontend {
 #endif
     int trust_sigil_w, trust_sigil_h;
 
+    /*
+     * Not every GDK backend can be relied on 100% to reply to a
+     * resize request in a timely manner. (In X11 it's all
+     * asynchronous and goes via the window manager, and if your
+     * window manager is seriously unwell, you'd rather not have
+     * terminal windows start becoming unusable as a knock-on effect,
+     * since those are just the thing you might need to use for
+     * emergency WM maintenance!)
+     *
+     * So when we ask GTK to resize our terminal window, we also set a
+     * 5-second timer, after which we'll regretfully conclude that a
+     * resize (or ConfigureNotify telling us no resize took place) is
+     * probably not going to happen after all.
+     */
+    bool win_resize_pending, term_resize_notification_required;
+    long win_resize_timeout;
+    #define WIN_RESIZE_TIMEOUT (TICKSPERSEC*5)
+
     Seat seat;
     TermWin termwin;
     LogPolicy logpolicy;
@@ -736,10 +754,8 @@ static void drawing_area_setup(GtkFrontend *inst, int width, int height)
     new_scale = 1;
 #endif
 
-    int new_backing_w = w * inst->font_width + 2*inst->window_border;
-    int new_backing_h = h * inst->font_height + 2*inst->window_border;
-    new_backing_w *= new_scale;
-    new_backing_h *= new_scale;
+    int new_backing_w = width * new_scale;
+    int new_backing_h = height * new_scale;
 
     if (inst->backing_w != new_backing_w || inst->backing_h != new_backing_h)
         inst->drawing_area_setup_needed = true;
@@ -761,6 +777,10 @@ static void drawing_area_setup(GtkFrontend *inst, int width, int height)
     inst->drawing_area_setup_called = true;
     if (inst->term)
         term_size(inst->term, h, w, conf_get_int(inst->conf, CONF_savelines));
+    if (inst->term_resize_notification_required)
+        term_resize_request_completed(inst->term);
+    if (inst->win_resize_pending)
+        inst->win_resize_pending = false;
 
     if (!inst->drawing_area_setup_needed)
         return;
@@ -1258,7 +1278,8 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
 #ifdef KEY_EVENT_DIAGNOSTICS
             debug(" - Ctrl->: increase font size\n");
 #endif
-            change_font_size(inst, +1);
+            if (!inst->win_resize_pending)
+                change_font_size(inst, +1);
             return true;
         }
         if (event->keyval == GDK_KEY_less &&
@@ -1266,7 +1287,8 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
 #ifdef KEY_EVENT_DIAGNOSTICS
             debug(" - Ctrl-<: increase font size\n");
 #endif
-            change_font_size(inst, -1);
+            if (!inst->win_resize_pending)
+                change_font_size(inst, -1);
             return true;
         }
 
@@ -2164,6 +2186,8 @@ static gboolean button_internal(GtkFrontend *inst, GdkEventButton *event)
     }
 
     if (event->button == 3 && ctrl) {
+        /* Just in case this happened in mid-select */
+        term_cancel_selection_drag(inst->term);
 #if GTK_CHECK_VERSION(3,22,0)
         gtk_menu_popup_at_pointer(GTK_MENU(inst->menu), (GdkEvent *)event);
 #else
@@ -2477,15 +2501,23 @@ static void compute_whole_window_size(GtkFrontend *inst,
 static void gtkwin_deny_term_resize(void *vctx)
 {
     GtkFrontend *inst = (GtkFrontend *)vctx;
-    if (inst->term)
-        term_size(inst->term, inst->term->rows, inst->term->cols,
-                  inst->term->savelines);
+    drawing_area_setup_simple(inst);
 }
 
-static void gtkwin_request_resize(TermWin *tw, int w, int h)
+static void gtkwin_timer(void *vctx, unsigned long now)
 {
-    GtkFrontend *inst = container_of(tw, GtkFrontend, termwin);
+    GtkFrontend *inst = (GtkFrontend *)vctx;
 
+    if (inst->win_resize_pending && now == inst->win_resize_timeout) {
+        if (inst->term_resize_notification_required)
+            term_resize_request_completed(inst->term);
+        inst->win_resize_pending = false;        
+    }
+}
+
+static void request_resize_internal(GtkFrontend *inst, bool from_terminal,
+                                    int w, int h)
+{
 #if GTK_CHECK_VERSION(2,0,0)
     /*
      * Initial check: don't even try to resize a window if it's in one
@@ -2527,6 +2559,7 @@ static void gtkwin_request_resize(TermWin *tw, int w, int h)
 #endif
                      0)) {
             queue_toplevel_callback(gtkwin_deny_term_resize, inst);
+            term_resize_request_completed(inst->term);
             return;
         }
     }
@@ -2615,6 +2648,16 @@ static void gtkwin_request_resize(TermWin *tw, int w, int h)
 
 #endif
 
+    inst->win_resize_pending = true;
+    inst->term_resize_notification_required = from_terminal;
+    inst->win_resize_timeout = schedule_timer(
+        WIN_RESIZE_TIMEOUT, gtkwin_timer, inst);
+}
+
+static void gtkwin_request_resize(TermWin *tw, int w, int h)
+{
+    GtkFrontend *inst = container_of(tw, GtkFrontend, termwin);
+    request_resize_internal(inst, true, w, h);
 }
 
 #if GTK_CHECK_VERSION(3,0,0)
@@ -3756,16 +3799,12 @@ static void draw_stretch_after(GtkFrontend *inst, int x, int y,
 
 static void draw_backing_rect(GtkFrontend *inst)
 {
-    int w, h;
-
     if (!win_setup_draw_ctx(&inst->termwin))
         return;
 
-    w = inst->width * inst->font_width + 2*inst->window_border;
-    h = inst->height * inst->font_height + 2*inst->window_border;
     draw_set_colour(inst, 258, false);
-    draw_rectangle(inst, true, 0, 0, w, h);
-    draw_update(inst, 0, 0, w, h);
+    draw_rectangle(inst, true, 0, 0, inst->backing_w, inst->backing_h);
+    draw_update(inst, 0, 0, inst->backing_w, inst->backing_h);
     win_free_draw_ctx(&inst->termwin);
 }
 
@@ -4802,9 +4841,9 @@ static void after_change_settings_dialog(void *vctx, int retval)
             conf_get_int(newconf, CONF_window_border) ||
             need_size) {
             set_geom_hints(inst);
-            win_request_resize(&inst->termwin,
-                               conf_get_int(newconf, CONF_width),
-                               conf_get_int(newconf, CONF_height));
+            request_resize_internal(inst, false,
+                                    conf_get_int(newconf, CONF_width),
+                                    conf_get_int(newconf, CONF_height));
         } else {
             /*
              * The above will have caused a call to term_size() for
@@ -4877,8 +4916,8 @@ static void change_font_size(GtkFrontend *inst, int increment)
     }
 
     set_geom_hints(inst);
-    win_request_resize(&inst->termwin, conf_get_int(inst->conf, CONF_width),
-                       conf_get_int(inst->conf, CONF_height));
+    request_resize_internal(inst, false, conf_get_int(inst->conf, CONF_width),
+                            conf_get_int(inst->conf, CONF_height));
     term_invalidate(inst->term);
     gtk_widget_queue_draw(inst->area);
 

@@ -31,6 +31,7 @@ static const struct keyvalwhere ciphernames[] = {
  * compatibility warts in load_open_settings(), and should be kept
  * in sync with those. */
 static const struct keyvalwhere kexnames[] = {
+    { "ntru-curve25519",    KEX_NTRU_HYBRID, -1, +1 },
     { "ecdh",               KEX_ECDH,       -1, +1 },
     /* This name is misleading: it covers both SHA-256 and SHA-1 variants */
     { "dh-gex-sha1",        KEX_DHGEX,      -1, -1 },
@@ -627,6 +628,7 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
     write_setting_s(sesskey, "LogHost", conf_get_str(conf, CONF_loghost));
     write_setting_b(sesskey, "SSH2DES", conf_get_bool(conf, CONF_ssh2_des_cbc));
     write_setting_filename(sesskey, "PublicKeyFile", conf_get_filename(conf, CONF_keyfile));
+    write_setting_filename(sesskey, "DetachedCertificate", conf_get_filename(conf, CONF_detached_cert));
     write_setting_s(sesskey, "RemoteCommand", conf_get_str(conf, CONF_remote_cmd));
     write_setting_b(sesskey, "RFCEnviron", conf_get_bool(conf, CONF_rfc_environ));
     write_setting_b(sesskey, "PassiveTelnet", conf_get_bool(conf, CONF_passive_telnet));
@@ -1047,6 +1049,7 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
 #endif
     gppb(sesskey, "SshNoShell", false, conf, CONF_ssh_no_shell);
     gppfile(sesskey, "PublicKeyFile", conf, CONF_keyfile);
+    gppfile(sesskey, "DetachedCertificate", conf, CONF_detached_cert);
     gpps(sesskey, "RemoteCommand", "", conf, CONF_remote_cmd);
     gppb(sesskey, "RFCEnviron", false, conf, CONF_rfc_environ);
     gppb(sesskey, "PassiveTelnet", false, conf, CONF_passive_telnet);
@@ -1316,6 +1319,8 @@ static int sessioncmp(const void *av, const void *bv)
     return strcmp(a, b);               /* otherwise, compare normally */
 }
 
+bool sesslist_demo_mode = false;
+
 void get_sesslist(struct sesslist *list, bool allocate)
 {
     int i;
@@ -1325,12 +1330,18 @@ void get_sesslist(struct sesslist *list, bool allocate)
     if (allocate) {
         strbuf *sb = strbuf_new();
 
-        if ((handle = enum_settings_start()) != NULL) {
-            while (enum_settings_next(handle, sb))
-                put_byte(sb, '\0');
-            enum_settings_finish(handle);
+        if (sesslist_demo_mode) {
+            put_asciz(sb, "demo-server");
+            put_asciz(sb, "demo-server-2");
+        } else {
+            if ((handle = enum_settings_start()) != NULL) {
+                while (enum_settings_next(handle, sb))
+                    put_byte(sb, '\0');
+                enum_settings_finish(handle);
+            }
+            put_byte(sb, '\0');
         }
-        put_byte(sb, '\0');
+
         list->buffer = strbuf_to_str(sb);
 
         /*
