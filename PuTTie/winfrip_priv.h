@@ -44,29 +44,29 @@ typedef enum WinFrippBgImgType {
 	WINFRIPP_BGIMG_TYPE_IMAGE				= 1,
 } WinFrippBgImgType;
 
-typedef enum WinFrippTranspLevel {
-	WINFRIPP_TRANSP_LEVEL_OFF				= 255,
-	WINFRIPP_TRANSP_LEVEL_DEFAULT			= WINFRIPP_TRANSP_LEVEL_OFF,
-	WINFRIPP_TRANSP_LEVEL_LOW				= 255 - 16,
-	WINFRIPP_TRANSP_LEVEL_MEDIUM			= 255 - 32,
-	WINFRIPP_TRANSP_LEVEL_HIGH				= 255 - 48,
-} WinFrippTranspLevel;
+typedef enum WinFrippTransLevel {
+	WINFRIPP_TRANS_LEVEL_OFF				= 255,
+	WINFRIPP_TRANS_LEVEL_DEFAULT			= WINFRIPP_TRANS_LEVEL_OFF,
+	WINFRIPP_TRANS_LEVEL_LOW				= 255 - 16,
+	WINFRIPP_TRANS_LEVEL_MEDIUM			= 255 - 32,
+	WINFRIPP_TRANS_LEVEL_HIGH				= 255 - 48,
+} WinFrippTransLevel;
 
-typedef enum WinFrippTranspOpaqueOn {
-	WINFRIPP_TRANSP_OPAQUE_NEVER			= 0,
-	WINFRIPP_TRANSP_OPAQUE_DEFAULT			= WINFRIPP_TRANSP_OPAQUE_NEVER,
-	WINFRIPP_TRANSP_OPAQUE_FOCUS_KILL		= 1,
-	WINFRIPP_TRANSP_OPAQUE_FOCUS_SET		= 2,
-} WinFrippTranspOpaqueOn;
+typedef enum WinFrippTransOpaqueOn {
+	WINFRIPP_TRANS_OPAQUE_NEVER			= 0,
+	WINFRIPP_TRANS_OPAQUE_DEFAULT			= WINFRIPP_TRANS_OPAQUE_NEVER,
+	WINFRIPP_TRANS_OPAQUE_FOCUS_KILL		= 1,
+	WINFRIPP_TRANS_OPAQUE_FOCUS_SET		= 2,
+} WinFrippTransOpaqueOn;
 
-typedef enum WinFrippTranspSetting {
-	WINFRIPP_TRANSP_SETTING_OFF				= 0,
-	WINFRIPP_TRANSP_SETTING_DEFAULT			= WINFRIPP_TRANSP_SETTING_OFF,
-	WINFRIPP_TRANSP_SETTING_LOW				= 1,
-	WINFRIPP_TRANSP_SETTING_MEDIUM			= 2,
-	WINFRIPP_TRANSP_SETTING_HIGH			= 3,
-	WINFRIPP_TRANSP_SETTING_CUSTOM			= 4,
-} WinFrippTranspSetting;
+typedef enum WinFrippTransSetting {
+	WINFRIPP_TRANS_SETTING_OFF				= 0,
+	WINFRIPP_TRANS_SETTING_DEFAULT			= WINFRIPP_TRANS_SETTING_OFF,
+	WINFRIPP_TRANS_SETTING_LOW				= 1,
+	WINFRIPP_TRANS_SETTING_MEDIUM			= 2,
+	WINFRIPP_TRANS_SETTING_HIGH			= 3,
+	WINFRIPP_TRANS_SETTING_CUSTOM			= 4,
+} WinFrippTransSetting;
 
 typedef enum WinFrippUrlsModifierKey {
 	WINFRIPP_URLS_MODIFIER_KEY_CTRL			= 0,
@@ -96,7 +96,7 @@ typedef enum WinFrippUrlsState {
 void winfripp_bgimg_config_panel(struct controlbox *b);
 void winfripp_general_config_panel(struct controlbox *b);
 void winfripp_mouse_config_panel(struct controlbox *b);
-void winfripp_transp_config_panel(struct controlbox *b);
+void winfripp_trans_config_panel(struct controlbox *b);
 void winfripp_urls_config_panel(struct controlbox *b);
 
 #ifdef WINFRIP_DEBUG

@@ -38,9 +38,9 @@ void winfrip_config_panel(struct controlbox *b);
 	X(BOOL, NONE, frip_general_always_on_top)		\
 	X(BOOL, NONE, frip_general_minimise_to_systray)	\
 	X(BOOL, NONE, frip_mouse_font_size_wheel)		\
-	X(INT, NONE, frip_transp_custom)				\
-	X(INT, NONE, frip_transp_opaque_on)				\
-	X(INT, NONE, frip_transp_setting)				\
+	X(INT, NONE, frip_trans_custom)				\
+	X(INT, NONE, frip_trans_opaque_on)				\
+	X(INT, NONE, frip_trans_setting)				\
 	X(BOOL, NONE, frip_urls_browser_default)		\
 	X(STR, NONE, frip_urls_browser_pname_verb)		\
 	X(INT, NONE, frip_urls_modifier_key)			\
@@ -66,9 +66,9 @@ void winfrip_config_panel(struct controlbox *b);
 	gppb((sesskey), "FripGeneralAlwaysOnTop", false, (conf), CONF_frip_general_always_on_top);				\
 	gppb((sesskey), "FripGeneralMinimiseToSysTray", true, (conf), CONF_frip_general_minimise_to_systray);	\
 	gppb((sesskey), "FripMouseFontSizeWheel", true, (conf), CONF_frip_mouse_font_size_wheel);				\
-	gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_transp_custom);								\
-	gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_transp_opaque_on);							\
-	gppi((sesskey), "FripTranspSetting", 0, (conf), CONF_frip_transp_setting);								\
+	gppi((sesskey), "FripTransCustom", 0, (conf), CONF_frip_trans_custom);									\
+	gppi((sesskey), "FripTransOpaqueOn", 1, (conf), CONF_frip_trans_opaque_on);								\
+	gppi((sesskey), "FripTransSetting", 0, (conf), CONF_frip_trans_setting);								\
 	gppb((sesskey), "FripUrlsBrowserDefault", true, (conf), CONF_frip_urls_browser_default);				\
 	gpps((sesskey), "FripUrlsBrowserPNameVerb", "", (conf), CONF_frip_urls_browser_pname_verb);				\
 	gppi((sesskey), "FripUrlsModifierKey", 0, (conf), CONF_frip_urls_modifier_key);							\
@@ -93,9 +93,9 @@ void winfrip_config_panel(struct controlbox *b);
 	write_setting_b((sesskey), "FripGeneralAlwaysOnTop", conf_get_bool((conf), CONF_frip_general_always_on_top));				\
 	write_setting_b((sesskey), "FripGeneralMinimiseToSysTray", conf_get_bool((conf), CONF_frip_general_minimise_to_systray));	\
 	write_setting_b((sesskey), "FripMouseFontSizeWheel", conf_get_bool((conf), CONF_frip_mouse_font_size_wheel));				\
-	write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_transp_custom));								\
-	write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_transp_opaque_on));							\
-	write_setting_i((sesskey), "FripTranspSetting", conf_get_int((conf), CONF_frip_transp_setting));							\
+	write_setting_i((sesskey), "FripTransCustom", conf_get_int((conf), CONF_frip_trans_custom));								\
+	write_setting_i((sesskey), "FripTransOpaqueOn", conf_get_int((conf), CONF_frip_trans_opaque_on));							\
+	write_setting_i((sesskey), "FripTransSetting", conf_get_int((conf), CONF_frip_trans_setting));								\
 	write_setting_b((sesskey), "FripUrlsBrowserDefault", conf_get_bool((conf), CONF_frip_urls_browser_default));				\
 	write_setting_s((sesskey), "FripUrlsBrowserPNameVerb", conf_get_str((conf), CONF_frip_urls_browser_pname_verb));			\
 	write_setting_i((sesskey), "FripUrlsModifierKey", conf_get_int((conf), CONF_frip_urls_modifier_key));						\
@@ -135,11 +135,11 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
  * windows/window.c:{WinMain,WndProc}()
  */
 
-typedef enum WinFripTranspOp {
-	WINFRIP_TRANSP_OP_FOCUS_KILL		= 1,
-	WINFRIP_TRANSP_OP_FOCUS_SET			= 2,
-} WinFripTranspOp;
-void winfrip_transp_op(WinFripTranspOp op, Conf *conf, HWND hwnd);
+typedef enum WinFripTransOp {
+	WINFRIP_TRANS_OP_FOCUS_KILL			= 1,
+	WINFRIP_TRANS_OP_FOCUS_SET			= 2,
+} WinFripTransOp;
+void winfrip_trans_op(WinFripTransOp op, Conf *conf, HWND hwnd);
 
 /*
  * windows/window.c:WinMain()
