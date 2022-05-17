@@ -661,6 +661,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         /* {{{ winfrip */
         (void)winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_INIT, conf, inst, wgs.term_hwnd, -1, -1, -1);
         /* winfrip }}} */
+#endif
 
 #if defined LEGACY_WINDOWS || defined TEST_ANSI_WINDOW
         if (!wgs.term_hwnd && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED) {

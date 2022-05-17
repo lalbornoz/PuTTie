@@ -778,21 +778,16 @@ bool do_reconfig(HWND hwnd, Conf *conf, int protcfginfo, char *focus_pathname)
     win_setup_config_box(pds->ctrlbox, &pds->dp->hwnd, has_help(),
                          true, protocol);
 
-<<<<<<< HEAD
-    /* {{{ winfrip */
-    winfrip_config_dialog_focus_pathname = focus_pathname;
-    /* winfrip }}} */
-
-    ret = SaneDialogBox(hinst, MAKEINTRESOURCE(IDD_MAINBOX), NULL,
-                  GenericMainDlgProc);
-=======
     pds->dp->wintitle = dupprintf("%s Reconfiguration", appname);
     pds->dp->data = conf;
->>>>>>> 386b094e3f6351d4c81eaffa3e7f385291ae5fad
 
     dlg_auto_set_fixed_pitch_flag(pds->dp);
 
     pds->dp->shortcuts['g'] = true;          /* the treeview: `Cate&gory' */
+
+    /* {{{ winfrip */
+    winfrip_config_dialog_focus_pathname = focus_pathname;
+    /* winfrip }}} */
 
     ret = ShinyDialogBox(hinst, MAKEINTRESOURCE(IDD_MAINBOX), "PuTTYConfigBox",
                          NULL, GenericMainDlgProc, pds);
