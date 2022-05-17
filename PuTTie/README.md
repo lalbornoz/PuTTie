@@ -35,8 +35,9 @@ you should use PuTTie:
 7. It ~~stabilises your Estradiol and Progesterone levels~~ ~~kindly tells
    your hypothalamus to be nice~~ gives your Estrogen Receptors a hug so they
    won't feel underappreciated when they're like doing a lot of hard work
-   and being really adaptive to considerably dynamic hormonal circumstances
-   and stuff and totally prevents PMS!
+   and adapting to and/or driving (if you don't actually have the whole
+   reproductive bits and stuff) highly dynamic hormonal circumstances and
+   totally prevents PMS!
 
 ## Screenshot
 ![Screenshot](https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/PuTTie.png "Screenshot")
@@ -45,7 +46,7 @@ you should use PuTTie:
 1. **Background {BMP,EMF,GIF,ICO,JPEG,PNG,TIFF,WMF}[[10](#r10)] images**, similarly to[[6](#r6)]  
    Absolute positioning, centered, fit w/ optional padding, scaled, or tiled, with configurable opacity  
    Melbourne shuffle slideshow with configurable frequency
-2. **Transparency**, similarly to the mintty[[7](#r7)] implementation  
+2. **Trans-arency**, similarly to the mintty[[7](#r7)] implementation  
    Optionally in conjunction with background images, configurable opacity on {focus,focus loss} behaviour
 3. **Clickable URLs**, similarly to the mintty[[7](#r7)] implementation  
    Configurable URL regular expressions via pcre2[[12](#r12)] and ``ShellExecute()``[[24](#r24)]  

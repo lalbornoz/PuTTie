@@ -656,7 +656,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
             winmode, CW_USEDEFAULT, CW_USEDEFAULT,
             guess_width, guess_height, NULL, NULL, inst, NULL);
         /* {{{ winfrip */
-        winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, wgs.term_hwnd);
+        winfrip_trans_op(WINFRIP_TRANS_OP_FOCUS_SET, conf, wgs.term_hwnd);
         /* winfrip }}} */
         /* {{{ winfrip */
         (void)winfrip_general_op(WINFRIP_GENERAL_OP_SYSTRAY_INIT, conf, inst, wgs.term_hwnd, -1, -1, -1);
@@ -2544,7 +2544,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
               /* {{{ winfrip */
               winfrip_bgimg_op(WINFRIP_BGIMG_OP_RECONF, NULL, conf,
                                NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
-              winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, hwnd);
+              winfrip_trans_op(WINFRIP_TRANS_OP_FOCUS_SET, conf, hwnd);
               /* winfrip }}} */
             }
 
@@ -2954,7 +2954,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         return 0;
       case WM_SETFOCUS:
         /* {{{ winfrip */
-        winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_SET, conf, hwnd);
+        winfrip_trans_op(WINFRIP_TRANS_OP_FOCUS_SET, conf, hwnd);
         (void)winfrip_general_op(WINFRIP_GENERAL_OP_FOCUS_SET, conf, hinst, hwnd, -1, reconfiguring, -1);
         /* winfrip }}} */
         term_set_focus(term, true);
@@ -2966,7 +2966,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         break;
       case WM_KILLFOCUS:
 	/* {{{ winfrip */
-	winfrip_transp_op(WINFRIP_TRANSP_OP_FOCUS_KILL, conf, hwnd);
+	winfrip_trans_op(WINFRIP_TRANS_OP_FOCUS_KILL, conf, hwnd);
         winfrip_urls_op(WINFRIP_URLS_OP_FOCUS_KILL, conf, NULL, message, NULL, term, wParam, -1, -1);
 	/* winfrip }}} */
         show_mouseptr(true);

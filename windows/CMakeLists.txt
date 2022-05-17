@@ -107,7 +107,7 @@ add_executable(putty
   ../PuTTie/winfrip_general.c
   ../PuTTie/winfrip_mouse.c
   ../PuTTie/winfrip_pcre2.c
-  ../PuTTie/winfrip_transp.c
+  ../PuTTie/winfrip_trans.c
   ../PuTTie/winfrip_urls.c)
 be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
 add_dependencies(putty generated_licence_h)
@@ -139,7 +139,7 @@ add_executable(puttytel
   ../PuTTie/winfrip_general.c
   ../PuTTie/winfrip_mouse.c
   ../PuTTie/winfrip_pcre2.c
-  ../PuTTie/winfrip_transp.c
+  ../PuTTie/winfrip_trans.c
   ../PuTTie/winfrip_urls.c)
 be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
 add_dependencies(puttytel generated_licence_h)
