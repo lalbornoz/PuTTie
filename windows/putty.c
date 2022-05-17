@@ -145,7 +145,7 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
         sesslist_demo_mode = true;
         load_open_settings(NULL, conf);
         conf_set_str(conf, CONF_host, "demo-server.example.com");
-        do_config(conf, "hi im simon tatham and i like to fuck up my own code");
+        do_config(conf, "Session");
         cleanup_exit(0);
     } else if (demo_terminal_data) {
         /* Ensure conf will cause an immediate session launch */
@@ -158,7 +158,7 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
          * (explicitly) specified a launchable configuration.
          */
         if (!(special_launchable_argument || cmdline_host_ok(conf))) {
-            if (!do_config(conf, "hi im simon tatham and i like to fuck up my own code"))
+            if (!do_config(conf, "Session"))
                 cleanup_exit(0);
         /* {{{ winfrip */
         bool breakfl = false;
