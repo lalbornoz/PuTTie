@@ -140,6 +140,8 @@ static int kbd_codepage;
 static Ldisc *ldisc;
 static Backend *backend;
 
+static cmdline_get_passwd_input_state cmdline_get_passwd_state;
+
 static struct unicode_data ucsdata;
 static bool session_closed;
 static bool reconfiguring = false;
@@ -380,6 +382,8 @@ static void start_backend(void)
     char *error, *realhost;
     int i;
 
+    cmdline_get_passwd_state = cmdline_get_passwd_input_state_new;
+
     vt = backend_vt_from_conf(conf);
 
     seat_set_trust_status(&wgs.seat, true);
@@ -524,11 +528,6 @@ char *terminal_window_class_a(void)
     }
     return classname;
 }
-
-const unsigned cmdline_tooltype =
-    TOOLTYPE_HOST_ARG |
-    TOOLTYPE_PORT_ARG |
-    TOOLTYPE_NO_VERBOSE_OPTION;
 
 HINSTANCE hinst;
 
@@ -2099,7 +2098,7 @@ static bool is_alt_pressed(void)
 
 static bool resizing;
 
-static void win_seat_notify_remote_exit(Seat *seat)
+static void exit_callback(void *vctx)
 {
     int exitcode, close_on_exit;
 
@@ -2124,6 +2123,11 @@ static void win_seat_notify_remote_exit(Seat *seat)
             }
         }
     }
+}
+
+static void win_seat_notify_remote_exit(Seat *seat)
+{
+    queue_toplevel_callback(exit_callback, NULL);
 }
 
 void timer_change_notify(unsigned long next)
@@ -5983,7 +5987,7 @@ static bool win_seat_eof(Seat *seat)
 static SeatPromptResult win_seat_get_userpass_input(Seat *seat, prompts_t *p)
 {
     SeatPromptResult spr;
-    spr = cmdline_get_passwd_input(p);
+    spr = cmdline_get_passwd_input(p, &cmdline_get_passwd_state, true);
     if (spr.kind == SPRK_INCOMPLETE)
         spr = term_get_userpass_input(term, p);
     return spr;
