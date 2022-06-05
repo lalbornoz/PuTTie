@@ -855,7 +855,9 @@ static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now)
 
 void winfripp_bgimg_config_panel(struct controlbox *b)
 {
+	dlgcontrol *c;
 	struct controlset *s_bgimg_settings, *s_bgimg_params, *s_slideshow;
+
 
 	WINFRIPP_DEBUG_ASSERT(b);
 
@@ -870,9 +872,10 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
 	 */
 
 	s_bgimg_settings = ctrl_getset(b, "Frippery/Background", "frip_bgimg_settings", "Background image settings");
-	ctrl_filesel(s_bgimg_settings, "Image file/directory:", 'i',
+	c = ctrl_filesel(s_bgimg_settings, "Image file/directory:", 'i',
 				 WINFRIPP_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
 				 P(WINFRIPP_HELP_CTX), conf_filesel_handler, I(CONF_frip_bgimg_filename));
+	c->fileselect.just_button = false;
 	ctrl_text(s_bgimg_settings, "In order to select an image directory for slideshows, select "
 								"an arbitrary file inside the directory in question.", P(WINFRIPP_HELP_CTX));
 	ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, P(WINFRIPP_HELP_CTX),
