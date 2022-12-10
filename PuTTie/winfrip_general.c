@@ -168,11 +168,11 @@ void winfripp_general_config_panel(struct controlbox *b)
 
 	ctrl_settitle(b, "Frippery", "Configure pointless frippery: general frippery");
 	s = ctrl_getset(b, "Frippery", "frip_general", "General pointless frippery");
-	ctrl_checkbox(s, "Always on top", 'l', P(WINFRIPP_HELP_CTX),
+	ctrl_checkbox(s, "Always on top", 'l', WINFRIPP_HELP_CTX,
 				  conf_checkbox_handler, I(CONF_frip_general_always_on_top));
-	ctrl_checkbox(s, "Minimise to system tray", 'y', P(WINFRIPP_HELP_CTX),
+	ctrl_checkbox(s, "Minimise to system tray", 'y', WINFRIPP_HELP_CTX,
 				  conf_checkbox_handler, I(CONF_frip_general_minimise_to_systray));
-	ctrl_droplist(s, "Storage backend:", 's', 35, P(WINFRIPP_HELP_CTX),
+	ctrl_droplist(s, "Storage backend:", 's', 35, WINFRIPP_HELP_CTX,
 				  winfripp_general_config_panel_store_backend_handler, P(NULL));
 }
 

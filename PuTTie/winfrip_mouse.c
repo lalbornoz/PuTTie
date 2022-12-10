@@ -25,9 +25,9 @@ void winfripp_mouse_config_panel(struct controlbox *b)
 	ctrl_settitle(b, "Frippery/Mouse", "Configure pointless frippery: mouse behaviour");
 	s = ctrl_getset(b, "Frippery/Mouse", "frip_mouse", "Mouse behaviour");
 
-	ctrl_checkbox(s, "Change font size with mouse wheel", 'n', P(WINFRIPP_HELP_CTX),
+	ctrl_checkbox(s, "Change font size with mouse wheel", 'n', WINFRIPP_HELP_CTX,
 				  conf_checkbox_handler, I(CONF_frip_mouse_font_size_wheel));
-	ctrl_text(s, "This only affects mouse wheel actions with the CTRL modifier.", P(WINFRIPP_HELP_CTX));
+	ctrl_text(s, "This only affects mouse wheel actions with the CTRL modifier.", WINFRIPP_HELP_CTX);
 }
 
 /*

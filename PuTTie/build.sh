@@ -2,6 +2,66 @@
 # Copyright (c) 2018, 2019, 2020, 2021 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
 #
 
+# {{{ build_clang_compile_cmds()
+build_clang_compile_cmds() {
+	local	_args="" _clang_fname=""			\
+		_compile_commands_fname=""			\
+		_compile_flags_fname="" _dname="" _fname=""	\
+		_pname="" _pwd="" _tmp_fname="";
+
+	_clang_fname="$(which clang)" || return 1;
+	_compile_commands_fname="${0%/*}/../compile_commands.json";
+	_compile_flags_fname="${0%/*}/../compile_flags.txt";
+	_pwd="$(cygpath -m "$(pwd)")" || return 1;
+	_tmp_fname="$(mktemp)" || return 1;
+	trap "rm -f \"${_tmp_fname}\" 2>/dev/null" HUP INT TERM USR1 USR2;
+
+	_args="$(
+		sed						\
+			-e 's/^/"/'				\
+			-e 's/$/",/'				\
+			"${_compile_flags_fname}"		|\
+		paste -sd " "					|\
+		sed 's/,$//')";
+	_args='["'"${_clang_fname}"'", '"${_args}"', "-c", "-o"';
+
+	for _pname in $(					\
+		cd "${0%/*}/.." && find .			\
+			-not -path "./PuTTie/pcre2@master/\*"	\
+			-not -path "./PuTTie/PuTTie-\*-\*/\*"	\
+			-not -path "\*/CMake\*/\*"		\
+			-iname \*.c);
+	do
+		_pname="${_pname#./}"; 
+		_fname="${_pname##*/}"; _dname="${_pname%/*}";
+		[ "${_dname}" = "${_pname}" ] && _dname="";
+
+		printf '
+	{
+		"directory": "%s%s",
+		"arguments": %s, "%s.o", "%s"],
+		"file": "%s"
+	},'							\
+			"${_pwd}" "${_dname:+/${_dname}}"	\
+			"${_args}" "${_fname%.c}" "${_fname}"	\
+			"${_fname}";
+	done > "${_tmp_fname}";
+
+	sed	-i""						\
+		-e '$s/},$/}/'					\
+		-e '1i\
+{'								\
+		-e '1d'						\
+		-e '$a\
+}'		"${_tmp_fname}";
+
+	mv -i "${_tmp_fname}" "${_compile_commands_fname}";
+	if [ -e "${_tmp_fname}" ]; then
+		rm -f "${_tmp_fname}" 2>/dev/null;
+	fi;
+	trap - HUP INT TERM USR1 USR2;
+};
+# }}}
 # {{{ build_clean($_build_type, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_clean() {
 	local	_build_type="${1}" _cflag="${2}" _dflag="${3}" _iflag="${4}"	\
@@ -124,8 +184,9 @@ build_install() {
 # }}}
 
 buildp_usage() {
-	echo "usage: ${0} [-c] [-d] [-h] [-i] [-j jobs] [-R] [-t <target>]" >&2;
+	echo "usage: ${0} [-c] [--clang] [-d] [-h] [-i] [-j jobs] [-R] [-t <target>]" >&2;
 	echo "       -c...........: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
+	echo "       --clang......: regenerate compile_commands.json" >&2;
 	echo "       -d...........: select Debug (vs. Release) build" >&2;
 	echo "       -h...........: show this screen" >&2;
 	echo "       -i...........: {clean,install} images {pre,post}-build" >&2;
@@ -135,31 +196,45 @@ buildp_usage() {
 };
 
 build() {
-	local	_build_type="Release" _cflag=0 _dflag=0 _iflag=0 _jflag=1	\
-		_Rflag=0 _tflag="" _install_dname="" _opt=""			\
-		CMAKE="${CMAKE:-cmake}";
+	local	_build_type="Release" _cflag=0 _clangflag=0 _dflag=0 _iflag=0	\
+		_jflag=1 _Rflag=0 _tflag="" _install_dname="" _opt=""		\
+		CMAKE="${CMAKE:-cmake}" OPTIND=0;
 
-	while getopts cdhij:Rt: _opt; do
-	case "${_opt}" in
-	c)	_cflag=1; ;;
-	d)	_dflag=1; _build_type="Debug"; ;;
-	h)	buildp_usage; exit 0; ;;
-	i)	_iflag=1; ;;
-	j)	_jflag="${OPTARG}"; ;;
-	R)	_iflag=1; _Rflag=1; ;;
-	t)	_tflag="${OPTARG}"; ;;
-	*)	buildp_usage; exit 1; ;;
-	esac; done; shift $((${OPTIND}-1));
+	while [ "${#}" -gt 0 ]; do
+		case "${1}" in
+		--clang)
+			_clangflag=1; shift 1; ;;
+		*)	if getopts cdhij:Rt: _opt; then
+				case "${_opt}" in
+				c)	_cflag=1; ;;
+				d)	_dflag=1; _build_type="Debug"; ;;
+				h)	buildp_usage; exit 0; ;;
+				i)	_iflag=1; ;;
+				j)	_jflag="${OPTARG}"; ;;
+				R)	_iflag=1; _Rflag=1; ;;
+				t)	_tflag="${OPTARG}"; ;;
+				*)	buildp_usage; exit 1; ;;
+				esac;
+			else
+				break;
+			fi; ;;
+		esac;
+	done; shift $((${OPTIND}-1));
 	_install_dname="PuTTie-${_build_type}-$(git rev-parse --short HEAD)";
 
 	if [ "$(uname -o 2>/dev/null)" = "Cygwin" ]; then
 		export CMAKE="/usr/bin/cmake";
 	fi;
 
-	build_clean "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-	build_configure "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-	build_make "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-	build_install "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	case "${_clangflag}" in
+	1)	build_clang_compile_cmds; exit "${?}"; ;;
+	*)
+		build_clean "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+		build_configure "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+		build_make "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+		build_install "${_build_type}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+		;;
+	esac;
 };
 
 set -o errexit -o noglob -o nounset;
