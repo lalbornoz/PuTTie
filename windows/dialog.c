@@ -304,35 +304,21 @@ static INT_PTR CALLBACK LogProc(HWND hwnd, UINT msg,
                                                    LB_GETSELITEMS,
                                                    selcount,
                                                    (LPARAM) selitems);
-                    int i;
-                    int size;
-                    char *clipdata;
-                    static unsigned char sel_nl[] = SEL_NL;
+                    static const unsigned char sel_nl[] = SEL_NL;
 
                     if (count == 0) {  /* can't copy zero stuff */
                         MessageBeep(0);
                         break;
                     }
 
-                    size = 0;
-                    for (i = 0; i < count; i++)
-                        size +=
-                            strlen(getevent(selitems[i])) + sizeof(sel_nl);
-
-                    clipdata = snewn(size, char);
-                    if (clipdata) {
-                        char *p = clipdata;
-                        for (i = 0; i < count; i++) {
-                            char *q = getevent(selitems[i]);
-                            int qlen = strlen(q);
-                            memcpy(p, q, qlen);
-                            p += qlen;
-                            memcpy(p, sel_nl, sizeof(sel_nl));
-                            p += sizeof(sel_nl);
-                        }
-                        write_aclip(CLIP_SYSTEM, clipdata, size, true);
-                        sfree(clipdata);
+                    strbuf *sb = strbuf_new();
+                    for (int i = 0; i < count; i++) {
+                        char *q = getevent(selitems[i]);
+                        put_datapl(sb, ptrlen_from_asciz(q));
+                        put_data(sb, sel_nl, sizeof(sel_nl));
                     }
+                    write_aclip(hwnd, CLIP_SYSTEM, sb->s, sb->len);
+                    strbuf_free(sb);
                     sfree(selitems);
 
                     for (i = 0; i < (ninitial + ncircular); i++)
@@ -389,10 +375,10 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
         SetWindowText(hwnd, str);
         sfree(str);
         char *buildinfo_text = buildinfo("\r\n");
-        char *text = dupprintf
-            ("%s\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
-             appname, ver, buildinfo_text,
-             "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
+        char *text = dupprintf(
+            "%s\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
+            appname, ver, buildinfo_text,
+            "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
         sfree(buildinfo_text);
         SetDlgItemText(hwnd, IDA_TEXT, text);
         MakeDlgItemBorderless(hwnd, IDA_TEXT);
@@ -586,9 +572,9 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
 
                 c = strrchr(s->pathname, '/');
                 if (!c)
-                        c = s->pathname;
+                    c = s->pathname;
                 else
-                        c++;
+                    c++;
 
                 item = treeview_insert(&tvfaff, j, c, s->pathname);
                 if (!hfirst) {
@@ -863,97 +849,232 @@ void showabout(HWND hwnd)
 }
 
 struct hostkey_dialog_ctx {
-    const char *const *keywords;
-    const char *const *values;
-    const char *host;
-    int port;
-    FingerprintType fptype_default;
-    char **fingerprints;
-    const char *keydisp;
-    LPCTSTR iconid;
+    SeatDialogText *text;
+    bool has_title;
     const char *helpctx;
 };
 
-static INT_PTR CALLBACK HostKeyMoreInfoProc(HWND hwnd, UINT msg,
-                                            WPARAM wParam, LPARAM lParam)
+static INT_PTR HostKeyMoreInfoProc(HWND hwnd, UINT msg, WPARAM wParam,
+                                   LPARAM lParam, void *vctx)
 {
+    struct hostkey_dialog_ctx *ctx = (struct hostkey_dialog_ctx *)vctx;
+
     switch (msg) {
       case WM_INITDIALOG: {
-        const struct hostkey_dialog_ctx *ctx =
-            (const struct hostkey_dialog_ctx *)lParam;
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, (INT_PTR)ctx);
+        int index = 100, y = 12;
 
-        if (ctx->fingerprints[SSH_FPTYPE_SHA256])
-            SetDlgItemText(hwnd, IDC_HKI_SHA256,
-                           ctx->fingerprints[SSH_FPTYPE_SHA256]);
-        if (ctx->fingerprints[SSH_FPTYPE_MD5])
-            SetDlgItemText(hwnd, IDC_HKI_MD5,
-                           ctx->fingerprints[SSH_FPTYPE_MD5]);
+        WPARAM font = SendMessage(hwnd, WM_GETFONT, 0, 0);
 
-        SetDlgItemText(hwnd, IDA_TEXT, ctx->keydisp);
+        const char *key = NULL;
+        for (SeatDialogTextItem *item = ctx->text->items,
+                 *end = item + ctx->text->nitems; item < end; item++) {
+            switch (item->type) {
+              case SDT_MORE_INFO_KEY:
+                key = item->text;
+                break;
+              case SDT_MORE_INFO_VALUE_SHORT:
+              case SDT_MORE_INFO_VALUE_BLOB: {
+                RECT rk, rv;
+                DWORD editstyle = WS_CHILD | WS_VISIBLE | WS_TABSTOP |
+                    ES_AUTOHSCROLL | ES_READONLY;
+                if (item->type == SDT_MORE_INFO_VALUE_BLOB) {
+                    rk.left = 12;
+                    rk.right = 376;
+                    rk.top = y;
+                    rk.bottom = 8;
+                    y += 10;
 
+                    editstyle |= ES_MULTILINE;
+                    rv.left = 12;
+                    rv.right = 376;
+                    rv.top = y;
+                    rv.bottom = 64;
+                    y += 68;
+                } else {
+                    rk.left = 12;
+                    rk.right = 80;
+                    rk.top = y+2;
+                    rk.bottom = 8;
+
+                    rv.left = 100;
+                    rv.right = 288;
+                    rv.top = y;
+                    rv.bottom = 12;
+
+                    y += 16;
+                }
+
+                MapDialogRect(hwnd, &rk);
+                HWND ctl = CreateWindowEx(
+                    0, "STATIC", key, WS_CHILD | WS_VISIBLE,
+                    rk.left, rk.top, rk.right, rk.bottom,
+                    hwnd, (HMENU)(ULONG_PTR)index++, hinst, NULL);
+                SendMessage(ctl, WM_SETFONT, font, MAKELPARAM(true, 0));
+
+                MapDialogRect(hwnd, &rv);
+                ctl = CreateWindowEx(
+                    WS_EX_CLIENTEDGE, "EDIT", item->text, editstyle,
+                    rv.left, rv.top, rv.right, rv.bottom,
+                    hwnd, (HMENU)(ULONG_PTR)index++, hinst, NULL);
+                SendMessage(ctl, WM_SETFONT, font, MAKELPARAM(true, 0));
+                break;
+              }
+              default:
+                break;
+            }
+        }
+
+        /*
+         * Now resize the overall window, and move the Close button at
+         * the bottom.
+         */
+        RECT r;
+        r.left = 176;
+        r.top = y + 10;
+        r.right = r.bottom = 0;
+        MapDialogRect(hwnd, &r);
+        HWND ctl = GetDlgItem(hwnd, IDOK);
+        SetWindowPos(ctl, NULL, r.left, r.top, 0, 0,
+                     SWP_NOSIZE | SWP_NOREDRAW | SWP_NOZORDER);
+
+        r.left = r.top = r.right = 0;
+        r.bottom = 300;
+        MapDialogRect(hwnd, &r);
+        int oldheight = r.bottom;
+
+        r.left = r.top = r.right = 0;
+        r.bottom = y + 30;
+        MapDialogRect(hwnd, &r);
+        int newheight = r.bottom;
+
+        GetWindowRect(hwnd, &r);
+
+        SetWindowPos(hwnd, NULL, 0, 0, r.right - r.left,
+                     r.bottom - r.top + newheight - oldheight,
+                     SWP_NOMOVE | SWP_NOREDRAW | SWP_NOZORDER);
+
+        ShowWindow(hwnd, SW_SHOWNORMAL);
         return 1;
       }
       case WM_COMMAND:
         switch (LOWORD(wParam)) {
           case IDOK:
-            EndDialog(hwnd, 0);
+            ShinyEndDialog(hwnd, 0);
             return 0;
         }
         return 0;
       case WM_CLOSE:
-        EndDialog(hwnd, 0);
+        ShinyEndDialog(hwnd, 0);
         return 0;
     }
     return 0;
 }
 
-static INT_PTR CALLBACK HostKeyDialogProc(HWND hwnd, UINT msg,
-                                          WPARAM wParam, LPARAM lParam)
+static INT_PTR HostKeyDialogProc(HWND hwnd, UINT msg,
+                                 WPARAM wParam, LPARAM lParam, void *vctx)
 {
+    struct hostkey_dialog_ctx *ctx = (struct hostkey_dialog_ctx *)vctx;
+
     switch (msg) {
       case WM_INITDIALOG: {
-        strbuf *sb = strbuf_new();
-        const struct hostkey_dialog_ctx *ctx =
-            (const struct hostkey_dialog_ctx *)lParam;
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, (INT_PTR)ctx);
-        for (int id = 100;; id++) {
-            char buf[256];
+        strbuf *dlg_text = strbuf_new();
+        const char *dlg_title = "";
+        ctx->has_title = false;
+        LPCTSTR iconid = IDI_QUESTION;
 
-            if (!GetDlgItemText(hwnd, id, buf, (int)lenof(buf)))
+        for (SeatDialogTextItem *item = ctx->text->items,
+                 *end = item + ctx->text->nitems; item < end; item++) {
+            switch (item->type) {
+              case SDT_PARA:
+                put_fmt(dlg_text, "%s\r\n\r\n", item->text);
                 break;
-
-            strbuf_clear(sb);
-            for (const char *p = buf; *p ;) {
-                if (*p == '{') {
-                    for (size_t i = 0; ctx->keywords[i]; i++) {
-                        if (strstartswith(p, ctx->keywords[i])) {
-                            p += strlen(ctx->keywords[i]);
-                            put_dataz(sb, ctx->values[i]);
-                            goto matched;
-                        }
-                    }
-                } else {
-                    put_byte(sb, *p++);
-                }
-              matched:;
+              case SDT_DISPLAY:
+                put_fmt(dlg_text, "%s\r\n\r\n", item->text);
+                break;
+              case SDT_SCARY_HEADING:
+                SetDlgItemText(hwnd, IDC_HK_TITLE, item->text);
+                iconid = IDI_WARNING;
+                ctx->has_title = true;
+                break;
+              case SDT_TITLE:
+                dlg_title = item->text;
+                break;
+              default:
+                break;
             }
-
-            SetDlgItemText(hwnd, id, sb->s);
         }
-        strbuf_free(sb);
+        while (strbuf_chomp(dlg_text, '\r') || strbuf_chomp(dlg_text, '\n'));
 
-        char *hostport = dupprintf("%s (port %d)", ctx->host, ctx->port);
-        SetDlgItemText(hwnd, IDC_HK_HOST, hostport);
-        sfree(hostport);
-        MakeDlgItemBorderless(hwnd, IDC_HK_HOST);
+        SetDlgItemText(hwnd, IDC_HK_TEXT, dlg_text->s);
+        MakeDlgItemBorderless(hwnd, IDC_HK_TEXT);
+        strbuf_free(dlg_text);
 
-        SetDlgItemText(hwnd, IDC_HK_FINGERPRINT,
-                       ctx->fingerprints[ctx->fptype_default]);
-        MakeDlgItemBorderless(hwnd, IDC_HK_FINGERPRINT);
+        SetWindowText(hwnd, dlg_title);
+
+        if (!ctx->has_title) {
+            HWND item = GetDlgItem(hwnd, IDC_HK_TITLE);
+            if (item)
+                DestroyWindow(item);
+        }
+
+        /*
+         * Find out how tall the text in the edit control really ended
+         * up (after line wrapping), and adjust the height of the
+         * whole box to match it.
+         */
+        int height = SendDlgItemMessage(hwnd, IDC_HK_TEXT,
+                                        EM_GETLINECOUNT, 0, 0);
+        height *= 8; /* height of a text line, by definition of dialog units */
+
+        int edittop = ctx->has_title ? 40 : 20;
+
+        RECT r;
+        r.left = 40;
+        r.top = edittop;
+        r.right = 290;
+        r.bottom = height;
+        MapDialogRect(hwnd, &r);
+        SetWindowPos(GetDlgItem(hwnd, IDC_HK_TEXT), NULL,
+                     r.left, r.top, r.right, r.bottom,
+                     SWP_NOREDRAW | SWP_NOZORDER);
+
+        static const struct {
+            int id, x;
+        } buttons[] = {
+            { IDCANCEL, 288 },
+            { IDC_HK_ACCEPT, 168 },
+            { IDC_HK_ONCE, 216 },
+            { IDC_HK_MOREINFO, 60 },
+            { IDHELP, 12 },
+        };
+        for (size_t i = 0; i < lenof(buttons); i++) {
+            HWND ctl = GetDlgItem(hwnd, buttons[i].id);
+            r.left = buttons[i].x;
+            r.top = edittop + height + 20;
+            r.right = r.bottom = 0;
+            MapDialogRect(hwnd, &r);
+            SetWindowPos(ctl, NULL, r.left, r.top, 0, 0,
+                         SWP_NOSIZE | SWP_NOREDRAW | SWP_NOZORDER);
+        }
+
+        r.left = r.top = r.right = 0;
+        r.bottom = 240;
+        MapDialogRect(hwnd, &r);
+        int oldheight = r.bottom;
+
+        r.left = r.top = r.right = 0;
+        r.bottom = edittop + height + 40;
+        MapDialogRect(hwnd, &r);
+        int newheight = r.bottom;
+
+        GetWindowRect(hwnd, &r);
+
+        SetWindowPos(hwnd, NULL, 0, 0, r.right - r.left,
+                     r.bottom - r.top + newheight - oldheight,
+                     SWP_NOMOVE | SWP_NOREDRAW | SWP_NOZORDER);
 
         HANDLE icon = LoadImage(
-            NULL, ctx->iconid, IMAGE_ICON,
+            NULL, iconid, IMAGE_ICON,
             GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON),
             LR_SHARED);
         SendDlgItemMessage(hwnd, IDC_HK_ICON, STM_SETICON, (WPARAM)icon, 0);
@@ -964,13 +1085,16 @@ static INT_PTR CALLBACK HostKeyDialogProc(HWND hwnd, UINT msg,
                 DestroyWindow(item);
         }
 
+        ShowWindow(hwnd, SW_SHOWNORMAL);
+
         return 1;
       }
       case WM_CTLCOLORSTATIC: {
         HDC hdc = (HDC)wParam;
         HWND control = (HWND)lParam;
 
-        if (GetWindowLongPtr(control, GWLP_ID) == IDC_HK_TITLE) {
+        if (GetWindowLongPtr(control, GWLP_ID) == IDC_HK_TITLE &&
+            ctx->has_title) {
             SetBkMode(hdc, TRANSPARENT);
             HFONT prev_font = (HFONT)SelectObject(
                 hdc, (HFONT)GetStockObject(SYSTEM_FONT));
@@ -991,63 +1115,54 @@ static INT_PTR CALLBACK HostKeyDialogProc(HWND hwnd, UINT msg,
           case IDC_HK_ACCEPT:
           case IDC_HK_ONCE:
           case IDCANCEL:
-            EndDialog(hwnd, LOWORD(wParam));
+            ShinyEndDialog(hwnd, LOWORD(wParam));
             return 0;
           case IDHELP: {
-            const struct hostkey_dialog_ctx *ctx =
-                (const struct hostkey_dialog_ctx *)
-                GetWindowLongPtr(hwnd, GWLP_USERDATA);
             launch_help(hwnd, ctx->helpctx);
             return 0;
           }
           case IDC_HK_MOREINFO: {
-            const struct hostkey_dialog_ctx *ctx =
-                (const struct hostkey_dialog_ctx *)
-                GetWindowLongPtr(hwnd, GWLP_USERDATA);
-            DialogBoxParam(hinst, MAKEINTRESOURCE(IDD_HK_MOREINFO),
-                           hwnd, HostKeyMoreInfoProc, (LPARAM)ctx);
+            ShinyDialogBox(hinst, MAKEINTRESOURCE(IDD_HK_MOREINFO),
+                           "PuTTYHostKeyMoreInfo", hwnd,
+                           HostKeyMoreInfoProc, ctx);
           }
         }
         return 0;
       case WM_CLOSE:
-        EndDialog(hwnd, IDCANCEL);
+        ShinyEndDialog(hwnd, IDCANCEL);
         return 0;
     }
     return 0;
 }
 
+const SeatDialogPromptDescriptions *win_seat_prompt_descriptions(Seat *seat)
+{
+    static const SeatDialogPromptDescriptions descs = {
+        .hk_accept_action = "press \"Accept\"",
+        .hk_connect_once_action = "press \"Connect Once\"",
+        .hk_cancel_action = "press \"Cancel\"",
+        .hk_cancel_action_Participle = "Pressing \"Cancel\"",
+    };
+    return &descs;
+}
+
 SeatPromptResult win_seat_confirm_ssh_host_key(
     Seat *seat, const char *host, int port, const char *keytype,
-    char *keystr, const char *keydisp, char **fingerprints, bool mismatch,
-    void (*callback)(void *ctx, SeatPromptResult result), void *vctx)
+    char *keystr, SeatDialogText *text, HelpCtx helpctx,
+    void (*callback)(void *ctx, SeatPromptResult result), void *cbctx)
 {
     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
 
-    static const char *const keywords[] =
-        { "{KEYTYPE}", "{APPNAME}", NULL };
-
-    const char *values[2];
-    values[0] = keytype;
-    values[1] = appname;
-
     struct hostkey_dialog_ctx ctx[1];
-    ctx->keywords = keywords;
-    ctx->values = values;
-    ctx->fingerprints = fingerprints;
-    ctx->fptype_default = ssh2_pick_default_fingerprint(fingerprints);
-    ctx->keydisp = keydisp;
-    ctx->iconid = (mismatch ? IDI_WARNING : IDI_QUESTION);
-    ctx->helpctx = (mismatch ? WINHELP_CTX_errors_hostkey_changed :
-                    WINHELP_CTX_errors_hostkey_absent);
-    ctx->host = host;
-    ctx->port = port;
-    int dlgid = (mismatch ? IDD_HK_WRONG : IDD_HK_ABSENT);
-    int mbret = DialogBoxParam(
-        hinst, MAKEINTRESOURCE(dlgid), wgs->term_hwnd,
-        HostKeyDialogProc, (LPARAM)ctx);
+    ctx->text = text;
+    ctx->helpctx = helpctx;
+
+    int mbret = ShinyDialogBox(
+        hinst, MAKEINTRESOURCE(IDD_HOSTKEY), "PuTTYHostKeyDialog",
+        wgs->term_hwnd, HostKeyDialogProc, ctx);
     assert(mbret==IDC_HK_ACCEPT || mbret==IDC_HK_ONCE || mbret==IDCANCEL);
     if (mbret == IDC_HK_ACCEPT) {
-        store_host_key(host, port, keytype, keystr);
+        store_host_key(seat, host, port, keytype, keystr);
         return SPR_OK;
     } else if (mbret == IDC_HK_ONCE) {
         return SPR_OK;

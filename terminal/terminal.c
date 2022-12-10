@@ -401,6 +401,8 @@ static void move_termchar(termline *line, termchar *dest, termchar *src)
 #endif
 }
 
+#ifndef NO_SCROLLBACK_COMPRESSION
+
 /*
  * Compress and decompress a termline into an RLE-based format for
  * storing in scrollback. (Since scrollback almost never needs to
@@ -650,7 +652,7 @@ static void makeliteral_truecolour(strbuf *b, termchar *c, unsigned long *state)
      * Put the used parts of the colour info into the buffer.
      */
     put_byte(b, ((c->truecolour.fg.enabled ? 1 : 0) |
-            (c->truecolour.bg.enabled ? 2 : 0)));
+                 (c->truecolour.bg.enabled ? 2 : 0)));
     if (c->truecolour.fg.enabled) {
         put_byte(b, c->truecolour.fg.r);
         put_byte(b, c->truecolour.fg.g);
@@ -691,12 +693,12 @@ static void makeliteral_cc(strbuf *b, termchar *c, unsigned long *state)
 
 typedef struct compressed_scrollback_line {
     size_t len;
+    /* compressed data follows after this */
 } compressed_scrollback_line;
 
+static termline *decompressline_no_free(compressed_scrollback_line *line);
 
-static termline *decompressline(compressed_scrollback_line *line);
-
-static compressed_scrollback_line *compressline(termline *ldata)
+static compressed_scrollback_line *compressline_no_free(termline *ldata)
 {
     strbuf *b = strbuf_new();
 
@@ -772,7 +774,7 @@ static compressed_scrollback_line *compressline(termline *ldata)
         printf("\n");
 #endif
 
-        dcl = decompressline(line);
+        dcl = decompressline_no_free(line);
         assert(ldata->cols == dcl->cols);
         assert(ldata->lattr == dcl->lattr);
         for (i = 0; i < ldata->cols; i++)
@@ -790,6 +792,13 @@ static compressed_scrollback_line *compressline(termline *ldata)
 #endif /* TERM_CC_DIAGS */
 
     return line;
+}
+
+static compressed_scrollback_line *compressline_and_free(termline *ldata)
+{
+    compressed_scrollback_line *cline = compressline_no_free(ldata);
+    freetermline(ldata);
+    return cline;
 }
 
 static void readrle(BinarySource *bs, termline *ldata,
@@ -925,7 +934,7 @@ static void readliteral_cc(BinarySource *bs, termchar *c, termline *ldata,
     }
 }
 
-static termline *decompressline(compressed_scrollback_line *line)
+static termline *decompressline_no_free(compressed_scrollback_line *line)
 {
     int ncols, byte, shift;
     BinarySource bs[1];
@@ -991,6 +1000,66 @@ static termline *decompressline(compressed_scrollback_line *line)
 
     return ldata;
 }
+
+static inline void free_compressed_line(compressed_scrollback_line *cline)
+{
+    sfree(cline);
+}
+
+static termline *decompressline_and_free(compressed_scrollback_line *cline)
+{
+    termline *ldata = decompressline_no_free(cline);
+    free_compressed_line(cline);
+    return ldata;
+}
+
+#else /* NO_SCROLLBACK_COMPRESSION */
+
+static termline *duptermline(termline *oldline)
+{
+    termline *newline = snew(termline);
+    *newline = *oldline;               /* copy the POD structure fields */
+    newline->chars = snewn(newline->size, termchar);
+    for (int j = 0; j < newline->size; j++)
+        newline->chars[j] = oldline->chars[j];
+    return newline;
+}
+
+typedef termline compressed_scrollback_line;
+
+static inline compressed_scrollback_line *compressline_and_free(
+    termline *ldata)
+{
+    return ldata;
+}
+
+static inline compressed_scrollback_line *compressline_no_free(termline *ldata)
+{
+    return duptermline(ldata);
+}
+
+static inline termline *decompressline_no_free(
+    compressed_scrollback_line *line)
+{
+    /* This will return a line without the 'temporary' flag, which
+     * means that unlineptr() is already set up to avoid freeing it */
+    return line;
+}
+
+static inline termline *decompressline_and_free(
+    compressed_scrollback_line *line)
+{
+    /* Same as decompressline_no_free, because the caller will free
+     * our returned termline, and that does all the freeing necessary */
+    return line;
+}
+
+static inline void free_compressed_line(compressed_scrollback_line *line)
+{
+    freetermline(line);
+}
+
+#endif /* NO_SCROLLBACK_COMPRESSION */
 
 /*
  * Resize a line to make it `cols' columns wide.
@@ -1077,7 +1146,7 @@ static int sblines(Terminal *term)
     int sblines = count234(term->scrollback);
     if (term->erase_to_scrollback &&
         term->alt_which && term->alt_screen) {
-            sblines += term->alt_sblines;
+        sblines += term->alt_sblines;
     }
     return sblines;
 }
@@ -1138,7 +1207,7 @@ static termline *lineptr(Terminal *term, int y, int lineno, int screen)
         compressed_scrollback_line *cline = index234(whichtree, treeindex);
         if (!cline)
             null_line_error(term, y, lineno, whichtree, treeindex, "cline");
-        line = decompressline(cline);
+        line = decompressline_no_free(cline);
     } else {
         line = index234(whichtree, treeindex);
     }
@@ -1378,6 +1447,8 @@ static void power_on(Terminal *term, bool clear)
     term->xterm_mouse = 0;
     term->xterm_extended_mouse = false;
     term->urxvt_extended_mouse = false;
+    term->raw_mouse_reported_x = 0;
+    term->raw_mouse_reported_y = 0;
     win_set_raw_mouse_mode(term->win, false);
     term->win_pointer_shape_pending = true;
     term->win_pointer_shape_raw = false;
@@ -1541,7 +1612,7 @@ static void set_erase_char(Terminal *term)
  * lookups which would be involved in fetching them from the former
  * every time.
  */
-void term_copy_stuff_from_conf(Terminal *term)
+static void term_copy_stuff_from_conf(Terminal *term)
 {
     term->ansi_colour = conf_get_bool(term->conf, CONF_ansi_colour);
     term->no_arabicshaping = conf_get_bool(term->conf, CONF_no_arabicshaping);
@@ -1592,19 +1663,17 @@ void term_copy_stuff_from_conf(Terminal *term)
      */
     {
         char *answerback = conf_get_str(term->conf, CONF_answerback);
-        int maxlen = strlen(answerback);
 
-        term->answerback = snewn(maxlen, char);
-        term->answerbacklen = 0;
+        strbuf_clear(term->answerback);
 
         while (*answerback) {
             char *n;
             char c = ctrlparse(answerback, &n);
             if (n) {
-                term->answerback[term->answerbacklen++] = c;
+                put_byte(term->answerback, c);
                 answerback = n;
             } else {
-                term->answerback[term->answerbacklen++] = *answerback++;
+                put_byte(term->answerback, *answerback++);
             }
         }
     }
@@ -1984,6 +2053,7 @@ Terminal *term_init(Conf *myconf, struct unicode_data *ucsdata, TermWin *win)
     term->termstate = TOPLEVEL;
     term->selstate = NO_SELECTION;
     term->curstype = 0;
+    term->answerback = strbuf_new();
 
     term_copy_stuff_from_conf(term);
 
@@ -2068,12 +2138,13 @@ Terminal *term_init(Conf *myconf, struct unicode_data *ucsdata, TermWin *win)
 
 void term_free(Terminal *term)
 {
+    compressed_scrollback_line *cline;
     termline *line;
     struct beeptime *beep;
     int i;
 
-    while ((line = delpos234(term->scrollback, 0)) != NULL)
-        sfree(line);                   /* compressed data, not a termline */
+    while ((cline = delpos234(term->scrollback, 0)) != NULL)
+        free_compressed_line(cline);
     freetree234(term->scrollback);
     while ((line = delpos234(term->screen, 0)) != NULL)
         freetermline(line);
@@ -2099,7 +2170,7 @@ void term_free(Terminal *term)
     sfree(term->ltemp);
     sfree(term->wcFrom);
     sfree(term->wcTo);
-    sfree(term->answerback);
+    strbuf_free(term->answerback);
 
     for (i = 0; i < term->bidi_cache_size; i++) {
         sfree(term->pre_bidi_cache[i].chars);
@@ -2197,8 +2268,7 @@ void term_size(Terminal *term, int newrows, int newcols, int newsavelines)
             /* Insert a line from the scrollback at the top of the screen. */
             assert(sblen >= term->tempsblines);
             cline = delpos234(term->scrollback, --sblen);
-            line = decompressline(cline);
-            sfree(cline);
+            line = decompressline_and_free(cline);
             line->temporary = false;   /* reconstituted line is now real */
             term->tempsblines -= 1;
             addpos234(term->screen, line, 0);
@@ -2222,8 +2292,7 @@ void term_size(Terminal *term, int newrows, int newcols, int newsavelines)
         } else {
             /* push top row to scrollback */
             line = delpos234(term->screen, 0);
-            addpos234(term->scrollback, compressline(line), sblen++);
-            freetermline(line);
+            addpos234(term->scrollback, compressline_and_free(line), sblen++);
             term->tempsblines += 1;
             term->curs.y -= 1;
             term->savecurs.y -= 1;
@@ -2345,7 +2414,7 @@ void term_provide_backend(Terminal *term, Backend *backend)
  * If only the top line has content, returns 0.
  * If no lines have content, return -1.
  */
-static int find_last_nonempty_line(Terminal * term, tree234 * screen)
+static int find_last_nonempty_line(Terminal *term, tree234 *screen)
 {
     int i;
     for (i = count234(screen) - 1; i >= 0; i--) {
@@ -2599,15 +2668,15 @@ static void scroll(Terminal *term, int topline, int botline,
                  * the scrollback is full.
                  */
                 if (sblen == term->savelines) {
-                    unsigned char *cline;
+                    compressed_scrollback_line *cline;
 
                     sblen--;
                     cline = delpos234(term->scrollback, 0);
-                    sfree(cline);
+                    free_compressed_line(cline);
                 } else
                     term->tempsblines += 1;
 
-                addpos234(term->scrollback, compressline(line), sblen);
+                addpos234(term->scrollback, compressline_no_free(line), sblen);
 
                 /* now `line' itself can be reused as the bottom line */
 
@@ -3072,6 +3141,10 @@ static void toggle_mode(Terminal *term, int mode, int query, bool state)
             term->xterm_mouse = state ? 2 : 0;
             term_update_raw_mouse_mode(term);
             break;
+          case 1003:                   /* xterm mouse any-event tracking */
+            term->xterm_mouse = state ? 3 : 0;
+            term_update_raw_mouse_mode(term);
+            break;
           case 1006:                   /* xterm extended mouse */
             term->xterm_extended_mouse = state;
             break;
@@ -3132,8 +3205,8 @@ static void do_osc(Terminal *term)
 {
     if (term->osc_w) {
         while (term->osc_strlen--)
-            term->wordness[(unsigned char)
-                term->osc_string[term->osc_strlen]] = term->esc_args[0];
+            term->wordness[(unsigned char)term->osc_string[term->osc_strlen]] =
+                term->esc_args[0];
     } else {
         term->osc_string[term->osc_strlen] = '\0';
         switch (term->esc_args[0]) {
@@ -3403,8 +3476,7 @@ static strbuf *term_input_data_from_unicode(
                 }
             }
 
-            char utf8_chr[6];
-            put_data(buf, utf8_chr, encode_utf8(utf8_chr, ch));
+            put_utf8_char(buf, ch);
         }
     } else {
         /*
@@ -3420,7 +3492,7 @@ static strbuf *term_input_data_from_unicode(
         char *bufptr = strbuf_append(buf, len + 1);
         int rv;
         rv = wc_to_mb(term->ucsdata->line_codepage, 0, widebuf, len,
-                      bufptr, len + 1, NULL, term->ucsdata);
+                      bufptr, len + 1, NULL);
         strbuf_shrink_to(buf, rv < 0 ? 0 : rv);
     }
 
@@ -3812,7 +3884,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                 if (term->ldisc) {
                     strbuf *buf = term_input_data_from_charset(
                         term, DEFAULT_CODEPAGE,
-                        term->answerback, term->answerbacklen);
+                        term->answerback->s, term->answerback->len);
                     ldisc_send(term->ldisc, buf->s, buf->len, false);
                     strbuf_free(buf);
                 }
@@ -4027,6 +4099,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                     /* Compatibility is nasty here, xterm, linux, decterm yuk! */
                     compatibility(OTHER);
                     term->termstate = SEEN_OSC;
+                    term->osc_strlen = 0;
                     term->esc_args[0] = 0;
                     term->esc_nargs = 1;
                     break;
@@ -6033,7 +6106,7 @@ static void do_paint(Terminal *term)
 
             if (!term->ansi_colour)
                 tattr = (tattr & ~(ATTR_FGMASK | ATTR_BGMASK)) |
-                ATTR_DEFFG | ATTR_DEFBG;
+                    ATTR_DEFFG | ATTR_DEFBG;
 
             if (!term->xterm_256_colour) {
                 int colour;
@@ -7065,6 +7138,13 @@ void term_mouse(Terminal *term, Mouse_Button braw, Mouse_Button bcooked,
                       !(term->mouse_override && shift));
     int default_seltype;
 
+    // Don't do anything if mouse movement events weren't requested;
+    // Note: return early to avoid doing all of this code on every mouse move
+    // event only to throw it away.
+    if (a == MA_MOVE && (!raw_mouse || term->xterm_mouse < 3)) {
+        return;
+    }
+
     if (y < 0) {
         y = 0;
         if (a == MA_DRAG && !raw_mouse)
@@ -7151,6 +7231,19 @@ void term_mouse(Terminal *term, Mouse_Button braw, Mouse_Button bcooked,
                 encstate = 0x41;
                 wheel = true;
                 break;
+              case MBT_WHEEL_LEFT:
+                encstate = 0x42;
+                wheel = true;
+                break;
+              case MBT_WHEEL_RIGHT:
+                encstate = 0x43;
+                wheel = true;
+                break;
+              case MBT_NOTHING:
+                assert( a == MA_MOVE );
+                encstate = 0x03; // release; no buttons pressed
+                wheel = false;
+                break;
               default:
                 return;
             }
@@ -7165,7 +7258,21 @@ void term_mouse(Terminal *term, Mouse_Button braw, Mouse_Button bcooked,
               case MA_DRAG:
                 if (term->xterm_mouse == 1)
                     return;
-                encstate += 0x20;
+                encstate += 0x20; // motion indicator
+                break;
+              case MA_MOVE:    // mouse move without buttons
+                assert( braw == MBT_NOTHING && bcooked == MBT_NOTHING  );
+                if (term->xterm_mouse < 3)
+                    return;
+
+                if (selpoint.x == term->raw_mouse_reported_x &&
+                    selpoint.y == term->raw_mouse_reported_y)
+                    return;
+
+                term->raw_mouse_reported_x = x;
+                term->raw_mouse_reported_y = y;
+
+                encstate += 0x20; // motion indicator
                 break;
               case MA_RELEASE:
                 /* If multiple extensions are enabled, the xterm 1006 is used, so it's okay to check for only that */
@@ -7488,7 +7595,9 @@ int format_function_key(char *buf, Terminal *term, int key_number,
     return p - buf;
 }
 
-int format_small_keypad_key(char *buf, Terminal *term, SmallKeypadKey key)
+int format_small_keypad_key(char *buf, Terminal *term, SmallKeypadKey key,
+                            bool shift, bool ctrl, bool alt,
+                            bool *consumed_alt)
 {
     char *p = buf;
 
@@ -7519,7 +7628,17 @@ int format_small_keypad_key(char *buf, Terminal *term, SmallKeypadKey key)
     } else if ((code == 1 || code == 4) && term->rxvt_homeend) {
         p += sprintf(p, code == 1 ? "\x1B[H" : "\x1BOw");
     } else {
-        p += sprintf(p, "\x1B[%d~", code);
+        if (term->vt52_mode) {
+	    p += sprintf(p, "\x1B[%d~", code);
+        } else {
+            int bitmap = 0;
+            if (term->funky_type == FUNKY_XTERM_216)
+                bitmap = shift_bitmap(shift, ctrl, alt, consumed_alt);
+            if (bitmap)
+                p += sprintf(p, "\x1B[%d;%d~", code, bitmap);
+            else
+                p += sprintf(p, "\x1B[%d~", code);
+        }
     }
 
     return p - buf;

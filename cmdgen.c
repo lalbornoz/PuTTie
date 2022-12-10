@@ -130,13 +130,17 @@ void help(void)
            "           public              RFC 4716 / ssh.com public key\n"
            "           public-openssh      OpenSSH public key\n"
            "           fingerprint         output the key fingerprint\n"
+           "           cert-info           print certificate information\n"
            "           text                output the key components as "
            "'name=0x####'\n"
            "  -o    specify output file\n"
            "  -l    equivalent to `-O fingerprint'\n"
            "  -L    equivalent to `-O public-openssh'\n"
            "  -p    equivalent to `-O public'\n"
+           "  --cert-info   equivalent to `-O cert-info'\n"
            "  --dump   equivalent to `-O text'\n"
+           "  -E fptype            specify fingerprint output type:\n"
+           "                          sha256, md5, sha256-cert, md5-cert\n"
            "  --certificate file   incorporate a certificate into the key\n"
            "  --remove-certificate remove any certificate from the key\n"
            "  --reencrypt          load a key and save it with fresh "
@@ -237,7 +241,7 @@ int main(int argc, char **argv)
     enum { NOKEYGEN, RSA1, RSA2, DSA, ECDSA, EDDSA } keytype = NOKEYGEN;
     char *outfile = NULL, *outfiletmp = NULL;
     enum { PRIVATE, PUBLIC, PUBLICO, FP, OPENSSH_AUTO,
-           OPENSSH_NEW, SSHCOM, TEXT } outtype = PRIVATE;
+           OPENSSH_NEW, SSHCOM, TEXT, CERTINFO } outtype = PRIVATE;
     int bits = -1;
     const char *comment = NULL;
     char *origcomment = NULL;
@@ -299,75 +303,79 @@ int main(int argc, char **argv)
                     while (*p && *p != '=')
                         p++;               /* find end of option */
                     if (*p == '=') {
-                      *p++ = '\0';
-                      val = p;
+                        *p++ = '\0';
+                        val = p;
                     } else
                         val = NULL;
 
                     if (!strcmp(opt, "-help")) {
-                      if (val) {
-                        errs = true;
-                        fprintf(stderr, "puttygen: option `-%s'"
-                                " expects no argument\n", opt);
-                      } else {
-                        help();
-                        nogo = true;
-                      }
+                        if (val) {
+                            errs = true;
+                            fprintf(stderr, "puttygen: option `-%s'"
+                                    " expects no argument\n", opt);
+                        } else {
+                            help();
+                            nogo = true;
+                        }
                     } else if (!strcmp(opt, "-version")) {
-                      if (val) {
-                        errs = true;
-                        fprintf(stderr, "puttygen: option `-%s'"
-                                " expects no argument\n", opt);
-                      } else {
-                        showversion();
-                        nogo = true;
-                      }
+                        if (val) {
+                            errs = true;
+                            fprintf(stderr, "puttygen: option `-%s'"
+                                    " expects no argument\n", opt);
+                        } else {
+                            showversion();
+                            nogo = true;
+                        }
                     } else if (!strcmp(opt, "-pgpfp")) {
-                      if (val) {
-                        errs = true;
-                        fprintf(stderr, "puttygen: option `-%s'"
-                                " expects no argument\n", opt);
-                      } else {
-                        /* support --pgpfp for consistency */
-                        pgp_fingerprints();
-                        nogo = true;
-                      }
+                        if (val) {
+                            errs = true;
+                            fprintf(stderr, "puttygen: option `-%s'"
+                                    " expects no argument\n", opt);
+                        } else {
+                            /* support --pgpfp for consistency */
+                            pgp_fingerprints();
+                            nogo = true;
+                        }
                     } else if (!strcmp(opt, "-old-passphrase")) {
-                      if (!val && argc > 1)
-                          --argc, val = *++argv;
-                      if (!val) {
-                        errs = true;
-                        fprintf(stderr, "puttygen: option `-%s'"
-                                " expects an argument\n", opt);
-                      } else {
-                        old_passphrase = readpassphrase(val);
-                        if (!old_passphrase)
+                        if (!val && argc > 1)
+                            --argc, val = *++argv;
+                        if (!val) {
                             errs = true;
-                      }
+                            fprintf(stderr, "puttygen: option `-%s'"
+                                    " expects an argument\n", opt);
+                        } else {
+                            old_passphrase = readpassphrase(val);
+                            if (!old_passphrase)
+                                errs = true;
+                        }
                     } else if (!strcmp(opt, "-new-passphrase")) {
-                      if (!val && argc > 1)
-                          --argc, val = *++argv;
-                      if (!val) {
-                        errs = true;
-                        fprintf(stderr, "puttygen: option `-%s'"
-                                " expects an argument\n", opt);
-                      } else {
-                        new_passphrase = readpassphrase(val);
-                        if (!new_passphrase)
+                        if (!val && argc > 1)
+                            --argc, val = *++argv;
+                        if (!val) {
                             errs = true;
-                      }
+                            fprintf(stderr, "puttygen: option `-%s'"
+                                    " expects an argument\n", opt);
+                        } else {
+                            new_passphrase = readpassphrase(val);
+                            if (!new_passphrase)
+                                errs = true;
+                        }
                     } else if (!strcmp(opt, "-random-device")) {
-                      if (!val && argc > 1)
-                          --argc, val = *++argv;
-                      if (!val) {
-                        errs = true;
-                        fprintf(stderr, "puttygen: option `-%s'"
-                                " expects an argument\n", opt);
-                      } else {
-                        random_device = val;
-                      }
+                        if (!val && argc > 1)
+                            --argc, val = *++argv;
+                        if (!val) {
+                            errs = true;
+                            fprintf(stderr, "puttygen: option `-%s'"
+                                    " expects an argument\n", opt);
+                        } else {
+                            random_device = val;
+                        }
                     } else if (!strcmp(opt, "-dump")) {
                         outtype = TEXT;
+                    } else if (!strcmp(opt, "-cert-info") ||
+                               !strcmp(opt, "-certinfo") ||
+                               !strcmp(opt, "-cert_info")) {
+                        outtype = CERTINFO;
                     } else if (!strcmp(opt, "-primes")) {
                         if (!val && argc > 1)
                             --argc, val = *++argv;
@@ -397,15 +405,15 @@ int main(int argc, char **argv)
                     } else if (!strcmp(opt, "-strong-rsa")) {
                         strong_rsa = true;
                     } else if (!strcmp(opt, "-certificate")) {
-                      if (!val && argc > 1)
-                          --argc, val = *++argv;
-                      if (!val) {
-                        errs = true;
-                        fprintf(stderr, "puttygen: option `-%s'"
-                                " expects an argument\n", opt);
-                      } else {
-                        certfile = val;
-                      }
+                        if (!val && argc > 1)
+                            --argc, val = *++argv;
+                        if (!val) {
+                            errs = true;
+                            fprintf(stderr, "puttygen: option `-%s'"
+                                    " expects an argument\n", opt);
+                        } else {
+                            certfile = val;
+                        }
                     } else if (!strcmp(opt, "-remove-certificate")) {
                         remove_cert = true;
                     } else if (!strcmp(opt, "-reencrypt")) {
@@ -486,9 +494,9 @@ int main(int argc, char **argv)
                             }
                         }
                     } else {
-                      errs = true;
-                      fprintf(stderr,
-                              "puttygen: no such option `-%s'\n", opt);
+                        errs = true;
+                        fprintf(stderr,
+                                "puttygen: no such option `-%s'\n", opt);
                     }
                     p = NULL;
                     break;
@@ -594,6 +602,8 @@ int main(int argc, char **argv)
                             outtype = SSHCOM, sshver = 2;
                         else if (!strcmp(p, "text"))
                             outtype = TEXT;
+                        else if (!strcmp(p, "cert-info"))
+                            outtype = CERTINFO;
                         else {
                             fprintf(stderr,
                                     "puttygen: unknown output type `%s'\n", p);
@@ -608,6 +618,10 @@ int main(int argc, char **argv)
                             fptype = SSH_FPTYPE_MD5;
                         else if (!strcmp(p, "sha256"))
                             fptype = SSH_FPTYPE_SHA256;
+                        else if (!strcmp(p, "md5-cert"))
+                            fptype = SSH_FPTYPE_MD5_CERT;
+                        else if (!strcmp(p, "sha256-cert"))
+                            fptype = SSH_FPTYPE_SHA256_CERT;
                         else {
                             fprintf(stderr, "puttygen: unknown fingerprint "
                                     "type `%s'\n", p);
@@ -1328,29 +1342,29 @@ int main(int argc, char **argv)
         FILE *fp;
 
         if (outfile) {
-          fp = f_open(outfilename, "w", false);
-          if (!fp) {
-            fprintf(stderr, "unable to open output file\n");
-            exit(1);
-          }
+            fp = f_open(outfilename, "w", false);
+            if (!fp) {
+                fprintf(stderr, "unable to open output file\n");
+                exit(1);
+            }
         } else {
-          fp = stdout;
+            fp = stdout;
         }
 
         if (sshver == 1) {
-          ssh1_write_pubkey(fp, ssh1key);
+            ssh1_write_pubkey(fp, ssh1key);
         } else {
-          if (!ssh2blob) {
-            assert(ssh2key);
-            ssh2blob = strbuf_new();
-            ssh_key_public_blob(ssh2key->key, BinarySink_UPCAST(ssh2blob));
-          }
+            if (!ssh2blob) {
+                assert(ssh2key);
+                ssh2blob = strbuf_new();
+                ssh_key_public_blob(ssh2key->key, BinarySink_UPCAST(ssh2blob));
+            }
 
-          ssh2_write_pubkey(fp, ssh2key ? ssh2key->comment : origcomment,
-                            ssh2blob->s, ssh2blob->len,
-                            (outtype == PUBLIC ?
-                             SSH_KEYTYPE_SSH2_PUBLIC_RFC4716 :
-                             SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH));
+            ssh2_write_pubkey(fp, ssh2key ? ssh2key->comment : origcomment,
+                              ssh2blob->s, ssh2blob->len,
+                              (outtype == PUBLIC ?
+                               SSH_KEYTYPE_SSH2_PUBLIC_RFC4716 :
+                               SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH));
         }
 
         if (outfile)
@@ -1364,26 +1378,26 @@ int main(int argc, char **argv)
         char *fingerprint;
 
         if (sshver == 1) {
-          assert(ssh1key);
-          fingerprint = rsa_ssh1_fingerprint(ssh1key);
+            assert(ssh1key);
+            fingerprint = rsa_ssh1_fingerprint(ssh1key);
         } else {
-          if (ssh2key) {
-            fingerprint = ssh2_fingerprint(ssh2key->key, fptype);
-          } else {
-            assert(ssh2blob);
-            fingerprint = ssh2_fingerprint_blob(
-                ptrlen_from_strbuf(ssh2blob), fptype);
-          }
+            if (ssh2key) {
+                fingerprint = ssh2_fingerprint(ssh2key->key, fptype);
+            } else {
+                assert(ssh2blob);
+                fingerprint = ssh2_fingerprint_blob(
+                    ptrlen_from_strbuf(ssh2blob), fptype);
+            }
         }
 
         if (outfile) {
-          fp = f_open(outfilename, "w", false);
-          if (!fp) {
-            fprintf(stderr, "unable to open output file\n");
-            exit(1);
-          }
+            fp = f_open(outfilename, "w", false);
+            if (!fp) {
+                fprintf(stderr, "unable to open output file\n");
+                exit(1);
+            }
         } else {
-          fp = stdout;
+            fp = stdout;
         }
         fprintf(fp, "%s\n", fingerprint);
         if (outfile)
@@ -1522,6 +1536,83 @@ int main(int argc, char **argv)
         if (outfile)
             fclose(fp);
         key_components_free(kc);
+        break;
+      }
+
+      case CERTINFO: {
+        if (sshver == 1) {
+            fprintf(stderr, "puttygen: SSH-1 keys cannot contain "
+                    "certificates\n");
+            RETURN(1);
+        }
+
+        const ssh_keyalg *alg;
+        ssh_key *sk;
+        bool sk_allocated = false;
+
+        if (ssh2key) {
+            sk = ssh2key->key;
+            alg = ssh_key_alg(sk);
+        } else {
+            assert(ssh2blob);
+            ptrlen algname = pubkey_blob_to_alg_name(
+                ptrlen_from_strbuf(ssh2blob));
+            alg = find_pubkey_alg_len(algname);
+            if (!alg) {
+                fprintf(stderr, "puttygen: cannot extract certificate info "
+                        "from public key of unknown type '%.*s'\n",
+                        PTRLEN_PRINTF(algname));
+                RETURN(1);
+            }
+            sk = ssh_key_new_pub(alg, ptrlen_from_strbuf(ssh2blob));
+            if (!sk) {
+                fprintf(stderr, "puttygen: unable to decode public key\n");
+                RETURN(1);
+            }
+            sk_allocated = true;
+        }
+
+        if (!alg->is_certificate) {
+            fprintf(stderr, "puttygen: key is not a certificate\n");
+        } else {
+            SeatDialogText *text = ssh_key_cert_info(sk);
+
+            FILE *fp;
+            if (outfile) {
+                fp = f_open(outfilename, "w", false);
+                if (!fp) {
+                    fprintf(stderr, "unable to open output file\n");
+                    exit(1);
+                }
+            } else {
+                fp = stdout;
+            }
+
+            for (SeatDialogTextItem *item = text->items,
+                     *end = item+text->nitems; item < end; item++) {
+                switch (item->type) {
+                  case SDT_MORE_INFO_KEY:
+                    fprintf(fp, "%s", item->text);
+                    break;
+                  case SDT_MORE_INFO_VALUE_SHORT:
+                    fprintf(fp, ": %s\n", item->text);
+                    break;
+                  case SDT_MORE_INFO_VALUE_BLOB:
+                    fprintf(fp, ":\n%s\n", item->text);
+                    break;
+                  default:
+                    break;
+                }
+            }
+
+            if (outfile)
+                fclose(fp);
+
+            seat_dialog_text_free(text);
+        }
+
+        if (sk_allocated)
+            ssh_key_free(sk);
         break;
       }
     }

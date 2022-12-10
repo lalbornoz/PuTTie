@@ -16,6 +16,7 @@ add_sources_from_current_dir(utils
   utils/getdlgitemtext_alloc.c
   utils/get_system_dir.c
   utils/get_username.c
+  utils/gui-timing.c
   utils/interprocess_mutex.c
   utils/is_console_handle.c
   utils/load_system32_dll.c
@@ -100,6 +101,7 @@ add_executable(putty
   window.c
   putty.c
   help.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-console.c
   putty.rc
   ../PuTTie/winfrip.c
   ../PuTTie/winfrip_bgimg.c
@@ -127,9 +129,10 @@ add_executable(puttytel
   window.c
   putty.c
   help.c
-  ${CMAKE_SOURCE_DIR}/stubs/nogss.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
   ${CMAKE_SOURCE_DIR}/stubs/no-ca-config.c
-  ${CMAKE_SOURCE_DIR}/stubs/norand.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-console.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-rand.c
   ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
   ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
   puttytel.rc
@@ -156,7 +159,7 @@ installed_program(puttytel)
 
 add_executable(puttygen
   puttygen.c
-  ${CMAKE_SOURCE_DIR}/stubs/notiming.c
+  ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
   noise.c
   no-jump-list.c
   storage.c
@@ -181,9 +184,10 @@ if(HAVE_CONPTY)
     pterm.c
     help.c
     conpty.c
-    ${CMAKE_SOURCE_DIR}/stubs/nogss.c
+    ${CMAKE_SOURCE_DIR}/stubs/no-gss.c
     ${CMAKE_SOURCE_DIR}/stubs/no-ca-config.c
-    ${CMAKE_SOURCE_DIR}/stubs/norand.c
+    ${CMAKE_SOURCE_DIR}/stubs/no-console.c
+    ${CMAKE_SOURCE_DIR}/stubs/no-rand.c
     ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
     pterm.rc)
   be_list(pterm pterm)

@@ -71,8 +71,8 @@ void ctlposinit(struct ctlpos *cp, HWND hwnd,
     cp->width -= leftborder + rightborder;
 }
 
-HWND doctl(struct ctlpos *cp, RECT r,
-           char *wclass, int wstyle, int exstyle, char *wtext, int wid)
+HWND doctl(struct ctlpos *cp, RECT r, const char *wclass, int wstyle,
+           int exstyle, const char *wtext, int wid)
 {
     HWND ctl;
     /*
@@ -115,7 +115,7 @@ HWND doctl(struct ctlpos *cp, RECT r,
 /*
  * A title bar across the top of a sub-dialog.
  */
-void bartitle(struct ctlpos *cp, char *name, int id)
+void bartitle(struct ctlpos *cp, const char *name, int id)
 {
     RECT r;
 
@@ -130,7 +130,7 @@ void bartitle(struct ctlpos *cp, char *name, int id)
 /*
  * Begin a grouping box, with or without a group title.
  */
-void beginbox(struct ctlpos *cp, char *name, int idbox)
+void beginbox(struct ctlpos *cp, const char *name, int idbox)
 {
     cp->boxystart = cp->ypos;
     if (!name)
@@ -165,8 +165,8 @@ void endbox(struct ctlpos *cp)
 /*
  * A static line, followed by a full-width edit box.
  */
-void editboxfw(struct ctlpos *cp, bool password, bool readonly, char *text,
-               int staticid, int editid)
+void editboxfw(struct ctlpos *cp, bool password, bool readonly,
+               const char *text, int staticid, int editid)
 {
     RECT r;
 
@@ -192,7 +192,7 @@ void editboxfw(struct ctlpos *cp, bool password, bool readonly, char *text,
 /*
  * A static line, followed by a full-width combo box.
  */
-void combobox(struct ctlpos *cp, char *text, int staticid, int listid)
+void combobox(struct ctlpos *cp, const char *text, int staticid, int listid)
 {
     RECT r;
 
@@ -213,9 +213,9 @@ void combobox(struct ctlpos *cp, char *text, int staticid, int listid)
     cp->ypos += COMBOHEIGHT + GAPBETWEEN;
 }
 
-struct radio { char *text; int id; };
+struct radio { const char *text; int id; };
 
-static void radioline_common(struct ctlpos *cp, char *text, int id,
+static void radioline_common(struct ctlpos *cp, const char *text, int id,
                              int nacross, struct radio *buttons, int nbuttons)
 {
     RECT r;
@@ -237,7 +237,7 @@ static void radioline_common(struct ctlpos *cp, char *text, int id,
     group = WS_GROUP;
     i = 0;
     for (j = 0; j < nbuttons; j++) {
-        char *btext = buttons[j].text;
+        const char *btext = buttons[j].text;
         int bid = buttons[j].id;
 
         if (i == nacross) {
@@ -275,7 +275,7 @@ static void radioline_common(struct ctlpos *cp, char *text, int id,
  *
  * (*) Button1  (*) Button2  (*) ButtonWithReallyLongTitle
  */
-void radioline(struct ctlpos *cp, char *text, int id, int nacross, ...)
+void radioline(struct ctlpos *cp, const char *text, int id, int nacross, ...)
 {
     va_list ap;
     struct radio *buttons;
@@ -284,7 +284,7 @@ void radioline(struct ctlpos *cp, char *text, int id, int nacross, ...)
     va_start(ap, nacross);
     nbuttons = 0;
     while (1) {
-        char *btext = va_arg(ap, char *);
+        const char *btext = va_arg(ap, const char *);
         if (!btext)
             break;
         (void) va_arg(ap, int); /* id */
@@ -294,7 +294,7 @@ void radioline(struct ctlpos *cp, char *text, int id, int nacross, ...)
     buttons = snewn(nbuttons, struct radio);
     va_start(ap, nacross);
     for (i = 0; i < nbuttons; i++) {
-        buttons[i].text = va_arg(ap, char *);
+        buttons[i].text = va_arg(ap, const char *);
         buttons[i].id = va_arg(ap, int);
     }
     va_end(ap);
@@ -315,7 +315,7 @@ void bareradioline(struct ctlpos *cp, int nacross, ...)
     va_start(ap, nacross);
     nbuttons = 0;
     while (1) {
-        char *btext = va_arg(ap, char *);
+        const char *btext = va_arg(ap, const char *);
         if (!btext)
             break;
         (void) va_arg(ap, int); /* id */
@@ -325,7 +325,7 @@ void bareradioline(struct ctlpos *cp, int nacross, ...)
     buttons = snewn(nbuttons, struct radio);
     va_start(ap, nacross);
     for (i = 0; i < nbuttons; i++) {
-        buttons[i].text = va_arg(ap, char *);
+        buttons[i].text = va_arg(ap, const char *);
         buttons[i].id = va_arg(ap, int);
     }
     va_end(ap);
@@ -337,7 +337,7 @@ void bareradioline(struct ctlpos *cp, int nacross, ...)
  * A set of radio buttons on multiple lines, with a static above
  * them.
  */
-void radiobig(struct ctlpos *cp, char *text, int id, ...)
+void radiobig(struct ctlpos *cp, const char *text, int id, ...)
 {
     va_list ap;
     struct radio *buttons;
@@ -346,7 +346,7 @@ void radiobig(struct ctlpos *cp, char *text, int id, ...)
     va_start(ap, id);
     nbuttons = 0;
     while (1) {
-        char *btext = va_arg(ap, char *);
+        const char *btext = va_arg(ap, const char *);
         if (!btext)
             break;
         (void) va_arg(ap, int); /* id */
@@ -356,7 +356,7 @@ void radiobig(struct ctlpos *cp, char *text, int id, ...)
     buttons = snewn(nbuttons, struct radio);
     va_start(ap, id);
     for (i = 0; i < nbuttons; i++) {
-        buttons[i].text = va_arg(ap, char *);
+        buttons[i].text = va_arg(ap, const char *);
         buttons[i].id = va_arg(ap, int);
     }
     va_end(ap);
@@ -367,7 +367,7 @@ void radiobig(struct ctlpos *cp, char *text, int id, ...)
 /*
  * A single standalone checkbox.
  */
-void checkbox(struct ctlpos *cp, char *text, int id)
+void checkbox(struct ctlpos *cp, const char *text, int id)
 {
     RECT r;
 
@@ -386,19 +386,18 @@ void checkbox(struct ctlpos *cp, char *text, int id)
  * wrapped text (a malloc'ed string containing \ns), and also
  * returns the number of lines required.
  */
-char *staticwrap(struct ctlpos *cp, HWND hwnd, char *text, int *lines)
+char *staticwrap(struct ctlpos *cp, HWND hwnd, const char *text, int *lines)
 {
     HDC hdc = GetDC(hwnd);
     int width, nlines, j;
     INT *pwidths, nfit;
     SIZE size;
-    char *ret, *p, *q;
+    const char *p;
     RECT r;
     HFONT oldfont, newfont;
 
-    ret = snewn(1+strlen(text), char);
+    strbuf *sb = strbuf_new();
     p = text;
-    q = ret;
     pwidths = snewn(1+strlen(text), INT);
 
     /*
@@ -431,7 +430,7 @@ char *staticwrap(struct ctlpos *cp, HWND hwnd, char *text, int *lines)
              * Either way, we stop wrapping, copy the remainder of
              * the input string unchanged to the output, and leave.
              */
-            strcpy(q, p);
+            put_datapl(sb, ptrlen_from_asciz(p));
             break;
         }
 
@@ -448,9 +447,8 @@ char *staticwrap(struct ctlpos *cp, HWND hwnd, char *text, int *lines)
             }
         }
 
-        strncpy(q, p, nfit);
-        q[nfit] = '\n';
-        q += nfit+1;
+        put_data(sb, p, nfit);
+        put_byte(sb, '\n');
 
         p += nfit;
         while (*p && isspace((unsigned char)*p))
@@ -466,13 +464,13 @@ char *staticwrap(struct ctlpos *cp, HWND hwnd, char *text, int *lines)
 
     sfree(pwidths);
 
-    return ret;
+    return strbuf_to_str(sb);
 }
 
 /*
  * A single standalone static text control.
  */
-void statictext(struct ctlpos *cp, char *text, int lines, int id)
+void statictext(struct ctlpos *cp, const char *text, int lines, int id)
 {
     RECT r;
 
@@ -505,8 +503,8 @@ void paneltitle(struct ctlpos *cp, int id)
 /*
  * A button on the right hand side, with a static to its left.
  */
-void staticbtn(struct ctlpos *cp, char *stext, int sid,
-               char *btext, int bid)
+void staticbtn(struct ctlpos *cp, const char *stext, int sid,
+               const char *btext, int bid)
 {
     const int height = (PUSHBTNHEIGHT > STATICHEIGHT ?
                         PUSHBTNHEIGHT : STATICHEIGHT);
@@ -537,7 +535,7 @@ void staticbtn(struct ctlpos *cp, char *stext, int sid,
 /*
  * A simple push button.
  */
-void button(struct ctlpos *cp, char *btext, int bid, bool defbtn)
+void button(struct ctlpos *cp, const char *btext, int bid, bool defbtn)
 {
     RECT r;
 
@@ -562,8 +560,8 @@ void button(struct ctlpos *cp, char *btext, int bid, bool defbtn)
 /*
  * Like staticbtn, but two buttons.
  */
-void static2btn(struct ctlpos *cp, char *stext, int sid,
-                char *btext1, int bid1, char *btext2, int bid2)
+void static2btn(struct ctlpos *cp, const char *stext, int sid,
+                const char *btext1, int bid1, const char *btext2, int bid2)
 {
     const int height = (PUSHBTNHEIGHT > STATICHEIGHT ?
                         PUSHBTNHEIGHT : STATICHEIGHT);
@@ -604,7 +602,7 @@ void static2btn(struct ctlpos *cp, char *stext, int sid,
 /*
  * An edit control on the right hand side, with a static to its left.
  */
-static void staticedit_internal(struct ctlpos *cp, char *stext,
+static void staticedit_internal(struct ctlpos *cp, const char *stext,
                                 int sid, int eid, int percentedit,
                                 int style)
 {
@@ -635,13 +633,13 @@ static void staticedit_internal(struct ctlpos *cp, char *stext,
     cp->ypos += height + GAPBETWEEN;
 }
 
-void staticedit(struct ctlpos *cp, char *stext,
+void staticedit(struct ctlpos *cp, const char *stext,
                 int sid, int eid, int percentedit)
 {
     staticedit_internal(cp, stext, sid, eid, percentedit, 0);
 }
 
-void staticpassedit(struct ctlpos *cp, char *stext,
+void staticpassedit(struct ctlpos *cp, const char *stext,
                     int sid, int eid, int percentedit)
 {
     staticedit_internal(cp, stext, sid, eid, percentedit, ES_PASSWORD);
@@ -651,7 +649,7 @@ void staticpassedit(struct ctlpos *cp, char *stext,
  * A drop-down list box on the right hand side, with a static to
  * its left.
  */
-void staticddl(struct ctlpos *cp, char *stext,
+void staticddl(struct ctlpos *cp, const char *stext,
                int sid, int lid, int percentlist)
 {
     const int height = (COMBOHEIGHT > STATICHEIGHT ?
@@ -684,7 +682,7 @@ void staticddl(struct ctlpos *cp, char *stext,
 /*
  * A combo box on the right hand side, with a static to its left.
  */
-void staticcombo(struct ctlpos *cp, char *stext,
+void staticcombo(struct ctlpos *cp, const char *stext,
                  int sid, int lid, int percentlist)
 {
     const int height = (COMBOHEIGHT > STATICHEIGHT ?
@@ -717,7 +715,7 @@ void staticcombo(struct ctlpos *cp, char *stext,
 /*
  * A static, with a full-width drop-down list box below it.
  */
-void staticddlbig(struct ctlpos *cp, char *stext,
+void staticddlbig(struct ctlpos *cp, const char *stext,
                   int sid, int lid)
 {
     RECT r;
@@ -744,7 +742,7 @@ void staticddlbig(struct ctlpos *cp, char *stext,
 /*
  * A big multiline edit control with a static labelling it.
  */
-void bigeditctrl(struct ctlpos *cp, char *stext,
+void bigeditctrl(struct ctlpos *cp, const char *stext,
                  int sid, int eid, int lines)
 {
     RECT r;
@@ -771,7 +769,7 @@ void bigeditctrl(struct ctlpos *cp, char *stext,
 /*
  * A list box with a static labelling it.
  */
-void listbox(struct ctlpos *cp, char *stext,
+void listbox(struct ctlpos *cp, const char *stext,
              int sid, int lid, int lines, bool multi)
 {
     RECT r;
@@ -800,7 +798,8 @@ void listbox(struct ctlpos *cp, char *stext,
 /*
  * A tab-control substitute when a real tab control is unavailable.
  */
-void ersatztab(struct ctlpos *cp, char *stext, int sid, int lid, int s2id)
+void ersatztab(struct ctlpos *cp, const char *stext, int sid, int lid,
+               int s2id)
 {
     const int height = (COMBOHEIGHT > STATICHEIGHT ?
                         COMBOHEIGHT : STATICHEIGHT);
@@ -843,8 +842,8 @@ void ersatztab(struct ctlpos *cp, char *stext, int sid, int lid, int s2id)
  * A static line, followed by an edit control on the left hand side
  * and a button on the right.
  */
-void editbutton(struct ctlpos *cp, char *stext, int sid,
-                int eid, char *btext, int bid)
+void editbutton(struct ctlpos *cp, const char *stext, int sid,
+                int eid, const char *btext, int bid)
 {
     const int height = (EDITHEIGHT > PUSHBTNHEIGHT ?
                         EDITHEIGHT : PUSHBTNHEIGHT);
@@ -887,7 +886,7 @@ void editbutton(struct ctlpos *cp, char *stext, int sid,
  * XXX: this is a rough hack and could be improved.
  */
 void prefslist(struct prefslist *hdl, struct ctlpos *cp, int lines,
-               char *stext, int sid, int listid, int upbid, int dnbid)
+               const char *stext, int sid, int listid, int upbid, int dnbid)
 {
     const static int percents[] = { 5, 75, 20 };
     RECT r;
@@ -1179,30 +1178,24 @@ void progressbar(struct ctlpos *cp, int id)
  */
 static char *shortcut_escape(const char *text, char shortcut)
 {
-    char *ret;
-    char const *p;
-    char *q;
-
     if (!text)
         return NULL;                   /* sfree won't choke on this */
 
-    ret = snewn(2*strlen(text)+1, char);   /* size potentially doubles! */
+    strbuf *sb = strbuf_new();
     shortcut = tolower((unsigned char)shortcut);
 
-    p = text;
-    q = ret;
+    const char *p = text;
     while (*p) {
         if (shortcut != NO_SHORTCUT &&
             tolower((unsigned char)*p) == shortcut) {
-            *q++ = '&';
+            put_byte(sb, '&');
             shortcut = NO_SHORTCUT;    /* stop it happening twice */
         } else if (*p == '&') {
-            *q++ = '&';
+            put_byte(sb, '&');
         }
-        *q++ = *p++;
+        put_byte(sb, *p++);
     }
-    *q = '\0';
-    return ret;
+    return strbuf_to_str(sb);
 }
 
 void winctrl_add_shortcuts(struct dlgparam *dp, struct winctrl *c)
@@ -1538,6 +1531,7 @@ void winctrl_layout(struct dlgparam *dp, struct winctrls *wc,
                 sfree(escaped);
                 sfree(wrapped);
             } else {
+                num_ids = 1;
                 editboxfw(&pos, false, true, NULL, 0, base_id);
                 SetDlgItemText(pos.hwnd, base_id, ctrl->label);
                 MakeDlgItemBorderless(pos.hwnd, base_id);
@@ -1579,16 +1573,16 @@ void winctrl_layout(struct dlgparam *dp, struct winctrls *wc,
             buttons = snewn(ctrl->radio.nbuttons, struct radio);
 
             for (i = 0; i < ctrl->radio.nbuttons; i++) {
-              buttons[i].text =
-                  shortcut_escape(ctrl->radio.buttons[i],
-                                  (char)(ctrl->radio.shortcuts ?
-                                         ctrl->radio.shortcuts[i] :
-                                         NO_SHORTCUT));
-              buttons[i].id = base_id + 1 + i;
-              if (ctrl->radio.shortcuts) {
-                assert(nshortcuts < MAX_SHORTCUTS_PER_CTRL);
-                shortcuts[nshortcuts++] = ctrl->radio.shortcuts[i];
-              }
+                buttons[i].text =
+                    shortcut_escape(ctrl->radio.buttons[i],
+                                    (char)(ctrl->radio.shortcuts ?
+                                           ctrl->radio.shortcuts[i] :
+                                           NO_SHORTCUT));
+                buttons[i].id = base_id + 1 + i;
+                if (ctrl->radio.shortcuts) {
+                    assert(nshortcuts < MAX_SHORTCUTS_PER_CTRL);
+                    shortcuts[nshortcuts++] = ctrl->radio.shortcuts[i];
+                }
             }
 
             radioline_common(&pos, escaped, base_id,
@@ -1596,7 +1590,7 @@ void winctrl_layout(struct dlgparam *dp, struct winctrls *wc,
                              buttons, ctrl->radio.nbuttons);
 
             for (i = 0; i < ctrl->radio.nbuttons; i++) {
-              sfree(buttons[i].text);
+                sfree((char *)buttons[i].text);
             }
             sfree(buttons);
             sfree(escaped);
@@ -1755,7 +1749,7 @@ void winctrl_layout(struct dlgparam *dp, struct winctrls *wc,
                         continue;
 
                     LONG dy = (mid2 - (rect.top + rect.bottom)) / 2;
-                    move_windows(pos.hwnd, c->base_id, c->num_ids, dy);
+                    move_windows(pos.hwnd, thisc->base_id, thisc->num_ids, dy);
                 }
             }
         } else {
@@ -1852,7 +1846,7 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
         SetMapMode(hdc, MM_TEXT);      /* ensure logical units == pixels */
 
         GetTextExtentPoint32(hdc, (char *)c->data,
-                                 strlen((char *)c->data), &s);
+                             strlen((char *)c->data), &s);
         DrawEdge(hdc, &r, EDGE_ETCHED, BF_ADJUST | BF_RECT);
         TextOut(hdc,
                 r.left + (r.right-r.left-s.cx)/2,
@@ -2131,12 +2125,12 @@ bool winctrl_context_help(struct dlgparam *dp, HWND hwnd, int id)
 
     /*
      * This is the Windows front end, so we're allowed to assume
-     * `helpctx.p' is a context string.
+     * `helpctx' is a context string.
      */
-    if (!c->ctrl || !c->ctrl->helpctx.p)
+    if (!c->ctrl || !c->ctrl->helpctx)
         return false;            /* no help available for this ctrl */
 
-    launch_help(hwnd, c->ctrl->helpctx.p);
+    launch_help(hwnd, c->ctrl->helpctx);
     return true;
 }
 
@@ -2217,6 +2211,14 @@ char *dlg_editbox_get(dlgcontrol *ctrl, dlgparam *dp)
     return GetDlgItemText_alloc(dp->hwnd, c->base_id+1);
 }
 
+void dlg_editbox_select_range(dlgcontrol *ctrl, dlgparam *dp,
+                              size_t start, size_t len)
+{
+    struct winctrl *c = dlg_findbyctrl(dp, ctrl);
+    assert(c && c->ctrl->type == CTRL_EDITBOX);
+    SendDlgItemMessage(dp->hwnd, c->base_id+1, EM_SETSEL, start, start+len);
+}
+
 /* The `listbox' functions can also apply to combo boxes. */
 void dlg_listbox_clear(dlgcontrol *ctrl, dlgparam *dp)
 {
@@ -2276,7 +2278,7 @@ void dlg_listbox_addwithid(dlgcontrol *ctrl, dlgparam *dp,
     msg = (c->ctrl->type==CTRL_LISTBOX && c->ctrl->listbox.height!=0 ?
            LB_ADDSTRING : CB_ADDSTRING);
     msg2 = (c->ctrl->type==CTRL_LISTBOX && c->ctrl->listbox.height!=0 ?
-           LB_SETITEMDATA : CB_SETITEMDATA);
+            LB_SETITEMDATA : CB_SETITEMDATA);
     index = SendDlgItemMessage(dp->hwnd, c->base_id+1, msg, 0, (LPARAM)text);
     SendDlgItemMessage(dp->hwnd, c->base_id+1, msg2, index, (LPARAM)id);
 }
@@ -2537,7 +2539,7 @@ void dlg_refresh(dlgcontrol *ctrl, dlgparam *dp)
                  i++) {
                 if (c->ctrl && c->ctrl->handler != NULL)
                     c->ctrl->handler(c->ctrl, dp,
-                                             dp->data, EVENT_REFRESH);
+                                     dp->data, EVENT_REFRESH);
             }
         }
     } else {

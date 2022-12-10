@@ -303,7 +303,7 @@ unsigned ntru_ring_invert(uint16_t *out, const uint16_t *in,
     /* Run the gcd-finding algorithm. */
     for (size_t i = 0; i < STEPS; i++) {
         /*
-         * First swap round so that A is the one we'll be dividing by 2.
+         * First swap round so that A is the one we'll be dividing by x.
          *
          * In the case where one of the two polys has a zero constant
          * term, it's that one. In the other case, it's the one of
@@ -472,7 +472,7 @@ void ntru_bias(uint16_t *out, const uint16_t *in, unsigned bias,
  * Given an array of values mod q, multiply each one by a constant.
  */
 void ntru_scale(uint16_t *out, const uint16_t *in, uint16_t scale,
-               unsigned p, unsigned q)
+                unsigned p, unsigned q)
 {
     SETUP;
     for (unsigned i = 0; i < p; i++)
@@ -483,7 +483,8 @@ void ntru_scale(uint16_t *out, const uint16_t *in, uint16_t scale,
  * Given an array of values mod 3, convert them to values mod q in a
  * way that maps -1,0,+1 to -1,0,+1.
  */
-void ntru_expand(uint16_t *out, const uint16_t *in, unsigned p, unsigned q)
+static void ntru_expand(
+    uint16_t *out, const uint16_t *in, unsigned p, unsigned q)
 {
     for (size_t i = 0; i < p; i++) {
         uint16_t v = in[i];
@@ -1241,12 +1242,12 @@ ptrlen ntru_decode_pubkey(uint16_t *pubkey, unsigned p, unsigned q,
     } else {
         /* Do the decoding */
         ntru_decode(sched, pubkey, encoded);
-        ntru_encode_schedule_free(sched);
 
         /* Unbias the coefficients */
         ntru_bias(pubkey, pubkey, q-q/2, p, q);
     }
 
+    ntru_encode_schedule_free(sched);
     return encoded;
 }
 
@@ -1327,13 +1328,13 @@ ptrlen ntru_decode_ciphertext(uint16_t *ct, NTRUKeyPair *keypair,
     } else {
         /* Do the decoding */
         ntru_decode(sched, ct, encoded);
-        ntru_encode_schedule_free(sched);
 
         /* Undo the scaling and bias */
         ntru_scale(ct, ct, 3, p, q);
         ntru_bias(ct, ct, q - 3 * ciphertext_bias(q), p, q);
     }
 
+    ntru_encode_schedule_free(sched);
     return encoded;        /* also useful to the caller, optionally */
 }
 
@@ -1393,8 +1394,9 @@ void ntru_encode_plaintext(const uint16_t *plaintext, unsigned p,
  *
  * 'out' should therefore expect to receive 32 bytes of data.
  */
-void ntru_confirmation_hash(uint8_t *out, const uint16_t *plaintext,
-                            const uint16_t *pubkey, unsigned p, unsigned q)
+static void ntru_confirmation_hash(
+    uint8_t *out, const uint16_t *plaintext,
+    const uint16_t *pubkey, unsigned p, unsigned q)
 {
     /* The outer hash object */
     ssh_hash *hconfirm = ssh_hash_new(&ssh_sha512);
@@ -1450,8 +1452,9 @@ void ntru_confirmation_hash(uint8_t *out, const uint16_t *plaintext,
  *
  * The ciphertext is provided in already-encoded form.
  */
-void ntru_session_hash(uint8_t *out, unsigned ok, const uint16_t *plaintext,
-                       unsigned p, ptrlen ciphertext, ptrlen confirmation_hash)
+static void ntru_session_hash(
+    uint8_t *out, unsigned ok, const uint16_t *plaintext,
+    unsigned p, ptrlen ciphertext, ptrlen confirmation_hash)
 {
     /* The outer hash object */
     ssh_hash *hsession = ssh_hash_new(&ssh_sha512);
@@ -1646,6 +1649,7 @@ static bool ssh_ntru_client_getkey(ecdh_key *dh, ptrlen remoteKey,
         if (!ok) {
             ssh_hash_free(h);
             smemclr(hashdata, sizeof(hashdata));
+            strbuf_free(otherkey);
             return false;
         }
 
@@ -1775,6 +1779,7 @@ static bool ssh_ntru_server_getkey(ecdh_key *dh, ptrlen remoteKey,
         ntru_encrypt(ciphertext, nk->plaintext, pubkey, p_LIVE, q_LIVE);
         ntru_encode_ciphertext(ciphertext, p_LIVE, q_LIVE,
                                BinarySink_UPCAST(nk->ciphertext_encoded));
+        ring_free(ciphertext, p_LIVE);
 
         /* Compute the confirmation hash, and write it into another
          * strbuf. */
@@ -1790,6 +1795,9 @@ static bool ssh_ntru_server_getkey(ecdh_key *dh, ptrlen remoteKey,
 
         /* And put the NTRU session hash into the main hash object. */
         put_data(h, hashdata, 32);
+
+        /* Now we can free the public key */
+        ring_free(pubkey, p_LIVE);
     }
 
     /*
@@ -1806,6 +1814,7 @@ static bool ssh_ntru_server_getkey(ecdh_key *dh, ptrlen remoteKey,
         if (!ok) {
             ssh_hash_free(h);
             smemclr(hashdata, sizeof(hashdata));
+            strbuf_free(otherkey);
             return false;
         }
 
@@ -1866,7 +1875,7 @@ static const ecdh_keyalg ssh_ntru_selector_vt = {
     .description = ssh_ntru_description,
 };
 
-const ssh_kex ssh_ntru_curve25519 = {
+static const ssh_kex ssh_ntru_curve25519 = {
     .name = "sntrup761x25519-sha512@openssh.com",
     .main_type = KEXTYPE_ECDH,
     .hash = &ssh_sha512,

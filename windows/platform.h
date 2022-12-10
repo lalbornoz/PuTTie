@@ -35,6 +35,14 @@
 #define BUILDINFO_PLATFORM "Windows"
 #endif
 
+#if defined __GNUC__ || defined __clang__
+#define THREADLOCAL __thread
+#elif defined _MSC_VER
+#define THREADLOCAL __declspec(thread)
+#else
+#error Do not know how to declare thread-local storage with this toolchain
+#endif
+
 /* Randomly-chosen dwData value identifying a WM_COPYDATA message as
  * being a Pageant transaction */
 #define AGENT_COPYDATA_ID 0x804e50ba
@@ -226,7 +234,7 @@ int has_embedded_chm(void);            /* 1 = yes, 0 = no, -1 = N/A */
  */
 SeatPromptResult win_seat_confirm_ssh_host_key(
     Seat *seat, const char *host, int port, const char *keytype,
-    char *keystr, const char *keydisp, char **key_fingerprints, bool mismatch,
+    char *keystr, SeatDialogText *text, HelpCtx helpctx,
     void (*callback)(void *ctx, SeatPromptResult result), void *ctx);
 SeatPromptResult win_seat_confirm_weak_crypto_primitive(
     Seat *seat, const char *algtype, const char *algname,
@@ -234,13 +242,14 @@ SeatPromptResult win_seat_confirm_weak_crypto_primitive(
 SeatPromptResult win_seat_confirm_weak_cached_hostkey(
     Seat *seat, const char *algname, const char *betteralgs,
     void (*callback)(void *ctx, SeatPromptResult result), void *ctx);
+const SeatDialogPromptDescriptions *win_seat_prompt_descriptions(Seat *seat);
 
 /*
  * Windows-specific clipboard helper function shared with dialog.c,
  * which takes the data string in the system code page instead of
  * Unicode.
  */
-void write_aclip(int clipboard, char *, int, bool);
+void write_aclip(HWND hwnd, int clipboard, char *, int);
 
 #define WM_NETEVENT  (WM_APP + 5)
 
@@ -353,6 +362,7 @@ Socket *make_deferred_handle_socket(DeferredSocketOpener *opener,
                                     SockAddr *addr, int port, Plug *plug);
 void setup_handle_socket(Socket *s, HANDLE send_H, HANDLE recv_H,
                          HANDLE stderr_H, bool overlapped);
+void handle_socket_set_psb_prefix(Socket *s, const char *prefix);
 Socket *new_named_pipe_client(const char *pipename, Plug *plug); /* winnpc */
 Socket *new_named_pipe_listener(const char *pipename, Plug *plug); /* winnps */
 
@@ -373,7 +383,7 @@ struct ctlpos {
     int ypos, width;
     int xoff;
     int boxystart, boxid;
-    char *boxtext;
+    const char *boxtext;
 };
 void init_common_controls(void);       /* also does some DLL-loading */
 
@@ -389,7 +399,8 @@ int message_box(HWND owner, LPCTSTR text, LPCTSTR caption,
                 DWORD style, DWORD helpctxid);
 void MakeDlgItemBorderless(HWND parent, int id);
 char *GetDlgItemText_alloc(HWND hwnd, int id);
-void split_into_argv(char *, int *, char ***, char ***);
+void split_into_argv(char *, bool includes_program_name,
+                     int *, char ***, char ***);
 
 /*
  * Private structure for prefslist state. Only in the header file
@@ -432,56 +443,60 @@ struct dlgparam {
  */
 void ctlposinit(struct ctlpos *cp, HWND hwnd,
                 int leftborder, int rightborder, int topborder);
-HWND doctl(struct ctlpos *cp, RECT r,
-           char *wclass, int wstyle, int exstyle, char *wtext, int wid);
-void bartitle(struct ctlpos *cp, char *name, int id);
-void beginbox(struct ctlpos *cp, char *name, int idbox);
+HWND doctl(struct ctlpos *cp, RECT r, const char *wclass, int wstyle,
+           int exstyle, const char *wtext, int wid);
+void bartitle(struct ctlpos *cp, const char *name, int id);
+void beginbox(struct ctlpos *cp, const char *name, int idbox);
 void endbox(struct ctlpos *cp);
-void editboxfw(struct ctlpos *cp, bool password, bool readonly, char *text,
-               int staticid, int editid);
-void radioline(struct ctlpos *cp, char *text, int id, int nacross, ...);
+void editboxfw(struct ctlpos *cp, bool password, bool readonly,
+               const char *text, int staticid, int editid);
+void radioline(struct ctlpos *cp, const char *text, int id, int nacross, ...);
 void bareradioline(struct ctlpos *cp, int nacross, ...);
-void radiobig(struct ctlpos *cp, char *text, int id, ...);
-void checkbox(struct ctlpos *cp, char *text, int id);
-void statictext(struct ctlpos *cp, char *text, int lines, int id);
-void staticbtn(struct ctlpos *cp, char *stext, int sid,
-               char *btext, int bid);
-void static2btn(struct ctlpos *cp, char *stext, int sid,
-                char *btext1, int bid1, char *btext2, int bid2);
-void staticedit(struct ctlpos *cp, char *stext,
+void radiobig(struct ctlpos *cp, const char *text, int id, ...);
+void checkbox(struct ctlpos *cp, const char *text, int id);
+void button(struct ctlpos *cp, const char *btext, int bid, bool defbtn);
+void statictext(struct ctlpos *cp, const char *text, int lines, int id);
+void staticbtn(struct ctlpos *cp, const char *stext, int sid,
+               const char *btext, int bid);
+void static2btn(struct ctlpos *cp, const char *stext, int sid,
+                const char *btext1, int bid1, const char *btext2, int bid2);
+void staticedit(struct ctlpos *cp, const char *stext,
                 int sid, int eid, int percentedit);
-void staticddl(struct ctlpos *cp, char *stext,
+void staticddl(struct ctlpos *cp, const char *stext,
                int sid, int lid, int percentlist);
-void combobox(struct ctlpos *cp, char *text, int staticid, int listid);
-void staticpassedit(struct ctlpos *cp, char *stext,
+void combobox(struct ctlpos *cp, const char *text, int staticid, int listid);
+void staticpassedit(struct ctlpos *cp, const char *stext,
                     int sid, int eid, int percentedit);
-void bigeditctrl(struct ctlpos *cp, char *stext,
+void bigeditctrl(struct ctlpos *cp, const char *stext,
                  int sid, int eid, int lines);
-void ersatztab(struct ctlpos *cp, char *stext, int sid, int lid, int s2id);
-void editbutton(struct ctlpos *cp, char *stext, int sid,
-                int eid, char *btext, int bid);
-void sesssaver(struct ctlpos *cp, char *text,
+void ersatztab(struct ctlpos *cp, const char *stext, int sid, int lid,
+               int s2id);
+void editbutton(struct ctlpos *cp, const char *stext, int sid,
+                int eid, const char *btext, int bid);
+void sesssaver(struct ctlpos *cp, const char *text,
                int staticid, int editid, int listid, ...);
-void envsetter(struct ctlpos *cp, char *stext, int sid,
-               char *e1stext, int e1sid, int e1id,
-               char *e2stext, int e2sid, int e2id,
-               int listid, char *b1text, int b1id, char *b2text, int b2id);
-void charclass(struct ctlpos *cp, char *stext, int sid, int listid,
-               char *btext, int bid, int eid, char *s2text, int s2id);
-void colouredit(struct ctlpos *cp, char *stext, int sid, int listid,
-                char *btext, int bid, ...);
+void envsetter(struct ctlpos *cp, const char *stext, int sid,
+               const char *e1stext, int e1sid, int e1id,
+               const char *e2stext, int e2sid, int e2id,
+               int listid, const char *b1text, int b1id,
+               const char *b2text, int b2id);
+void charclass(struct ctlpos *cp, const char *stext, int sid, int listid,
+               const char *btext, int bid, int eid, const char *s2text,
+               int s2id);
+void colouredit(struct ctlpos *cp, const char *stext, int sid, int listid,
+                const char *btext, int bid, ...);
 void prefslist(struct prefslist *hdl, struct ctlpos *cp, int lines,
-               char *stext, int sid, int listid, int upbid, int dnbid);
+               const char *stext, int sid, int listid, int upbid, int dnbid);
 int handle_prefslist(struct prefslist *hdl,
                      int *array, int maxmemb,
                      bool is_dlmsg, HWND hwnd,
                      WPARAM wParam, LPARAM lParam);
 void progressbar(struct ctlpos *cp, int id);
-void fwdsetter(struct ctlpos *cp, int listid, char *stext, int sid,
-               char *e1stext, int e1sid, int e1id,
-               char *e2stext, int e2sid, int e2id,
-               char *btext, int bid,
-               char *r1text, int r1id, char *r2text, int r2id);
+void fwdsetter(struct ctlpos *cp, int listid, const char *stext, int sid,
+               const char *e1stext, int e1sid, int e1id,
+               const char *e2stext, int e2sid, int e2id,
+               const char *btext, int bid,
+               const char *r1text, int r1id, const char *r2text, int r2id);
 
 void dlg_auto_set_fixed_pitch_flag(dlgparam *dlg);
 bool dlg_get_fixed_pitch_flag(dlgparam *dlg);
@@ -720,9 +735,13 @@ char *get_jumplist_registry_entries(void);
 #define CLIPUI_DEFAULT_INS CLIPUI_EXPLICIT
 
 /* In utils */
-HKEY open_regkey_fn(bool create, HKEY base, const char *path, ...);
-#define open_regkey(create, base, ...) \
-    open_regkey_fn(create, base, __VA_ARGS__, (const char *)NULL)
+HKEY open_regkey_fn(bool create, bool write, HKEY base, const char *path, ...);
+#define open_regkey_ro(base, ...) \
+    open_regkey_fn(false, false, base, __VA_ARGS__, (const char *)NULL)
+#define open_regkey_rw(base, ...) \
+    open_regkey_fn(false, true, base, __VA_ARGS__, (const char *)NULL)
+#define create_regkey(base, ...) \
+    open_regkey_fn(true, true, base, __VA_ARGS__, (const char *)NULL)
 void close_regkey(HKEY key);
 void del_regkey(HKEY key, const char *name);
 char *enum_regkey(HKEY key, int index);
@@ -778,5 +797,7 @@ bool aux_match_done(AuxMatchOpt *amo);
 
 char *save_screenshot(HWND hwnd, const char *outfile);
 void gui_terminal_ready(HWND hwnd, Seat *seat, Backend *backend);
+
+void setup_gui_timing(void);
 
 #endif /* PUTTY_WINDOWS_PLATFORM_H */

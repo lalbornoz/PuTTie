@@ -30,6 +30,7 @@ struct ssh2_userauth_state {
     Filename *keyfile, *detached_cert_file;
     bool show_banner, tryagent, notrivialauth, change_username;
     char *hostname, *fullhostname;
+    int port;
     char *default_username;
     bool try_ki_auth, try_gssapi_auth, try_gssapi_kex_auth, gssapi_fwd;
 
@@ -89,6 +90,16 @@ struct ssh2_userauth_state {
     StripCtrlChars *banner_scc;
     bool banner_scc_initialised;
 
+    char *authplugin_cmd;
+    Socket *authplugin;
+    uint32_t authplugin_version;
+    Plug authplugin_plug;
+    bufchain authplugin_bc;
+    strbuf *authplugin_incoming_msg;
+    size_t authplugin_backlog;
+    bool authplugin_eof;
+    bool authplugin_ki_active;
+
     StripCtrlChars *ki_scc;
     bool ki_scc_initialised;
     bool ki_printed_header;
@@ -116,6 +127,11 @@ static void ssh2_userauth_add_session_id(
 static PktOut *ssh2_userauth_gss_packet(
     struct ssh2_userauth_state *s, const char *authtype);
 #endif
+static bool ssh2_userauth_ki_setup_prompts(
+    struct ssh2_userauth_state *s, BinarySource *src, bool plugin);
+static bool ssh2_userauth_ki_run_prompts(struct ssh2_userauth_state *s);
+static void ssh2_userauth_ki_write_responses(
+    struct ssh2_userauth_state *s, BinarySink *bs);
 
 static const PacketProtocolLayerVtable ssh2_userauth_vtable = {
     .free = ssh2_userauth_free,
@@ -129,12 +145,13 @@ static const PacketProtocolLayerVtable ssh2_userauth_vtable = {
 
 PacketProtocolLayer *ssh2_userauth_new(
     PacketProtocolLayer *successor_layer,
-    const char *hostname, const char *fullhostname,
+    const char *hostname, int port, const char *fullhostname,
     Filename *keyfile, Filename *detached_cert_file,
     bool show_banner, bool tryagent, bool notrivialauth,
     const char *default_username, bool change_username,
     bool try_ki_auth, bool try_gssapi_auth, bool try_gssapi_kex_auth,
-    bool gssapi_fwd, struct ssh_connection_shared_gss_state *shgss)
+    bool gssapi_fwd, struct ssh_connection_shared_gss_state *shgss,
+    const char *authplugin_cmd)
 {
     struct ssh2_userauth_state *s = snew(struct ssh2_userauth_state);
     memset(s, 0, sizeof(*s));
@@ -142,6 +159,7 @@ PacketProtocolLayer *ssh2_userauth_new(
 
     s->successor_layer = successor_layer;
     s->hostname = dupstr(hostname);
+    s->port = port;
     s->fullhostname = dupstr(fullhostname);
     s->keyfile = filename_copy(keyfile);
     s->detached_cert_file = filename_copy(detached_cert_file);
@@ -159,6 +177,8 @@ PacketProtocolLayer *ssh2_userauth_new(
     s->is_trivial_auth = true;
     bufchain_init(&s->banner);
     bufchain_sink_init(&s->banner_bs, &s->banner);
+    s->authplugin_cmd = dupstr(authplugin_cmd);
+    bufchain_init(&s->authplugin_bc);
 
     return &s->ppl;
 }
@@ -211,6 +231,12 @@ static void ssh2_userauth_free(PacketProtocolLayer *ppl)
         stripctrl_free(s->banner_scc);
     if (s->ki_scc)
         stripctrl_free(s->ki_scc);
+    sfree(s->authplugin_cmd);
+    if (s->authplugin)
+        sk_close(s->authplugin);
+    bufchain_clear(&s->authplugin_bc);
+    if (s->authplugin_incoming_msg)
+        strbuf_free(s->authplugin_incoming_msg);
     sfree(s);
 }
 
@@ -279,6 +305,133 @@ static bool ssh2_userauth_signflags(struct ssh2_userauth_state *s,
 
     *algname = ssh_keyalg_alternate_ssh_id(alg, *signflags);
     return true;
+}
+
+static void authplugin_plug_log(Plug *plug, PlugLogType type, SockAddr *addr,
+                                int port, const char *err_msg, int err_code)
+{
+    struct ssh2_userauth_state *s = container_of(
+        plug, struct ssh2_userauth_state, authplugin_plug);
+    PacketProtocolLayer *ppl = &s->ppl; /* for ppl_logevent */
+
+    if (type == PLUGLOG_PROXY_MSG)
+        ppl_logevent("%s", err_msg);
+}
+
+static void authplugin_plug_closing(
+    Plug *plug, PlugCloseType type, const char *error_msg)
+{
+    struct ssh2_userauth_state *s = container_of(
+        plug, struct ssh2_userauth_state, authplugin_plug);
+    s->authplugin_eof = true;
+    queue_idempotent_callback(&s->ppl.ic_process_queue);
+}
+
+static void authplugin_plug_receive(
+    Plug *plug, int urgent, const char *data, size_t len)
+{
+    struct ssh2_userauth_state *s = container_of(
+        plug, struct ssh2_userauth_state, authplugin_plug);
+    bufchain_add(&s->authplugin_bc, data, len);
+    queue_idempotent_callback(&s->ppl.ic_process_queue);
+}
+
+static void authplugin_plug_sent(Plug *plug, size_t bufsize)
+{
+    struct ssh2_userauth_state *s = container_of(
+        plug, struct ssh2_userauth_state, authplugin_plug);
+    s->authplugin_backlog = bufsize;
+    queue_idempotent_callback(&s->ppl.ic_process_queue);
+}
+
+static const PlugVtable authplugin_plugvt = {
+    .log = authplugin_plug_log,
+    .closing = authplugin_plug_closing,
+    .receive = authplugin_plug_receive,
+    .sent = authplugin_plug_sent,
+};
+
+static strbuf *authplugin_newmsg(uint8_t type)
+{
+    strbuf *amsg = strbuf_new_nm();
+    put_uint32(amsg, 0);               /* fill in later */
+    put_byte(amsg, type);
+    return amsg;
+}
+
+static void authplugin_send_free(struct ssh2_userauth_state *s, strbuf *amsg)
+{
+    PUT_32BIT_MSB_FIRST(amsg->u, amsg->len - 4);
+    assert(s->authplugin);
+    s->authplugin_backlog = sk_write(s->authplugin, amsg->u, amsg->len);
+    strbuf_free(amsg);
+}
+
+static bool authplugin_expect_msg(struct ssh2_userauth_state *s,
+                                  unsigned *type, BinarySource *src)
+{
+    if (s->authplugin_eof) {
+        *type = PLUGIN_EOF;
+        return true;
+    }
+    uint8_t len[4];
+    if (!bufchain_try_fetch(&s->authplugin_bc, len, 4))
+        return false;
+    size_t size = GET_32BIT_MSB_FIRST(len);
+    if (bufchain_size(&s->authplugin_bc) - 4 < size)
+        return false;
+    if (s->authplugin_incoming_msg) {
+        strbuf_clear(s->authplugin_incoming_msg);
+    } else {
+        s->authplugin_incoming_msg = strbuf_new_nm();
+    }
+    bufchain_consume(&s->authplugin_bc, 4); /* eat length field */
+    bufchain_fetch_consume(
+        &s->authplugin_bc, strbuf_append(s->authplugin_incoming_msg, size),
+        size);
+    BinarySource_BARE_INIT_PL(
+        src, ptrlen_from_strbuf(s->authplugin_incoming_msg));
+    *type = get_byte(src);
+    if (get_err(src))
+        *type = PLUGIN_NOTYPE;
+    return true;
+}
+
+static void authplugin_bad_packet(struct ssh2_userauth_state *s,
+                                  unsigned type, const char *fmt, ...)
+{
+    strbuf *msg = strbuf_new();
+    switch (type) {
+      case PLUGIN_EOF:
+        put_dataz(msg, "Unexpected end of file from auth helper plugin");
+        break;
+      case PLUGIN_NOTYPE:
+        put_dataz(msg, "Received malformed packet from auth helper plugin "
+                  "(too short to have a type code)");
+        break;
+      default:
+        put_fmt(msg, "Received unknown message type %u "
+                "from auth helper plugin", type);
+        break;
+
+      #define CASEDECL(name, value)                                     \
+      case name:                                                        \
+        put_fmt(msg, "Received unexpected %s message from auth helper " \
+                "plugin", #name);                                       \
+        break;
+        AUTHPLUGIN_MSG_NAMES(CASEDECL);
+      #undef CASEDECL
+    }
+    if (fmt) {
+        put_dataz(msg, " (");
+        va_list ap;
+        va_start(ap, fmt);
+        put_fmt(msg, fmt, ap);
+        va_end(ap);
+        put_dataz(msg, ")");
+    }
+    ssh_sw_abort(s->ppl.ssh, "%s", msg->s);
+    strbuf_free(msg);
 }
 
 static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
@@ -495,6 +648,74 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
       done_agent_query:;
     }
 
+    s->got_username = false;
+
+    if (*s->authplugin_cmd) {
+        s->authplugin_plug.vt = &authplugin_plugvt;
+        s->authplugin = platform_start_subprocess(
+            s->authplugin_cmd, &s->authplugin_plug, "plugin");
+        ppl_logevent("Started authentication plugin: %s", s->authplugin_cmd);
+    }
+
+    if (s->authplugin) {
+        strbuf *amsg = authplugin_newmsg(PLUGIN_INIT);
+        put_uint32(amsg, PLUGIN_PROTOCOL_MAX_VERSION);
+        put_stringz(amsg, s->hostname);
+        put_uint32(amsg, s->port);
+        put_stringz(amsg, s->username ? s->username : "");
+        authplugin_send_free(s, amsg);
+
+        BinarySource src[1];
+        unsigned type;
+        crMaybeWaitUntilV(authplugin_expect_msg(s, &type, src));
+        switch (type) {
+          case PLUGIN_INIT_RESPONSE: {
+            s->authplugin_version = get_uint32(src);
+            ptrlen username = get_string(src);
+            if (get_err(src)) {
+                ssh_sw_abort(s->ppl.ssh, "Received malformed "
+                             "PLUGIN_INIT_RESPONSE from auth helper plugin");
+                return;
+            }
+            if (s->authplugin_version > PLUGIN_PROTOCOL_MAX_VERSION) {
+                ssh_sw_abort(s->ppl.ssh, "Auth helper plugin announced "
+                             "unsupported version number %"PRIu32,
+                             s->authplugin_version);
+                return;
+            }
+            if (username.len) {
+                sfree(s->default_username);
+                s->default_username = mkstr(username);
+                ppl_logevent("Authentication plugin set username '%s'",
+                             s->default_username);
+            }
+            break;
+          }
+          case PLUGIN_INIT_FAILURE: {
+            ptrlen message = get_string(src);
+            if (get_err(src)) {
+                ssh_sw_abort(s->ppl.ssh, "Received malformed "
+                             "PLUGIN_INIT_FAILURE from auth helper plugin");
+                return;
+            }
+            /* This is a controlled error, so we need not completely
+             * abandon the connection. Instead, inform the user, and
+             * proceed as if the plugin was not present */
+            ppl_printf("Authentication plugin failed to initialise:\r\n");
+            seat_set_trust_status(s->ppl.seat, false);
+            ppl_printf("%.*s\r\n", PTRLEN_PRINTF(message));
+            seat_set_trust_status(s->ppl.seat, true);
+            sk_close(s->authplugin);
+            s->authplugin = NULL;
+            break;
+          }
+          default:
+            authplugin_bad_packet(s, type, "expected PLUGIN_INIT_RESPONSE or "
+                                  "PLUGIN_INIT_FAILURE");
+            return;
+        }
+    }
+
     /*
      * We repeat this whole loop, including the username prompt,
      * until we manage a successful authentication. If the user
@@ -519,7 +740,6 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
      *    the username they will want to be able to get back and
      *    retype it!
      */
-    s->got_username = false;
     while (1) {
         /*
          * Get a username.
@@ -532,6 +752,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
              */
         } else if ((s->username = s->default_username) == NULL) {
             s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
+            s->cur_prompt->utf8 = true;
             s->cur_prompt->to_server = true;
             s->cur_prompt->from_server = false;
             s->cur_prompt->name = dupstr("SSH login name");
@@ -870,7 +1091,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                     agentreq = strbuf_new_for_agent_query();
                     put_byte(agentreq, SSH2_AGENTC_SIGN_REQUEST);
                     put_stringpl(agentreq, ptrlen_from_strbuf(
-                            s->agent_keys[s->agent_key_index].blob));
+                                     s->agent_keys[s->agent_key_index].blob));
                     /* Now the data to be signed... */
                     sigdata = strbuf_new();
                     ssh2_userauth_add_session_id(s, sigdata);
@@ -1208,23 +1429,24 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                      * When acquire_cred yields no useful expiration, go with
                      * the service ticket expiration.
                      */
-                    s->gss_stat = s->shgss->lib->init_sec_context
-                        (s->shgss->lib,
-                         &s->shgss->ctx,
-                         s->shgss->srv_name,
-                         s->gssapi_fwd,
-                         &s->gss_rcvtok,
-                         &s->gss_sndtok,
-                         NULL,
-                         NULL);
+                    s->gss_stat = s->shgss->lib->init_sec_context(
+                        s->shgss->lib,
+                        &s->shgss->ctx,
+                        s->shgss->srv_name,
+                        s->gssapi_fwd,
+                        &s->gss_rcvtok,
+                        &s->gss_sndtok,
+                        NULL,
+                        NULL);
 
                     if (s->gss_stat!=SSH_GSS_S_COMPLETE &&
                         s->gss_stat!=SSH_GSS_S_CONTINUE_NEEDED) {
                         ppl_logevent("GSSAPI authentication initialisation "
                                      "failed");
 
-                        if (s->shgss->lib->display_status(s->shgss->lib,
-                                s->shgss->ctx, &s->gss_buf) == SSH_GSS_OK) {
+                        if (s->shgss->lib->display_status(
+                                s->shgss->lib, s->shgss->ctx, &s->gss_buf)
+                            == SSH_GSS_OK) {
                             ppl_logevent("%s", (char *)s->gss_buf.value);
                             sfree(s->gss_buf.value);
                         }
@@ -1333,6 +1555,64 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 
                 ppl_logevent("Attempting keyboard-interactive authentication");
 
+                if (s->authplugin) {
+                    strbuf *amsg = authplugin_newmsg(PLUGIN_PROTOCOL);
+                    put_stringz(amsg, "keyboard-interactive");
+                    authplugin_send_free(s, amsg);
+
+                    BinarySource src[1];
+                    unsigned type;
+                    crMaybeWaitUntilV(authplugin_expect_msg(s, &type, src));
+                    switch (type) {
+                      case PLUGIN_PROTOCOL_REJECT: {
+                        ptrlen message = PTRLEN_LITERAL("");
+                        if (s->authplugin_version >= 2) {
+                            /* draft protocol didn't include a message here */
+                            message = get_string(src);
+                        }
+                        if (get_err(src)) {
+                            ssh_sw_abort(s->ppl.ssh, "Received malformed "
+                                         "PLUGIN_PROTOCOL_REJECT from auth "
+                                         "helper plugin");
+                            return;
+                        }
+                        if (message.len) {
+                            /* If the plugin sent a message about
+                             * _why_ it didn't want to do k-i, pass
+                             * that message on to the user. (It might
+                             * say, for example, what went wrong when
+                             * it tried to open its config file.) */
+                            ppl_printf("Authentication plugin failed to set "
+                                       "up keyboard-interactive "
+                                       "authentication:\r\n");
+                            seat_set_trust_status(s->ppl.seat, false);
+                            ppl_printf("%.*s\r\n", PTRLEN_PRINTF(message));
+                            seat_set_trust_status(s->ppl.seat, true);
+                            ppl_logevent("Authentication plugin declined to "
+                                         "help with keyboard-interactive: "
+                                         "%.*s", PTRLEN_PRINTF(message));
+                        } else {
+                            ppl_logevent("Authentication plugin declined to "
+                                         "help with keyboard-interactive");
+                        }
+                        s->authplugin_ki_active = false;
+                        break;
+                      }
+                      case PLUGIN_PROTOCOL_ACCEPT:
+                        s->authplugin_ki_active = true;
+                        ppl_logevent("Authentication plugin agreed to help "
+                                     "with keyboard-interactive");
+                        break;
+                      default:
+                        authplugin_bad_packet(
+                            s, type, "expected PLUGIN_PROTOCOL_ACCEPT or "
+                            "PLUGIN_PROTOCOL_REJECT");
+                        return;
+                    }
+                } else {
+                    s->authplugin_ki_active = false;
+                }
+
                 if (!s->ki_scc_initialised) {
                     s->ki_scc = seat_stripctrl_new(
                         s->ppl.seat, NULL, SIC_KI_PROMPTS);
@@ -1356,170 +1636,123 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                 s->ki_printed_header = false;
 
                 /*
-                 * Loop while the server continues to send INFO_REQUESTs.
+                 * Loop while we still have prompts to send to the user.
                  */
-                while (pktin->type == SSH2_MSG_USERAUTH_INFO_REQUEST) {
-                    ptrlen name, inst;
-                    strbuf *sb;
-
+                if (!s->authplugin_ki_active) {
                     /*
-                     * We've got a fresh USERAUTH_INFO_REQUEST.
-                     * Get the preamble and start building a prompt.
+                     * The simple case: INFO_REQUESTs are passed on to
+                     * the user, and responses are sent straight back
+                     * to the SSH server.
                      */
-                    name = get_string(pktin);
-                    inst = get_string(pktin);
-                    get_string(pktin); /* skip language tag */
-                    s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
-                    s->cur_prompt->to_server = true;
-                    s->cur_prompt->from_server = true;
+                    while (pktin->type == SSH2_MSG_USERAUTH_INFO_REQUEST) {
+                        if (!ssh2_userauth_ki_setup_prompts(
+                                s, BinarySource_UPCAST(pktin), false))
+                            return;
+                        crMaybeWaitUntilV(ssh2_userauth_ki_run_prompts(s));
 
-                    /*
-                     * Get any prompt(s) from the packet.
-                     */
-                    s->num_prompts = get_uint32(pktin);
-                    for (uint32_t i = 0; i < s->num_prompts; i++) {
-                        s->is_trivial_auth = false;
-                        ptrlen prompt = get_string(pktin);
-                        bool echo = get_bool(pktin);
-
-                        if (get_err(pktin)) {
-                            ssh_proto_error(
-                                s->ppl.ssh, "Server sent truncated "
-                                "SSH_MSG_USERAUTH_INFO_REQUEST packet");
+                        if (spr_is_abort(s->spr)) {
+                            /*
+                             * Failed to get responses. Terminate.
+                             */
+                            free_prompts(s->cur_prompt);
+                            s->cur_prompt = NULL;
+                            ssh_bpp_queue_disconnect(
+                                s->ppl.bpp, "Unable to authenticate",
+                                SSH2_DISCONNECT_AUTH_CANCELLED_BY_USER);
+                            ssh_spr_close(s->ppl.ssh, s->spr, "keyboard-"
+                                          "interactive authentication prompt");
                             return;
                         }
 
-                        sb = strbuf_new();
-                        if (!prompt.len) {
-                            put_datapl(sb, PTRLEN_LITERAL(
-                                "<server failed to send prompt>: "));
-                        } else if (s->ki_scc) {
-                            stripctrl_retarget(
-                                s->ki_scc, BinarySink_UPCAST(sb));
-                            put_datapl(s->ki_scc, prompt);
-                            stripctrl_retarget(s->ki_scc, NULL);
-                        } else {
-                            put_datapl(sb, prompt);
-                        }
-                        add_prompt(s->cur_prompt, strbuf_to_str(sb), echo);
-                    }
-
-                    /*
-                     * Make the header strings. This includes the
-                     * 'name' (optional dialog-box title) and
-                     * 'instruction' from the server.
-                     *
-                     * First, display our disambiguating header line
-                     * if this is the first time round the loop -
-                     * _unless_ the server has sent a completely empty
-                     * k-i packet with no prompts _or_ text, which
-                     * apparently some do. In that situation there's
-                     * no need to alert the user that the following
-                     * text is server- supplied, because, well, _what_
-                     * text?
-                     *
-                     * We also only do this if we got a stripctrl,
-                     * because if we didn't, that suggests this is all
-                     * being done via dialog boxes anyway.
-                     */
-                    if (!s->ki_printed_header && s->ki_scc &&
-                        (s->num_prompts || name.len || inst.len)) {
-                        seat_antispoof_msg(
-                            ppl_get_iseat(&s->ppl), "Keyboard-interactive "
-                            "authentication prompts from server:");
-                        s->ki_printed_header = true;
-                        seat_set_trust_status(s->ppl.seat, false);
-                    }
-
-                    sb = strbuf_new();
-                    if (name.len) {
-                        if (s->ki_scc) {
-                            stripctrl_retarget(s->ki_scc,
-                                               BinarySink_UPCAST(sb));
-                            put_datapl(s->ki_scc, name);
-                            stripctrl_retarget(s->ki_scc, NULL);
-                        } else {
-                            put_datapl(sb, name);
-                        }
-                        s->cur_prompt->name_reqd = true;
-                    } else {
-                        put_datapl(sb, PTRLEN_LITERAL(
-                            "SSH server authentication"));
-                        s->cur_prompt->name_reqd = false;
-                    }
-                    s->cur_prompt->name = strbuf_to_str(sb);
-
-                    sb = strbuf_new();
-                    if (inst.len) {
-                        if (s->ki_scc) {
-                            stripctrl_retarget(s->ki_scc,
-                                               BinarySink_UPCAST(sb));
-                            put_datapl(s->ki_scc, inst);
-                            stripctrl_retarget(s->ki_scc, NULL);
-                        } else {
-                            put_datapl(sb, inst);
-                        }
-                        s->cur_prompt->instr_reqd = true;
-                    } else {
-                        s->cur_prompt->instr_reqd = false;
-                    }
-                    if (sb->len)
-                        s->cur_prompt->instruction = strbuf_to_str(sb);
-                    else
-                        strbuf_free(sb);
-
-                    /*
-                     * Our prompts_t is fully constructed now. Get the
-                     * user's response(s).
-                     */
-                    s->spr = seat_get_userpass_input(
-                        ppl_get_iseat(&s->ppl), s->cur_prompt);
-                    while (s->spr.kind == SPRK_INCOMPLETE) {
-                        crReturnV;
-                        s->spr = seat_get_userpass_input(
-                            ppl_get_iseat(&s->ppl), s->cur_prompt);
-                    }
-                    if (spr_is_abort(s->spr)) {
                         /*
-                         * Failed to get responses. Terminate.
+                         * Send the response(s) to the server.
                          */
-                        free_prompts(s->cur_prompt);
-                        s->cur_prompt = NULL;
-                        ssh_bpp_queue_disconnect(
-                            s->ppl.bpp, "Unable to authenticate",
-                            SSH2_DISCONNECT_AUTH_CANCELLED_BY_USER);
-                        ssh_spr_close(s->ppl.ssh, s->spr, "keyboard-"
-                                      "interactive authentication prompt");
-                        return;
+                        s->pktout = ssh_bpp_new_pktout(
+                            s->ppl.bpp, SSH2_MSG_USERAUTH_INFO_RESPONSE);
+                        ssh2_userauth_ki_write_responses(
+                            s, BinarySink_UPCAST(s->pktout));
+                        s->pktout->minlen = 256;
+                        pq_push(s->ppl.out_pq, s->pktout);
+
+                        /*
+                         * Get the next packet in case it's another
+                         * INFO_REQUEST.
+                         */
+                        crMaybeWaitUntilV(
+                            (pktin = ssh2_userauth_pop(s)) != NULL);
                     }
-
+                } else {
                     /*
-                     * Send the response(s) to the server.
+                     * The case where a plugin is involved:
+                     * INFO_REQUEST from the server is sent to the
+                     * plugin, which sends responses that we hand back
+                     * to the server. But in the meantime, the plugin
+                     * might send USER_REQUEST for us to pass to the
+                     * user, and then we send responses to that.
                      */
-                    s->pktout = ssh_bpp_new_pktout(
-                        s->ppl.bpp, SSH2_MSG_USERAUTH_INFO_RESPONSE);
-                    put_uint32(s->pktout, s->num_prompts);
-                    for (uint32_t i = 0; i < s->num_prompts; i++) {
-                        put_stringz(s->pktout, prompt_get_result_ref(
-                                        s->cur_prompt->prompts[i]));
+                    while (pktin->type == SSH2_MSG_USERAUTH_INFO_REQUEST) {
+                        strbuf *amsg = authplugin_newmsg(
+                            PLUGIN_KI_SERVER_REQUEST);
+                        put_datapl(amsg, get_data(pktin, get_avail(pktin)));
+                        authplugin_send_free(s, amsg);
+
+                        BinarySource src[1];
+                        unsigned type;
+                        while (true) {
+                            crMaybeWaitUntilV(authplugin_expect_msg(
+                                                  s, &type, src));
+                            if (type != PLUGIN_KI_USER_REQUEST)
+                                break;
+
+                            if (!ssh2_userauth_ki_setup_prompts(s, src, true))
+                                return;
+                            crMaybeWaitUntilV(ssh2_userauth_ki_run_prompts(s));
+
+                            if (spr_is_abort(s->spr)) {
+                                /*
+                                 * Failed to get responses. Terminate.
+                                 */
+                                free_prompts(s->cur_prompt);
+                                s->cur_prompt = NULL;
+                                ssh_bpp_queue_disconnect(
+                                    s->ppl.bpp, "Unable to authenticate",
+                                    SSH2_DISCONNECT_AUTH_CANCELLED_BY_USER);
+                                ssh_spr_close(
+                                    s->ppl.ssh, s->spr, "keyboard-"
+                                    "interactive authentication prompt");
+                                return;
+                            }
+
+                            /*
+                             * Send the responses on to the plugin.
+                             */
+                            strbuf *amsg = authplugin_newmsg(
+                                PLUGIN_KI_USER_RESPONSE);
+                            ssh2_userauth_ki_write_responses(
+                                s, BinarySink_UPCAST(amsg));
+                            authplugin_send_free(s, amsg);
+                        }
+
+                        if (type != PLUGIN_KI_SERVER_RESPONSE) {
+                            authplugin_bad_packet(
+                                s, type, "expected PLUGIN_KI_SERVER_RESPONSE "
+                                "or PLUGIN_PROTOCOL_USER_REQUEST");
+                            return;
+                        }
+
+                        s->pktout = ssh_bpp_new_pktout(
+                            s->ppl.bpp, SSH2_MSG_USERAUTH_INFO_RESPONSE);
+                        put_datapl(s->pktout, get_data(src, get_avail(src)));
+                        s->pktout->minlen = 256;
+                        pq_push(s->ppl.out_pq, s->pktout);
+
+                        /*
+                         * Get the next packet in case it's another
+                         * INFO_REQUEST.
+                         */
+                        crMaybeWaitUntilV(
+                            (pktin = ssh2_userauth_pop(s)) != NULL);
                     }
-                    s->pktout->minlen = 256;
-                    pq_push(s->ppl.out_pq, s->pktout);
-
-                    /*
-                     * Free the prompts structure from this iteration.
-                     * If there's another, a new one will be allocated
-                     * when we return to the top of this while loop.
-                     */
-                    free_prompts(s->cur_prompt);
-                    s->cur_prompt = NULL;
-
-                    /*
-                     * Get the next packet in case it's another
-                     * INFO_REQUEST.
-                     */
-                    crMaybeWaitUntilV((pktin = ssh2_userauth_pop(s)) != NULL);
-
                 }
 
                 /*
@@ -1529,7 +1762,9 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                     seat_set_trust_status(s->ppl.seat, true);
                     seat_antispoof_msg(
                         ppl_get_iseat(&s->ppl),
-                        "End of keyboard-interactive prompts from server");
+                        (s->authplugin_ki_active ?
+                         "End of keyboard-interactive prompts from plugin" :
+                         "End of keyboard-interactive prompts from server"));
                 }
 
                 /*
@@ -1537,6 +1772,41 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                  */
                 pq_push_front(s->ppl.in_pq, pktin);
 
+                if (s->authplugin_ki_active) {
+                    /*
+                     * As our last communication with the plugin, tell
+                     * it whether the k-i authentication succeeded.
+                     */
+                    int plugin_msg = -1;
+                    if (pktin->type == SSH2_MSG_USERAUTH_SUCCESS) {
+                        plugin_msg = PLUGIN_AUTH_SUCCESS;
+                    } else if (pktin->type == SSH2_MSG_USERAUTH_FAILURE) {
+                        /*
+                         * Peek in the failure packet to see if it's a
+                         * partial success.
+                         */
+                        BinarySource src[1];
+                        BinarySource_BARE_INIT(
+                            src, get_ptr(pktin), get_avail(pktin));
+                        get_string(pktin); /* skip methods */
+                        bool partial_success = get_bool(pktin);
+                        if (!get_err(src)) {
+                            plugin_msg = partial_success ?
+                                PLUGIN_AUTH_SUCCESS : PLUGIN_AUTH_FAILURE;
+                        }
+                    }
+
+                    if (plugin_msg >= 0) {
+                        strbuf *amsg = authplugin_newmsg(plugin_msg);
+                        authplugin_send_free(s, amsg);
+
+                        /* Wait until we've actually sent it, in case
+                         * we close the connection to the plugin
+                         * before that outgoing message has left our
+                         * own buffers */
+                        crMaybeWaitUntilV(s->authplugin_backlog == 0);
+                    }
+                }
             } else if (s->can_passwd) {
                 s->is_trivial_auth = false;
                 /*
@@ -1547,6 +1817,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                 s->ppl.bpp->pls->actx = SSH2_PKTCTX_PASSWORD;
 
                 s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
+                s->cur_prompt->utf8 = true;
                 s->cur_prompt->to_server = true;
                 s->cur_prompt->from_server = false;
                 s->cur_prompt->name = dupstr("SSH password");
@@ -1635,6 +1906,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                     prompt = get_string(pktin);
 
                     s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
+                    s->cur_prompt->utf8 = true;
                     s->cur_prompt->to_server = true;
                     s->cur_prompt->from_server = false;
                     s->cur_prompt->name = dupstr("New SSH password");
@@ -1810,6 +2082,145 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
     }
 
     crFinishV;
+}
+
+static bool ssh2_userauth_ki_setup_prompts(
+    struct ssh2_userauth_state *s, BinarySource *src, bool plugin)
+{
+    ptrlen name, inst;
+    strbuf *sb;
+
+    /*
+     * We've got a fresh USERAUTH_INFO_REQUEST. Get the preamble and
+     * start building a prompt.
+     */
+    name = get_string(src);
+    inst = get_string(src);
+    get_string(src); /* skip language tag */
+    s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
+    s->cur_prompt->utf8 = true;
+    s->cur_prompt->to_server = true;
+    s->cur_prompt->from_server = true;
+
+    /*
+     * Get any prompt(s) from the packet.
+     */
+    s->num_prompts = get_uint32(src);
+    for (uint32_t i = 0; i < s->num_prompts; i++) {
+        s->is_trivial_auth = false;
+        ptrlen prompt = get_string(src);
+        bool echo = get_bool(src);
+
+        if (get_err(src)) {
+            ssh_proto_error(s->ppl.ssh, "%s sent truncated %s packet",
+                            plugin ? "Plugin" : "Server",
+                            plugin ? "PLUGIN_KI_USER_REQUEST" :
+                            "SSH_MSG_USERAUTH_INFO_REQUEST");
+            return false;
+        }
+
+        sb = strbuf_new();
+        if (!prompt.len) {
+            put_fmt(sb, "<%s failed to send prompt>: ",
+                    plugin ? "plugin" : "server");
+        } else if (s->ki_scc) {
+            stripctrl_retarget(s->ki_scc, BinarySink_UPCAST(sb));
+            put_datapl(s->ki_scc, prompt);
+            stripctrl_retarget(s->ki_scc, NULL);
+        } else {
+            put_datapl(sb, prompt);
+        }
+        add_prompt(s->cur_prompt, strbuf_to_str(sb), echo);
+    }
+
+    /*
+     * Make the header strings. This includes the 'name' (optional
+     * dialog-box title) and 'instruction' from the server.
+     *
+     * First, display our disambiguating header line if this is the
+     * first time round the loop - _unless_ the server has sent a
+     * completely empty k-i packet with no prompts _or_ text, which
+     * apparently some do. In that situation there's no need to alert
+     * the user that the following text is server- supplied, because,
+     * well, _what_ text?
+     *
+     * We also only do this if we got a stripctrl, because if we
+     * didn't, that suggests this is all being done via dialog boxes
+     * anyway.
+     */
+    if (!s->ki_printed_header && s->ki_scc &&
+        (s->num_prompts || name.len || inst.len)) {
+        seat_antispoof_msg(
+            ppl_get_iseat(&s->ppl),
+            (plugin ?
+             "Keyboard-interactive authentication prompts from plugin:" :
+             "Keyboard-interactive authentication prompts from server:"));
+        s->ki_printed_header = true;
+        seat_set_trust_status(s->ppl.seat, false);
+    }
+
+    sb = strbuf_new();
+    if (name.len) {
+        if (s->ki_scc) {
+            stripctrl_retarget(s->ki_scc, BinarySink_UPCAST(sb));
+            put_datapl(s->ki_scc, name);
+            stripctrl_retarget(s->ki_scc, NULL);
+        } else {
+            put_datapl(sb, name);
+        }
+        s->cur_prompt->name_reqd = true;
+    } else {
+        if (plugin)
+            put_datapl(sb, PTRLEN_LITERAL(
+                           "Communication with authentication plugin"));
+        else
+            put_datapl(sb, PTRLEN_LITERAL("SSH server authentication"));
+        s->cur_prompt->name_reqd = false;
+    }
+    s->cur_prompt->name = strbuf_to_str(sb);
+
+    sb = strbuf_new();
+    if (inst.len) {
+        if (s->ki_scc) {
+            stripctrl_retarget(s->ki_scc, BinarySink_UPCAST(sb));
+            put_datapl(s->ki_scc, inst);
+            stripctrl_retarget(s->ki_scc, NULL);
+        } else {
+            put_datapl(sb, inst);
+        }
+        s->cur_prompt->instr_reqd = true;
+    } else {
+        s->cur_prompt->instr_reqd = false;
+    }
+    if (sb->len)
+        s->cur_prompt->instruction = strbuf_to_str(sb);
+    else
+        strbuf_free(sb);
+
+    return true;
+}
+
+static bool ssh2_userauth_ki_run_prompts(struct ssh2_userauth_state *s)
+{
+    s->spr = seat_get_userpass_input(
+        ppl_get_iseat(&s->ppl), s->cur_prompt);
+    return s->spr.kind != SPRK_INCOMPLETE;
+}
+
+static void ssh2_userauth_ki_write_responses(
+    struct ssh2_userauth_state *s, BinarySink *bs)
+{
+    put_uint32(bs, s->num_prompts);
+    for (uint32_t i = 0; i < s->num_prompts; i++)
+        put_stringz(bs, prompt_get_result_ref(s->cur_prompt->prompts[i]));
+
+    /*
+     * Free the prompts structure from this iteration. If there's
+     * another, a new one will be allocated when we return to the top
+     * of this while loop.
+     */
+    free_prompts(s->cur_prompt);
+    s->cur_prompt = NULL;
 }
 
 static void ssh2_userauth_add_session_id(

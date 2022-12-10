@@ -779,7 +779,7 @@ strbuf *ssh_cipher_decrypt_wrapper(ssh_cipher *c, ptrlen input)
 }
 
 strbuf *ssh_cipher_encrypt_length_wrapper(ssh_cipher *c, ptrlen input,
-                                           unsigned long seq)
+                                          unsigned long seq)
 {
     if (input.len != 4)
         fatal_error("ssh_cipher_encrypt_length: needs exactly 4 bytes");
@@ -789,9 +789,9 @@ strbuf *ssh_cipher_encrypt_length_wrapper(ssh_cipher *c, ptrlen input,
 }
 
 strbuf *ssh_cipher_decrypt_length_wrapper(ssh_cipher *c, ptrlen input,
-                                           unsigned long seq)
+                                          unsigned long seq)
 {
-    if (input.len % ssh_cipher_alg(c)->blksize)
+    if (input.len != 4)
         fatal_error("ssh_cipher_decrypt_length: needs exactly 4 bytes");
     strbuf *sb = strbuf_dup(input);
     ssh_cipher_decrypt_length(c, sb->u, sb->len, seq);
@@ -964,7 +964,7 @@ int16_list *ntru_bias_wrapper(int16_list *in, unsigned bias,
 }
 
 int16_list *ntru_scale_wrapper(int16_list *in, unsigned scale,
-                              unsigned p, unsigned q)
+                               unsigned p, unsigned q)
 {
     int16_list_resize(in, p);
     int16_list *out = make_int16_list(p);
@@ -1329,7 +1329,16 @@ strbuf *get_implementations_commasep(ptrlen alg)
     strbuf *out = strbuf_new();
     put_datapl(out, alg);
 
-    if (ptrlen_startswith(alg, PTRLEN_LITERAL("aes"), NULL)) {
+    if (ptrlen_startswith(alg, PTRLEN_LITERAL("aesgcm"), NULL)) {
+        put_fmt(out, ",%.*s_sw", PTRLEN_PRINTF(alg));
+        put_fmt(out, ",%.*s_ref_poly", PTRLEN_PRINTF(alg));
+#if HAVE_CLMUL
+        put_fmt(out, ",%.*s_clmul", PTRLEN_PRINTF(alg));
+#endif
+#if HAVE_NEON_PMULL
+        put_fmt(out, ",%.*s_neon", PTRLEN_PRINTF(alg));
+#endif
+    } else if (ptrlen_startswith(alg, PTRLEN_LITERAL("aes"), NULL)) {
         put_fmt(out, ",%.*s_sw", PTRLEN_PRINTF(alg));
 #if HAVE_AES_NI
         put_fmt(out, ",%.*s_ni", PTRLEN_PRINTF(alg));
@@ -1575,7 +1584,7 @@ OPTIONAL_PTR_FUNC(string)
     static void handle_##fname(BinarySource *_in, strbuf *_out) {       \
         ARGS_##fname _args = get_args_##fname(_in);                     \
         (void)_args; /* suppress warning if no actual arguments */      \
-        return_##outtype(_out, JUXTAPOSE2(realname, (__VA_ARGS__)));     \
+        return_##outtype(_out, JUXTAPOSE2(realname, (__VA_ARGS__)));    \
     }
 #include "testcrypt-func.h"
 #undef FUNC_INNER
@@ -1604,13 +1613,8 @@ static void process_line(BinarySource *in, strbuf *out)
 
 #define FUNC_INNER(outtype, fname, realname, ...)       \
     DISPATCH_INTERNAL(#fname,handle_##fname);
-#define ARG1(type, arg)
-#define ARGN(type, arg)
-#define VOID
 #include "testcrypt-func.h"
 #undef FUNC_INNER
-#undef ARG
-#undef VOID
 
 #undef DISPATCH_INTERNAL
 

@@ -169,7 +169,7 @@ struct GtkFrontend {
     guint32 input_event_time; /* Timestamp of the most recent input event. */
     GtkWidget *dialogs[DIALOG_SLOT_LIMIT];
 #if GTK_CHECK_VERSION(3,4,0)
-    gdouble cumulative_scroll;
+    gdouble cumulative_hscroll, cumulative_vscroll;
 #endif
     /* Cached things out of conf that we refer to a lot */
     int bold_style;
@@ -288,6 +288,12 @@ static void gtk_seat_connection_fatal(Seat *seat, const char *msg)
 
     inst->exited = true;   /* suppress normal exit handling */
     queue_toplevel_callback(connection_fatal_callback, inst);
+}
+
+static void gtk_seat_nonfatal(Seat *seat, const char *msg)
+{
+    GtkFrontend *inst = container_of(seat, GtkFrontend, seat);
+    nonfatal_message_box(inst->window, msg);
 }
 
 /*
@@ -423,12 +429,14 @@ static const SeatVtable gtk_seat_vt = {
     .notify_remote_exit = gtk_seat_notify_remote_exit,
     .notify_remote_disconnect = nullseat_notify_remote_disconnect,
     .connection_fatal = gtk_seat_connection_fatal,
+    .nonfatal = gtk_seat_nonfatal,
     .update_specials_menu = gtk_seat_update_specials_menu,
     .get_ttymode = gtk_seat_get_ttymode,
     .set_busy_status = gtk_seat_set_busy_status,
     .confirm_ssh_host_key = gtk_seat_confirm_ssh_host_key,
     .confirm_weak_crypto_primitive = gtk_seat_confirm_weak_crypto_primitive,
     .confirm_weak_cached_hostkey = gtk_seat_confirm_weak_cached_hostkey,
+    .prompt_descriptions = gtk_seat_prompt_descriptions,
     .is_utf8 = gtk_seat_is_utf8,
     .echoedit_update = nullseat_echoedit_update,
     .get_x_display = gtk_seat_get_x_display,
@@ -494,6 +502,8 @@ static Mouse_Button translate_button(Mouse_Button button)
         return MBT_PASTE;
     if (button == MBT_RIGHT)
         return MBT_EXTEND;
+    if (button == MBT_NOTHING)
+        return MBT_NOTHING;
     return 0;                          /* shouldn't happen */
 }
 
@@ -778,10 +788,11 @@ static void drawing_area_setup(GtkFrontend *inst, int width, int height)
     inst->drawing_area_setup_called = true;
     if (inst->term)
         term_size(inst->term, h, w, conf_get_int(inst->conf, CONF_savelines));
-    if (inst->term_resize_notification_required)
-        term_resize_request_completed(inst->term);
-    if (inst->win_resize_pending)
+    if (inst->win_resize_pending) {
+        if (inst->term_resize_notification_required)
+            term_resize_request_completed(inst->term);
         inst->win_resize_pending = false;
+    }
 
     if (!inst->drawing_area_setup_needed)
         return;
@@ -1674,10 +1685,11 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
                  */
                 guint new_keyval;
                 GdkModifierType consumed;
-                if (gdk_keymap_translate_keyboard_state
-                    (gdk_keymap_get_for_display(gdk_display_get_default()),
-                     event->hardware_keycode, event->state & ~META_MANUAL_MASK,
-                     0, &new_keyval, NULL, NULL, &consumed)) {
+                if (gdk_keymap_translate_keyboard_state(
+                        gdk_keymap_get_for_display(gdk_display_get_default()),
+                        event->hardware_keycode,
+                        event->state & ~META_MANUAL_MASK,
+                        0, &new_keyval, NULL, NULL, &consumed)) {
                     ucsoutput[0] = '\033';
                     ucsoutput[1] = gdk_keyval_to_unicode(new_keyval);
 #ifdef KEY_EVENT_DIAGNOSTICS
@@ -1913,7 +1925,12 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
             if (event->state & GDK_CONTROL_MASK)
                 break;
 
-            end = 1 + format_small_keypad_key(output+1, inst->term, sk_key);
+            end = 1 + format_small_keypad_key(
+                output+1, inst->term, sk_key, event->state & GDK_SHIFT_MASK,
+                event->state & GDK_CONTROL_MASK,
+                event->state & inst->meta_mod_mask, &consumed_meta_key);
+            if (consumed_meta_key)
+                start = 1; /* supersedes the usual prefixing of Esc */
 #ifdef KEY_EVENT_DIAGNOSTICS
             debug(" - small keypad key");
 #endif
@@ -1933,11 +1950,10 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
             xkey = 'G'; goto arrow_key;
           arrow_key:
             consumed_meta_key = false;
-            end = 1 + format_arrow_key(output+1, inst->term, xkey,
-                                       event->state & GDK_SHIFT_MASK,
-                                       event->state & GDK_CONTROL_MASK,
-                                       event->state & inst->meta_mod_mask,
-                                       &consumed_meta_key);
+            end = 1 + format_arrow_key(
+                output+1, inst->term, xkey, event->state & GDK_SHIFT_MASK,
+                event->state & GDK_CONTROL_MASK,
+                event->state & inst->meta_mod_mask, &consumed_meta_key);
             if (consumed_meta_key)
                 start = 1; /* supersedes the usual prefixing of Esc */
 #ifdef KEY_EVENT_DIAGNOSTICS
@@ -1971,7 +1987,7 @@ gint key_event(GtkWidget *widget, GdkEventKey *event, gpointer data)
         goto done;
     }
 
-    done:
+  done:
 
     if (end-start > 0) {
         if (special) {
@@ -2102,8 +2118,8 @@ void input_method_commit_event(GtkIMContext *imc, gchar *str, gpointer data)
 #define SCROLL_INCREMENT_LINES 5
 
 #if GTK_CHECK_VERSION(3,4,0)
-gboolean scroll_internal(GtkFrontend *inst, gdouble delta, guint state,
-                         gdouble ex, gdouble ey)
+gboolean scroll_internal(GtkFrontend *inst, gdouble xdelta, gdouble ydelta,
+                         guint state, gdouble ex, gdouble ey)
 {
     int x, y;
     bool shift, ctrl, alt, raw_mouse_mode;
@@ -2121,22 +2137,22 @@ gboolean scroll_internal(GtkFrontend *inst, gdouble delta, guint state,
                       !(shift && conf_get_bool(inst->conf,
                                                CONF_mouse_override)));
 
-    inst->cumulative_scroll += delta * SCROLL_INCREMENT_LINES;
+    inst->cumulative_vscroll += ydelta * SCROLL_INCREMENT_LINES;
 
     if (!raw_mouse_mode) {
-        int scroll_lines = (int)inst->cumulative_scroll; /* rounds toward 0 */
+        int scroll_lines = (int)inst->cumulative_vscroll; /* rounds toward 0 */
         if (scroll_lines) {
             term_scroll(inst->term, 0, scroll_lines);
-            inst->cumulative_scroll -= scroll_lines;
+            inst->cumulative_vscroll -= scroll_lines;
         }
         return true;
     } else {
-        int scroll_events = (int)(inst->cumulative_scroll /
+        int scroll_events = (int)(inst->cumulative_vscroll /
                                   SCROLL_INCREMENT_LINES);
         if (scroll_events) {
             int button;
 
-            inst->cumulative_scroll -= scroll_events * SCROLL_INCREMENT_LINES;
+            inst->cumulative_vscroll -= scroll_events * SCROLL_INCREMENT_LINES;
 
             if (scroll_events > 0) {
                 button = MBT_WHEEL_DOWN;
@@ -2150,6 +2166,35 @@ gboolean scroll_internal(GtkFrontend *inst, gdouble delta, guint state,
                            MA_CLICK, x, y, shift, ctrl, alt);
             }
         }
+
+        /*
+         * Now do the same for horizontal scrolling. But because we
+         * _only_ use that for passing through to mouse reporting, we
+         * don't even collect the scroll deltas while not in
+         * raw_mouse_mode. (Otherwise there would likely be a huge
+         * unexpected lurch when raw_mouse_mode was enabled!)
+         */
+        inst->cumulative_hscroll += xdelta * SCROLL_INCREMENT_LINES;
+        scroll_events = (int)(inst->cumulative_hscroll /
+                              SCROLL_INCREMENT_LINES);
+        if (scroll_events) {
+            int button;
+
+            inst->cumulative_hscroll -= scroll_events * SCROLL_INCREMENT_LINES;
+
+            if (scroll_events > 0) {
+                button = MBT_WHEEL_RIGHT;
+            } else {
+                button = MBT_WHEEL_LEFT;
+                scroll_events = -scroll_events;
+            }
+
+            while (scroll_events-- > 0) {
+                term_mouse(inst->term, button, translate_button(button),
+                           MA_CLICK, x, y, shift, ctrl, alt);
+            }
+        }
+
         return true;
     }
 }
@@ -2251,7 +2296,7 @@ gboolean scroll_event(GtkWidget *widget, GdkEventScroll *event, gpointer data)
 #if GTK_CHECK_VERSION(3,4,0)
     gdouble dx, dy;
     if (gdk_event_get_scroll_deltas((GdkEvent *)event, &dx, &dy)) {
-        return scroll_internal(inst, dy, event->state, event->x, event->y);
+        return scroll_internal(inst, dx, dy, event->state, event->x, event->y);
     } else if (!gdk_event_get_scroll_direction((GdkEvent *)event, &dir)) {
         return false;
     }
@@ -2292,7 +2337,9 @@ gint motion_event(GtkWidget *widget, GdkEventMotion *event, gpointer data)
 {
     GtkFrontend *inst = (GtkFrontend *)data;
     bool shift, ctrl, alt;
-    int x, y, button;
+    Mouse_Action action = MA_DRAG;
+    Mouse_Button button = MBT_NOTHING;
+    int x, y;
 
     /* Remember the timestamp. */
     inst->input_event_time = event->time;
@@ -2312,12 +2359,12 @@ gint motion_event(GtkWidget *widget, GdkEventMotion *event, gpointer data)
     else if (event->state & GDK_BUTTON3_MASK)
         button = MBT_RIGHT;
     else
-        return false;                  /* don't even know what button! */
+        action = MA_MOVE;
 
     x = (event->x - inst->window_border) / inst->font_width;
     y = (event->y - inst->window_border) / inst->font_height;
 
-    term_mouse(inst->term, button, translate_button(button), MA_DRAG,
+    term_mouse(inst->term, button, translate_button(button), action,
                x, y, shift, ctrl, alt);
 
     return true;
@@ -2551,8 +2598,10 @@ static void request_resize_internal(GtkFrontend *inst, bool from_terminal,
         GdkWindowState state = gdk_window_get_state(gdkwin);
         if (state & (GDK_WINDOW_STATE_MAXIMIZED |
                      GDK_WINDOW_STATE_FULLSCREEN |
-#if GTK_CHECK_VERSION(3,0,0)
+#if GTK_CHECK_VERSION(3,10,0)
                      GDK_WINDOW_STATE_TILED |
+#endif
+#if GTK_CHECK_VERSION(3,22,23)
                      GDK_WINDOW_STATE_TOP_TILED |
                      GDK_WINDOW_STATE_RIGHT_TILED |
                      GDK_WINDOW_STATE_BOTTOM_TILED |
@@ -2560,7 +2609,8 @@ static void request_resize_internal(GtkFrontend *inst, bool from_terminal,
 #endif
                      0)) {
             queue_toplevel_callback(gtkwin_deny_term_resize, inst);
-            term_resize_request_completed(inst->term);
+            if (from_terminal)
+                term_resize_request_completed(inst->term);
             return;
         }
     }
@@ -3055,9 +3105,8 @@ static void gtkwin_clip_write(
     state->pasteout_data = snewn(len*6, char);
     state->pasteout_data_len = len*6;
     state->pasteout_data_len = wc_to_mb(inst->ucsdata.line_codepage, 0,
-                                       data, len, state->pasteout_data,
-                                       state->pasteout_data_len,
-                                       NULL, NULL);
+                                        data, len, state->pasteout_data,
+                                        state->pasteout_data_len, NULL);
     if (state->pasteout_data_len == 0) {
         sfree(state->pasteout_data);
         state->pasteout_data = NULL;
@@ -5165,9 +5214,16 @@ static void start_backend(GtkFrontend *inst)
                          conf_get_bool(inst->conf, CONF_tcp_keepalives));
 
     if (error) {
-        seat_connection_fatal(&inst->seat,
-                              "Unable to open connection to %s:\n%s",
-                              conf_dest(inst->conf), error);
+        if (cmdline_tooltype & TOOLTYPE_NONNETWORK) {
+            /* Special case for pterm. */
+            seat_connection_fatal(&inst->seat,
+                                  "Unable to open terminal:\n%s",
+                                  error);
+        } else {
+            seat_connection_fatal(&inst->seat,
+                                  "Unable to open connection to %s:\n%s",
+                                  conf_dest(inst->conf), error);
+        }
         sfree(error);
         inst->exited = true;
         return;
@@ -5257,7 +5313,8 @@ void new_session_window(Conf *conf, const char *geometry_string)
     inst->wintitle = inst->icontitle = NULL;
     inst->drawtype = DRAWTYPE_DEFAULT;
 #if GTK_CHECK_VERSION(3,4,0)
-    inst->cumulative_scroll = 0.0;
+    inst->cumulative_vscroll = 0.0;
+    inst->cumulative_hscroll = 0.0;
 #endif
     inst->drawing_area_setup_needed = true;
 

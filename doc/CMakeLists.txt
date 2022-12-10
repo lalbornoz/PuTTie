@@ -81,6 +81,7 @@ if(HALIBUT AND PERL_EXECUTABLE)
     ${CMAKE_CURRENT_SOURCE_DIR}/udp.but
     ${CMAKE_CURRENT_SOURCE_DIR}/pgpkeys.but
     ${CMAKE_CURRENT_SOURCE_DIR}/sshnames.but
+    ${CMAKE_CURRENT_SOURCE_DIR}/authplugin.but
     ${CMAKE_CURRENT_SOURCE_DIR}/index.but
     ${VERSION_BUT})
 
@@ -108,6 +109,13 @@ if(HALIBUT AND PERL_EXECUTABLE)
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     DEPENDS ${manual_sources} ${manual_dependencies})
   list(APPEND doc_outputs puttydoc.txt)
+
+  # PDF. (We don't ship this; so it's only built on explicit request.)
+  add_custom_command(OUTPUT putty.pdf
+    COMMAND ${HALIBUT} --pdf ${manual_sources}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS ${manual_sources} ${manual_dependencies})
+  add_custom_target(pdf DEPENDS putty.pdf)
 endif()
 
 macro(register_manpage title section)
@@ -117,6 +125,18 @@ macro(register_manpage title section)
     set(HAVE_MANPAGE_${title}_${section} ON PARENT_SCOPE)
   endif()
 endmacro()
+
+if(NOT HALIBUT)
+  # If we don't have Halibut available to rebuild the man pages from
+  # source, we must check whether the build and source directories
+  # correspond, so as to suppress the build rules that copy them from
+  # the source dir to the build dir. (Otherwise, someone unpacking
+  # putty-src.zip and building on a system without Halibut will find
+  # that there's a circular dependency in the makefile, which at least
+  # Ninja complains about.)
+  get_filename_component(DOCBUILDDIR ${CMAKE_CURRENT_BINARY_DIR} REALPATH)
+  get_filename_component(DOCSRCDIR   ${CMAKE_CURRENT_SOURCE_DIR} REALPATH)
+endif()
 
 macro(manpage title section)
   if(HALIBUT)
@@ -128,10 +148,16 @@ macro(manpage title section)
         mancfg.but man-${title}.but)
     register_manpage(${title} ${section})
   elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${title}.${section})
-    add_custom_command(OUTPUT ${title}.${section}
-      COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/${title}.${section} ${title}.${section}
-      DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${title}.${section})
+    # Our tarballs include prebuilt man pages in the source tree, so
+    # they can be installed from there even if Halibut isn't available.
+    if(NOT (DOCBUILDDIR STREQUAL DOCSRCDIR))
+      # Iff the build tree isn't the source tree, they'll need copying
+      # to the build tree first.
+      add_custom_command(OUTPUT ${title}.${section}
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_CURRENT_SOURCE_DIR}/${title}.${section} ${title}.${section}
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${title}.${section})
+    endif()
     register_manpage(${title} ${section})
   endif()
 endmacro()

@@ -71,7 +71,6 @@ struct uctrl {
     GtkWidget *label;         /* for dlg_label_change */
     GtkAdjustment *adj;       /* for the scrollbar in a list box */
     struct selparam *sp;      /* which switchable pane of the box we're in */
-    guint entrysig;
     guint textsig;
     int nclicks;
     const char *textvalue;    /* temporary, for button-only file selectors */
@@ -313,7 +312,7 @@ void dlg_editbox_set(dlgcontrol *ctrl, dlgparam *dp, char const *text)
         entry = gtk_bin_get_child(GTK_BIN(uc->combo));
     else
 #endif
-    entry = uc->entry;
+        entry = uc->entry;
 
     assert(entry != NULL);
 
@@ -346,8 +345,8 @@ char *dlg_editbox_get(dlgcontrol *ctrl, dlgparam *dp)
 
 #if GTK_CHECK_VERSION(2,4,0)
     if (uc->combo) {
-        return dupstr(gtk_entry_get_text
-                      (GTK_ENTRY(gtk_bin_get_child(GTK_BIN(uc->combo)))));
+        return dupstr(gtk_entry_get_text(
+                          GTK_ENTRY(gtk_bin_get_child(GTK_BIN(uc->combo)))));
     }
 #endif
 
@@ -356,6 +355,27 @@ char *dlg_editbox_get(dlgcontrol *ctrl, dlgparam *dp)
     }
 
     unreachable("bad control type in editbox_get");
+}
+
+void dlg_editbox_select_range(dlgcontrol *ctrl, dlgparam *dp,
+                              size_t start, size_t len)
+{
+    struct uctrl *uc = dlg_find_byctrl(dp, ctrl);
+    assert(uc->ctrl->type == CTRL_EDITBOX);
+
+    GtkWidget *entry = NULL;
+
+#if GTK_CHECK_VERSION(2,4,0)
+    if (uc->combo)
+        entry = gtk_bin_get_child(GTK_BIN(uc->combo));
+#endif
+
+    if (uc->entry)
+        entry = uc->entry;
+
+    assert(entry && "we should have a GtkEntry one way or another");
+
+    gtk_editable_select_region(GTK_EDITABLE(entry), start, start + len);
 }
 
 #if !GTK_CHECK_VERSION(2,4,0)
@@ -405,9 +425,9 @@ void dlg_listbox_del(dlgcontrol *ctrl, dlgparam *dp, int index)
 
 #if !GTK_CHECK_VERSION(2,4,0)
     if (uc->menu) {
-        gtk_container_remove
-            (GTK_CONTAINER(uc->menu),
-             g_list_nth_data(GTK_MENU_SHELL(uc->menu)->children, index));
+        gtk_container_remove(
+            GTK_CONTAINER(uc->menu),
+            g_list_nth_data(GTK_MENU_SHELL(uc->menu)->children, index));
         return;
     }
     if (uc->list) {
@@ -574,9 +594,7 @@ void dlg_listbox_addwithid(dlgcontrol *ctrl, dlgparam *dp,
         cols = cols ? cols : 1;
         for (i = 0; i < cols; i++) {
             int collen = strcspn(text, "\t");
-            char *tmpstr = snewn(collen+1, char);
-            memcpy(tmpstr, text, collen);
-            tmpstr[collen] = '\0';
+            char *tmpstr = mkstr(make_ptrlen(text, collen));
             gtk_list_store_set(uc->listmodel, &iter, i+1, tmpstr, -1);
             sfree(tmpstr);
             text += collen;
@@ -586,7 +604,7 @@ void dlg_listbox_addwithid(dlgcontrol *ctrl, dlgparam *dp,
     }
 #endif
     unreachable("bad control type in listbox_addwithid");
-    done:
+  done:
     dp->flags &= ~FLAG_UPDATING_COMBO_LIST;
 }
 
@@ -983,9 +1001,9 @@ void dlg_set_focus(dlgcontrol *ctrl, dlgparam *dp)
          * focus it.
          */
         for (int i = 0; i < ctrl->radio.nbuttons; i++)
-            if (gtk_toggle_button_get_active
-                (GTK_TOGGLE_BUTTON(uc->buttons[i]))) {
-              gtk_widget_grab_focus(uc->buttons[i]);
+            if (gtk_toggle_button_get_active(
+                    GTK_TOGGLE_BUTTON(uc->buttons[i]))) {
+                gtk_widget_grab_focus(uc->buttons[i]);
             }
         break;
       case CTRL_LISTBOX:
@@ -1098,7 +1116,7 @@ void dlg_refresh(dlgcontrol *ctrl, dlgparam *dp)
             assert(uc->ctrl != NULL);
             if (uc->ctrl->handler != NULL)
                 uc->ctrl->handler(uc->ctrl, dp,
-                                          dp->data, EVENT_REFRESH);
+                                  dp->data, EVENT_REFRESH);
         }
     }
 }
@@ -1117,8 +1135,8 @@ void dlg_coloursel_start(dlgcontrol *ctrl, dlgparam *dp, int r, int g, int b)
     GtkWidget *coloursel =
         gtk_color_selection_dialog_new("Select a colour");
     GtkColorSelectionDialog *ccs = GTK_COLOR_SELECTION_DIALOG(coloursel);
-    GtkColorSelection *cs = GTK_COLOR_SELECTION
-        (gtk_color_selection_dialog_get_color_selection(ccs));
+    GtkColorSelection *cs = GTK_COLOR_SELECTION(
+        gtk_color_selection_dialog_get_color_selection(ccs));
     gtk_color_selection_set_has_opacity_control(cs, false);
 #endif
 
@@ -1171,9 +1189,9 @@ void dlg_coloursel_start(dlgcontrol *ctrl, dlgparam *dp, int r, int g, int b)
     cancelbutton = ccs->cancel_button;
 #endif
     g_object_set_data(G_OBJECT(okbutton), "user-data",
-                        (gpointer)coloursel);
+                      (gpointer)coloursel);
     g_object_set_data(G_OBJECT(cancelbutton), "user-data",
-                        (gpointer)coloursel);
+                      (gpointer)coloursel);
     g_signal_connect(G_OBJECT(okbutton), "clicked",
                      G_CALLBACK(coloursel_ok), (gpointer)dp);
     g_signal_connect(G_OBJECT(cancelbutton), "clicked",
@@ -1317,7 +1335,7 @@ static gboolean listitem_key(GtkWidget *item, GdkEventKey *event,
 
         if (!multiple &&
             GTK_WIDGET_STATE(item) != GTK_STATE_SELECTED) {
-                gtk_list_select_child(GTK_LIST(list), item);
+            gtk_list_select_child(GTK_LIST(list), item);
         } else {
             int direction =
                 (event->keyval==GDK_Up || event->keyval==GDK_KP_Up ||
@@ -1365,10 +1383,10 @@ static gboolean listitem_key(GtkWidget *item, GdkEventKey *event,
                     gtk_list_select_child(GTK_LIST(list),
                                           GTK_WIDGET(children->data));
                 gtk_widget_grab_focus(GTK_WIDGET(children->data));
-                gtk_adjustment_clamp_page
-                    (adj,
-                     adj->lower + (adj->upper-adj->lower) * i / n,
-                     adj->lower + (adj->upper-adj->lower) * (i+1) / n);
+                gtk_adjustment_clamp_page(
+                    adj,
+                    adj->lower + (adj->upper-adj->lower) * i / n,
+                    adj->lower + (adj->upper-adj->lower) * (i+1) / n);
             }
 
             g_list_free(chead);
@@ -1397,10 +1415,10 @@ static gboolean listitem_button_press(GtkWidget *item, GdkEventButton *event,
     struct dlgparam *dp = (struct dlgparam *)data;
     struct uctrl *uc = dlg_find_bywidget(dp, GTK_WIDGET(item));
     switch (event->type) {
-    default:
-    case GDK_BUTTON_PRESS: uc->nclicks = 1; break;
-    case GDK_2BUTTON_PRESS: uc->nclicks = 2; break;
-    case GDK_3BUTTON_PRESS: uc->nclicks = 3; break;
+      default:
+      case GDK_BUTTON_PRESS: uc->nclicks = 1; break;
+      case GDK_2BUTTON_PRESS: uc->nclicks = 2; break;
+      case GDK_3BUTTON_PRESS: uc->nclicks = 3; break;
     }
     return false;
 }
@@ -1500,7 +1518,7 @@ static gboolean draglist_valchange(gpointer data)
         (struct draglist_valchange_ctx *)data;
 
     ctx->uc->ctrl->handler(ctx->uc->ctrl, ctx->dp,
-                                   ctx->dp->data, EVENT_VALCHANGE);
+                           ctx->dp->data, EVENT_VALCHANGE);
 
     sfree(ctx);
 
@@ -1600,8 +1618,8 @@ static void filesel_ok(GtkButton *button, gpointer data)
     struct dlgparam *dp = (struct dlgparam *)data;
     gpointer filesel = g_object_get_data(G_OBJECT(button), "user-data");
     struct uctrl *uc = g_object_get_data(G_OBJECT(filesel), "user-data");
-    const char *name = gtk_file_selection_get_filename
-        (GTK_FILE_SELECTION(filesel));
+    const char *name = gtk_file_selection_get_filename(
+        GTK_FILE_SELECTION(filesel));
     filechoose_emit_value(dp, uc, name);
 }
 #endif
@@ -1614,14 +1632,14 @@ static void fontsel_ok(GtkButton *button, gpointer data)
 
     gpointer fontsel = g_object_get_data(G_OBJECT(button), "user-data");
     struct uctrl *uc = g_object_get_data(G_OBJECT(fontsel), "user-data");
-    const char *name = gtk_font_selection_dialog_get_font_name
-        (GTK_FONT_SELECTION_DIALOG(fontsel));
+    const char *name = gtk_font_selection_dialog_get_font_name(
+        GTK_FONT_SELECTION_DIALOG(fontsel));
     gtk_entry_set_text(GTK_ENTRY(uc->entry), name);
 
 #else
 
-    unifontsel *fontsel = (unifontsel *)g_object_get_data
-        (G_OBJECT(button), "user-data");
+    unifontsel *fontsel = (unifontsel *)g_object_get_data(
+        G_OBJECT(button), "user-data");
     struct uctrl *uc = (struct uctrl *)fontsel->user_data;
     char *name = unifontsel_get_name(fontsel);
     assert(name);              /* should always be ok after OK pressed */
@@ -1665,9 +1683,9 @@ static void coloursel_ok(GtkButton *button, gpointer data)
 
 #if GTK_CHECK_VERSION(2,0,0)
     {
-        GtkColorSelection *cs = GTK_COLOR_SELECTION
-            (gtk_color_selection_dialog_get_color_selection
-             (GTK_COLOR_SELECTION_DIALOG(coloursel)));
+        GtkColorSelection *cs = GTK_COLOR_SELECTION(
+            gtk_color_selection_dialog_get_color_selection(
+                GTK_COLOR_SELECTION_DIALOG(coloursel)));
         GdkColor col;
         gtk_color_selection_get_current_color(cs, &col);
         dp->coloursel_result.r = col.red / 0x0100;
@@ -1676,9 +1694,9 @@ static void coloursel_ok(GtkButton *button, gpointer data)
     }
 #else
     {
-        GtkColorSelection *cs = GTK_COLOR_SELECTION
-            (gtk_color_selection_dialog_get_color_selection
-             (GTK_COLOR_SELECTION_DIALOG(coloursel)));
+        GtkColorSelection *cs = GTK_COLOR_SELECTION(
+            gtk_color_selection_dialog_get_color_selection(
+                GTK_COLOR_SELECTION_DIALOG(coloursel)));
         gdouble cvals[4];
         gtk_color_selection_get_color(cs, cvals);
         dp->coloursel_result.r = (int) (255 * cvals[0]);
@@ -1708,14 +1726,14 @@ static void filefont_clicked(GtkButton *button, gpointer data)
 
     if (uc->ctrl->type == CTRL_FILESELECT) {
 #ifdef USE_GTK_FILE_CHOOSER_DIALOG
-        GtkWidget *filechoose = gtk_file_chooser_dialog_new
-            (uc->ctrl->fileselect.title, GTK_WINDOW(dp->window),
-             (uc->ctrl->fileselect.for_writing ?
-              GTK_FILE_CHOOSER_ACTION_SAVE :
-              GTK_FILE_CHOOSER_ACTION_OPEN),
-             STANDARD_CANCEL_LABEL, GTK_RESPONSE_CANCEL,
-             STANDARD_OPEN_LABEL, GTK_RESPONSE_ACCEPT,
-             (const gchar *)NULL);
+        GtkWidget *filechoose = gtk_file_chooser_dialog_new(
+            uc->ctrl->fileselect.title, GTK_WINDOW(dp->window),
+            (uc->ctrl->fileselect.for_writing ?
+             GTK_FILE_CHOOSER_ACTION_SAVE :
+             GTK_FILE_CHOOSER_ACTION_OPEN),
+            STANDARD_CANCEL_LABEL, GTK_RESPONSE_CANCEL,
+            STANDARD_OPEN_LABEL, GTK_RESPONSE_ACCEPT,
+            (const gchar *)NULL);
         gtk_window_set_modal(GTK_WINDOW(filechoose), true);
         g_object_set_data(G_OBJECT(filechoose), "user-data", (gpointer)uc);
         g_signal_connect(G_OBJECT(filechoose), "response",
@@ -1725,19 +1743,19 @@ static void filefont_clicked(GtkButton *button, gpointer data)
         GtkWidget *filesel =
             gtk_file_selection_new(uc->ctrl->fileselect.title);
         gtk_window_set_modal(GTK_WINDOW(filesel), true);
-        g_object_set_data
-            (G_OBJECT(GTK_FILE_SELECTION(filesel)->ok_button), "user-data",
-             (gpointer)filesel);
+        g_object_set_data(
+            G_OBJECT(GTK_FILE_SELECTION(filesel)->ok_button), "user-data",
+            (gpointer)filesel);
         g_object_set_data(G_OBJECT(filesel), "user-data", (gpointer)uc);
-        g_signal_connect
-            (G_OBJECT(GTK_FILE_SELECTION(filesel)->ok_button), "clicked",
-             G_CALLBACK(filesel_ok), (gpointer)dp);
-        g_signal_connect_swapped
-            (G_OBJECT(GTK_FILE_SELECTION(filesel)->ok_button), "clicked",
-             G_CALLBACK(gtk_widget_destroy), (gpointer)filesel);
-        g_signal_connect_swapped
-            (G_OBJECT(GTK_FILE_SELECTION(filesel)->cancel_button), "clicked",
-             G_CALLBACK(gtk_widget_destroy), (gpointer)filesel);
+        g_signal_connect(
+            G_OBJECT(GTK_FILE_SELECTION(filesel)->ok_button), "clicked",
+            G_CALLBACK(filesel_ok), (gpointer)dp);
+        g_signal_connect_swapped(
+            G_OBJECT(GTK_FILE_SELECTION(filesel)->ok_button), "clicked",
+            G_CALLBACK(gtk_widget_destroy), (gpointer)filesel);
+        g_signal_connect_swapped(
+            G_OBJECT(GTK_FILE_SELECTION(filesel)->cancel_button), "clicked",
+            G_CALLBACK(gtk_widget_destroy), (gpointer)filesel);
         gtk_widget_show(filesel);
 #endif
     }
@@ -1755,12 +1773,12 @@ static void filefont_clicked(GtkButton *button, gpointer data)
         GtkWidget *fontsel =
             gtk_font_selection_dialog_new("Select a font");
         gtk_window_set_modal(GTK_WINDOW(fontsel), true);
-        gtk_font_selection_dialog_set_filter
-            (GTK_FONT_SELECTION_DIALOG(fontsel),
-             GTK_FONT_FILTER_BASE, GTK_FONT_ALL,
-             NULL, NULL, NULL, NULL, spacings, NULL);
-        if (!gtk_font_selection_dialog_set_font_name
-            (GTK_FONT_SELECTION_DIALOG(fontsel), fontname)) {
+        gtk_font_selection_dialog_set_filter(
+            GTK_FONT_SELECTION_DIALOG(fontsel),
+            GTK_FONT_FILTER_BASE, GTK_FONT_ALL,
+            NULL, NULL, NULL, NULL, spacings, NULL);
+        if (!gtk_font_selection_dialog_set_font_name(
+                GTK_FONT_SELECTION_DIALOG(fontsel), fontname)) {
             /*
              * If the font name wasn't found as it was, try opening
              * it and extracting its FONT property. This should
@@ -1780,27 +1798,27 @@ static void filefont_clicked(GtkButton *button, gpointer data)
                 if (XGetFontProperty(xfs, fontprop, &ret)) {
                     char *name = XGetAtomName(disp, (Atom)ret);
                     if (name)
-                        gtk_font_selection_dialog_set_font_name
-                        (GTK_FONT_SELECTION_DIALOG(fontsel), name);
+                        gtk_font_selection_dialog_set_font_name(
+                            GTK_FONT_SELECTION_DIALOG(fontsel), name);
                 }
                 gdk_font_unref(font);
             }
         }
-        g_object_set_data
-            (G_OBJECT(GTK_FONT_SELECTION_DIALOG(fontsel)->ok_button),
-             "user-data", (gpointer)fontsel);
+        g_object_set_data(
+            G_OBJECT(GTK_FONT_SELECTION_DIALOG(fontsel)->ok_button),
+            "user-data", (gpointer)fontsel);
         g_object_set_data(G_OBJECT(fontsel), "user-data", (gpointer)uc);
-        g_signal_connect
-            (G_OBJECT(GTK_FONT_SELECTION_DIALOG(fontsel)->ok_button),
-             "clicked", G_CALLBACK(fontsel_ok), (gpointer)dp);
-        g_signal_connect_swapped
-            (G_OBJECT(GTK_FONT_SELECTION_DIALOG(fontsel)->ok_button),
-             "clicked", G_CALLBACK(gtk_widget_destroy),
-             (gpointer)fontsel);
-        g_signal_connect_swapped
-            (G_OBJECT(GTK_FONT_SELECTION_DIALOG(fontsel)->cancel_button),
-             "clicked", G_CALLBACK(gtk_widget_destroy),
-             (gpointer)fontsel);
+        g_signal_connect(
+            G_OBJECT(GTK_FONT_SELECTION_DIALOG(fontsel)->ok_button),
+            "clicked", G_CALLBACK(fontsel_ok), (gpointer)dp);
+        g_signal_connect_swapped(
+            G_OBJECT(GTK_FONT_SELECTION_DIALOG(fontsel)->ok_button),
+            "clicked", G_CALLBACK(gtk_widget_destroy),
+            (gpointer)fontsel);
+        g_signal_connect_swapped(
+            G_OBJECT(GTK_FONT_SELECTION_DIALOG(fontsel)->cancel_button),
+            "clicked", G_CALLBACK(gtk_widget_destroy),
+            (gpointer)fontsel);
         gtk_widget_show(fontsel);
 
 #else /* !GTK_CHECK_VERSION(2,0,0) */
@@ -1972,19 +1990,19 @@ GtkWidget *layout_ctrls(
 
             w = columns_new(0);
             if (ctrl->label) {
-              GtkWidget *label = gtk_label_new(ctrl->label);
-              columns_add(COLUMNS(w), label, 0, 1);
-              columns_force_left_align(COLUMNS(w), label);
-              gtk_widget_show(label);
-              shortcut_add(scs, label, ctrl->radio.shortcut,
-                           SHORTCUT_UCTRL, uc);
-              uc->label = label;
+                GtkWidget *label = gtk_label_new(ctrl->label);
+                columns_add(COLUMNS(w), label, 0, 1);
+                columns_force_left_align(COLUMNS(w), label);
+                gtk_widget_show(label);
+                shortcut_add(scs, label, ctrl->radio.shortcut,
+                             SHORTCUT_UCTRL, uc);
+                uc->label = label;
             }
             percentages = g_new(gint, ctrl->radio.ncolumns);
             for (i = 0; i < ctrl->radio.ncolumns; i++) {
-              percentages[i] =
-                  ((100 * (i+1) / ctrl->radio.ncolumns) -
-                   100 * i / ctrl->radio.ncolumns);
+                percentages[i] =
+                    ((100 * (i+1) / ctrl->radio.ncolumns) -
+                     100 * i / ctrl->radio.ncolumns);
             }
             columns_set_cols(COLUMNS(w), ctrl->radio.ncolumns,
                              percentages);
@@ -1995,28 +2013,28 @@ GtkWidget *layout_ctrls(
             uc->buttons = snewn(uc->nbuttons, GtkWidget *);
 
             for (i = 0; i < ctrl->radio.nbuttons; i++) {
-              GtkWidget *b;
-              gint colstart;
+                GtkWidget *b;
+                gint colstart;
 
-              b = (gtk_radio_button_new_with_label
-                   (group, ctrl->radio.buttons[i]));
-              uc->buttons[i] = b;
-              group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(b));
-              colstart = i % ctrl->radio.ncolumns;
-              columns_add(COLUMNS(w), b, colstart,
-                          (i == ctrl->radio.nbuttons-1 ?
-                           ctrl->radio.ncolumns - colstart : 1));
-              columns_force_left_align(COLUMNS(w), b);
-              gtk_widget_show(b);
-              g_signal_connect(G_OBJECT(b), "toggled",
-                               G_CALLBACK(button_toggled), dp);
-              g_signal_connect(G_OBJECT(b), "focus_in_event",
-                               G_CALLBACK(widget_focus), dp);
-              if (ctrl->radio.shortcuts) {
-                shortcut_add(scs, gtk_bin_get_child(GTK_BIN(b)),
-                             ctrl->radio.shortcuts[i],
-                             SHORTCUT_UCTRL, uc);
-              }
+                b = gtk_radio_button_new_with_label(
+                    group, ctrl->radio.buttons[i]);
+                uc->buttons[i] = b;
+                group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(b));
+                colstart = i % ctrl->radio.ncolumns;
+                columns_add(COLUMNS(w), b, colstart,
+                            (i == ctrl->radio.nbuttons-1 ?
+                             ctrl->radio.ncolumns - colstart : 1));
+                columns_force_left_align(COLUMNS(w), b);
+                gtk_widget_show(b);
+                g_signal_connect(G_OBJECT(b), "toggled",
+                                 G_CALLBACK(button_toggled), dp);
+                g_signal_connect(G_OBJECT(b), "focus_in_event",
+                                 G_CALLBACK(widget_focus), dp);
+                if (ctrl->radio.shortcuts) {
+                    shortcut_add(scs, gtk_bin_get_child(GTK_BIN(b)),
+                                 ctrl->radio.shortcuts[i],
+                                 SHORTCUT_UCTRL, uc);
+                }
             }
             break;
           }
@@ -2025,39 +2043,38 @@ GtkWidget *layout_ctrls(
 
             if (ctrl->editbox.has_list) {
 #if !GTK_CHECK_VERSION(2,4,0)
-              /*
-               * GTK 1 combo box.
-               */
-              w = gtk_combo_new();
-              gtk_combo_set_value_in_list(GTK_COMBO(w), false, true);
-              uc->entry = GTK_COMBO(w)->entry;
-              uc->list = GTK_COMBO(w)->list;
-              signalobject = uc->entry;
+                /*
+                 * GTK 1 combo box.
+                 */
+                w = gtk_combo_new();
+                gtk_combo_set_value_in_list(GTK_COMBO(w), false, true);
+                uc->entry = GTK_COMBO(w)->entry;
+                uc->list = GTK_COMBO(w)->list;
+                signalobject = uc->entry;
 #else
-              /*
-               * GTK 2 combo box.
-               */
-              uc->listmodel = gtk_list_store_new(2, G_TYPE_INT,
-                                                 G_TYPE_STRING);
-              w = gtk_combo_box_new_with_model_and_entry
-                  (GTK_TREE_MODEL(uc->listmodel));
-              g_object_set(G_OBJECT(w), "entry-text-column", 1,
-                           (const char *)NULL);
-              /* We cannot support password combo boxes. */
-              assert(!ctrl->editbox.password);
-              uc->combo = w;
-              signalobject = uc->combo;
+                /*
+                 * GTK 2 combo box.
+                 */
+                uc->listmodel = gtk_list_store_new(2, G_TYPE_INT,
+                                                   G_TYPE_STRING);
+                w = gtk_combo_box_new_with_model_and_entry(
+                    GTK_TREE_MODEL(uc->listmodel));
+                g_object_set(G_OBJECT(w), "entry-text-column", 1,
+                             (const char *)NULL);
+                /* We cannot support password combo boxes. */
+                assert(!ctrl->editbox.password);
+                uc->combo = w;
+                signalobject = uc->combo;
 #endif
             } else {
-              w = gtk_entry_new();
-              if (ctrl->editbox.password)
-                  gtk_entry_set_visibility(GTK_ENTRY(w), false);
-              uc->entry = w;
-              signalobject = w;
+                w = gtk_entry_new();
+                if (ctrl->editbox.password)
+                    gtk_entry_set_visibility(GTK_ENTRY(w), false);
+                uc->entry = w;
+                signalobject = w;
             }
-            uc->entrysig =
-                g_signal_connect(G_OBJECT(signalobject), "changed",
-                                 G_CALLBACK(editbox_changed), dp);
+            g_signal_connect(G_OBJECT(signalobject), "changed",
+                             G_CALLBACK(editbox_changed), dp);
             g_signal_connect(G_OBJECT(signalobject), "key_press_event",
                              G_CALLBACK(editbox_key), dp);
             g_signal_connect(G_OBJECT(signalobject), "focus_in_event",
@@ -2075,9 +2092,9 @@ GtkWidget *layout_ctrls(
              * from the column layout of the rest of the box.
              */
             {
-              GtkRequisition req;
-              gtk_widget_size_request(w, &req);
-              gtk_widget_set_size_request(w, 10, req.height);
+                GtkRequisition req;
+                gtk_widget_size_request(w, &req);
+                gtk_widget_set_size_request(w, 10, req.height);
             }
 #else
             /*
@@ -2089,34 +2106,34 @@ GtkWidget *layout_ctrls(
 #endif
 
             if (ctrl->label) {
-              GtkWidget *label;
+                GtkWidget *label;
 
-              label = gtk_label_new(ctrl->label);
+                label = gtk_label_new(ctrl->label);
 
-              shortcut_add(scs, label, ctrl->editbox.shortcut,
-                           SHORTCUT_FOCUS, uc->entry);
+                shortcut_add(scs, label, ctrl->editbox.shortcut,
+                             SHORTCUT_FOCUS, uc->entry);
 
-              if (ctrl->editbox.percentwidth == 100) {
-                columns_add(cols, label,
-                            COLUMN_START(ctrl->column),
-                            COLUMN_SPAN(ctrl->column));
-                columns_force_left_align(cols, label);
-              } else {
-                GtkWidget *container = columns_new(4);
-                gint percentages[2];
-                percentages[1] = ctrl->editbox.percentwidth;
-                percentages[0] = 100 - ctrl->editbox.percentwidth;
-                columns_set_cols(COLUMNS(container), 2, percentages);
-                columns_add(COLUMNS(container), label, 0, 1);
-                columns_force_left_align(COLUMNS(container), label);
-                columns_add(COLUMNS(container), w, 1, 1);
-                columns_align_next_to(COLUMNS(container), label, w);
-                gtk_widget_show(w);
-                w = container;
-              }
+                if (ctrl->editbox.percentwidth == 100) {
+                    columns_add(cols, label,
+                                COLUMN_START(ctrl->column),
+                                COLUMN_SPAN(ctrl->column));
+                    columns_force_left_align(cols, label);
+                } else {
+                    GtkWidget *container = columns_new(4);
+                    gint percentages[2];
+                    percentages[1] = ctrl->editbox.percentwidth;
+                    percentages[0] = 100 - ctrl->editbox.percentwidth;
+                    columns_set_cols(COLUMNS(container), 2, percentages);
+                    columns_add(COLUMNS(container), label, 0, 1);
+                    columns_force_left_align(COLUMNS(container), label);
+                    columns_add(COLUMNS(container), w, 1, 1);
+                    columns_align_next_to(COLUMNS(container), label, w);
+                    gtk_widget_show(w);
+                    w = container;
+                }
 
-              gtk_widget_show(label);
-              uc->label = label;
+                gtk_widget_show(label);
+                uc->label = label;
             }
             break;
           }
@@ -2124,7 +2141,10 @@ GtkWidget *layout_ctrls(
           case CTRL_FONTSELECT: {
             GtkWidget *ww;
 
-            if (!ctrl->fileselect.just_button) {
+            bool just_button = (ctrl->type == CTRL_FILESELECT &&
+                                ctrl->fileselect.just_button);
+
+            if (!just_button) {
                 const char *browsebtn =
                     (ctrl->type == CTRL_FILESELECT ?
                      "Browse..." : "Change...");
@@ -2167,9 +2187,8 @@ GtkWidget *layout_ctrls(
 
                 g_signal_connect(G_OBJECT(uc->entry), "key_press_event",
                                  G_CALLBACK(editbox_key), dp);
-                uc->entrysig =
-                    g_signal_connect(G_OBJECT(uc->entry), "changed",
-                                     G_CALLBACK(editbox_changed), dp);
+                g_signal_connect(G_OBJECT(uc->entry), "changed",
+                                 G_CALLBACK(editbox_changed), dp);
                 g_signal_connect(G_OBJECT(uc->entry), "focus_in_event",
                                  G_CALLBACK(widget_focus), dp);
             } else {
@@ -2243,8 +2262,8 @@ GtkWidget *layout_ctrls(
                  * Create a non-editable GtkComboBox (that is, not
                  * its subclass GtkComboBoxEntry).
                  */
-                w = gtk_combo_box_new_with_model
-                    (GTK_TREE_MODEL(uc->listmodel));
+                w = gtk_combo_box_new_with_model(
+                    GTK_TREE_MODEL(uc->listmodel));
                 uc->combo = w;
 
                 /*
@@ -2288,8 +2307,8 @@ GtkWidget *layout_ctrls(
                 gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(w),
                                                GTK_POLICY_NEVER,
                                                GTK_POLICY_AUTOMATIC);
-                uc->adj = gtk_scrolled_window_get_vadjustment
-                    (GTK_SCROLLED_WINDOW(w));
+                uc->adj = gtk_scrolled_window_get_vadjustment(
+                    GTK_SCROLLED_WINDOW(w));
 
                 gtk_widget_show(uc->list);
                 g_signal_connect(G_OBJECT(uc->list), "selection-changed",
@@ -2312,9 +2331,9 @@ GtkWidget *layout_ctrls(
                 {
                     int edge;
                     edge = GTK_WIDGET(uc->list)->style->klass->ythickness;
-                    gtk_widget_set_size_request(w, 10,
-                                         2*edge + (ctrl->listbox.height *
-                                                   get_listitemheight(w)));
+                    gtk_widget_set_size_request(
+                        w, 10, 2*edge + (ctrl->listbox.height *
+                                         get_listitemheight(w)));
                 }
 
                 if (ctrl->listbox.draglist) {
@@ -2359,15 +2378,15 @@ GtkWidget *layout_ctrls(
                  * Create the list box itself, its columns, and
                  * its containing scrolled window.
                  */
-                w = gtk_tree_view_new_with_model
-                    (GTK_TREE_MODEL(uc->listmodel));
+                w = gtk_tree_view_new_with_model(
+                    GTK_TREE_MODEL(uc->listmodel));
                 g_object_set_data(G_OBJECT(uc->listmodel), "user-data",
                                   (gpointer)w);
                 gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(w), false);
                 sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(w));
-                gtk_tree_selection_set_mode
-                    (sel, ctrl->listbox.multisel ? GTK_SELECTION_MULTIPLE :
-                     GTK_SELECTION_SINGLE);
+                gtk_tree_selection_set_mode(
+                    sel, ctrl->listbox.multisel ? GTK_SELECTION_MULTIPLE :
+                    GTK_SELECTION_SINGLE);
                 uc->treeview = w;
                 g_signal_connect(G_OBJECT(w), "row-activated",
                                  G_CALLBACK(listbox_doubleclick), dp);
@@ -2404,10 +2423,10 @@ GtkWidget *layout_ctrls(
                                          "ellipsize-set", true,
                                          (const char *)NULL);
                         }
-                        column = gtk_tree_view_column_new_with_attributes
-                            ("heading", cellrend, "text", i+1, (char *)NULL);
-                        gtk_tree_view_column_set_sizing
-                            (column, GTK_TREE_VIEW_COLUMN_GROW_ONLY);
+                        column = gtk_tree_view_column_new_with_attributes(
+                            "heading", cellrend, "text", i+1, (char *)NULL);
+                        gtk_tree_view_column_set_sizing(
+                            column, GTK_TREE_VIEW_COLUMN_GROW_ONLY);
                         gtk_tree_view_append_column(GTK_TREE_VIEW(w), column);
                     }
                 }
@@ -2416,16 +2435,16 @@ GtkWidget *layout_ctrls(
                     GtkWidget *scroll;
 
                     scroll = gtk_scrolled_window_new(NULL, NULL);
-                    gtk_scrolled_window_set_shadow_type
-                        (GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_IN);
+                    gtk_scrolled_window_set_shadow_type(
+                        GTK_SCROLLED_WINDOW(scroll), GTK_SHADOW_IN);
                     gtk_widget_show(w);
                     gtk_container_add(GTK_CONTAINER(scroll), w);
                     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
                                                    GTK_POLICY_AUTOMATIC,
                                                    GTK_POLICY_ALWAYS);
-                    gtk_widget_set_size_request
-                        (scroll, -1,
-                         ctrl->listbox.height * get_listitemheight(w));
+                    gtk_widget_set_size_request(
+                        scroll, -1,
+                        ctrl->listbox.height * get_listitemheight(w));
 
                     w = scroll;
                 }
@@ -2719,8 +2738,8 @@ gint win_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data)
                 if (schr == sc->uc->ctrl->radio.shortcut) {
                     int i;
                     for (i = 0; i < sc->uc->ctrl->radio.nbuttons; i++)
-                        if (gtk_toggle_button_get_active
-                            (GTK_TOGGLE_BUTTON(sc->uc->buttons[i]))) {
+                        if (gtk_toggle_button_get_active(
+                                GTK_TOGGLE_BUTTON(sc->uc->buttons[i]))) {
                             gtk_widget_grab_focus(sc->uc->buttons[i]);
                         }
                 } else if (sc->uc->ctrl->radio.shortcuts) {
@@ -2728,8 +2747,8 @@ gint win_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data)
                     for (i = 0; i < sc->uc->ctrl->radio.nbuttons; i++)
                         if (schr == sc->uc->ctrl->radio.shortcuts[i]) {
                             gtk_widget_grab_focus(sc->uc->buttons[i]);
-                            g_signal_emit_by_name
-                                (G_OBJECT(sc->uc->buttons[i]), "clicked");
+                            g_signal_emit_by_name(
+                                G_OBJECT(sc->uc->buttons[i]), "clicked");
                         }
                 }
                 break;
@@ -3018,13 +3037,13 @@ GtkWidget *create_config_box(const char *title, Conf *conf,
     gtk_widget_show(label);
     treescroll = gtk_scrolled_window_new(NULL, NULL);
 #if GTK_CHECK_VERSION(2,0,0)
-    treestore = gtk_tree_store_new
-        (TREESTORE_NUM, G_TYPE_STRING, G_TYPE_INT);
+    treestore = gtk_tree_store_new(
+        TREESTORE_NUM, G_TYPE_STRING, G_TYPE_INT);
     tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(treestore));
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(tree), false);
     treerenderer = gtk_cell_renderer_text_new();
-    treecolumn = gtk_tree_view_column_new_with_attributes
-        ("Label", treerenderer, "text", 0, NULL);
+    treecolumn = gtk_tree_view_column_new_with_attributes(
+        "Label", treerenderer, "text", 0, NULL);
     gtk_tree_view_append_column(GTK_TREE_VIEW(tree), treecolumn);
     treeselection = gtk_tree_view_get_selection(GTK_TREE_VIEW(tree));
     gtk_tree_selection_set_mode(treeselection, GTK_SELECTION_BROWSE);
@@ -3152,9 +3171,8 @@ GtkWidget *create_config_box(const char *title, Conf *conf,
                 if (j > 0) {
                     if (!treelevels[j-1]) {
                         treelevels[j-1] = GTK_TREE(gtk_tree_new());
-                        gtk_tree_item_set_subtree
-                            (treeitemlevels[j-1],
-                             GTK_WIDGET(treelevels[j-1]));
+                        gtk_tree_item_set_subtree(
+                            treeitemlevels[j-1], GTK_WIDGET(treelevels[j-1]));
                         if (j < 2)
                             gtk_tree_item_expand(treeitemlevels[j-1]);
                         else
@@ -3428,26 +3446,6 @@ static GtkWidget *create_message_box_general(
     dp->retval = 0;
     dp->window = window;
 
-    if (selectable) {
-#if GTK_CHECK_VERSION(2,0,0)
-        struct uctrl *uc = dlg_find_byctrl(dp, textctrl);
-        gtk_label_set_selectable(GTK_LABEL(uc->text), true);
-
-        /*
-         * GTK selectable labels have a habit of selecting their
-         * entire contents when they gain focus. It's ugly to have
-         * text in a message box start up all selected, so we suppress
-         * this by manually selecting none of it - but we must do this
-         * when the widget _already has_ focus, otherwise our work
-         * will be undone when it gains it shortly.
-         */
-        gtk_widget_grab_focus(uc->text);
-        gtk_label_select_region(GTK_LABEL(uc->text), 0, 0);
-#else
-        (void)textctrl;                /* placate warning */
-#endif
-    }
-
     if (parentwin) {
         set_transient_window_pos(parentwin, window);
         gtk_window_set_transient_for(GTK_WINDOW(window),
@@ -3457,6 +3455,34 @@ static GtkWidget *create_message_box_general(
     gtk_container_set_focus_child(GTK_CONTAINER(window), NULL);
     gtk_widget_show(window);
     gtk_window_set_focus(GTK_WINDOW(window), NULL);
+
+#if GTK_CHECK_VERSION(2,0,0)
+    if (selectable) {
+        /*
+         * GTK selectable labels have a habit of selecting their
+         * entire contents when they gain focus. As far as I can see,
+         * an individual GtkLabel has no way to turn this off - source
+         * diving suggests that the only configurable option for it is
+         * "gtk-label-select-on-focus" in the cross-application
+         * GtkSettings, and there's no per-label or even
+         * per-application override.
+         *
+         * It's ugly to have text in a message box start up all
+         * selected, and also it interferes with any PRIMARY selection
+         * you might already have had. So for this purpose we'd prefer
+         * that the text doesn't _start off_ selected, but it should
+         * be selectable later.
+         *
+         * So we make the label selectable _now_, after the widget is
+         * shown and the focus has already gone wherever it's going.
+         */
+        struct uctrl *uc = dlg_find_byctrl(dp, textctrl);
+        gtk_label_select_region(GTK_LABEL(uc->text), 0, 0);
+        gtk_label_set_selectable(GTK_LABEL(uc->text), true);
+    }
+#else
+    (void)textctrl;                    /* placate warning */
+#endif
 
 #if !GTK_CHECK_VERSION(2,0,0)
     dp->currtreeitem = NULL;
@@ -3512,7 +3538,8 @@ static void confirm_ssh_host_key_result_callback(void *vctx, int result)
          * doesn't care whether we saved the host key or not).
          */
         if (result == 2) {
-            store_host_key(ctx->host, ctx->port, ctx->keytype, ctx->keystr);
+            store_host_key(ctx->seat, ctx->host, ctx->port,
+                           ctx->keytype, ctx->keystr);
             logical_result = SPR_OK;
         } else if (result == 1) {
             logical_result = SPR_OK;
@@ -3574,41 +3601,22 @@ static void more_info_button_clicked(GtkButton *button, gpointer vctx)
         &buttons_ok, more_info_closed, ctx);
 }
 
+const SeatDialogPromptDescriptions *gtk_seat_prompt_descriptions(Seat *seat)
+{
+    static const SeatDialogPromptDescriptions descs = {
+        .hk_accept_action = "press \"Accept\"",
+        .hk_connect_once_action = "press \"Connect Once\"",
+        .hk_cancel_action = "press \"Cancel\"",
+        .hk_cancel_action_Participle = "Pressing \"Cancel\"",
+    };
+    return &descs;
+}
+
 SeatPromptResult gtk_seat_confirm_ssh_host_key(
     Seat *seat, const char *host, int port, const char *keytype,
-    char *keystr, const char *keydisp, char **fingerprints, bool mismatch,
+    char *keystr, SeatDialogText *text, HelpCtx helpctx,
     void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
-    static const char absenttxt[] =
-        "The host key is not cached for this server:\n\n"
-        "%s (port %d)\n\n"
-        "You have no guarantee that the server is the computer "
-        "you think it is.\n"
-        "The server's %s key fingerprint is:\n\n"
-        "%s\n\n"
-        "If you trust this host, press \"Accept\" to add the key to "
-        "PuTTY's cache and carry on connecting.\n"
-        "If you want to carry on connecting just once, without "
-        "adding the key to the cache, press \"Connect Once\".\n"
-        "If you do not trust this host, press \"Cancel\" to abandon the "
-        "connection.";
-    static const char wrongtxt[] =
-        "WARNING - POTENTIAL SECURITY BREACH!\n"
-        "The host key does not match the one PuTTY has cached "
-        "for this server:\n\n"
-        "%s (port %d)\n\n"
-        "This means that either the server administrator has "
-        "changed the host key, or you have actually connected "
-        "to another computer pretending to be the server.\n"
-        "The new %s key fingerprint is:\n\n"
-        "%s\n\n"
-        "If you were expecting this change and trust the new key, "
-        "press \"Accept\" to update PuTTY's cache and continue connecting.\n"
-        "If you want to carry on connecting but without updating "
-        "the cache, press \"Connect Once\".\n"
-        "If you want to abandon the connection completely, press "
-        "\"Cancel\" to cancel. Pressing \"Cancel\" is the ONLY guaranteed "
-        "safe choice.";
     static const struct message_box_button button_array_hostkey[] = {
         {"Accept", 'a', 0, 2},
         {"Connect Once", 'o', 0, 1},
@@ -3618,17 +3626,40 @@ SeatPromptResult gtk_seat_confirm_ssh_host_key(
         button_array_hostkey, lenof(button_array_hostkey),
     };
 
-    char *text;
-    struct confirm_ssh_host_key_dialog_ctx *result_ctx;
+    const char *dlg_title = NULL;
+    strbuf *dlg_text = strbuf_new();
+    int width = string_width("default dialog width determination string");
+
+    for (SeatDialogTextItem *item = text->items,
+             *end = item + text->nitems; item < end; item++) {
+        switch (item->type) {
+          case SDT_PARA:
+            put_fmt(dlg_text, "%s\n\n", item->text);
+            break;
+          case SDT_DISPLAY: {
+            put_fmt(dlg_text, "%s\n\n", item->text);
+            int thiswidth = string_width(item->text);
+            if (width < thiswidth)
+                width = thiswidth;
+            break;
+          }
+          case SDT_SCARY_HEADING:
+            /* Can't change font size or weight in this context */
+            put_fmt(dlg_text, "%s\n\n", item->text);
+            break;
+          case SDT_TITLE:
+            dlg_title = item->text;
+            break;
+          default:
+            break;
+        }
+    }
+    while (strbuf_chomp(dlg_text, '\n'));
+
     GtkWidget *mainwin, *msgbox;
 
-    FingerprintType fptype_default =
-        ssh2_pick_default_fingerprint(fingerprints);
-
-    text = dupprintf((mismatch ? wrongtxt : absenttxt), host, port,
-                     keytype, fingerprints[fptype_default]);
-
-    result_ctx = snew(struct confirm_ssh_host_key_dialog_ctx);
+    struct confirm_ssh_host_key_dialog_ctx *result_ctx =
+        snew(struct confirm_ssh_host_key_dialog_ctx);
     result_ctx->callback = callback;
     result_ctx->callback_ctx = ctx;
     result_ctx->host = dupstr(host);
@@ -3640,41 +3671,50 @@ SeatPromptResult gtk_seat_confirm_ssh_host_key(
     mainwin = GTK_WIDGET(gtk_seat_get_window(seat));
     GtkWidget *more_info_button = NULL;
     msgbox = create_message_box_general(
-        mainwin, "PuTTY Security Alert", text,
-        string_width(fingerprints[fptype_default]), true,
+        mainwin, dlg_title, dlg_text->s, width, true,
         &buttons_hostkey, confirm_ssh_host_key_result_callback, result_ctx,
         add_more_info_button, &more_info_button);
 
     result_ctx->main_dialog = msgbox;
     result_ctx->more_info_dialog = NULL;
 
-    strbuf *sb = strbuf_new();
-    if (fingerprints[SSH_FPTYPE_SHA256])
-        put_fmt(sb, "SHA256 fingerprint: %s\n",
-                fingerprints[SSH_FPTYPE_SHA256]);
-    if (fingerprints[SSH_FPTYPE_MD5])
-        put_fmt(sb, "MD5 fingerprint: %s\n",
-                fingerprints[SSH_FPTYPE_MD5]);
-    put_fmt(sb, "Full text of host's public key:");
-    /* We have to manually wrap the public key, or else the GtkLabel
-     * will resize itself to accommodate the longest word, which will
-     * lead to a hilariously wide message box. */
-    for (const char *p = keydisp, *q = p + strlen(p); p < q ;) {
-        size_t linelen = q-p;
-        if (linelen > 72)
-            linelen = 72;
-        put_byte(sb, '\n');
-        put_data(sb, p, linelen);
-        p += linelen;
+    strbuf *moreinfo = strbuf_new();
+    for (SeatDialogTextItem *item = text->items,
+             *end = item + text->nitems; item < end; item++) {
+        switch (item->type) {
+          case SDT_MORE_INFO_KEY:
+            put_fmt(moreinfo, "%s", item->text);
+            break;
+          case SDT_MORE_INFO_VALUE_SHORT:
+            put_fmt(moreinfo, ": %s\n", item->text);
+            break;
+          case SDT_MORE_INFO_VALUE_BLOB:
+            /* We have to manually wrap the public key, or else the GtkLabel
+             * will resize itself to accommodate the longest word, which will
+             * lead to a hilariously wide message box. */
+            put_byte(moreinfo, ':');
+            for (const char *p = item->text, *q = p + strlen(p); p < q ;) {
+                size_t linelen = q-p;
+                if (linelen > 72)
+                    linelen = 72;
+                put_byte(moreinfo, '\n');
+                put_data(moreinfo, p, linelen);
+                p += linelen;
+            }
+            put_byte(moreinfo, '\n');
+            break;
+          default:
+            break;
+        }
     }
-    result_ctx->more_info = strbuf_to_str(sb);
+    result_ctx->more_info = strbuf_to_str(moreinfo);
 
     g_signal_connect(G_OBJECT(more_info_button), "clicked",
                      G_CALLBACK(more_info_button_clicked), result_ctx);
 
     register_dialog(seat, DIALOG_SLOT_NETWORK_PROMPT, msgbox);
 
-    sfree(text);
+    strbuf_free(dlg_text);
 
     return SPR_INCOMPLETE;             /* dialog still in progress */
 }
@@ -3881,10 +3921,10 @@ void about_box(void *window)
 
     {
         char *buildinfo_text = buildinfo("\n");
-        char *label_text = dupprintf
-            ("%s\n\n%s\n\n%s\n\n%s",
-             appname, ver, buildinfo_text,
-             "Copyright " SHORT_COPYRIGHT_DETAILS ". All rights reserved");
+        char *label_text = dupprintf(
+            "%s\n\n%s\n\n%s\n\n%s",
+            appname, ver, buildinfo_text,
+            "Copyright " SHORT_COPYRIGHT_DETAILS ". All rights reserved");
         w = gtk_label_new(label_text);
         gtk_label_set_justify(GTK_LABEL(w), GTK_JUSTIFY_CENTER);
 #if GTK_CHECK_VERSION(2,0,0)
@@ -4026,8 +4066,8 @@ gint eventlog_selection_clear(GtkWidget *widget, GdkEventSelection *seldata,
     gtk_list_unselect_all(GTK_LIST(uc->list));
 #else
     assert(uc->treeview);
-    gtk_tree_selection_unselect_all
-        (gtk_tree_view_get_selection(GTK_TREE_VIEW(uc->treeview)));
+    gtk_tree_selection_unselect_all(
+        gtk_tree_view_get_selection(GTK_TREE_VIEW(uc->treeview)));
 #endif
     es->ignore_selchange = false;
 
@@ -4083,10 +4123,10 @@ void showeventlog(eventlog_stuff *es, void *parentwin)
     gtk_widget_show(w0);
     w1 = layout_ctrls(&es->dp, NULL, &es->scs, s1, GTK_WINDOW(window));
     gtk_container_set_border_width(GTK_CONTAINER(w1), 10);
-    gtk_widget_set_size_request(w1, 20 + string_width
-                                ("LINE OF TEXT GIVING WIDTH OF EVENT LOG IS "
-                                 "QUITE LONG 'COS SSH LOG ENTRIES ARE WIDE"),
-                                -1);
+    gtk_widget_set_size_request(
+        w1, 20 + string_width("LINE OF TEXT GIVING WIDTH OF EVENT LOG IS "
+                              "QUITE LONG 'COS SSH LOG ENTRIES ARE WIDE"),
+        -1);
     our_dialog_add_to_content_area(GTK_WINDOW(window), w1, true, true, 0);
     {
         struct uctrl *uc = dlg_find_byctrl(&es->dp, es->listctrl);

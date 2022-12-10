@@ -76,6 +76,21 @@ RSAKey *BinarySource_get_rsa_ssh1_priv_agent(BinarySource *src)
     return rsa;
 }
 
+void duprsakey(RSAKey *dst, const RSAKey *src)
+{
+    dst->bits = src->bits;
+    dst->bytes = src->bytes;
+    dst->modulus = mp_copy(src->modulus);
+    dst->exponent = mp_copy(src->exponent);
+    dst->private_exponent = src->private_exponent ?
+        mp_copy(src->private_exponent) : NULL;
+    dst->p = mp_copy(src->p);
+    dst->q = mp_copy(src->q);
+    dst->iqmp = mp_copy(src->iqmp);
+    dst->comment = src->comment ? dupstr(src->comment) : NULL;
+    dst->sshk.vt = src->sshk.vt;
+}
+
 bool rsa_ssh1_encrypt(unsigned char *data, int length, RSAKey *key)
 {
     mp_int *b1, *b2;
@@ -325,11 +340,11 @@ char *rsa_ssh1_fingerprint(RSAKey *key)
  */
 char **rsa_ssh1_fake_all_fingerprints(RSAKey *key)
 {
-    char **ret = snewn(SSH_N_FPTYPES, char *);
+    char **fingerprints = snewn(SSH_N_FPTYPES, char *);
     for (unsigned i = 0; i < SSH_N_FPTYPES; i++)
-        ret[i] = NULL;
-    ret[SSH_FPTYPE_MD5] = rsa_ssh1_fingerprint(key);
-    return ret;
+        fingerprints[i] = NULL;
+    fingerprints[SSH_FPTYPE_MD5] = rsa_ssh1_fingerprint(key);
+    return fingerprints;
 }
 
 /*
@@ -548,7 +563,7 @@ static void rsa2_private_blob(ssh_key *key, BinarySink *bs)
 }
 
 static ssh_key *rsa2_new_priv(const ssh_keyalg *self,
-                               ptrlen pub, ptrlen priv)
+                              ptrlen pub, ptrlen priv)
 {
     BinarySource src[1];
     ssh_key *sshk;
@@ -850,7 +865,8 @@ static unsigned ssh_rsa_supported_flags(const ssh_keyalg *self)
     return SSH_AGENT_RSA_SHA2_256 | SSH_AGENT_RSA_SHA2_512;
 }
 
-const char *ssh_rsa_alternate_ssh_id(const ssh_keyalg *self, unsigned flags)
+static const char *ssh_rsa_alternate_ssh_id(
+    const ssh_keyalg *self, unsigned flags)
 {
     if (flags & SSH_AGENT_RSA_SHA2_512)
         return ssh_rsa_sha512.ssh_id;
@@ -858,6 +874,8 @@ const char *ssh_rsa_alternate_ssh_id(const ssh_keyalg *self, unsigned flags)
         return ssh_rsa_sha256.ssh_id;
     return self->ssh_id;
 }
+
+static char *rsa2_alg_desc(const ssh_keyalg *self) { return dupstr("RSA"); }
 
 static const struct ssh2_rsa_extra
     rsa_extra = { 0 },
@@ -880,6 +898,8 @@ static const struct ssh2_rsa_extra
     .components = rsa2_components,              \
     .base_key = nullkey_base_key,               \
     .pubkey_bits = rsa2_pubkey_bits,            \
+    .alg_desc = rsa2_alg_desc,                  \
+    .variable_size = nullkey_variable_size_yes, \
     .cache_id = "rsa2"
 
 const ssh_keyalg ssh_rsa = {

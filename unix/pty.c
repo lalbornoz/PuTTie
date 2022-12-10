@@ -354,7 +354,7 @@ static void pty_open_master(Pty *pty)
     fprintf(stderr, "pterm: unable to open a pseudo-terminal device\n");
     exit(1);
 
-    got_one:
+  got_one:
 
     /* We need to chown/chmod the /dev/ttyXX device. */
     gp = getgrnam("tty");
@@ -1228,9 +1228,8 @@ Backend *pty_backend_create(
             char *shellname;
             if (conf_get_bool(conf, CONF_login_shell)) {
                 const char *p = strrchr(shell, '/');
-                shellname = snewn(2+strlen(shell), char);
                 p = p ? p+1 : shell;
-                sprintf(shellname, "-%s", p);
+                shellname = dupprintf("-%s", p);
             } else
                 shellname = (char *)shell;
             execl(shell, shellname, (void *)NULL);

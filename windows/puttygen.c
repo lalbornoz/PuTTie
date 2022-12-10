@@ -203,7 +203,7 @@ struct PassphraseProcStruct {
  * Dialog-box function for the passphrase box.
  */
 static INT_PTR CALLBACK PassphraseProc(HWND hwnd, UINT msg,
-                                   WPARAM wParam, LPARAM lParam)
+                                       WPARAM wParam, LPARAM lParam)
 {
     static char **passphrase = NULL;
     struct PassphraseProcStruct *p;
@@ -438,9 +438,9 @@ static INT_PTR CALLBACK PPKParamsProc(HWND hwnd, UINT msg,
             topic = WINHELP_CTX_puttygen_kdfparam; break;
         }
         if (topic) {
-          launch_help(hwnd, topic);
+            launch_help(hwnd, topic);
         } else {
-          MessageBeep(0);
+            MessageBeep(0);
         }
         break;
       }
@@ -483,7 +483,7 @@ static bool prompt_keyfile(HWND hwnd, char *dlgtitle,
  * Dialog-box function for the Licence box.
  */
 static INT_PTR CALLBACK LicenceProc(HWND hwnd, UINT msg,
-                                WPARAM wParam, LPARAM lParam)
+                                    WPARAM wParam, LPARAM lParam)
 {
     switch (msg) {
       case WM_INITDIALOG: {
@@ -522,7 +522,7 @@ static INT_PTR CALLBACK LicenceProc(HWND hwnd, UINT msg,
  * Dialog-box function for the About box.
  */
 static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
-                              WPARAM wParam, LPARAM lParam)
+                                  WPARAM wParam, LPARAM lParam)
 {
     switch (msg) {
       case WM_INITDIALOG:
@@ -543,10 +543,10 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
 
         {
             char *buildinfo_text = buildinfo("\r\n");
-            char *text = dupprintf
-                ("PuTTYgen\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
-                 ver, buildinfo_text,
-                 "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
+            char *text = dupprintf(
+                "PuTTYgen\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
+                ver, buildinfo_text,
+                "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
             sfree(buildinfo_text);
             SetDlgItemText(hwnd, 1000, text);
             MakeDlgItemBorderless(hwnd, 1000);
@@ -687,45 +687,6 @@ static void hidemany(HWND hwnd, const int *ids, bool hideit)
     }
 }
 
-static void setupbigedit1(HWND hwnd, int id, int idstatic, RSAKey *key)
-{
-    char *buffer = ssh1_pubkey_str(key);
-    SetDlgItemText(hwnd, id, buffer);
-    SetDlgItemText(hwnd, idstatic,
-                   "&Public key for pasting into authorized_keys file:");
-    sfree(buffer);
-}
-
-static void setupbigedit2(HWND hwnd, int id, int idstatic,
-                          ssh2_userkey *key)
-{
-    char *buffer = ssh2_pubkey_openssh_str(key);
-    SetDlgItemText(hwnd, id, buffer);
-    SetDlgItemText(hwnd, idstatic, "&Public key for pasting into "
-                   "OpenSSH authorized_keys file:");
-    sfree(buffer);
-}
-
-/*
- * Warn about the obsolescent key file format.
- */
-void old_keyfile_warning(void)
-{
-    static const char mbtitle[] = "PuTTY Key File Warning";
-    static const char message[] =
-        "You are loading an SSH-2 private key which has an\n"
-        "old version of the file format. This means your key\n"
-        "file is not fully tamperproof. Future versions of\n"
-        "PuTTY may stop supporting this private key format,\n"
-        "so we recommend you convert your key to the new\n"
-        "format.\n"
-        "\n"
-        "Once the key is loaded into PuTTYgen, you can perform\n"
-        "this conversion simply by saving it again.";
-
-    MessageBox(NULL, message, mbtitle, MB_OK);
-}
-
 enum {
     controlidstart = 100,
     IDC_QUIT,
@@ -735,6 +696,7 @@ enum {
     IDC_GENERATING,
     IDC_PROGRESS,
     IDC_PKSTATIC, IDC_KEYDISPLAY,
+    IDC_CERTSTATIC, IDC_CERTMOREINFO,
     IDC_FPSTATIC, IDC_FINGERPRINT,
     IDC_COMMENTSTATIC, IDC_COMMENTEDIT,
     IDC_PASSPHRASE1STATIC, IDC_PASSPHRASE1EDIT,
@@ -762,14 +724,77 @@ enum {
     IDC_ADDCERT, IDC_REMCERT,
 };
 
+static void setupbigedit1(HWND hwnd, RSAKey *key)
+{
+    ShowWindow(GetDlgItem(hwnd, IDC_CERTSTATIC), SW_HIDE);
+    ShowWindow(GetDlgItem(hwnd, IDC_CERTMOREINFO), SW_HIDE);
+    ShowWindow(GetDlgItem(hwnd, IDC_PKSTATIC), SW_SHOW);
+    ShowWindow(GetDlgItem(hwnd, IDC_KEYDISPLAY), SW_SHOW);
+
+    SetDlgItemText(hwnd, IDC_PKSTATIC,
+                   "&Public key for pasting into authorized_keys file:");
+
+    char *buffer = ssh1_pubkey_str(key);
+    SetDlgItemText(hwnd, IDC_KEYDISPLAY, buffer);
+    sfree(buffer);
+}
+
+static void setupbigedit2(HWND hwnd, ssh2_userkey *key)
+{
+    if (ssh_key_alg(key->key)->is_certificate) {
+        ShowWindow(GetDlgItem(hwnd, IDC_CERTSTATIC), SW_SHOW);
+        ShowWindow(GetDlgItem(hwnd, IDC_CERTMOREINFO), SW_SHOW);
+        ShowWindow(GetDlgItem(hwnd, IDC_PKSTATIC), SW_HIDE);
+        ShowWindow(GetDlgItem(hwnd, IDC_KEYDISPLAY), SW_HIDE);
+
+        SetDlgItemText(hwnd, IDC_CERTSTATIC,
+                       "This public key contains an OpenSSH certificate.");
+    } else {
+        ShowWindow(GetDlgItem(hwnd, IDC_CERTSTATIC), SW_HIDE);
+        ShowWindow(GetDlgItem(hwnd, IDC_CERTMOREINFO), SW_HIDE);
+        ShowWindow(GetDlgItem(hwnd, IDC_PKSTATIC), SW_SHOW);
+        ShowWindow(GetDlgItem(hwnd, IDC_KEYDISPLAY), SW_SHOW);
+
+        SetDlgItemText(hwnd, IDC_PKSTATIC, "&Public key for pasting into "
+                       "OpenSSH authorized_keys file:");
+
+        char *buffer = ssh2_pubkey_openssh_str(key);
+        SetDlgItemText(hwnd, IDC_KEYDISPLAY, buffer);
+        sfree(buffer);
+    }
+}
+
+/*
+ * Warn about the obsolescent key file format.
+ */
+void old_keyfile_warning(void)
+{
+    static const char mbtitle[] = "PuTTY Key File Warning";
+    static const char message[] =
+        "You are loading an SSH-2 private key which has an\n"
+        "old version of the file format. This means your key\n"
+        "file is not fully tamperproof. Future versions of\n"
+        "PuTTY may stop supporting this private key format,\n"
+        "so we recommend you convert your key to the new\n"
+        "format.\n"
+        "\n"
+        "Once the key is loaded into PuTTYgen, you can perform\n"
+        "this conversion simply by saving it again.";
+
+    MessageBox(NULL, message, mbtitle, MB_OK);
+}
+
 static const int nokey_ids[] = { IDC_NOKEY, 0 };
 static const int generating_ids[] = { IDC_GENERATING, IDC_PROGRESS, 0 };
-static const int gotkey_ids[] = {
-    IDC_PKSTATIC, IDC_KEYDISPLAY,
+static const int gotkey_ids_unconditional[] = {
     IDC_FPSTATIC, IDC_FINGERPRINT,
     IDC_COMMENTSTATIC, IDC_COMMENTEDIT,
     IDC_PASSPHRASE1STATIC, IDC_PASSPHRASE1EDIT,
     IDC_PASSPHRASE2STATIC, IDC_PASSPHRASE2EDIT, 0
+};
+static const int gotkey_ids_conditional[] = {
+    IDC_PKSTATIC, IDC_KEYDISPLAY,
+    IDC_CERTSTATIC, IDC_CERTMOREINFO,
 };
 
 /*
@@ -784,7 +809,8 @@ void ui_set_state(HWND hwnd, struct MainDlgState *state, int status)
       case 0:                          /* no key */
         hidemany(hwnd, nokey_ids, false);
         hidemany(hwnd, generating_ids, true);
-        hidemany(hwnd, gotkey_ids, true);
+        hidemany(hwnd, gotkey_ids_unconditional, true);
+        hidemany(hwnd, gotkey_ids_conditional, true);
         EnableWindow(GetDlgItem(hwnd, IDC_GENERATE), 1);
         EnableWindow(GetDlgItem(hwnd, IDC_LOAD), 1);
         EnableWindow(GetDlgItem(hwnd, IDC_SAVE), 0);
@@ -819,7 +845,8 @@ void ui_set_state(HWND hwnd, struct MainDlgState *state, int status)
       case 1:                          /* generating key */
         hidemany(hwnd, nokey_ids, true);
         hidemany(hwnd, generating_ids, false);
-        hidemany(hwnd, gotkey_ids, true);
+        hidemany(hwnd, gotkey_ids_unconditional, true);
+        hidemany(hwnd, gotkey_ids_conditional, true);
         EnableWindow(GetDlgItem(hwnd, IDC_GENERATE), 0);
         EnableWindow(GetDlgItem(hwnd, IDC_LOAD), 0);
         EnableWindow(GetDlgItem(hwnd, IDC_SAVE), 0);
@@ -854,7 +881,8 @@ void ui_set_state(HWND hwnd, struct MainDlgState *state, int status)
       case 2:
         hidemany(hwnd, nokey_ids, true);
         hidemany(hwnd, generating_ids, true);
-        hidemany(hwnd, gotkey_ids, false);
+        hidemany(hwnd, gotkey_ids_unconditional, false);
+        // gotkey_ids_conditional will be unhidden by setupbigedit2
         EnableWindow(GetDlgItem(hwnd, IDC_GENERATE), 1);
         EnableWindow(GetDlgItem(hwnd, IDC_LOAD), 1);
         EnableWindow(GetDlgItem(hwnd, IDC_SAVE), 1);
@@ -1042,7 +1070,7 @@ static void update_ui_after_ssh2_pubkey_change(
     SetDlgItemText(hwnd, IDC_FINGERPRINT, fp);
     sfree(fp);
 
-    setupbigedit2(hwnd, IDC_KEYDISPLAY, IDC_PKSTATIC, &state->ssh2key);
+    setupbigedit2(hwnd, &state->ssh2key);
 }
 
 static void update_ui_after_load(HWND hwnd, struct MainDlgState *state,
@@ -1073,7 +1101,7 @@ static void update_ui_after_load(HWND hwnd, struct MainDlgState *state,
          * Construct a decimal representation of the key, for pasting
          * into .ssh/authorized_keys on a Unix box.
          */
-        setupbigedit1(hwnd, IDC_KEYDISPLAY, IDC_PKSTATIC, &state->key);
+        setupbigedit1(hwnd, &state->key);
     } else {
         state->ssh2 = true;
         state->commentptr = &state->ssh2key.comment;
@@ -1228,6 +1256,7 @@ void add_certificate(HWND hwnd, struct MainDlgState *state,
         message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
                     HELPCTXID(errors_cantloadkey));
         sfree(msg);
+        strbuf_free(pub);
         return;
     }
 
@@ -1341,10 +1370,134 @@ static void start_generating_key(HWND hwnd, struct MainDlgState *state)
 }
 
 /*
+ * Dialog-box function and context structure for the 'Certificate
+ * info' button.
+ */
+struct certinfo_dialog_ctx {
+    SeatDialogText *text;
+};
+
+static INT_PTR CertInfoProc(HWND hwnd, UINT msg, WPARAM wParam,
+                            LPARAM lParam, void *vctx)
+{
+    struct certinfo_dialog_ctx *ctx = (struct certinfo_dialog_ctx *)vctx;
+
+    switch (msg) {
+      case WM_INITDIALOG: {
+        int index = 100, y = 12;
+
+        WPARAM font = SendMessage(hwnd, WM_GETFONT, 0, 0);
+
+        const char *key = NULL;
+        for (SeatDialogTextItem *item = ctx->text->items,
+                 *end = item + ctx->text->nitems; item < end; item++) {
+            switch (item->type) {
+              case SDT_MORE_INFO_KEY:
+                key = item->text;
+                break;
+              case SDT_MORE_INFO_VALUE_SHORT:
+              case SDT_MORE_INFO_VALUE_BLOB: {
+                RECT rk, rv;
+                DWORD editstyle = WS_CHILD | WS_VISIBLE | WS_TABSTOP |
+                    ES_AUTOHSCROLL | ES_READONLY;
+                if (item->type == SDT_MORE_INFO_VALUE_BLOB) {
+                    rk.left = 12;
+                    rk.right = 286;
+                    rk.top = y;
+                    rk.bottom = 8;
+                    y += 10;
+
+                    editstyle |= ES_MULTILINE;
+                    rv.left = 12;
+                    rv.right = 286;
+                    rv.top = y;
+                    rv.bottom = 64;
+                    y += 68;
+                } else {
+                    rk.left = 12;
+                    rk.right = 130;
+                    rk.top = y+2;
+                    rk.bottom = 8;
+
+                    rv.left = 150;
+                    rv.right = 298;
+                    rv.top = y;
+                    rv.bottom = 12;
+
+                    y += 16;
+                }
+
+                MapDialogRect(hwnd, &rk);
+                HWND ctl = CreateWindowEx(
+                    0, "STATIC", key, WS_CHILD | WS_VISIBLE,
+                    rk.left, rk.top, rk.right, rk.bottom,
+                    hwnd, (HMENU)(ULONG_PTR)index++, hinst, NULL);
+                SendMessage(ctl, WM_SETFONT, font, MAKELPARAM(true, 0));
+
+                MapDialogRect(hwnd, &rv);
+                ctl = CreateWindowEx(
+                    WS_EX_CLIENTEDGE, "EDIT", item->text, editstyle,
+                    rv.left, rv.top, rv.right, rv.bottom,
+                    hwnd, (HMENU)(ULONG_PTR)index++, hinst, NULL);
+                SendMessage(ctl, WM_SETFONT, font, MAKELPARAM(true, 0));
+                break;
+              }
+              default:
+                break;
+            }
+        }
+
+        /*
+         * Now resize the overall window, and move the Close button at
+         * the bottom.
+         */
+        RECT r;
+        r.left = 176;
+        r.top = y + 10;
+        r.right = r.bottom = 0;
+        MapDialogRect(hwnd, &r);
+        HWND ctl = GetDlgItem(hwnd, IDOK);
+        SetWindowPos(ctl, NULL, r.left, r.top, 0, 0,
+                     SWP_NOSIZE | SWP_NOREDRAW | SWP_NOZORDER);
+
+        r.left = r.top = r.right = 0;
+        r.bottom = 300;
+        MapDialogRect(hwnd, &r);
+        int oldheight = r.bottom;
+
+        r.left = r.top = r.right = 0;
+        r.bottom = y + 30;
+        MapDialogRect(hwnd, &r);
+        int newheight = r.bottom;
+
+        GetWindowRect(hwnd, &r);
+
+        SetWindowPos(hwnd, NULL, 0, 0, r.right - r.left,
+                     r.bottom - r.top + newheight - oldheight,
+                     SWP_NOMOVE | SWP_NOREDRAW | SWP_NOZORDER);
+
+        ShowWindow(hwnd, SW_SHOWNORMAL);
+        return 1;
+      }
+      case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+          case IDOK:
+            ShinyEndDialog(hwnd, 0);
+            return 0;
+        }
+        return 0;
+      case WM_CLOSE:
+        ShinyEndDialog(hwnd, 0);
+        return 0;
+    }
+    return 0;
+}
+
+/*
  * Dialog-box function for the main PuTTYgen dialog box.
  */
 static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
-                                WPARAM wParam, LPARAM lParam)
+                                    WPARAM wParam, LPARAM lParam)
 {
     const int DEMO_SCREENSHOT_TIMER_ID = 1230;
     static const char entropy_msg[] =
@@ -1469,6 +1622,18 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
             cp2 = cp;
             statictext(&cp2, "", 1, IDC_GENERATING);
             progressbar(&cp2, IDC_PROGRESS);
+            cp2 = cp;
+            bigeditctrl(&cp2, NULL, -1, IDC_CERTSTATIC, 3);
+            {
+                HWND child = GetDlgItem(hwnd, IDC_CERTSTATIC);
+                LONG_PTR style = GetWindowLongPtr(child, GWL_STYLE);
+                style &= ~WS_VSCROLL;
+                SetWindowLongPtr(child, GWL_STYLE, style);
+                SendMessage(child, EM_SETREADONLY, true, 0);
+            }
+            MakeDlgItemBorderless(hwnd, IDC_CERTSTATIC);
+            cp2.xoff = cp2.width = cp2.width / 3;
+            button(&cp2, "Certificate info...", IDC_CERTMOREINFO, false);
             bigeditctrl(&cp,
                         "&Public key for pasting into authorized_keys file:",
                         IDC_PKSTATIC, IDC_KEYDISPLAY, 5);
@@ -1695,11 +1860,9 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                     *state->commentptr = snewn(len + 1, char);
                     GetWindowText(editctl, *state->commentptr, len + 1);
                     if (state->ssh2) {
-                        setupbigedit2(hwnd, IDC_KEYDISPLAY, IDC_PKSTATIC,
-                                      &state->ssh2key);
+                        setupbigedit2(hwnd, &state->ssh2key);
                     } else {
-                        setupbigedit1(hwnd, IDC_KEYDISPLAY, IDC_PKSTATIC,
-                                      &state->key);
+                        setupbigedit1(hwnd, &state->key);
                     }
                 }
             }
@@ -1760,10 +1923,10 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
 
                 if ((state->keytype == RSA || state->keytype == DSA) &&
                     state->key_bits < 256) {
-                    char *message = dupprintf
-                        ("PuTTYgen will not generate a key smaller than 256"
-                         " bits.\nKey length reset to default %d. Continue?",
-                         DEFAULT_KEY_BITS);
+                    char *message = dupprintf(
+                        "PuTTYgen will not generate a key smaller than 256"
+                        " bits.\nKey length reset to default %d. Continue?",
+                        DEFAULT_KEY_BITS);
                     int ret = MessageBox(hwnd, message, "PuTTYgen Warning",
                                          MB_ICONWARNING | MB_OKCANCEL);
                     sfree(message);
@@ -1773,9 +1936,9 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                     SetDlgItemInt(hwnd, IDC_BITS, DEFAULT_KEY_BITS, false);
                 } else if ((state->keytype == RSA || state->keytype == DSA) &&
                            state->key_bits < DEFAULT_KEY_BITS) {
-                    char *message = dupprintf
-                        ("Keys shorter than %d bits are not recommended. "
-                         "Really generate this key?", DEFAULT_KEY_BITS);
+                    char *message = dupprintf(
+                        "Keys shorter than %d bits are not recommended. "
+                        "Really generate this key?", DEFAULT_KEY_BITS);
                     int ret = MessageBox(hwnd, message, "PuTTYgen Warning",
                                          MB_ICONWARNING | MB_OKCANCEL);
                     sfree(message);
@@ -2039,6 +2202,23 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                 remove_certificate(hwnd, state);
             }
             break;
+          case IDC_CERTMOREINFO: {
+            if (HIWORD(wParam) != BN_CLICKED)
+                break;
+            state =
+                (struct MainDlgState *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+            if (!state->key_exists || !state->ssh2 || !state->ssh2key.key)
+                break;
+            if (!ssh_key_alg(state->ssh2key.key)->is_certificate)
+                break;
+
+            struct certinfo_dialog_ctx ctx[1];
+            ctx->text = ssh_key_cert_info(state->ssh2key.key);
+            ShinyDialogBox(hinst, MAKEINTRESOURCE(216),
+                           "PuTTYgenCertInfo", hwnd, CertInfoProc, ctx);
+            seat_dialog_text_free(ctx->text);
+            break;
+          }
         }
         return 0;
       case WM_DONEKEY:
@@ -2116,11 +2296,9 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
              * .ssh/authorized_keys2 on a Unix box.
              */
             if (state->ssh2) {
-                setupbigedit2(hwnd, IDC_KEYDISPLAY,
-                              IDC_PKSTATIC, &state->ssh2key);
+                setupbigedit2(hwnd, &state->ssh2key);
             } else {
-                setupbigedit1(hwnd, IDC_KEYDISPLAY,
-                              IDC_PKSTATIC, &state->key);
+                setupbigedit1(hwnd, &state->key);
             }
         }
         /*
@@ -2176,9 +2354,9 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
             topic = WINHELP_CTX_puttygen_conversions; break;
         }
         if (topic) {
-          launch_help(hwnd, topic);
+            launch_help(hwnd, topic);
         } else {
-          MessageBeep(0);
+            MessageBeep(0);
         }
         break;
       }
@@ -2239,7 +2417,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
     save_params = ppk_save_default_parameters;
 
-    split_into_argv(cmdline, &argc, &argv, NULL);
+    split_into_argv(cmdline, false, &argc, &argv, NULL);
 
     int argbits = -1;
     AuxMatchOpt amo = aux_match_opt_init(argc, argv, 0, opt_error);

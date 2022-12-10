@@ -91,6 +91,7 @@ typedef struct BinarySink BinarySink;
 typedef struct BinarySource BinarySource;
 typedef struct stdio_sink stdio_sink;
 typedef struct bufchain_sink bufchain_sink;
+typedef struct buffer_sink buffer_sink;
 typedef struct handle_sink handle_sink;
 
 typedef struct IdempotentCallback IdempotentCallback;
@@ -116,6 +117,9 @@ typedef struct LogPolicyVtable LogPolicyVtable;
 
 typedef struct Seat Seat;
 typedef struct SeatVtable SeatVtable;
+typedef struct SeatDialogText SeatDialogText;
+typedef struct SeatDialogTextItem SeatDialogTextItem;
+typedef struct SeatDialogPromptDescriptions SeatDialogPromptDescriptions;
 typedef struct SeatPromptResult SeatPromptResult;
 
 typedef struct cmdline_get_passwd_input_state cmdline_get_passwd_input_state;
@@ -142,6 +146,8 @@ typedef struct SftpServerVtable SftpServerVtable;
 typedef struct Channel Channel;
 typedef struct SshChannel SshChannel;
 typedef struct mainchan mainchan;
+
+typedef struct CertExprBuilder CertExprBuilder;
 
 typedef struct ssh_sharing_state ssh_sharing_state;
 typedef struct ssh_sharing_connstate ssh_sharing_connstate;

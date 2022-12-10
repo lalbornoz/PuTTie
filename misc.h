@@ -31,6 +31,7 @@ char *dupcat_fn(const char *s1, ...);
 char *dupprintf(const char *fmt, ...) PRINTF_LIKE(1, 2);
 char *dupvprintf(const char *fmt, va_list ap);
 void burnstr(char *string);
+void burnwcs(wchar_t *string);
 
 /*
  * The visible part of a strbuf structure. There's a surrounding
@@ -69,12 +70,13 @@ void strbuf_finalise_agent_query(strbuf *buf);
 
 /* String-to-Unicode converters that auto-allocate the destination and
  * work around the rather deficient interface of mb_to_wc. */
-wchar_t *dup_mb_to_wc_c(int codepage, int flags, const char *string, int len);
+wchar_t *dup_mb_to_wc_c(int codepage, int flags, const char *string,
+                        size_t len, size_t *outlen_p);
 wchar_t *dup_mb_to_wc(int codepage, int flags, const char *string);
-char *dup_wc_to_mb_c(int codepage, int flags, const wchar_t *string, int len,
-                     const char *defchr, struct unicode_data *ucsdata);
+char *dup_wc_to_mb_c(int codepage, int flags, const wchar_t *string,
+                     size_t len, const char *defchr, size_t *outlen_p);
 char *dup_wc_to_mb(int codepage, int flags, const wchar_t *string,
-                   const char *defchr, struct unicode_data *ucsdata);
+                   const char *defchr);
 
 static inline int toint(unsigned u)
 {
@@ -115,6 +117,13 @@ void base64_encode_bs(BinarySink *bs, ptrlen data, int cpl);
 void base64_encode_fp(FILE *fp, ptrlen data, int cpl);
 strbuf *base64_encode_sb(ptrlen data, int cpl);
 bool base64_valid(ptrlen data);
+
+void percent_encode_bs(BinarySink *bs, ptrlen data, const char *badchars);
+void percent_encode_fp(FILE *fp, ptrlen data, const char *badchars);
+strbuf *percent_encode_sb(ptrlen data, const char *badchars);
+void percent_decode_bs(BinarySink *bs, ptrlen data);
+void percent_decode_fp(FILE *fp, ptrlen data);
+strbuf *percent_decode_sb(ptrlen data);
 
 struct bufchain_granule;
 struct bufchain_tag {
@@ -169,6 +178,21 @@ static inline ptrlen make_ptrlen(const void *ptr, size_t len)
     return pl;
 }
 
+static inline const void *ptrlen_end(ptrlen pl)
+{
+    return (const char *)pl.ptr + pl.len;
+}
+
+static inline ptrlen make_ptrlen_startend(const void *startv, const void *endv)
+{
+    const char *start = (const char *)startv, *end = (const char *)endv;
+    assert(end >= start);
+    ptrlen pl;
+    pl.ptr = start;
+    pl.len = end - start;
+    return pl;
+}
+
 static inline ptrlen ptrlen_from_asciz(const char *str)
 {
     return make_ptrlen(str, strlen(str));
@@ -190,6 +214,8 @@ int ptrlen_strcmp(ptrlen pl1, ptrlen pl2);
 bool ptrlen_startswith(ptrlen whole, ptrlen prefix, ptrlen *tail);
 bool ptrlen_endswith(ptrlen whole, ptrlen suffix, ptrlen *tail);
 ptrlen ptrlen_get_word(ptrlen *input, const char *separators);
+bool ptrlen_contains(ptrlen input, const char *characters);
+bool ptrlen_contains_only(ptrlen input, const char *characters);
 char *mkstr(ptrlen pl);
 int string_length_for_printf(size_t);
 /* Derive two printf arguments from a ptrlen, suitable for "%.*s" */
@@ -208,6 +234,8 @@ int string_length_for_printf(size_t);
 /* Make a ptrlen out of a constant byte array. */
 #define PTRLEN_FROM_CONST_BYTES(a) make_ptrlen(a, sizeof(a))
 
+void wordwrap(BinarySink *bs, ptrlen input, size_t maxwid);
+
 /* Wipe sensitive data out of memory that's about to be freed. Simpler
  * than memset because we don't need the fill char parameter; also
  * attempts (by fiddly use of volatile) to inhibit the compiler from
@@ -222,26 +250,29 @@ void smemclr(void *b, size_t len);
  * by the 'eq' in the name. */
 unsigned smemeq(const void *av, const void *bv, size_t len);
 
-/* Encode a single UTF-8 character. Assumes that illegal characters
- * (such as things in the surrogate range, or > 0x10FFFF) have already
- * been removed. */
-size_t encode_utf8(void *output, unsigned long ch);
-
 /* Encode a wide-character string into UTF-8. Tolerates surrogates if
  * sizeof(wchar_t) == 2, assuming that in that case the wide string is
  * encoded in UTF-16. */
 char *encode_wide_string_as_utf8(const wchar_t *wstr);
 
 /* Decode a single UTF-8 character. Returns U+FFFD for any of the
- * illegal cases. */
-unsigned long decode_utf8(const char **utf8);
+ * illegal cases. If the source is empty, returns L'\0' (and sets the
+ * error indicator on the source, of course). */
+unsigned decode_utf8(BinarySource *src);
 
 /* Decode a single UTF-8 character to an output buffer of the
  * platform's wchar_t. May write a pair of surrogates if
  * sizeof(wchar_t) == 2, assuming that in that case the wide string is
  * encoded in UTF-16. Otherwise, writes one character. Returns the
  * number written. */
-size_t decode_utf8_to_wchar(const char **utf8, wchar_t *out);
+size_t decode_utf8_to_wchar(BinarySource *src, wchar_t *out);
+
+/* Normalise a UTF-8 string into Normalisation Form C. */
+strbuf *utf8_to_nfc(ptrlen input);
+
+/* Determine if a UTF-8 string contains any characters unknown to our
+ * supported version of Unicode. */
+char *utf8_unknown_char(ptrlen input);
 
 /* Write a string out in C string-literal format. */
 void write_c_string_literal(FILE *fp, ptrlen str);
@@ -482,5 +513,19 @@ static inline ptrlen ptrlen_from_lf(LoadedFile *lf)
  * result of this function is not guaranteed. No memmove-style effort
  * is made to handle difficult overlap cases. */
 void memxor(uint8_t *out, const uint8_t *in1, const uint8_t *in2, size_t size);
+
+/* Boolean expressions used in OpenSSH certificate configuration */
+bool cert_expr_valid(const char *expression,
+                     char **error_msg, ptrlen *error_loc);
+bool cert_expr_match_str(const char *expression,
+                         const char *hostname, unsigned port);
+/* Build a certificate expression out of hostname wildcards. Required
+ * to handle legacy configuration from early in development, when
+ * multiple wildcards were stored separately in config, implicitly
+ * ORed together. */
+CertExprBuilder *cert_expr_builder_new(void);
+void cert_expr_builder_free(CertExprBuilder *eb);
+void cert_expr_builder_add(CertExprBuilder *eb, const char *wildcard);
+char *cert_expr_expression(CertExprBuilder *eb);
 
 #endif

@@ -515,7 +515,7 @@ struct ec_curve {
 };
 
 const ssh_keyalg *ec_alg_by_oid(int len, const void *oid,
-                                        const struct ec_curve **curve);
+                                const struct ec_curve **curve);
 const unsigned char *ec_alg_oid(const ssh_keyalg *alg, int *oidlen);
 extern const int ec_nist_curve_lengths[], n_ec_nist_curve_lengths;
 extern const int ec_ed_curve_lengths[], n_ec_ed_curve_lengths;
@@ -597,6 +597,7 @@ bool rsa_verify(RSAKey *key);
 void rsa_ssh1_public_blob(BinarySink *bs, RSAKey *key, RsaSsh1Order order);
 int rsa_ssh1_public_blob_len(ptrlen data);
 void rsa_ssh1_private_blob_agent(BinarySink *bs, RSAKey *key);
+void duprsakey(RSAKey *dst, const RSAKey *src);
 void freersapriv(RSAKey *key);
 void freersakey(RSAKey *key);
 key_components *rsa_components(RSAKey *key);
@@ -631,8 +632,8 @@ mp_int *ssh_rsakex_decrypt(
  * Helper function for k generation in DSA, reused in ECDSA
  */
 mp_int *dsa_gen_k(const char *id_string,
-                     mp_int *modulus, mp_int *private_key,
-                     unsigned char *digest, int digest_len);
+                  mp_int *modulus, mp_int *private_key,
+                  unsigned char *digest, int digest_len);
 
 struct ssh_cipher {
     const ssh_cipheralg *vt;
@@ -650,6 +651,9 @@ struct ssh_cipheralg {
                            unsigned long seq);
     void (*decrypt_length)(ssh_cipher *, void *blk, int len,
                            unsigned long seq);
+    /* For ciphers that update their state per logical message
+     * (typically, per unit independently MACed) */
+    void (*next_message)(ssh_cipher *);
     const char *ssh2_id;
     int blksize;
     /* real_keybits is the number of bits of entropy genuinely used by
@@ -694,8 +698,12 @@ static inline void ssh_cipher_encrypt_length(
 static inline void ssh_cipher_decrypt_length(
     ssh_cipher *c, void *blk, int len, unsigned long seq)
 { c->vt->decrypt_length(c, blk, len, seq); }
+static inline void ssh_cipher_next_message(ssh_cipher *c)
+{ c->vt->next_message(c); }
 static inline const struct ssh_cipheralg *ssh_cipher_alg(ssh_cipher *c)
 { return c->vt; }
+
+void nullcipher_next_message(ssh_cipher *);
 
 struct ssh2_ciphers {
     int nciphers;
@@ -714,6 +722,7 @@ struct ssh2_macalg {
     void (*setkey)(ssh2_mac *, ptrlen key);
     void (*start)(ssh2_mac *);
     void (*genresult)(ssh2_mac *, unsigned char *);
+    void (*next_message)(ssh2_mac *);
     const char *(*text_name)(ssh2_mac *);
     const char *name, *etm_name;
     int len, keylen;
@@ -733,6 +742,8 @@ static inline void ssh2_mac_start(ssh2_mac *m)
 { m->vt->start(m); }
 static inline void ssh2_mac_genresult(ssh2_mac *m, unsigned char *out)
 { m->vt->genresult(m, out); }
+static inline void ssh2_mac_next_message(ssh2_mac *m)
+{ m->vt->next_message(m); }
 static inline const char *ssh2_mac_text_name(ssh2_mac *m)
 { return m->vt->text_name(m); }
 static inline const ssh2_macalg *ssh2_mac_alg(ssh2_mac *m)
@@ -744,6 +755,8 @@ static inline const ssh2_macalg *ssh2_mac_alg(ssh2_mac *m)
 bool ssh2_mac_verresult(ssh2_mac *, const void *);
 void ssh2_mac_generate(ssh2_mac *, void *, int, unsigned long seq);
 bool ssh2_mac_verify(ssh2_mac *, const void *, int, unsigned long seq);
+
+void nullmac_next_message(ssh2_mac *m);
 
 /* Use a MAC in its raw form, outside SSH-2 context, to MAC a given
  * string with a given key in the most obvious way. */
@@ -807,13 +820,19 @@ void hash_simple(const ssh_hashalg *alg, ptrlen data, void *output);
 
 struct ssh_kex {
     const char *name, *groupname;
-    enum { KEXTYPE_DH, KEXTYPE_RSA, KEXTYPE_ECDH, KEXTYPE_GSS } main_type;
+    enum { KEXTYPE_DH, KEXTYPE_RSA, KEXTYPE_ECDH,
+           KEXTYPE_GSS, KEXTYPE_GSS_ECDH } main_type;
     const ssh_hashalg *hash;
     union {                  /* publicly visible data for each type */
-        const ecdh_keyalg *ecdh_vt;    /* for KEXTYPE_ECDH */
+        const ecdh_keyalg *ecdh_vt;    /* for KEXTYPE_ECDH, KEXTYPE_GSS_ECDH */
     };
     const void *extra;                 /* private to the kex methods */
 };
+
+static inline bool kex_is_gss(const struct ssh_kex *kex)
+{
+    return kex->main_type == KEXTYPE_GSS || kex->main_type == KEXTYPE_GSS_ECDH;
+}
 
 struct ssh_kexes {
     int nkexes;
@@ -851,11 +870,14 @@ struct ssh_keyalg {
                        uint64_t time, const ca_options *opts,
                        BinarySink *error);
     void (*cert_id_string)(ssh_key *key, BinarySink *);
+    SeatDialogText *(*cert_info)(ssh_key *key);
 
     /* 'Class methods' that don't deal with an ssh_key at all */
     int (*pubkey_bits) (const ssh_keyalg *self, ptrlen blob);
     unsigned (*supported_flags) (const ssh_keyalg *self);
     const char *(*alternate_ssh_id) (const ssh_keyalg *self, unsigned flags);
+    char *(*alg_desc)(const ssh_keyalg *self);
+    bool (*variable_size)(const ssh_keyalg *self);
     /* The following methods can be NULL if !is_certificate */
     const ssh_keyalg *(*related_alg)(const ssh_keyalg *self,
                                      const ssh_keyalg *base);
@@ -903,6 +925,8 @@ static inline void ssh_key_ca_public_blob(ssh_key *key, BinarySink *bs)
 { key->vt->ca_public_blob(key, bs); }
 static inline void ssh_key_cert_id_string(ssh_key *key, BinarySink *bs)
 { key->vt->cert_id_string(key, bs); }
+static inline SeatDialogText *ssh_key_cert_info(ssh_key *key)
+{ return key->vt->cert_info(key); }
 static inline bool ssh_key_check_cert(
     ssh_key *key, bool host, ptrlen principal, uint64_t time,
     const ca_options *opts, BinarySink *error)
@@ -915,13 +939,17 @@ static inline const char *ssh_key_ssh_id(ssh_key *key)
 { return key->vt->ssh_id; }
 static inline const char *ssh_key_cache_id(ssh_key *key)
 { return key->vt->cache_id; }
-static inline const unsigned ssh_key_supported_flags(ssh_key *key)
+static inline unsigned ssh_key_supported_flags(ssh_key *key)
 { return key->vt->supported_flags(key->vt); }
-static inline const unsigned ssh_keyalg_supported_flags(const ssh_keyalg *self)
+static inline unsigned ssh_keyalg_supported_flags(const ssh_keyalg *self)
 { return self->supported_flags(self); }
 static inline const char *ssh_keyalg_alternate_ssh_id(
     const ssh_keyalg *self, unsigned flags)
 { return self->alternate_ssh_id(self, flags); }
+static inline char *ssh_keyalg_desc(const ssh_keyalg *self)
+{ return self->alg_desc(self); }
+static inline bool ssh_keyalg_variable_size(const ssh_keyalg *self)
+{ return self->variable_size(self); }
 static inline const ssh_keyalg *ssh_keyalg_related_alg(
     const ssh_keyalg *self, const ssh_keyalg *base)
 { return self->related_alg(self, base); }
@@ -930,6 +958,8 @@ static inline const ssh_keyalg *ssh_keyalg_related_alg(
 unsigned nullkey_supported_flags(const ssh_keyalg *self);
 const char *nullkey_alternate_ssh_id(const ssh_keyalg *self, unsigned flags);
 ssh_key *nullkey_base_key(ssh_key *key);
+bool nullkey_variable_size_no(const ssh_keyalg *self);
+bool nullkey_variable_size_yes(const ssh_keyalg *self);
 
 /* Utility functions implemented centrally */
 ssh_key *ssh_key_clone(ssh_key *key);
@@ -962,6 +992,20 @@ static inline bool ecdh_key_getkey(ecdh_key *key, ptrlen remoteKey,
 { return key->vt->getkey(key, remoteKey, bs); }
 static inline char *ecdh_keyalg_description(const ssh_kex *kex)
 { return kex->ecdh_vt->description(kex); }
+
+/*
+ * Suffix on GSSAPI SSH protocol identifiers that indicates Kerberos 5
+ * as the mechanism.
+ *
+ * This suffix is the base64-encoded MD5 hash of the byte sequence
+ * 06 09 2A 86 48 86 F7 12 01 02 02, which in turn is the ASN.1 DER
+ * encoding of the object ID 1.2.840.113554.1.2.2 which designates
+ * Kerberos v5.
+ *
+ * (The same encoded OID, minus the two-byte DER header, is defined in
+ * ssh/pgssapi.c as GSS_MECH_KRB5.)
+ */
+#define GSS_KRB5_OID_HASH "toWM5Slw5Ew8Mqkay+al2g=="
 
 /*
  * Enumeration of signature flags from draft-miller-ssh-agent-02
@@ -1048,6 +1092,10 @@ extern const ssh_cipheralg ssh_aes256_sdctr;
 extern const ssh_cipheralg ssh_aes256_sdctr_ni;
 extern const ssh_cipheralg ssh_aes256_sdctr_neon;
 extern const ssh_cipheralg ssh_aes256_sdctr_sw;
+extern const ssh_cipheralg ssh_aes256_gcm;
+extern const ssh_cipheralg ssh_aes256_gcm_ni;
+extern const ssh_cipheralg ssh_aes256_gcm_neon;
+extern const ssh_cipheralg ssh_aes256_gcm_sw;
 extern const ssh_cipheralg ssh_aes256_cbc;
 extern const ssh_cipheralg ssh_aes256_cbc_ni;
 extern const ssh_cipheralg ssh_aes256_cbc_neon;
@@ -1056,6 +1104,10 @@ extern const ssh_cipheralg ssh_aes192_sdctr;
 extern const ssh_cipheralg ssh_aes192_sdctr_ni;
 extern const ssh_cipheralg ssh_aes192_sdctr_neon;
 extern const ssh_cipheralg ssh_aes192_sdctr_sw;
+extern const ssh_cipheralg ssh_aes192_gcm;
+extern const ssh_cipheralg ssh_aes192_gcm_ni;
+extern const ssh_cipheralg ssh_aes192_gcm_neon;
+extern const ssh_cipheralg ssh_aes192_gcm_sw;
 extern const ssh_cipheralg ssh_aes192_cbc;
 extern const ssh_cipheralg ssh_aes192_cbc_ni;
 extern const ssh_cipheralg ssh_aes192_cbc_neon;
@@ -1064,6 +1116,10 @@ extern const ssh_cipheralg ssh_aes128_sdctr;
 extern const ssh_cipheralg ssh_aes128_sdctr_ni;
 extern const ssh_cipheralg ssh_aes128_sdctr_neon;
 extern const ssh_cipheralg ssh_aes128_sdctr_sw;
+extern const ssh_cipheralg ssh_aes128_gcm;
+extern const ssh_cipheralg ssh_aes128_gcm_ni;
+extern const ssh_cipheralg ssh_aes128_gcm_neon;
+extern const ssh_cipheralg ssh_aes128_gcm_sw;
 extern const ssh_cipheralg ssh_aes128_cbc;
 extern const ssh_cipheralg ssh_aes128_cbc_ni;
 extern const ssh_cipheralg ssh_aes128_cbc_neon;
@@ -1079,6 +1135,7 @@ extern const ssh2_ciphers ssh2_aes;
 extern const ssh2_ciphers ssh2_blowfish;
 extern const ssh2_ciphers ssh2_arcfour;
 extern const ssh2_ciphers ssh2_ccp;
+extern const ssh2_ciphers ssh2_aesgcm;
 extern const ssh_hashalg ssh_md5;
 extern const ssh_hashalg ssh_sha1;
 extern const ssh_hashalg ssh_sha1_ni;
@@ -1102,11 +1159,21 @@ extern const ssh_hashalg ssh_shake256_114bytes;
 extern const ssh_hashalg ssh_blake2b;
 extern const ssh_kexes ssh_diffiehellman_group1;
 extern const ssh_kexes ssh_diffiehellman_group14;
+extern const ssh_kexes ssh_diffiehellman_group15;
+extern const ssh_kexes ssh_diffiehellman_group16;
+extern const ssh_kexes ssh_diffiehellman_group17;
+extern const ssh_kexes ssh_diffiehellman_group18;
 extern const ssh_kexes ssh_diffiehellman_gex;
 extern const ssh_kex ssh_diffiehellman_group1_sha1;
 extern const ssh_kex ssh_diffiehellman_group14_sha256;
 extern const ssh_kex ssh_diffiehellman_group14_sha1;
+extern const ssh_kex ssh_diffiehellman_group15_sha512;
+extern const ssh_kex ssh_diffiehellman_group16_sha512;
+extern const ssh_kex ssh_diffiehellman_group17_sha512;
+extern const ssh_kex ssh_diffiehellman_group18_sha512;
 extern const ssh_kexes ssh_gssk5_sha1_kex;
+extern const ssh_kexes ssh_gssk5_sha2_kex;
+extern const ssh_kexes ssh_gssk5_ecdh_kex;
 extern const ssh_kexes ssh_rsa_kex;
 extern const ssh_kex ssh_ec_kex_curve25519;
 extern const ssh_kex ssh_ec_kex_curve448;
@@ -1139,11 +1206,19 @@ extern const ssh2_macalg ssh_hmac_sha1_96;
 extern const ssh2_macalg ssh_hmac_sha1_96_buggy;
 extern const ssh2_macalg ssh_hmac_sha256;
 extern const ssh2_macalg ssh2_poly1305;
+extern const ssh2_macalg ssh2_aesgcm_mac;
+extern const ssh2_macalg ssh2_aesgcm_mac_sw;
+extern const ssh2_macalg ssh2_aesgcm_mac_ref_poly;
+extern const ssh2_macalg ssh2_aesgcm_mac_clmul;
+extern const ssh2_macalg ssh2_aesgcm_mac_neon;
 extern const ssh_compression_alg ssh_zlib;
 
 /* Special constructor: BLAKE2b can be instantiated with any hash
  * length up to 128 bytes */
 ssh_hash *blake2b_new_general(unsigned hashlen);
+
+/* Special test function for AES-GCM */
+void aesgcm_set_prefix_lengths(ssh2_mac *mac, size_t skip, size_t aad);
 
 /*
  * On some systems, you have to detect hardware crypto acceleration by
@@ -1152,6 +1227,7 @@ ssh_hash *blake2b_new_general(unsigned hashlen);
  * platform subdirectory.
  */
 bool platform_aes_neon_available(void);
+bool platform_pmull_neon_available(void);
 bool platform_sha256_neon_available(void);
 bool platform_sha1_neon_available(void);
 bool platform_sha512_neon_available(void);
@@ -1443,12 +1519,36 @@ enum {
 };
 
 typedef enum {
+    /* Default fingerprint types strip off a certificate to show you
+     * the fingerprint of the underlying public key */
     SSH_FPTYPE_MD5,
     SSH_FPTYPE_SHA256,
+    /* Non-default version of each fingerprint type which is 'raw',
+     * giving you the true hash of the public key blob even if it
+     * includes a certificate */
+    SSH_FPTYPE_MD5_CERT,
+    SSH_FPTYPE_SHA256_CERT,
 } FingerprintType;
 
+static inline bool ssh_fptype_is_cert(FingerprintType fptype)
+{
+    return fptype >= SSH_FPTYPE_MD5_CERT;
+}
+static inline FingerprintType ssh_fptype_from_cert(FingerprintType fptype)
+{
+    if (ssh_fptype_is_cert(fptype))
+        fptype -= (SSH_FPTYPE_MD5_CERT - SSH_FPTYPE_MD5);
+    return fptype;
+}
+static inline FingerprintType ssh_fptype_to_cert(FingerprintType fptype)
+{
+    if (!ssh_fptype_is_cert(fptype))
+        fptype += (SSH_FPTYPE_MD5_CERT - SSH_FPTYPE_MD5);
+    return fptype;
+}
+
+#define SSH_N_FPTYPES (SSH_FPTYPE_SHA256_CERT + 1)
 #define SSH_FPTYPE_DEFAULT SSH_FPTYPE_SHA256
-#define SSH_N_FPTYPES (SSH_FPTYPE_SHA256 + 1)
 
 FingerprintType ssh2_pick_fingerprint(char **fingerprints,
                                       FingerprintType preferred_type);
@@ -1462,6 +1562,8 @@ void ssh2_write_pubkey(FILE *fp, const char *comment,
                        int keytype);
 char *ssh2_fingerprint_blob(ptrlen, FingerprintType);
 char *ssh2_fingerprint(ssh_key *key, FingerprintType);
+char *ssh2_double_fingerprint_blob(ptrlen, FingerprintType);
+char *ssh2_double_fingerprint(ssh_key *key, FingerprintType);
 char **ssh2_all_fingerprints_for_blob(ptrlen);
 char **ssh2_all_fingerprints(ssh_key *key);
 void ssh2_free_all_fingerprints(char **);
@@ -1473,7 +1575,7 @@ bool import_possible(int type);
 int import_target_type(int type);
 bool import_encrypted(const Filename *filename, int type, char **comment);
 bool import_encrypted_s(const Filename *filename, BinarySource *src,
-                      int type, char **comment);
+                        int type, char **comment);
 int import_ssh1(const Filename *filename, int type,
                 RSAKey *key, char *passphrase, const char **errmsg_p);
 int import_ssh1_s(BinarySource *src, int type,
@@ -1481,7 +1583,7 @@ int import_ssh1_s(BinarySource *src, int type,
 ssh2_userkey *import_ssh2(const Filename *filename, int type,
                           char *passphrase, const char **errmsg_p);
 ssh2_userkey *import_ssh2_s(BinarySource *src, int type,
-                          char *passphrase, const char **errmsg_p);
+                            char *passphrase, const char **errmsg_p);
 bool export_ssh1(const Filename *filename, int type,
                  RSAKey *key, char *passphrase);
 bool export_ssh2(const Filename *filename, int type,
@@ -1778,6 +1880,7 @@ void old_keyfile_warning(void);
     X(BUG_CHOKES_ON_WINADJ)                     \
     X(BUG_SENDS_LATE_REQUEST_REPLY)             \
     X(BUG_SSH2_OLDGEX)                          \
+    X(BUG_REQUIRES_FILTERED_KEXINIT)            \
     /* end of list */
 #define TMP_DECLARE_LOG2_ENUM(thing) log2_##thing,
 enum { SSH_IMPL_BUG_LIST(TMP_DECLARE_LOG2_ENUM) };
@@ -1801,8 +1904,8 @@ bool get_commasep_word(ptrlen *list, ptrlen *word);
 SeatPromptResult verify_ssh_host_key(
     InteractionReadySeat iseat, Conf *conf, const char *host, int port,
     ssh_key *key, const char *keytype, char *keystr, const char *keydisp,
-    char **fingerprints, void (*callback)(void *ctx, SeatPromptResult result),
-    void *ctx);
+    char **fingerprints, int ca_count,
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx);
 
 typedef struct ssh_transient_hostkey_cache ssh_transient_hostkey_cache;
 ssh_transient_hostkey_cache *ssh_transient_hostkey_cache_new(void);
@@ -1814,3 +1917,35 @@ bool ssh_transient_hostkey_cache_verify(
 bool ssh_transient_hostkey_cache_has(
     ssh_transient_hostkey_cache *thc, const ssh_keyalg *alg);
 bool ssh_transient_hostkey_cache_non_empty(ssh_transient_hostkey_cache *thc);
+
+/*
+ * Protocol definitions for authentication helper plugins
+ */
+
+#define AUTHPLUGIN_MSG_NAMES(X)                 \
+    X(PLUGIN_INIT, 1)                           \
+    X(PLUGIN_INIT_RESPONSE, 2)                  \
+    X(PLUGIN_PROTOCOL, 3)                       \
+    X(PLUGIN_PROTOCOL_ACCEPT, 4)                \
+    X(PLUGIN_PROTOCOL_REJECT, 5)                \
+    X(PLUGIN_AUTH_SUCCESS, 6)                   \
+    X(PLUGIN_AUTH_FAILURE, 7)                   \
+    X(PLUGIN_INIT_FAILURE, 8)                   \
+    X(PLUGIN_KI_SERVER_REQUEST, 20)             \
+    X(PLUGIN_KI_SERVER_RESPONSE, 21)            \
+    X(PLUGIN_KI_USER_REQUEST, 22)               \
+    X(PLUGIN_KI_USER_RESPONSE, 23)              \
+    /* end of list */
+
+#define PLUGIN_PROTOCOL_MAX_VERSION 2  /* the highest version we speak */
+
+enum {
+    #define ENUMDECL(name, value) name = value,
+    AUTHPLUGIN_MSG_NAMES(ENUMDECL)
+    #undef ENUMDECL
+
+    /* Error codes internal to this implementation, indicating failure
+     * to receive a meaningful packet at all */
+    PLUGIN_NOTYPE = 256, /* packet too short to have a type */
+    PLUGIN_EOF = 257 /* EOF from auth plugin */
+};

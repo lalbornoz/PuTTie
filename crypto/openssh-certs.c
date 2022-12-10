@@ -3,6 +3,7 @@
  */
 
 #include "ssh.h"
+#include "putty.h"
 
 enum {
     SSH_CERT_TYPE_USER = 1,
@@ -92,35 +93,37 @@ typedef struct opensshcert_extra {
  * info appears at all, it's in the same order everywhere, and none of
  * it is repeated unnecessarily */
 enum { DSA_p, DSA_q, DSA_g, DSA_y, DSA_x };
-const unsigned dsa_pub_fmt[] = { DSA_p, DSA_q, DSA_g, DSA_y };
-const unsigned dsa_base_ossh_fmt[] = { DSA_p, DSA_q, DSA_g, DSA_y, DSA_x };
-const unsigned dsa_cert_ossh_fmt[] = { DSA_x };
+static const unsigned dsa_pub_fmt[] = { DSA_p, DSA_q, DSA_g, DSA_y };
+static const unsigned dsa_base_ossh_fmt[] = {
+    DSA_p, DSA_q, DSA_g, DSA_y, DSA_x };
+static const unsigned dsa_cert_ossh_fmt[] = { DSA_x };
 
 /* ECDSA is almost as nice, except that it pointlessly mentions the
  * curve name in the public data, which shouldn't be necessary given
  * that the SSH key id has already implied it. But at least that's
  * consistent everywhere. */
 enum { ECDSA_curve, ECDSA_point, ECDSA_exp };
-const unsigned ecdsa_pub_fmt[] = { ECDSA_curve, ECDSA_point };
-const unsigned ecdsa_base_ossh_fmt[] = { ECDSA_curve, ECDSA_point, ECDSA_exp };
-const unsigned ecdsa_cert_ossh_fmt[] = { ECDSA_exp };
+static const unsigned ecdsa_pub_fmt[] = { ECDSA_curve, ECDSA_point };
+static const unsigned ecdsa_base_ossh_fmt[] = {
+    ECDSA_curve, ECDSA_point, ECDSA_exp };
+static const unsigned ecdsa_cert_ossh_fmt[] = { ECDSA_exp };
 
 /* Ed25519 has the oddity that the private data following the
  * certificate in the OpenSSH blob is preceded by an extra copy of the
  * public data, for no obviously necessary reason since that doesn't
  * happen in any of the rest of these formats */
 enum { EDDSA_point, EDDSA_exp };
-const unsigned eddsa_pub_fmt[] = { EDDSA_point };
-const unsigned eddsa_base_ossh_fmt[] = { EDDSA_point, EDDSA_exp };
-const unsigned eddsa_cert_ossh_fmt[] = { EDDSA_point, EDDSA_exp };
+static const unsigned eddsa_pub_fmt[] = { EDDSA_point };
+static const unsigned eddsa_base_ossh_fmt[] = { EDDSA_point, EDDSA_exp };
+static const unsigned eddsa_cert_ossh_fmt[] = { EDDSA_point, EDDSA_exp };
 
 /* And RSA has the quirk that the modulus and exponent are reversed in
  * the base key type's OpenSSH blob! */
 enum { RSA_e, RSA_n, RSA_d, RSA_p, RSA_q, RSA_iqmp };
-const unsigned rsa_pub_fmt[] = { RSA_e, RSA_n };
-const unsigned rsa_base_ossh_fmt[] = {
+static const unsigned rsa_pub_fmt[] = { RSA_e, RSA_n };
+static const unsigned rsa_base_ossh_fmt[] = {
     RSA_n, RSA_e, RSA_d, RSA_p, RSA_q, RSA_iqmp };
-const unsigned rsa_cert_ossh_fmt[] = { RSA_d, RSA_p, RSA_q, RSA_iqmp };
+static const unsigned rsa_cert_ossh_fmt[] = { RSA_d, RSA_p, RSA_q, RSA_iqmp };
 
 /*
  * Routines to transform one kind of blob into another based on those
@@ -203,6 +206,7 @@ static void opensshcert_private_blob(ssh_key *key, BinarySink *bs);
 static void opensshcert_openssh_blob(ssh_key *key, BinarySink *bs);
 static void opensshcert_ca_public_blob(ssh_key *key, BinarySink *bs);
 static void opensshcert_cert_id_string(ssh_key *key, BinarySink *bs);
+static SeatDialogText *opensshcert_cert_info(ssh_key *key);
 static bool opensshcert_has_private(ssh_key *key);
 static char *opensshcert_cache_str(ssh_key *key);
 static key_components *opensshcert_components(ssh_key *key);
@@ -214,6 +218,8 @@ static int opensshcert_pubkey_bits(const ssh_keyalg *self, ptrlen blob);
 static unsigned opensshcert_supported_flags(const ssh_keyalg *self);
 static const char *opensshcert_alternate_ssh_id(const ssh_keyalg *self,
                                                 unsigned flags);
+static char *opensshcert_alg_desc(const ssh_keyalg *self);
+static bool opensshcert_variable_size(const ssh_keyalg *self);
 static const ssh_keyalg *opensshcert_related_alg(const ssh_keyalg *self,
                                                  const ssh_keyalg *base);
 
@@ -234,7 +240,7 @@ static const ssh_keyalg *opensshcert_related_alg(const ssh_keyalg *self,
     /* end of list */
 
 #define KEYALG_DEF(name, ssh_alg_id_prefix, ssh_key_id_prefix, fmt_prefix) \
-    const struct opensshcert_extra opensshcert_##name##_extra = {       \
+    static const struct opensshcert_extra opensshcert_##name##_extra = { \
         .pub_fmt = { .fmt = fmt_prefix ## _pub_fmt,                     \
                      .len = lenof(fmt_prefix ## _pub_fmt) },            \
         .base_ossh_fmt = { .fmt = fmt_prefix ## _base_ossh_fmt,         \
@@ -263,12 +269,15 @@ static const ssh_keyalg *opensshcert_related_alg(const ssh_keyalg *self,
         .ca_public_blob = opensshcert_ca_public_blob,                   \
         .check_cert = opensshcert_check_cert,                           \
         .cert_id_string = opensshcert_cert_id_string,                   \
+        .cert_info = opensshcert_cert_info,                             \
         .pubkey_bits = opensshcert_pubkey_bits,                         \
         .supported_flags = opensshcert_supported_flags,                 \
         .alternate_ssh_id = opensshcert_alternate_ssh_id,               \
+        .alg_desc = opensshcert_alg_desc,                               \
+        .variable_size = opensshcert_variable_size,                     \
         .related_alg = opensshcert_related_alg,                         \
         .ssh_id = ssh_alg_id_prefix "-cert-v01@openssh.com",            \
-        .cache_id = NULL,                                               \
+        .cache_id = "opensshcert-" ssh_key_id_prefix,                   \
         .extra = &opensshcert_##name##_extra,                           \
         .is_certificate = true,                                         \
         .base_alg = &name,                                              \
@@ -281,6 +290,26 @@ static const ssh_keyalg *const opensshcert_all_keyalgs[] = {
     KEYALG_LIST(KEYALG_LIST_ENTRY)
 };
 #undef KEYALG_LIST_ENTRY
+
+static strbuf *get_base_public_blob(BinarySource *src,
+                                    const opensshcert_extra *extra)
+{
+    strbuf *basepub = strbuf_new();
+    put_stringz(basepub, extra->base_key_ssh_id);
+
+    /* Make the base public key blob out of the public key
+     * material in the certificate. This invocation of the
+     * blobtrans system doesn't do any format translation, but it
+     * does ensure that the right amount of data is copied so that
+     * src ends up in the right position to read the remaining
+     * certificate fields. */
+    BLOBTRANS_DECLARE(bt);
+    blobtrans_read(bt, src, extra->pub_fmt);
+    blobtrans_write(bt, BinarySink_UPCAST(basepub), extra->pub_fmt);
+    blobtrans_clear(bt);
+
+    return basepub;
+}
 
 static opensshcert_key *opensshcert_new_shared(
     const ssh_keyalg *self, ptrlen blob, strbuf **basepub_out)
@@ -299,21 +328,7 @@ static opensshcert_key *opensshcert_new_shared(
     ck->sshk.vt = self;
 
     ck->nonce = strbuf_dup(get_string(src));
-    strbuf *basepub = strbuf_new();
-    {
-        put_stringz(basepub, extra->base_key_ssh_id);
-
-        /* Make the base public key blob out of the public key
-         * material in the certificate. This invocation of the
-         * blobtrans system doesn't do any format translation, but it
-         * does ensure that the right amount of data is copied so that
-         * src ends up in the right position to read the remaining
-         * certificate fields. */
-        BLOBTRANS_DECLARE(bt);
-        blobtrans_read(bt, src, extra->pub_fmt);
-        blobtrans_write(bt, BinarySink_UPCAST(basepub), extra->pub_fmt);
-        blobtrans_clear(bt);
-    }
+    strbuf *basepub = get_base_public_blob(src, extra);
     ck->serial = get_uint64(src);
     ck->type = get_uint32(src);
     ck->key_id = strbuf_dup(get_string(src));
@@ -559,8 +574,8 @@ static bool opensshcert_has_private(ssh_key *key)
 
 static char *opensshcert_cache_str(ssh_key *key)
 {
-    unreachable(
-        "Certificates are not expected to be stored in the host key cache");
+    opensshcert_key *ck = container_of(key, opensshcert_key, sshk);
+    return ssh_key_cache_str(ck->basekey);
 }
 
 static void opensshcert_time_to_iso8601(BinarySink *bs, uint64_t time)
@@ -568,7 +583,7 @@ static void opensshcert_time_to_iso8601(BinarySink *bs, uint64_t time)
     time_t t = time;
     char buf[256];
     put_data(bs, buf, strftime(buf, sizeof(buf),
-                               "%a %F %T %Z", localtime(&t)));
+                               "%Y-%m-%d %H:%M:%S UTC", gmtime(&t)));
 }
 
 static void opensshcert_string_list_key_components(
@@ -666,6 +681,205 @@ static key_components *opensshcert_components(ssh_key *key)
     return kc;
 }
 
+static SeatDialogText *opensshcert_cert_info(ssh_key *key)
+{
+    opensshcert_key *ck = container_of(key, opensshcert_key, sshk);
+    SeatDialogText *text = seat_dialog_text_new();
+    strbuf *tmp = strbuf_new();
+
+    seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                            "Certificate type");
+    switch (ck->type) {
+      case SSH_CERT_TYPE_HOST:
+        seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT,
+                                "host key");
+        seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                "Valid host names");
+        break;
+      case SSH_CERT_TYPE_USER:
+        seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT,
+                                "user authentication key");
+        seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                "Valid user names");
+        break;
+      default:
+        seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT,
+                                "unknown type %" PRIu32, ck->type);
+        seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                "Valid principals");
+        break;
+    }
+
+    {
+        BinarySource src[1];
+        BinarySource_BARE_INIT_PL(src, ptrlen_from_strbuf(
+                                      ck->valid_principals));
+        const char *sep = "";
+        strbuf_clear(tmp);
+        while (get_avail(src)) {
+            ptrlen principal = get_string(src);
+            if (get_err(src))
+                break;
+            put_dataz(tmp, sep);
+            sep = ",";
+            put_datapl(tmp, principal);
+        }
+        seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT,
+                                "%s", tmp->s);
+    }
+
+    seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                            "Validity period");
+    strbuf_clear(tmp);
+    if (ck->valid_after == 0) {
+        if (ck->valid_before == 0xFFFFFFFFFFFFFFFF) {
+            put_dataz(tmp, "forever");
+        } else {
+            put_dataz(tmp, "until ");
+            opensshcert_time_to_iso8601(BinarySink_UPCAST(tmp),
+                                        ck->valid_before);
+        }
+    } else {
+        if (ck->valid_before == 0xFFFFFFFFFFFFFFFF) {
+            put_dataz(tmp, "after ");
+            opensshcert_time_to_iso8601(BinarySink_UPCAST(tmp),
+                                        ck->valid_after);
+        } else {
+            opensshcert_time_to_iso8601(BinarySink_UPCAST(tmp),
+                                        ck->valid_after);
+            put_dataz(tmp, " - ");
+            opensshcert_time_to_iso8601(BinarySink_UPCAST(tmp),
+                                        ck->valid_before);
+        }
+    }
+    seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT, "%s", tmp->s);
+
+    /*
+     * List critical options we know about. (This is everything listed
+     * in PROTOCOL.certkeys that isn't specific to U2F/FIDO key types
+     * that PuTTY doesn't currently support.)
+     */
+    {
+        BinarySource src[1];
+        BinarySource_BARE_INIT_PL(src, ptrlen_from_strbuf(
+                                      ck->critical_options));
+        strbuf_clear(tmp);
+        while (get_avail(src)) {
+            ptrlen key = get_string(src);
+            ptrlen value = get_string(src);
+            if (get_err(src))
+                break;
+            if (ck->type == SSH_CERT_TYPE_USER &&
+                ptrlen_eq_string(key, "source-address")) {
+                BinarySource src2[1];
+                BinarySource_BARE_INIT_PL(src2, value);
+                ptrlen addresslist = get_string(src2);
+                seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                        "Permitted client IP addresses");
+                seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT,
+                                        "%.*s", PTRLEN_PRINTF(addresslist));
+            } else if (ck->type == SSH_CERT_TYPE_USER &&
+                       ptrlen_eq_string(key, "force-command")) {
+                BinarySource src2[1];
+                BinarySource_BARE_INIT_PL(src2, value);
+                ptrlen command = get_string(src2);
+                seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                        "Forced remote command");
+                seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT,
+                                        "%.*s", PTRLEN_PRINTF(command));
+            }
+        }
+    }
+
+    /*
+     * List certificate extensions. Again, we go through everything in
+     * PROTOCOL.certkeys that isn't specific to U2F/FIDO key types.
+     * But we also flip the sense round for user-readability: I think
+     * it's more likely that the typical key will permit all these
+     * things, so we emit no output in that case, and only mention the
+     * things that _aren't_ enabled.
+     */
+
+    bool x11_ok = false, agent_ok = false, portfwd_ok = false;
+    bool pty_ok = false, user_rc_ok = false;
+
+    {
+        BinarySource src[1];
+        BinarySource_BARE_INIT_PL(src, ptrlen_from_strbuf(
+                                      ck->extensions));
+        while (get_avail(src)) {
+            ptrlen key = get_string(src);
+            /* ptrlen value = */ get_string(src); // nothing needs this yet
+            if (get_err(src))
+                break;
+            if (ptrlen_eq_string(key, "permit-X11-forwarding")) {
+                x11_ok = true;
+            } else if (ptrlen_eq_string(key, "permit-agent-forwarding")) {
+                agent_ok = true;
+            } else if (ptrlen_eq_string(key, "permit-port-forwarding")) {
+                portfwd_ok = true;
+            } else if (ptrlen_eq_string(key, "permit-pty")) {
+                pty_ok = true;
+            } else if (ptrlen_eq_string(key, "permit-user-rc")) {
+                user_rc_ok = true;
+            }
+        }
+    }
+
+    if (ck->type == SSH_CERT_TYPE_USER) {
+        if (!x11_ok) {
+            seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                    "X11 forwarding permitted");
+            seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT, "no");
+        }
+        if (!agent_ok) {
+            seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                    "Agent forwarding permitted");
+            seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT, "no");
+        }
+        if (!portfwd_ok) {
+            seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                    "Port forwarding permitted");
+            seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT, "no");
+        }
+        if (!pty_ok) {
+            seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                    "PTY allocation permitted");
+            seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT, "no");
+        }
+        if (!user_rc_ok) {
+            seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                                    "Running user ~/.ssh.rc permitted");
+            seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT, "no");
+        }
+    }
+
+    seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                            "Certificate ID string");
+    seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT,
+                            "%s", ck->key_id->s);
+    seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                            "Certificate serial number");
+    seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT,
+                            "%" PRIu64, ck->serial);
+
+    char *fp = ssh2_fingerprint_blob(ptrlen_from_strbuf(ck->signature_key),
+                                     SSH_FPTYPE_DEFAULT);
+    seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                            "Fingerprint of signing CA key");
+    seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT, "%s", fp);
+    sfree(fp);
+
+    fp = ssh2_fingerprint(key, ssh_fptype_to_cert(SSH_FPTYPE_DEFAULT));
+    seat_dialog_text_append(text, SDT_MORE_INFO_KEY,
+                            "Fingerprint including certificate");
+    seat_dialog_text_append(text, SDT_MORE_INFO_VALUE_SHORT, "%s", fp);
+    sfree(fp);
+
+    strbuf_free(tmp);
+    return text;
+}
+
 static int opensshcert_pubkey_bits(const ssh_keyalg *self, ptrlen blob)
 {
     BinarySource src[1];
@@ -673,8 +887,11 @@ static int opensshcert_pubkey_bits(const ssh_keyalg *self, ptrlen blob)
 
     get_string(src);                   /* key type */
     get_string(src);                   /* nonce */
-    return ssh_key_public_bits(
-        self->base_alg, make_ptrlen(get_ptr(src), get_avail(src)));
+    strbuf *basepub = get_base_public_blob(src, self->extra);
+    int bits = ssh_key_public_bits(
+        self->base_alg, ptrlen_from_strbuf(basepub));
+    strbuf_free(basepub);
+    return bits;
 }
 
 static unsigned opensshcert_supported_flags(const ssh_keyalg *self)
@@ -694,6 +911,19 @@ static const char *opensshcert_alternate_ssh_id(const ssh_keyalg *self,
     }
 
     return self->ssh_id;
+}
+
+static char *opensshcert_alg_desc(const ssh_keyalg *self)
+{
+    char *base_desc = ssh_keyalg_desc(self->base_alg);
+    char *our_desc = dupcat(base_desc, " cert");
+    sfree(base_desc);
+    return our_desc;
+}
+
+static bool opensshcert_variable_size(const ssh_keyalg *self)
+{
+    return ssh_keyalg_variable_size(self->base_alg);
 }
 
 static const ssh_keyalg *opensshcert_related_alg(const ssh_keyalg *self,
@@ -803,12 +1033,14 @@ static bool opensshcert_check_cert(
      */
     if (time < ck->valid_after) {
         put_fmt(error, "Certificate is not valid until ");
-        opensshcert_time_to_iso8601(BinarySink_UPCAST(error), time);
+        opensshcert_time_to_iso8601(BinarySink_UPCAST(error),
+                                    ck->valid_after);
         goto out;
     }
     if (time >= ck->valid_before) {
         put_fmt(error, "Certificate expired at ");
-        opensshcert_time_to_iso8601(BinarySink_UPCAST(error), time);
+        opensshcert_time_to_iso8601(BinarySink_UPCAST(error),
+                                    ck->valid_before);
         goto out;
     }
 

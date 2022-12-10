@@ -193,11 +193,6 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         s->ppl.bpp->pls->kctx = SSH2_PKTCTX_ECDHKEX;
 
         s->ecdh_key = ecdh_key_new(s->kex_alg, false);
-        if (!s->ecdh_key) {
-            ssh_sw_abort(s->ppl.ssh, "Unable to generate key for ECDH");
-            *aborted = true;
-            return;
-        }
 
         pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_KEX_ECDH_INIT);
         {
@@ -253,7 +248,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         ecdh_key_free(s->ecdh_key);
         s->ecdh_key = NULL;
 #ifndef NO_GSSAPI
-    } else if (s->kex_alg->main_type == KEXTYPE_GSS) {
+    } else if (kex_is_gss(s->kex_alg)) {
         ptrlen data;
 
         s->ppl.bpp->pls->kctx = SSH2_PKTCTX_GSSKEX;
@@ -281,14 +276,25 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         if (s->nbits > s->kex_alg->hash->hlen * 8)
             s->nbits = s->kex_alg->hash->hlen * 8;
 
-        if (dh_is_gex(s->kex_alg)) {
+        assert(!s->ecdh_key);
+        assert(!s->dh_ctx);
+
+        if (s->kex_alg->main_type == KEXTYPE_GSS_ECDH) {
+            s->ecdh_key = ecdh_key_new(s->kex_alg, false);
+
+            char *desc = ecdh_keyalg_description(s->kex_alg);
+            ppl_logevent("Doing GSSAPI (with Kerberos V5) %s with hash %s",
+                         desc, ssh_hash_alg(s->exhash)->text_name);
+            sfree(desc);
+        } else if (dh_is_gex(s->kex_alg)) {
             /*
              * Work out how big a DH group we will need to allow that
              * much data.
              */
             s->pbits = 512 << ((s->nbits - 1) / 64);
             ppl_logevent("Doing GSSAPI (with Kerberos V5) Diffie-Hellman "
-                         "group exchange, with minimum %d bits", s->pbits);
+                         "group exchange, with minimum %d bits, and hash %s",
+                         s->pbits, ssh_hash_alg(s->exhash)->text_name);
             pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_KEXGSS_GROUPREQ);
             put_uint32(pktout, s->pbits); /* min */
             put_uint32(pktout, s->pbits); /* preferred */
@@ -319,14 +325,19 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         } else {
             s->dh_ctx = dh_setup_group(s->kex_alg);
             ppl_logevent("Using GSSAPI (with Kerberos V5) Diffie-Hellman with"
-                         " standard group \"%s\"", s->kex_alg->groupname);
+                         " standard group \"%s\" and hash %s",
+                         s->kex_alg->groupname,
+                         ssh_hash_alg(s->exhash)->text_name);
         }
 
-        ppl_logevent("Doing GSSAPI (with Kerberos V5) Diffie-Hellman key "
-                     "exchange with hash %s", ssh_hash_alg(s->exhash)->text_name);
         /* Now generate e for Diffie-Hellman. */
         seat_set_busy_status(s->ppl.seat, BUSY_CPU);
-        s->e = dh_create_e(s->dh_ctx);
+        if (s->ecdh_key) {
+            s->ebuf = strbuf_new_nm();
+            ecdh_key_getpublic(s->ecdh_key, BinarySink_UPCAST(s->ebuf));
+        } else {
+            s->e = dh_create_e(s->dh_ctx);
+        }
 
         if (s->shgss->lib->gsslogmsg)
             ppl_logevent("%s", s->shgss->lib->gsslogmsg);
@@ -390,7 +401,11 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                 }
                 put_string(pktout,
                            s->gss_sndtok.value, s->gss_sndtok.length);
-                put_mp_ssh2(pktout, s->e);
+                if (s->ecdh_key) {
+                    put_stringpl(pktout, ptrlen_from_strbuf(s->ebuf));
+                } else {
+                    put_mp_ssh2(pktout, s->e);
+                }
                 pq_push(s->ppl.out_pq, pktout);
                 s->shgss->lib->free_tok(s->shgss->lib, &s->gss_sndtok);
                 ppl_logevent("GSSAPI key exchange initialised");
@@ -417,7 +432,11 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                 continue;
               case SSH2_MSG_KEXGSS_COMPLETE:
                 s->complete_rcvd = true;
-                s->f = get_mp_ssh2(pktin);
+                if (s->ecdh_key) {
+                    s->fbuf = strbuf_dup_nm(get_string(pktin));
+                } else {
+                    s->f = get_mp_ssh2(pktin);
+                }
                 data = get_string(pktin);
                 s->mic.value = (char *)data.ptr;
                 s->mic.length = data.len;
@@ -480,7 +499,16 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                  s->gss_stat == SSH_GSS_S_CONTINUE_NEEDED ||
                  !s->complete_rcvd);
 
-        {
+        if (s->ecdh_key) {
+            bool ok = ecdh_key_getkey(s->ecdh_key, ptrlen_from_strbuf(s->fbuf),
+                                      BinarySink_UPCAST(s->kex_shared_secret));
+            if (!ok) {
+                ssh_proto_error(s->ppl.ssh, "Received invalid elliptic curve "
+                                "point in GSSAPI ECDH reply");
+                *aborted = true;
+                return;
+            }
+        } else {
             const char *err = dh_validate_f(s->dh_ctx, s->f);
             if (err) {
                 ssh_proto_error(s->ppl.ssh, "GSSAPI reply failed "
@@ -488,10 +516,10 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                 *aborted = true;
                 return;
             }
+            mp_int *K = dh_find_K(s->dh_ctx, s->f);
+            put_mp_ssh2(s->kex_shared_secret, K);
+            mp_free(K);
         }
-        mp_int *K = dh_find_K(s->dh_ctx, s->f);
-        put_mp_ssh2(s->kex_shared_secret, K);
-        mp_free(K);
 
         /* We assume everything from now on will be quick, and it might
          * involve user interaction. */
@@ -499,29 +527,42 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
 
         if (!s->hkey)
             put_stringz(s->exhash, "");
-        if (dh_is_gex(s->kex_alg)) {
-            /* min,  preferred, max */
-            put_uint32(s->exhash, s->pbits);
-            put_uint32(s->exhash, s->pbits);
-            put_uint32(s->exhash, s->pbits * 2);
 
-            put_mp_ssh2(s->exhash, s->p);
-            put_mp_ssh2(s->exhash, s->g);
+        if (s->ecdh_key) {
+            put_stringpl(s->exhash, ptrlen_from_strbuf(s->ebuf));
+            put_stringpl(s->exhash, ptrlen_from_strbuf(s->fbuf));
+        } else {
+            if (dh_is_gex(s->kex_alg)) {
+                /* min, preferred, max */
+                put_uint32(s->exhash, s->pbits);
+                put_uint32(s->exhash, s->pbits);
+                put_uint32(s->exhash, s->pbits * 2);
+
+                put_mp_ssh2(s->exhash, s->p);
+                put_mp_ssh2(s->exhash, s->g);
+            }
+            put_mp_ssh2(s->exhash, s->e);
+            put_mp_ssh2(s->exhash, s->f);
         }
-        put_mp_ssh2(s->exhash, s->e);
-        put_mp_ssh2(s->exhash, s->f);
 
         /*
          * MIC verification is done below, after we compute the hash
          * used as the MIC input.
          */
 
-        dh_cleanup(s->dh_ctx);
-        s->dh_ctx = NULL;
-        mp_free(s->f); s->f = NULL;
-        if (dh_is_gex(s->kex_alg)) {
-            mp_free(s->g); s->g = NULL;
-            mp_free(s->p); s->p = NULL;
+        if (s->ecdh_key) {
+            ecdh_key_free(s->ecdh_key);
+            s->ecdh_key = NULL;
+            strbuf_free(s->ebuf); s->ebuf = NULL;
+            strbuf_free(s->fbuf); s->fbuf = NULL;
+        } else {
+            dh_cleanup(s->dh_ctx);
+            s->dh_ctx = NULL;
+            mp_free(s->f); s->f = NULL;
+            if (dh_is_gex(s->kex_alg)) {
+                mp_free(s->g); s->g = NULL;
+                mp_free(s->p); s->p = NULL;
+            }
         }
 #endif
     } else {
@@ -651,7 +692,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
     ssh2transport_finalise_exhash(s);
 
 #ifndef NO_GSSAPI
-    if (s->kex_alg->main_type == KEXTYPE_GSS) {
+    if (kex_is_gss(s->kex_alg)) {
         Ssh_gss_buf gss_buf;
         SSH_GSS_CLEAR_BUF(&s->gss_buf);
 
@@ -680,7 +721,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
          * If this the first KEX, save the GSS context for "gssapi-keyex"
          * authentication.
          *
-         * http://tools.ietf.org/html/rfc4462#section-4
+         * https://www.rfc-editor.org/rfc/rfc4462#section-4
          *
          * This method may be used only if the initial key exchange was
          * performed using a GSS-API-based key exchange method defined in
@@ -699,7 +740,7 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
     s->dh_ctx = NULL;
 
     /* In GSS keyex there's no hostkey signature to verify */
-    if (s->kex_alg->main_type != KEXTYPE_GSS) {
+    if (!kex_is_gss(s->kex_alg)) {
         if (!s->hkey) {
             ssh_proto_error(s->ppl.ssh, "Server's host key is invalid");
             *aborted = true;
@@ -718,22 +759,21 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
         }
     }
 
-    s->keystr = (s->hkey && !ssh_key_alg(s->hkey)->is_certificate ?
-                 ssh_key_cache_str(s->hkey) : NULL);
+    s->keystr = s->hkey ? ssh_key_cache_str(s->hkey) : NULL;
 #ifndef NO_GSSAPI
     if (s->gss_kex_used) {
         /*
          * In a GSS-based session, check the host key (if any) against
          * the transient host key cache.
          */
-        if (s->kex_alg->main_type == KEXTYPE_GSS) {
+        if (kex_is_gss(s->kex_alg)) {
 
             /*
              * We've just done a GSS key exchange. If it gave us a
              * host key, store it.
              */
             if (s->hkey) {
-                char *fingerprint = ssh2_fingerprint(
+                char *fingerprint = ssh2_double_fingerprint(
                     s->hkey, SSH_FPTYPE_DEFAULT);
                 ppl_logevent("GSS kex provided fallback host key:");
                 ppl_logevent("%s", fingerprint);
@@ -791,8 +831,9 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
              * An exception is if this was the non-GSS key exchange we
              * triggered on purpose to populate the transient cache.
              */
-            assert(s->hkey);  /* only KEXTYPE_GSS lets this be null */
-            char *fingerprint = ssh2_fingerprint(s->hkey, SSH_FPTYPE_DEFAULT);
+            assert(s->hkey);  /* only KEXTYPE_GSS* lets this be null */
+            char *fingerprint = ssh2_double_fingerprint(
+                s->hkey, SSH_FPTYPE_DEFAULT);
 
             if (s->need_gss_transient_hostkey) {
                 ppl_logevent("Post-GSS rekey provided fallback host key:");
@@ -868,12 +909,10 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
              * hash.)
              */
             if (ssh_key_alg(s->hkey)->is_certificate) {
-                ssh2_free_all_fingerprints(fingerprints);
-
-                char *base_fp = ssh2_fingerprint(ssh_key_base_key(s->hkey),
-                                                 fptype_default);
-                ppl_logevent("Host key is a certificate, whose base key has "
-                             "fingerprint:");
+                char *base_fp = ssh2_fingerprint(
+                    s->hkey, ssh_fptype_to_cert(fptype_default));
+                ppl_logevent("Host key is a certificate. "
+                             "Hash including certificate:");
                 ppl_logevent("%s", base_fp);
                 sfree(base_fp);
 
@@ -917,24 +956,27 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                 }
                 if (cert_ok) {
                     strbuf_free(error);
+                    ssh2_free_all_fingerprints(fingerprints);
                     ppl_logevent("Accepted certificate");
+                    goto host_key_ok;
                 } else {
                     ppl_logevent("Rejected host key certificate: %s",
                                  error->s);
-                    ssh_sw_abort(s->ppl.ssh,
-                                 "Rejected host key certificate: %s",
-                                 error->s);
-                    *aborted = true;
                     strbuf_free(error);
-                    return;
+                    /* now fall through into normal host key checking */
                 }
-            } else {
+            }
+
+            {
                 char *keydisp = ssh2_pubkey_openssh_str(&uk);
+
+                int ca_count = ssh_key_alg(s->hkey)->is_certificate ?
+                    count234(s->host_cas) : 0;
 
                 s->spr = verify_ssh_host_key(
                     ppl_get_iseat(&s->ppl), s->conf, s->savedhost, s->savedport,
                     s->hkey, ssh_key_cache_id(s->hkey), s->keystr, keydisp,
-                    fingerprints, ssh2_transport_dialog_callback, s);
+                    fingerprints, ca_count, ssh2_transport_dialog_callback, s);
 
                 ssh2_free_all_fingerprints(fingerprints);
                 sfree(keydisp);
@@ -947,7 +989,21 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
                     ssh_spr_close(s->ppl.ssh, s->spr, "host key verification");
                     return;
                 }
+
+                if (ssh_key_alg(s->hkey)->is_certificate) {
+                    /*
+                     * Explain what's going on in the Event Log: if we
+                     * got here by way of a certified key whose
+                     * certificate we didn't like, then we should
+                     * explain why we chose to continue with the
+                     * connection anyway!
+                     */
+                    ppl_logevent("Accepting certified host key anyway based "
+                                 "on cache");
+                }
             }
+
+          host_key_ok:
 
             /*
              * Save this host key, to check against the one presented in
@@ -959,12 +1015,13 @@ void ssh2kex_coroutine(struct ssh2_transport_state *s, bool *aborted)
             assert(s->hkey);
             assert(ssh_key_alg(s->hkey) == s->cross_certifying);
 
-            char *fingerprint = ssh2_fingerprint(s->hkey, SSH_FPTYPE_DEFAULT);
+            char *fingerprint = ssh2_double_fingerprint(
+                s->hkey, SSH_FPTYPE_DEFAULT);
             ppl_logevent("Storing additional host key for this host:");
             ppl_logevent("%s", fingerprint);
             sfree(fingerprint);
 
-            store_host_key(s->savedhost, s->savedport,
+            store_host_key(s->ppl.seat, s->savedhost, s->savedport,
                            ssh_key_cache_id(s->hkey), s->keystr);
             /*
              * Don't forget to store the new key as the one we'll be
