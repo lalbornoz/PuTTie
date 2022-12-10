@@ -125,10 +125,10 @@ int check_stored_host_key(const char *hostname, int port,
 	return 1;
 }
 
-void store_host_key(const char *hostname, int port,
+void store_host_key(Seat *seat, const char *hostname, int port,
 					const char *keytype, const char *key)
 {
-	(void)hostname; (void)port; (void)keytype; (void)key;
+	(void)seat; (void)hostname; (void)port; (void)keytype; (void)key;
 }
 
 

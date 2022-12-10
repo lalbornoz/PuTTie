@@ -109,11 +109,11 @@ void winfripp_trans_config_panel(struct controlbox *b)
 
 	ctrl_settitle(b, "Frippery/Trans-arency", "Configure pointless frippery: trans-arency");
 	s = ctrl_getset(b, "Frippery/Trans-arency", "frip_trans", "Trans-arency settings");
-	ctrl_droplist(s, "Setting:", 't', 35, P(WINFRIPP_HELP_CTX),
+	ctrl_droplist(s, "Setting:", 't', 35, WINFRIPP_HELP_CTX,
 				  winfripp_trans_config_panel_setting, P(NULL));
-	ctrl_editbox(s, "Custom (0-255):", 'u', 15, P(WINFRIPP_HELP_CTX),
-				 conf_editbox_handler, I(CONF_frip_trans_custom), I(-1));
-	ctrl_droplist(s, "Opaque on:", 'q', 35, P(WINFRIPP_HELP_CTX),
+	ctrl_editbox(s, "Custom (0-255):", 'u', 15, WINFRIPP_HELP_CTX,
+				 conf_editbox_handler, I(CONF_frip_trans_custom), ED_INT);
+	ctrl_droplist(s, "Opaque on:", 'q', 35, WINFRIPP_HELP_CTX,
 				  winfripp_trans_config_panel_opaque, P(NULL));
 }
 

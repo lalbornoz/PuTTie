@@ -874,13 +874,13 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
 	s_bgimg_settings = ctrl_getset(b, "Frippery/Background", "frip_bgimg_settings", "Background image settings");
 	c = ctrl_filesel(s_bgimg_settings, "Image file/directory:", 'i',
 				 WINFRIPP_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
-				 P(WINFRIPP_HELP_CTX), conf_filesel_handler, I(CONF_frip_bgimg_filename));
+				 WINFRIPP_HELP_CTX, conf_filesel_handler, I(CONF_frip_bgimg_filename));
 	c->fileselect.just_button = false;
 	ctrl_text(s_bgimg_settings, "In order to select an image directory for slideshows, select "
-								"an arbitrary file inside the directory in question.", P(WINFRIPP_HELP_CTX));
-	ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, P(WINFRIPP_HELP_CTX),
+								"an arbitrary file inside the directory in question.", WINFRIPP_HELP_CTX);
+	ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, WINFRIPP_HELP_CTX,
 				  winfripp_bgimg_config_panel_type, P(NULL));
-	ctrl_droplist(s_bgimg_settings, "Style:", 's', 45, P(WINFRIPP_HELP_CTX),
+	ctrl_droplist(s_bgimg_settings, "Style:", 's', 45, WINFRIPP_HELP_CTX,
 				  winfripp_bgimg_config_panel_style, P(NULL));
 
 	/*
@@ -888,20 +888,20 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
 	 */
 
 	s_bgimg_params = ctrl_getset(b, "Frippery/Background", "frip_bgimg_params", "Background image parameters");
-	ctrl_editbox(s_bgimg_params, "Opacity (0-100):", 'p', 15, P(WINFRIPP_HELP_CTX),
-				 conf_editbox_handler, I(CONF_frip_bgimg_opacity), I(-1));
-	ctrl_editbox(s_bgimg_params, "Fit padding (0-100):", 'n', 15, P(WINFRIPP_HELP_CTX),
-				 conf_editbox_handler, I(CONF_frip_bgimg_padding), I(-1));
+	ctrl_editbox(s_bgimg_params, "Opacity (0-100):", 'p', 15, WINFRIPP_HELP_CTX,
+				 conf_editbox_handler, I(CONF_frip_bgimg_opacity), ED_INT);
+	ctrl_editbox(s_bgimg_params, "Fit padding (0-100):", 'n', 15, WINFRIPP_HELP_CTX,
+				 conf_editbox_handler, I(CONF_frip_bgimg_padding), ED_INT);
 
 	/*
 	 * The Frippery: Slideshow settings control box.
 	 */
 
 	s_slideshow = ctrl_getset(b, "Frippery/Background", "frip_bgimg_slideshow", "Slideshow settings");
-	ctrl_droplist(s_slideshow, "Slideshow:", 'd', 45, P(WINFRIPP_HELP_CTX),
+	ctrl_droplist(s_slideshow, "Slideshow:", 'd', 45, WINFRIPP_HELP_CTX,
 				  winfripp_bgimg_config_panel_slideshow, P(NULL));
-	ctrl_editbox(s_slideshow, "Slideshow frequency (in seconds):", 'f', 20, P(WINFRIPP_HELP_CTX),
-				 conf_editbox_handler, I(CONF_frip_bgimg_slideshow_freq), I(-1));
+	ctrl_editbox(s_slideshow, "Slideshow frequency (in seconds):", 'f', 20, WINFRIPP_HELP_CTX,
+				 conf_editbox_handler, I(CONF_frip_bgimg_slideshow_freq), ED_INT);
 }
 
 /*

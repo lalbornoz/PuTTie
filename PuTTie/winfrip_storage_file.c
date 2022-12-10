@@ -176,10 +176,10 @@ int check_stored_host_key(const char *hostname, int port,
  * entry that might have been there.
  */
 
-void store_host_key(const char *hostname, int port,
+void store_host_key(Seat *seat, const char *hostname, int port,
 					const char *keytype, const char *key)
 {
-	store_host_key_PuTTY(hostname, port, keytype, key);
+	store_host_key_PuTTY(seat, hostname, port, keytype, key);
 }
 
 /* ----------------------------------------------------------------------

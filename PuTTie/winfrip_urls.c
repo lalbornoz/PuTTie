@@ -418,10 +418,10 @@ void winfripp_urls_config_panel(struct controlbox *b)
 
 	s_visual = ctrl_getset(b, "Frippery/URLs", "frip_urls_visual", "Visual behaviour");
 	ctrl_checkbox(s_visual, "Underline hyperlinks on highlight",
-				  'u', P(WINFRIPP_HELP_CTX),
+				  'u', WINFRIPP_HELP_CTX,
 				  conf_checkbox_handler, I(CONF_frip_urls_underline_onhl));
 	ctrl_checkbox(s_visual, "Apply reverse video to hyperlinks on click",
-				  'v', P(WINFRIPP_HELP_CTX),
+				  'v', WINFRIPP_HELP_CTX,
 				  conf_checkbox_handler, I(CONF_frip_urls_revvideo_onclick));
 
 	/*
@@ -430,10 +430,10 @@ void winfripp_urls_config_panel(struct controlbox *b)
 
 	s_input = ctrl_getset(b, "Frippery/URLs", "frip_urls_input", "Input behaviour");
 	ctrl_droplist(s_input, "Modifier key:",
-				  'm', 35, P(WINFRIPP_HELP_CTX),
+				  'm', 35, WINFRIPP_HELP_CTX,
 				  winfripp_urls_config_panel_modifier_key_handler, P(NULL));
 	ctrl_droplist(s_input, "Shift key:",
-				  's', 35, P(WINFRIPP_HELP_CTX),
+				  's', 35, WINFRIPP_HELP_CTX,
 				  winfripp_urls_config_panel_modifier_shift_handler, P(NULL));
 
 	/*
@@ -442,10 +442,10 @@ void winfripp_urls_config_panel(struct controlbox *b)
 
 	s_re = ctrl_getset(b, "Frippery/URLs", "frip_urls_regex", "Regular expression");
 	ctrl_editbox(s_re, NULL,
-				 'r', 100, P(WINFRIPP_HELP_CTX),
-				 conf_editbox_handler, I(CONF_frip_urls_regex), I(1));
+				 'r', 100, WINFRIPP_HELP_CTX,
+				 conf_editbox_handler, I(CONF_frip_urls_regex), ED_STR);
 	ctrl_text(s_re, "Regexes are matched against whole lines and may contain/match on whitespaces, etc.",
-			  P(WINFRIPP_HELP_CTX));
+			  WINFRIPP_HELP_CTX);
 
 	/*
 	 * The Frippery: URLs: Browser controls box.
@@ -453,12 +453,12 @@ void winfripp_urls_config_panel(struct controlbox *b)
 
 	s_browser = ctrl_getset(b, "Frippery/URLs", "frip_urls_browser", "Browser");
 	ctrl_checkbox(s_browser, "Default application associated with \"open\" verb",
-				  'd', P(WINFRIPP_HELP_CTX),
+				  'd', WINFRIPP_HELP_CTX,
 				  conf_checkbox_handler, I(CONF_frip_urls_browser_default));
-	ctrl_text(s_browser, "Pathname to browser application:", P(WINFRIPP_HELP_CTX));
+	ctrl_text(s_browser, "Pathname to browser application:", WINFRIPP_HELP_CTX);
 	ctrl_editbox(s_browser, NULL,
-				 'p', 100, P(WINFRIPP_HELP_CTX),
-				 conf_editbox_handler, I(CONF_frip_urls_browser_pname_verb), I(1));
+				 'p', 100, WINFRIPP_HELP_CTX,
+				 conf_editbox_handler, I(CONF_frip_urls_browser_pname_verb), ED_STR);
 }
 
 /*

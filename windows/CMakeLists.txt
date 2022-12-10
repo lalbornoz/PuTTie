@@ -120,6 +120,10 @@ target_link_libraries(putty
   gdiplus.lib msimg32.lib
   bcrypt.lib
   ${platform_libraries})
+if (MINGW)
+  target_link_options(putty PRIVATE
+    -Wl,-Bstatic -l:libwinpthread.a)
+endif()
 set_target_properties(putty PROPERTIES
   WIN32_EXECUTABLE ON
   LINK_FLAGS "${LFLAG_MANIFEST_NO}")
@@ -172,6 +176,7 @@ add_executable(puttygen
 add_dependencies(puttygen generated_licence_h)
 target_link_libraries(puttygen
   keygen guimisc crypto utils
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
   ${platform_libraries})
 set_target_properties(puttygen PROPERTIES
   WIN32_EXECUTABLE ON
