@@ -516,24 +516,18 @@ static char *read_body(BinarySource *src)
 
 static bool read_blob(BinarySource *src, int nlines, BinarySink *bs)
 {
-    unsigned char *blob;
     char *line;
     int linelen;
     int i, j, k;
 
     /* We expect at most 64 base64 characters, ie 48 real bytes, per line. */
-    assert(nlines < MAX_KEY_BLOB_LINES);
-    blob = snewn(48 * nlines, unsigned char);
 
     for (i = 0; i < nlines; i++) {
         line = read_body(src);
-        if (!line) {
-            sfree(blob);
+        if (!line)
             return false;
-        }
         linelen = strlen(line);
         if (linelen % 4 != 0 || linelen > 64) {
-            sfree(blob);
             sfree(line);
             return false;
         }
@@ -542,14 +536,12 @@ static bool read_blob(BinarySource *src, int nlines, BinarySink *bs)
             k = base64_decode_atom(line + j, decoded);
             if (!k) {
                 sfree(line);
-                sfree(blob);
                 return false;
             }
             put_data(bs, decoded, k);
         }
         sfree(line);
     }
-    sfree(blob);
     return true;
 }
 
@@ -713,7 +705,7 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
 {
     char header[40], *b, *encryption, *comment, *mac;
     const ssh_keyalg *alg;
-    ssh2_userkey *ret;
+    ssh2_userkey *ukey;
     strbuf *public_blob, *private_blob, *cipher_mac_keys_blob;
     strbuf *passphrase_salt = strbuf_new();
     ptrlen cipherkey, cipheriv, mackey;
@@ -724,7 +716,7 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
     const char *error = NULL;
     ppk_save_parameters params;
 
-    ret = NULL;                        /* return NULL for most errors */
+    ukey = NULL;                        /* return NULL for most errors */
     encryption = comment = mac = NULL;
     public_blob = private_blob = cipher_mac_keys_blob = NULL;
 
@@ -960,10 +952,10 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
              * unencrypted. Otherwise, it means Wrong Passphrase. */
             if (ciphertype->keylen != 0) {
                 error = "wrong passphrase";
-                ret = SSH2_WRONG_PASSPHRASE;
+                ukey = SSH2_WRONG_PASSPHRASE;
             } else {
                 error = "MAC failed";
-                ret = NULL;
+                ukey = NULL;
             }
             goto error;
         }
@@ -972,15 +964,15 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
     /*
      * Create and return the key.
      */
-    ret = snew(ssh2_userkey);
-    ret->comment = comment;
+    ukey = snew(ssh2_userkey);
+    ukey->comment = comment;
     comment = NULL;
-    ret->key = ssh_key_new_priv(
+    ukey->key = ssh_key_new_priv(
         alg, ptrlen_from_strbuf(public_blob),
         ptrlen_from_strbuf(private_blob));
-    if (!ret->key) {
-        sfree(ret);
-        ret = NULL;
+    if (!ukey->key) {
+        sfree(ukey);
+        ukey = NULL;
         error = "createkey failed";
         goto error;
     }
@@ -1005,7 +997,7 @@ ssh2_userkey *ppk_load_s(BinarySource *src, const char *passphrase,
     strbuf_free(passphrase_salt);
     if (errorstr)
         *errorstr = error;
-    return ret;
+    return ukey;
 }
 
 ssh2_userkey *ppk_load_f(const Filename *filename, const char *passphrase,
@@ -1752,6 +1744,7 @@ static void ssh2_fingerprint_blob_sha256(ptrlen blob, strbuf *sb)
 char *ssh2_fingerprint_blob(ptrlen blob, FingerprintType fptype)
 {
     strbuf *sb = strbuf_new();
+    strbuf *tmp = NULL;
 
     /*
      * Identify the key algorithm, if possible.
@@ -1767,21 +1760,60 @@ char *ssh2_fingerprint_blob(ptrlen blob, FingerprintType fptype)
         if (alg) {
             int bits = ssh_key_public_bits(alg, blob);
             put_fmt(sb, "%.*s %d ", PTRLEN_PRINTF(algname), bits);
+
+            if (!ssh_fptype_is_cert(fptype) && alg->is_certificate) {
+                ssh_key *key = ssh_key_new_pub(alg, blob);
+                if (key) {
+                    tmp = strbuf_new();
+                    ssh_key_public_blob(ssh_key_base_key(key),
+                                        BinarySink_UPCAST(tmp));
+                    blob = ptrlen_from_strbuf(tmp);
+                    ssh_key_free(key);
+                }
+            }
         } else {
             put_fmt(sb, "%.*s ", PTRLEN_PRINTF(algname));
         }
     }
 
-    switch (fptype) {
+    switch (ssh_fptype_from_cert(fptype)) {
       case SSH_FPTYPE_MD5:
         ssh2_fingerprint_blob_md5(blob, sb);
         break;
       case SSH_FPTYPE_SHA256:
         ssh2_fingerprint_blob_sha256(blob, sb);
         break;
+      default:
+        unreachable("ssh_fptype_from_cert ruled out the other values");
     }
 
+    if (tmp)
+        strbuf_free(tmp);
+
     return strbuf_to_str(sb);
+}
+
+char *ssh2_double_fingerprint_blob(ptrlen blob, FingerprintType fptype)
+{
+    if (ssh_fptype_is_cert(fptype))
+        fptype = ssh_fptype_from_cert(fptype);
+
+    char *fp = ssh2_fingerprint_blob(blob, fptype);
+    char *p = strrchr(fp, ' ');
+    char *hash = p ? p + 1 : fp;
+
+    char *fpc = ssh2_fingerprint_blob(blob, ssh_fptype_to_cert(fptype));
+    char *pc = strrchr(fpc, ' ');
+    char *hashc = pc ? pc + 1 : fpc;
+
+    if (strcmp(hash, hashc)) {
+        char *tmp = dupprintf("%s (with certificate: %s)", fp, hashc);
+        sfree(fp);
+        fp = tmp;
+    }
+
+    sfree(fpc);
+    return fp;
 }
 
 char **ssh2_all_fingerprints_for_blob(ptrlen blob)
@@ -1797,6 +1829,15 @@ char *ssh2_fingerprint(ssh_key *data, FingerprintType fptype)
     strbuf *blob = strbuf_new();
     ssh_key_public_blob(data, BinarySink_UPCAST(blob));
     char *ret = ssh2_fingerprint_blob(ptrlen_from_strbuf(blob), fptype);
+    strbuf_free(blob);
+    return ret;
+}
+
+char *ssh2_double_fingerprint(ssh_key *data, FingerprintType fptype)
+{
+    strbuf *blob = strbuf_new();
+    ssh_key_public_blob(data, BinarySink_UPCAST(blob));
+    char *ret = ssh2_double_fingerprint_blob(ptrlen_from_strbuf(blob), fptype);
     strbuf_free(blob);
     return ret;
 }
@@ -1857,7 +1898,7 @@ static int key_type_s_internal(BinarySource *src)
     if (find_pubkey_alg_len(get_nonchars(src, " \n")) > 0 &&
         get_chars(src, " ").len == 1 &&
         get_chars(src, "0123456789ABCDEFGHIJKLMNOPQRSTUV"
-                   "WXYZabcdefghijklmnopqrstuvwxyz+/=").len > 0 &&
+                  "WXYZabcdefghijklmnopqrstuvwxyz+/=").len > 0 &&
         get_nonchars(src, " \n").len == 0)
         return SSH_KEYTYPE_SSH2_PUBLIC_OPENSSH;
 

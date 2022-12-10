@@ -153,7 +153,7 @@ struct ssh2_transport_state {
 
     char *client_greeting, *server_greeting;
 
-    bool kex_in_progress;
+    bool kex_in_progress, kexinit_delayed;
     unsigned long next_rekey, last_rekey;
     const char *deferred_rekey_reason;
     bool higher_layer_ok;
@@ -181,6 +181,7 @@ struct ssh2_transport_state {
     int nbits, pbits;
     bool warn_kex, warn_hk, warn_cscipher, warn_sccipher;
     mp_int *p, *g, *e, *f;
+    strbuf *ebuf, *fbuf;
     strbuf *kex_shared_secret;
     strbuf *outgoing_kexinit, *incoming_kexinit;
     strbuf *client_kexinit, *server_kexinit; /* aliases to the above */

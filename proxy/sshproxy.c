@@ -405,9 +405,17 @@ static void sshproxy_connection_fatal(Seat *seat, const char *message)
     }
 }
 
+static void sshproxy_nonfatal(Seat *seat, const char *message)
+{
+    SshProxy *sp = container_of(seat, SshProxy, seat);
+    if (sp->clientseat)
+        seat_nonfatal(sp->clientseat, "error in proxy SSH connection: %s",
+                      message);
+}
+
 static SeatPromptResult sshproxy_confirm_ssh_host_key(
     Seat *seat, const char *host, int port, const char *keytype,
-    char *keystr, const char *keydisp, char **key_fingerprints, bool mismatch,
+    char *keystr, SeatDialogText *text, HelpCtx helpctx,
     void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     SshProxy *sp = container_of(seat, SshProxy, seat);
@@ -418,8 +426,8 @@ static SeatPromptResult sshproxy_confirm_ssh_host_key(
          * request on to it.
          */
         return seat_confirm_ssh_host_key(
-            wrap(sp->clientseat), host, port, keytype, keystr, keydisp,
-            key_fingerprints, mismatch, callback, ctx);
+            wrap(sp->clientseat), host, port, keytype, keystr, text,
+            helpctx, callback, ctx);
     }
 
     /*
@@ -431,8 +439,8 @@ static SeatPromptResult sshproxy_confirm_ssh_host_key(
 }
 
 static SeatPromptResult sshproxy_confirm_weak_crypto_primitive(
-        Seat *seat, const char *algtype, const char *algname,
-        void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
+    Seat *seat, const char *algtype, const char *algname,
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     SshProxy *sp = container_of(seat, SshProxy, seat);
 
@@ -457,8 +465,8 @@ static SeatPromptResult sshproxy_confirm_weak_crypto_primitive(
 }
 
 static SeatPromptResult sshproxy_confirm_weak_cached_hostkey(
-        Seat *seat, const char *algname, const char *betteralgs,
-        void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
+    Seat *seat, const char *algname, const char *betteralgs,
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     SshProxy *sp = container_of(seat, SshProxy, seat);
 
@@ -480,6 +488,20 @@ static SeatPromptResult sshproxy_confirm_weak_cached_hostkey(
                    algname);
     return SPR_SW_ABORT("Noninteractive SSH proxy cannot confirm "
                         "weak cached host key");
+}
+
+static const SeatDialogPromptDescriptions *sshproxy_prompt_descriptions(
+    Seat *seat)
+{
+    SshProxy *sp = container_of(seat, SshProxy, seat);
+
+    /* If we have a client seat, return their prompt descriptions, so
+     * that prompts passed on to them will make sense. */
+    if (sp->clientseat)
+        return seat_prompt_descriptions(sp->clientseat);
+
+    /* Otherwise, it doesn't matter what we return, so do the easiest thing. */
+    return nullseat_prompt_descriptions(NULL);
 }
 
 static StripCtrlChars *sshproxy_stripctrl_new(
@@ -527,12 +549,14 @@ static const SeatVtable SshProxy_seat_vt = {
     .notify_remote_exit = nullseat_notify_remote_exit,
     .notify_remote_disconnect = sshproxy_notify_remote_disconnect,
     .connection_fatal = sshproxy_connection_fatal,
+    .nonfatal = sshproxy_nonfatal,
     .update_specials_menu = nullseat_update_specials_menu,
     .get_ttymode = nullseat_get_ttymode,
     .set_busy_status = nullseat_set_busy_status,
     .confirm_ssh_host_key = sshproxy_confirm_ssh_host_key,
     .confirm_weak_crypto_primitive = sshproxy_confirm_weak_crypto_primitive,
     .confirm_weak_cached_hostkey = sshproxy_confirm_weak_cached_hostkey,
+    .prompt_descriptions = sshproxy_prompt_descriptions,
     .is_utf8 = nullseat_is_never_utf8,
     .echoedit_update = nullseat_echoedit_update,
     .get_x_display = nullseat_get_x_display,

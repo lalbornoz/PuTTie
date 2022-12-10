@@ -9,6 +9,8 @@ add_sources_from_current_dir(utils
   bufchain.c
   buildinfo.c
   burnstr.c
+  burnwcs.c
+  cert-expr.c
   chomp.c
   cmdline_get_passwd_input_state_new.c
   conf.c
@@ -40,16 +42,17 @@ add_sources_from_current_dir(utils
   marshal.c
   memory.c
   memxor.c
-  null_lp.c
-  nullkey.c
-  nullseat.c
   nullstrcmp.c
   out_of_memory.c
   parse_blocksize.c
+  percent_decode.c
+  percent_encode.c
   prompts.c
   ptrlen.c
   read_file_into.c
   seat_connection_fatal.c
+  seat_dialog_text.c
+  seat_nonfatal.c
   sessprep.c
   sk_free_peer_info.c
   smemclr.c
@@ -63,10 +66,13 @@ add_sources_from_current_dir(utils
   stripctrl.c
   tempseat.c
   tree234.c
+  unicode-known.c
+  unicode-norm.c
   validate_manual_hostkey.c
   version.c
   wcwidth.c
   wildcard.c
+  wordwrap.c
   write_c_string_literal.c
   x11authfile.c
   x11authnames.c

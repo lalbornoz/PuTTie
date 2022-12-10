@@ -228,6 +228,8 @@ static void ssh2_transport_free(PacketProtocolLayer *ppl)
     if (s->f) mp_free(s->f);
     if (s->p) mp_free(s->p);
     if (s->g) mp_free(s->g);
+    if (s->ebuf) strbuf_free(s->ebuf);
+    if (s->fbuf) strbuf_free(s->fbuf);
     if (s->kex_shared_secret) strbuf_free(s->kex_shared_secret);
     if (s->dh_ctx)
         dh_cleanup(s->dh_ctx);
@@ -508,7 +510,7 @@ static void ssh2_write_kexinit_lists(
     bool warn;
 
     int n_preferred_kex;
-    const ssh_kexes *preferred_kex[KEX_MAX + 1]; /* +1 for GSSAPI */
+    const ssh_kexes *preferred_kex[KEX_MAX + 3]; /* +3 for GSSAPI */
     int n_preferred_hk;
     int preferred_hk[HK_MAX];
     int n_preferred_ciphers;
@@ -523,13 +525,32 @@ static void ssh2_write_kexinit_lists(
      * Set up the preferred key exchange. (NULL => warn below here)
      */
     n_preferred_kex = 0;
-    if (can_gssapi_keyex)
+    if (can_gssapi_keyex) {
+        preferred_kex[n_preferred_kex++] = &ssh_gssk5_ecdh_kex;
+        preferred_kex[n_preferred_kex++] = &ssh_gssk5_sha2_kex;
         preferred_kex[n_preferred_kex++] = &ssh_gssk5_sha1_kex;
+    }
     for (i = 0; i < KEX_MAX; i++) {
         switch (conf_get_int_int(conf, CONF_ssh_kexlist, i)) {
           case KEX_DHGEX:
             preferred_kex[n_preferred_kex++] =
                 &ssh_diffiehellman_gex;
+            break;
+          case KEX_DHGROUP18:
+            preferred_kex[n_preferred_kex++] =
+                &ssh_diffiehellman_group18;
+            break;
+          case KEX_DHGROUP17:
+            preferred_kex[n_preferred_kex++] =
+                &ssh_diffiehellman_group17;
+            break;
+          case KEX_DHGROUP16:
+            preferred_kex[n_preferred_kex++] =
+                &ssh_diffiehellman_group16;
+            break;
+          case KEX_DHGROUP15:
+            preferred_kex[n_preferred_kex++] =
+                &ssh_diffiehellman_group15;
             break;
           case KEX_DHGROUP14:
             preferred_kex[n_preferred_kex++] =
@@ -599,6 +620,9 @@ static void ssh2_write_kexinit_lists(
             break;
           case CIPHER_CHACHA20:
             preferred_ciphers[n_preferred_ciphers++] = &ssh2_ccp;
+            break;
+          case CIPHER_AESGCM:
+            preferred_ciphers[n_preferred_ciphers++] = &ssh2_aesgcm;
             break;
           case CIPHER_WARN:
             /* Flag for later. Don't bother if it's the last in
@@ -690,16 +714,9 @@ static void ssh2_write_kexinit_lists(
                     if (!hca)
                         continue;
 
-                    bool match = false;
-                    for (size_t i = 0, e = hca->n_hostname_wildcards;
-                         i < e; i++) {
-                        if (wc_match(hca->hostname_wildcards[i], hk_host)) {
-                            match = true;
-                            break;
-                        }
-                    }
-
-                    if (match && hca->ca_public_key) {
+                    if (hca->ca_public_key &&
+                        cert_expr_match_str(hca->validity_expression,
+                                            hk_host, hk_port)) {
                         accept_certs = true;
                         add234(host_cas, hca);
                     } else {
@@ -732,8 +749,8 @@ static void ssh2_write_kexinit_lists(
             }
         }
 
-        /* Next, add uncertified algorithms we already know a key for
-         * (unless configured not to do that) */
+        /* Next, add algorithms we already know a key for (unless
+         * configured not to do that) */
         warn = false;
         for (i = 0; i < n_preferred_hk; i++) {
             if (preferred_hk[i] == HK_WARN)
@@ -741,8 +758,8 @@ static void ssh2_write_kexinit_lists(
             for (j = 0; j < lenof(ssh2_hostkey_algs); j++) {
                 const struct ssh_signkey_with_user_pref_id *a =
                     &ssh2_hostkey_algs[j];
-                if (a->alg->is_certificate || !a->alg->cache_id)
-                    continue;
+                if (a->alg->is_certificate && accept_certs)
+                    continue;          /* already added this one */
                 if (a->id != preferred_hk[i])
                     continue;
                 if (conf_get_bool(conf, CONF_ssh_prefer_known_hostkeys) &&
@@ -1179,6 +1196,92 @@ static bool ssh2_scan_kexinits(
     return true;
 }
 
+static inline bool delay_outgoing_kexinit(struct ssh2_transport_state *s)
+{
+    if (!(s->ppl.remote_bugs & BUG_REQUIRES_FILTERED_KEXINIT))
+        return false;   /* bug flag not enabled => no need to delay */
+    if (s->incoming_kexinit->len)
+        return false; /* already got a remote KEXINIT we can filter against */
+    return true;
+}
+
+static void filter_outgoing_kexinit(struct ssh2_transport_state *s)
+{
+    strbuf *pktout = strbuf_new();
+    BinarySource osrc[1], isrc[1];
+    BinarySource_BARE_INIT(
+        osrc, s->outgoing_kexinit->u, s->outgoing_kexinit->len);
+    BinarySource_BARE_INIT(
+        isrc, s->incoming_kexinit->u, s->incoming_kexinit->len);
+
+    /* Skip the packet type bytes from both packets */
+    get_byte(osrc);
+    get_byte(isrc);
+
+    /* Copy our cookie into the real output packet; skip their cookie */
+    put_datapl(pktout, get_data(osrc, 16));
+    get_data(isrc, 16);
+
+    /*
+     * Now we expect NKEXLIST+2 name-lists. We write into the outgoing
+     * packet a subset of our intended outgoing one, containing only
+     * names mentioned in the incoming out.
+     *
+     * NKEXLIST+2 because for this purpose we treat the 'languages'
+     * lists the same as the rest. In the rest of this code base we
+     * ignore those.
+     */
+    strbuf *out = strbuf_new();
+    for (size_t i = 0; i < NKEXLIST+2; i++) {
+        strbuf_clear(out);
+        ptrlen olist = get_string(osrc), ilist = get_string(isrc);
+        for (ptrlen oword; get_commasep_word(&olist, &oword) ;) {
+            ptrlen ilist_copy = ilist;
+            bool add = false;
+            for (ptrlen iword; get_commasep_word(&ilist_copy, &iword) ;) {
+                if (ptrlen_eq_ptrlen(oword, iword)) {
+                    /* Found this word in the incoming list. */
+                    add = true;
+                    break;
+                }
+            }
+
+            if (i == KEXLIST_KEX && ptrlen_eq_string(oword, "ext-info-c")) {
+                /* Special case: this will _never_ match anything from the
+                 * server, and we need it to enable SHA-2 based RSA.
+                 *
+                 * If this ever turns out to confuse any server all by
+                 * itself then I suppose we'll need an even more
+                 * draconian bug flag to exclude that too. (Obv, such
+                 * a server wouldn't be able to speak SHA-2 RSA
+                 * anyway.) */
+                add = true;
+            }
+
+            if (add)
+                add_to_commasep_pl(out, oword);
+        }
+        put_stringpl(pktout, ptrlen_from_strbuf(out));
+    }
+    strbuf_free(out);
+
+    /*
+     * Finally, copy the remaining parts of our intended KEXINIT.
+     */
+    put_bool(pktout, get_bool(osrc));  /* first-kex-packet-follows */
+    put_uint32(pktout, get_uint32(osrc)); /* reserved word */
+
+    /*
+     * Dump this data into s->outgoing_kexinit in place of what we had
+     * there before. We need to remember the KEXINIT we _really_ sent,
+     * not the one we'd have liked to send, since the host key
+     * signature will be validated against the former.
+     */
+    strbuf_shrink_to(s->outgoing_kexinit, 1); /* keep the type byte */
+    put_datapl(s->outgoing_kexinit, ptrlen_from_strbuf(pktout));
+    strbuf_free(pktout);
+}
+
 void ssh2transport_finalise_exhash(struct ssh2_transport_state *s)
 {
     put_datapl(s->exhash, ptrlen_from_strbuf(s->kex_shared_secret));
@@ -1272,7 +1375,7 @@ static void ssh2_transport_process_queue(PacketProtocolLayer *ppl)
      * Construct our KEXINIT packet, in a strbuf so we can refer to it
      * later.
      */
-    strbuf_clear(s->client_kexinit);
+    strbuf_clear(s->outgoing_kexinit);
     put_byte(s->outgoing_kexinit, SSH2_MSG_KEXINIT);
     random_read(strbuf_append(s->outgoing_kexinit, 16), 16);
     ssh2_write_kexinit_lists(
@@ -1287,12 +1390,34 @@ static void ssh2_transport_process_queue(PacketProtocolLayer *ppl)
     put_uint32(s->outgoing_kexinit, 0);             /* reserved */
 
     /*
-     * Send our KEXINIT.
+     * Send our KEXINIT, most of the time.
+     *
+     * An exception: in BUG_REQUIRES_FILTERED_KEXINIT mode, we have to
+     * have seen at least one KEXINIT from the server first, so that
+     * we can filter our own KEXINIT down to contain only algorithms
+     * the server mentioned.
+     *
+     * But we only need to do this on the _first_ key exchange, when
+     * we've never seen a KEXINIT from the server before. In rekeys,
+     * we still have the server's previous KEXINIT lying around, so we
+     * can filter based on that.
+     *
+     * (And a good thing too, since the way you _initiate_ a rekey is
+     * by sending your KEXINIT, so we'd have no way to prod the server
+     * into sending its first!)
      */
-    pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_KEXINIT);
-    put_data(pktout, s->outgoing_kexinit->u + 1,
-             s->outgoing_kexinit->len - 1); /* omit initial packet type byte */
-    pq_push(s->ppl.out_pq, pktout);
+    s->kexinit_delayed = delay_outgoing_kexinit(s);
+    if (!s->kexinit_delayed) {
+        if (s->ppl.remote_bugs & BUG_REQUIRES_FILTERED_KEXINIT) {
+            /* Filter based on the KEXINIT from the previous exchange */
+            filter_outgoing_kexinit(s);
+        }
+
+        pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_KEXINIT);
+        put_data(pktout, s->outgoing_kexinit->u + 1,
+                 s->outgoing_kexinit->len - 1); /* omit type byte */
+        pq_push(s->ppl.out_pq, pktout);
+    }
 
     /*
      * Flag that KEX is in progress.
@@ -1313,6 +1438,18 @@ static void ssh2_transport_process_queue(PacketProtocolLayer *ppl)
     strbuf_clear(s->incoming_kexinit);
     put_byte(s->incoming_kexinit, SSH2_MSG_KEXINIT);
     put_data(s->incoming_kexinit, get_ptr(pktin), get_avail(pktin));
+
+    /*
+     * If we've delayed sending our KEXINIT so as to filter it down to
+     * only things the server won't choke on, send ours now.
+     */
+    if (s->kexinit_delayed) {
+        filter_outgoing_kexinit(s);
+        pktout = ssh_bpp_new_pktout(s->ppl.bpp, SSH2_MSG_KEXINIT);
+        put_data(pktout, s->outgoing_kexinit->u + 1,
+                 s->outgoing_kexinit->len - 1); /* omit type byte */
+        pq_push(s->ppl.out_pq, pktout);
+    }
 
     /*
      * Work through the two KEXINIT packets in parallel to find the
@@ -2199,9 +2336,9 @@ static void ssh2_transport_reconfigure(PacketProtocolLayer *ppl, Conf *conf)
     for (i = 0; i < CIPHER_MAX; i++)
         if (conf_get_int_int(s->conf, CONF_ssh_cipherlist, i) !=
             conf_get_int_int(conf, CONF_ssh_cipherlist, i)) {
-        rekey_reason = "cipher settings changed";
-        rekey_mandatory = true;
-    }
+            rekey_reason = "cipher settings changed";
+            rekey_mandatory = true;
+        }
     if (conf_get_bool(s->conf, CONF_ssh2_des_cbc) !=
         conf_get_bool(conf, CONF_ssh2_des_cbc)) {
         rekey_reason = "cipher settings changed";
