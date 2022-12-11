@@ -113,8 +113,16 @@ add_executable(bidi_test
   terminal/bidi_test.c)
 target_link_libraries(bidi_test guiterminal utils ${platform_libraries})
 
+set_source_files_properties(../PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_storage_file.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+
 add_executable(plink
   ${platform}/plink.c
+  PuTTie/winfrip_rtl.c
+  PuTTie/winfrip_rtl_debug.c
+  PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_storage_file.c)
 # Note: if we ever port Plink to a platform where we can't implement a
 # serial backend, this be_list command will need to become platform-
@@ -125,24 +133,33 @@ be_list(plink Plink SSH SERIAL OTHERBACKENDS)
 target_link_libraries(plink
   eventloop noterminal console sshclient otherbackends settings network crypto
   utils
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
   ${platform_libraries})
 installed_program(plink)
 
 add_executable(pscp
   pscp.c
+  PuTTie/winfrip_rtl.c
+  PuTTie/winfrip_rtl_debug.c
+  PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_storage_file.c)
 be_list(pscp PSCP SSH)
 target_link_libraries(pscp
   sftpclient eventloop console sshclient settings network crypto utils
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
   ${platform_libraries})
 installed_program(pscp)
 
 add_executable(psftp
   psftp.c
+  PuTTie/winfrip_rtl.c
+  PuTTie/winfrip_rtl_debug.c
+  PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_storage_file.c)
 be_list(psftp PSFTP SSH)
 target_link_libraries(psftp
   sftpclient eventloop console sshclient settings network crypto utils
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
   ${platform_libraries})
 installed_program(psftp)
 

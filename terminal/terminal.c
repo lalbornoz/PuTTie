@@ -13,7 +13,8 @@
 #include "putty.h"
 #include "terminal.h"
 /* {{{ winfrip */
-#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_urls.h"
 /* winfrip }}} */
 
 #define VT52_PLUS

@@ -198,7 +198,7 @@ buildp_usage() {
 build() {
 	local	_build_type="Release" _cflag=0 _clangflag=0 _dflag=0 _iflag=0	\
 		_jflag=1 _Rflag=0 _tflag="" _install_dname="" _opt=""		\
-		CMAKE="${CMAKE:-cmake}" OPTIND=0;
+		CMAKE="${CMAKE:-cmake}" OPTIND=1;
 
 	while [ "${#}" -gt 0 ]; do
 		case "${1}" in

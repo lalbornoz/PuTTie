@@ -97,20 +97,35 @@ add_dependencies(psftp generated_licence_h)
 
 add_sources_from_current_dir(psocks nohelp.c)
 
+set_source_files_properties(../PuTTie/winfrip_feature_bgimg.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_general.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_mouse.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_trans.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_urls.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_putty_config.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_putty.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_storage_file.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+
 add_executable(putty
   window.c
   putty.c
   help.c
   ${CMAKE_SOURCE_DIR}/stubs/no-console.c
   putty.rc
-  ../PuTTie/winfrip.c
-  ../PuTTie/winfrip_bgimg.c
-  ../PuTTie/winfrip_storage_file.c
-  ../PuTTie/winfrip_general.c
-  ../PuTTie/winfrip_mouse.c
-  ../PuTTie/winfrip_pcre2.c
-  ../PuTTie/winfrip_trans.c
-  ../PuTTie/winfrip_urls.c)
+  ../PuTTie/winfrip_feature_bgimg.c
+  ../PuTTie/winfrip_feature_general.c
+  ../PuTTie/winfrip_feature_mouse.c
+  ../PuTTie/winfrip_feature_trans.c
+  ../PuTTie/winfrip_feature_urls.c
+  ../PuTTie/winfrip_putty_config.c
+  ../PuTTie/winfrip_rtl.c
+  ../PuTTie/winfrip_rtl_debug.c
+  ../PuTTie/winfrip_rtl_pcre2.c
+  ../PuTTie/winfrip_rtl_putty.c
+  ../PuTTie/winfrip_storage_file.c)
 be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
@@ -140,14 +155,17 @@ add_executable(puttytel
   ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
   ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
   puttytel.rc
-  ../PuTTie/winfrip.c
-  ../PuTTie/winfrip_bgimg.c
-  ../PuTTie/winfrip_storage_file.c
-  ../PuTTie/winfrip_general.c
-  ../PuTTie/winfrip_mouse.c
-  ../PuTTie/winfrip_pcre2.c
-  ../PuTTie/winfrip_trans.c
-  ../PuTTie/winfrip_urls.c)
+  ../PuTTie/winfrip_feature_bgimg.c
+  ../PuTTie/winfrip_feature_general.c
+  ../PuTTie/winfrip_feature_mouse.c
+  ../PuTTie/winfrip_feature_trans.c
+  ../PuTTie/winfrip_feature_urls.c
+  ../PuTTie/winfrip_putty_config.c
+  ../PuTTie/winfrip_rtl.c
+  ../PuTTie/winfrip_rtl_debug.c
+  ../PuTTie/winfrip_rtl_pcre2.c
+  ../PuTTie/winfrip_rtl_putty.c
+  ../PuTTie/winfrip_storage_file.c)
 be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel

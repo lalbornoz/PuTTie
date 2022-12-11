@@ -1,13 +1,18 @@
 /*
- * winfrip_general.c - pointless frippery & tremendous amounts of bloat
+ * winfrip_feature_general.c - pointless frippery & tremendous amounts of bloat
  * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
 #include "dialog.h"
 #include "windows/putty-rc.h"
-#include "PuTTie/winfrip.h"
-#include "PuTTie/winfrip_priv.h"
+#pragma GCC diagnostic pop
+
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_general.h"
 
 /*
  * Preprocessor macros
@@ -39,7 +44,6 @@ static NOTIFYICONDATAA winfripp_general_notifyicon;
  * Private subroutine prototypes
  */
 
-static void winfripp_general_config_panel_store_backend_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static void winfripp_general_systray_init(HINSTANCE hinst, HWND hwnd);
 static void winfripp_general_systray_minimise(Conf *conf, HWND hwnd);
 static WinFripReturn winfripp_general_systray_wm_menu(HWND hwnd, WPARAM wParam);
@@ -48,43 +52,6 @@ static void winfripp_general_systray_wm_other(HWND hwnd, LPARAM lParam);
 /*
  * Private subroutines
  */
-
-static void winfripp_general_config_panel_store_backend_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
-{
-	int id;
-
-	switch (event) {
-	case EVENT_REFRESH:
-		dlg_update_start(ctrl, dlg);
-		dlg_listbox_clear(ctrl, dlg);
-		dlg_listbox_addwithid(ctrl, dlg, "Registry", WINFRIP_GENERAL_STORE_BACKEND_REGISTRY);
-		dlg_listbox_addwithid(ctrl, dlg, "Ephemeral", WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL);
-		dlg_listbox_addwithid(ctrl, dlg, "File", WINFRIP_GENERAL_STORE_BACKEND_FILE);
-
-	#if 0
-		switch (wfc_backend_get()) {
-		case WINFRIP_GENERAL_STORE_BACKEND_REGISTRY:
-			dlg_listbox_select(ctrl, dlg, 0); break;
-		case WINFRIP_GENERAL_STORE_BACKEND_EPHEMERAL:
-			dlg_listbox_select(ctrl, dlg, 1); break;
-		case WINFRIP_GENERAL_STORE_BACKEND_FILE:
-			dlg_listbox_select(ctrl, dlg, 2); break;
-		default:
-			WINFRIPP_DEBUG_FAIL(); break;
-		}
-	#endif
-		dlg_update_done(ctrl, dlg);
-		break;
-
-	case EVENT_SELCHANGE:
-	case EVENT_VALCHANGE:
-		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
-	#if 0
-		wfc_backend_set(id);
-	#endif
-		break;
-	}
-}
 
 static void winfripp_general_systray_init(HINSTANCE hinst, HWND hwnd)
 {
@@ -121,6 +88,7 @@ static WinFripReturn winfripp_general_systray_wm_menu(HWND hwnd, WPARAM wParam)
 		return WINFRIP_RETURN_BREAK;
 
 	default:
+		break;
 	}
 
 	return WINFRIP_RETURN_CONTINUE;
@@ -149,6 +117,7 @@ static void winfripp_general_systray_wm_other(HWND hwnd, LPARAM lParam)
 		break;
 
 	default:
+		break;
 	}
 }
 
@@ -160,7 +129,7 @@ void winfripp_general_config_panel(struct controlbox *b)
 {
 	struct controlset *s;
 
-	WINFRIPP_DEBUG_ASSERT(b);
+	WFR_DEBUG_ASSERT(b);
 
 	/*
 	 * The Frippery: general panel.
@@ -172,8 +141,6 @@ void winfripp_general_config_panel(struct controlbox *b)
 				  conf_checkbox_handler, I(CONF_frip_general_always_on_top));
 	ctrl_checkbox(s, "Minimise to system tray", 'y', WINFRIPP_HELP_CTX,
 				  conf_checkbox_handler, I(CONF_frip_general_minimise_to_systray));
-	ctrl_droplist(s, "Storage backend:", 's', 35, WINFRIPP_HELP_CTX,
-				  winfripp_general_config_panel_store_backend_handler, P(NULL));
 }
 
 UINT winfripp_general_get_wm_systray(void)
@@ -217,7 +184,7 @@ WinFripReturn winfrip_general_op(WinFripGeneralOp op, Conf *conf, HINSTANCE hins
 		winfripp_general_systray_wm_other(hwnd, lParam); break;
 
 	default:
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 	}
 
 	return WINFRIP_RETURN_CONTINUE;

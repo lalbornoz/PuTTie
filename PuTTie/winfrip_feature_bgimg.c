@@ -1,13 +1,18 @@
 /*
- * winfrip_bgimg.c - pointless frippery & tremendous amounts of bloat
+ * winfrip_feature_bgimg.c - pointless frippery & tremendous amounts of bloat
  * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
 #include "dialog.h"
 #include "windows/win-gui-seat.h"
-#include "PuTTie/winfrip.h"
-#include "PuTTie/winfrip_priv.h"
+#pragma GCC diagnostic pop
+
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_bgimg.h"
+#include "PuTTie/winfrip_rtl.h"
 
 #include <bcrypt.h>
 #include <ntstatus.h>
@@ -16,35 +21,62 @@
 #include <gdiplus/gdiplusflat.h>
 
 /*
- * Preprocessor macros
+ * Private preprocessor macros
  */
 
-#define WINFRIPP_BGIMG_FILTER_IMAGE_FILES (									\
+#define WINFRIPP_BGIMG_FILTER_IMAGE_FILES (																\
 	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
-	"Bitmap Files (*.bmp)\0*.bmp\0"										\
-	"EMF (*.emf)\0*.emf\0"											\
-	"GIF (*.gif)\0*.gif\0"											\
-	"ICO (*.ico)\0*.ico\0"											\
-	"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"						\
-	"PNG (*.png)\0*.png\0"											\
-	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"									\
-	"WMF (*.wmf)\0*.wmf\0"											\
-	"All Files (*.*)\0*\0"											\
+	"Bitmap Files (*.bmp)\0*.bmp\0"																		\
+	"EMF (*.emf)\0*.emf\0"																				\
+	"GIF (*.gif)\0*.gif\0"																				\
+	"ICO (*.ico)\0*.ico\0"																				\
+	"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"										\
+	"PNG (*.png)\0*.png\0"																				\
+	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"																\
+	"WMF (*.wmf)\0*.wmf\0"																				\
+	"All Files (*.*)\0*\0"																				\
 	"\0\0")
 
 /*
  * Private type definitions
  */
 
-typedef struct WinfrippBgimgContext_s {
-	Conf *conf;
-} WinfrippBgimgContext;
+typedef struct WinfrippBgImgContext_s {
+	Conf *	conf;
+} WinfrippBgImgContext;
+
+typedef enum WinFrippBgImgState {
+	WINFRIPP_BGIMG_STATE_NONE				= 0,
+	WINFRIPP_BGIMG_STATE_FAILED				= 1,
+	WINFRIPP_BGIMG_STATE_INIT				= 2,
+} WinFrippBgImgState;
+
+typedef enum WinFrippBgImgSlideshow {
+	WINFRIPP_BGIMG_SLIDESHOW_SINGLE_IMAGE	= 0,
+	WINFRIPP_BGIMG_SLIDESHOW_DEFAULT		= WINFRIPP_BGIMG_SLIDESHOW_SINGLE_IMAGE,
+	WINFRIPP_BGIMG_SLIDESHOW_SHUFFLE		= 1,
+} WinFrippBgImgSlideshow;
+
+typedef enum WinFrippBgImgStyle {
+	WINFRIPP_BGIMG_STYLE_ABSOLUTE			= 0,
+	WINFRIPP_BGIMG_STYLE_DEFAULT			= WINFRIPP_BGIMG_STYLE_ABSOLUTE,
+	WINFRIPP_BGIMG_STYLE_CENTER				= 1,
+	WINFRIPP_BGIMG_STYLE_FIT				= 2,
+	WINFRIPP_BGIMG_STYLE_STRETCH			= 3,
+	WINFRIPP_BGIMG_STYLE_TILE				= 4,
+} WinFrippBgImgStyle;
+
+typedef enum WinFrippBgImgType {
+	WINFRIPP_BGIMG_TYPE_SOLID				= 0,
+	WINFRIPP_BGIMG_TYPE_DEFAULT				= WINFRIPP_BGIMG_TYPE_SOLID,
+	WINFRIPP_BGIMG_TYPE_IMAGE				= 1,
+} WinFrippBgImgType;
 
 /*
  * External variables
  */
 
-/* window.c */
+// window.c
 extern WinGuiSeat wgs;
 
 /*
@@ -64,13 +96,13 @@ static HGDIOBJ winfripp_bgimg_hdc_old = NULL;
 
 static WinFrippBgImgState winfripp_bgimg_state = WINFRIPP_BGIMG_STATE_NONE;
 
-static WinfrippBgimgContext *winfripp_bgimg_timer_ctx = NULL;
+static WinfrippBgImgContext *winfripp_bgimg_timer_ctx = NULL;
 
 /*
  * External subroutine prototypes
  */
 
-/* window.c */
+// window.c
 void reset_window(int);
 
 /*
@@ -89,7 +121,7 @@ static BOOL winfripp_bgimg_set_process_blend(HDC bg_hdc, int bg_height, int bg_w
 static BOOL winfripp_bgimg_set(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle);
 
 static void winfripp_bgimg_slideshow_reconf(Conf *conf);
-static BOOL winfripp_bgimg_slideshow_shuffle(Conf *conf);
+static BOOL winfripp_bgimg_slideshow_shuffle(void);
 
 static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now);
 
@@ -114,7 +146,7 @@ static void winfripp_bgimg_config_panel_slideshow(dlgcontrol *ctrl, dlgparam *dl
 		case WINFRIPP_BGIMG_SLIDESHOW_SHUFFLE:
 			dlg_listbox_select(ctrl, dlg, 1); break;
 		default:
-			WINFRIPP_DEBUG_FAIL(); break;
+			WFR_DEBUG_FAIL(); break;
 		}
 		dlg_update_done(ctrl, dlg);
 		break;
@@ -154,7 +186,7 @@ static void winfripp_bgimg_config_panel_style(dlgcontrol *ctrl, dlgparam *dlg, v
 		case WINFRIPP_BGIMG_STYLE_TILE:
 			dlg_listbox_select(ctrl, dlg, 4); break;
 		default:
-			WINFRIPP_DEBUG_FAIL(); break;
+			WFR_DEBUG_FAIL(); break;
 		}
 		dlg_update_done(ctrl, dlg);
 		break;
@@ -185,7 +217,7 @@ static void winfripp_bgimg_config_panel_type(dlgcontrol *ctrl, dlgparam *dlg, vo
 		case WINFRIPP_BGIMG_TYPE_IMAGE:
 			dlg_listbox_select(ctrl, dlg, 1); break;
 		default:
-			WINFRIPP_DEBUG_FAIL(); break;
+			WFR_DEBUG_FAIL(); break;
 		}
 		dlg_update_done(ctrl, dlg);
 		break;
@@ -205,15 +237,15 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 	Filename *bg_fname_conf;
 	size_t bg_fname_len;
 
-	BOOL rc;
+	WfrStatus status;
 
 
-	WINFRIPP_DEBUG_ASSERT(pbg_fname_w);
-	WINFRIPP_DEBUG_ASSERT(pbg_bmpfl);
+	WFR_DEBUG_ASSERT(pbg_fname_w);
+	WFR_DEBUG_ASSERT(pbg_bmpfl);
 
 	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
 	default:
-		WINFRIPP_DEBUG_FAIL(); break;
+		WFR_DEBUG_FAIL(); break;
 
 	case WINFRIPP_BGIMG_SLIDESHOW_SINGLE_IMAGE:
 		bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
@@ -222,8 +254,8 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 
 	case WINFRIPP_BGIMG_SLIDESHOW_SHUFFLE:
 		if (reshuffle || !winfripp_bgimg_fname) {
-			if (!winfripp_bgimg_slideshow_shuffle(conf)) {
-				WINFRIPP_DEBUG_FAIL();
+			if (!winfripp_bgimg_slideshow_shuffle()) {
+				WFR_DEBUG_FAIL();
 				return FALSE;
 			}
 		}
@@ -231,7 +263,7 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 		break;
 	}
 
-	WINFRIPP_DEBUG_ASSERT(bg_fname);
+	WFR_DEBUG_ASSERT(bg_fname);
 	if (bg_fname) {
 		bg_fname_len = strlen(bg_fname);
 		if (bg_fname_len > (sizeof(".bmp")-1)) {
@@ -243,8 +275,8 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 			} else {
 				*pbg_bmpfl = FALSE;
 			}
-			rc = winfripp_towcsdup(bg_fname, bg_fname_len + 1, pbg_fname_w);
-			WINFRIPP_DEBUG_ASSERT(rc == TRUE);
+			status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
+			WFR_DEBUG_ASSERT(WFR_STATUS_SUCCESS(status));
 
 			switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
 			case WINFRIPP_BGIMG_SLIDESHOW_SHUFFLE:
@@ -253,7 +285,7 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 				}
 				break;
 			}
-			return rc;
+			return WFR_STATUS_SUCCESS(status);
 		}
 	}
 
@@ -278,13 +310,13 @@ static BOOL winfripp_bgimg_set_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int 
 	BOOL rc = FALSE;
 
 
-	WINFRIPP_DEBUG_ASSERT(pbg_hdc);
-	WINFRIPP_DEBUG_ASSERT(pbg_hdc_old);
-	WINFRIPP_DEBUG_ASSERT(pbg_height);
-	WINFRIPP_DEBUG_ASSERT(pbg_width);
-	WINFRIPP_DEBUG_ASSERT(pbmp_src);
-	WINFRIPP_DEBUG_ASSERT(bmp_src_fname_w);
-	WINFRIPP_DEBUG_ASSERT(hdc);
+	WFR_DEBUG_ASSERT(pbg_hdc);
+	WFR_DEBUG_ASSERT(pbg_hdc_old);
+	WFR_DEBUG_ASSERT(pbg_height);
+	WFR_DEBUG_ASSERT(pbg_width);
+	WFR_DEBUG_ASSERT(pbmp_src);
+	WFR_DEBUG_ASSERT(bmp_src_fname_w);
+	WFR_DEBUG_ASSERT(hdc);
 
 	bg_height = GetDeviceCaps(hdc, VERTRES);
 	bg_width = GetDeviceCaps(hdc, HORZRES);
@@ -301,7 +333,7 @@ static BOOL winfripp_bgimg_set_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int 
 	*pbg_height = bg_height; *pbg_width = bg_width;
 	*pbmp_src = bmp_src;
 
-	WINFRIPP_DEBUG_ASSERT(rc == TRUE);
+	WFR_DEBUG_ASSERT(rc == TRUE);
 	return rc;
 }
 
@@ -321,23 +353,23 @@ static BOOL winfripp_bgimg_set_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
 	BOOL rc = FALSE;
 
 
-	WINFRIPP_DEBUG_ASSERT(pbg_hdc);
-	WINFRIPP_DEBUG_ASSERT(pbg_hdc_old);
-	WINFRIPP_DEBUG_ASSERT(pbg_height);
-	WINFRIPP_DEBUG_ASSERT(pbg_width);
-	WINFRIPP_DEBUG_ASSERT(pbmp_src);
-	WINFRIPP_DEBUG_ASSERT(bmp_src_fname_w);
-	WINFRIPP_DEBUG_ASSERT(hdc);
+	WFR_DEBUG_ASSERT(pbg_hdc);
+	WFR_DEBUG_ASSERT(pbg_hdc_old);
+	WFR_DEBUG_ASSERT(pbg_height);
+	WFR_DEBUG_ASSERT(pbg_width);
+	WFR_DEBUG_ASSERT(pbmp_src);
+	WFR_DEBUG_ASSERT(bmp_src_fname_w);
+	WFR_DEBUG_ASSERT(hdc);
 
 	gdip_si.GdiplusVersion = 2;
 	gdip_si.DebugEventCallback = NULL;
 	gdip_si.SuppressBackgroundThread = FALSE;
 	gdip_si.SuppressExternalCodecs = FALSE;
 	if ((gdip_status = GdiplusStartup(&gdip_token, &gdip_si, NULL)) != Ok) {
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 		return FALSE;
 	} else if ((gdip_status = GdipCreateBitmapFromFile(bmp_src_fname_w, &gdip_bmp)) != Ok) {
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 		GdiplusShutdown(gdip_token);
 		return FALSE;
 	} else {
@@ -345,7 +377,7 @@ static BOOL winfripp_bgimg_set_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
 		GdipDisposeImage(gdip_bmp);
 		GdiplusShutdown(gdip_token);
 		if (gdip_status != Ok) {
-			WINFRIPP_DEBUG_FAIL();
+			WFR_DEBUG_FAIL();
 			return FALSE;
 		}
 	}
@@ -363,7 +395,7 @@ static BOOL winfripp_bgimg_set_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
 	*pbg_height = bg_height; *pbg_width = bg_width;
 	*pbmp_src = bmp_src;
 
-	WINFRIPP_DEBUG_ASSERT(rc == TRUE);
+	WFR_DEBUG_ASSERT(rc == TRUE);
 	return rc;
 }
 
@@ -391,17 +423,17 @@ static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, 
 	int x, y;
 
 
-	WINFRIPP_DEBUG_ASSERT(bg_hdc);
-	WINFRIPP_DEBUG_ASSERT(bg_height > 0);
-	WINFRIPP_DEBUG_ASSERT(bg_width > 0);
-	WINFRIPP_DEBUG_ASSERT(bmp_src);
-	WINFRIPP_DEBUG_ASSERT(hdc);
+	WFR_DEBUG_ASSERT(bg_hdc);
+	WFR_DEBUG_ASSERT(bg_height > 0);
+	WFR_DEBUG_ASSERT(bg_width > 0);
+	WFR_DEBUG_ASSERT(bmp_src);
+	WFR_DEBUG_ASSERT(hdc);
 
 	SetRect(&bg_rect, 0, 0, bg_width, bg_height);
 	bgimg_style = conf_get_int(conf, CONF_frip_bgimg_style);
 	switch (bgimg_style) {
 	default:
-		WINFRIPP_DEBUG_FAIL(); break;
+		WFR_DEBUG_FAIL(); break;
 
 	case WINFRIPP_BGIMG_STYLE_ABSOLUTE:
 	case WINFRIPP_BGIMG_STYLE_CENTER:
@@ -413,7 +445,7 @@ static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, 
 
 			switch (bgimg_style) {
 			default:
-				WINFRIPP_DEBUG_FAIL(); break;
+				WFR_DEBUG_FAIL(); break;
 
 			case WINFRIPP_BGIMG_STYLE_ABSOLUTE:
 				rc = BitBlt(bg_hdc, bg_rect.left, bg_rect.top,
@@ -491,7 +523,7 @@ static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, 
 		break;
 	}
 
-	WINFRIPP_DEBUG_ASSERT(rc == TRUE);
+	WFR_DEBUG_ASSERT(rc == TRUE);
 	return rc;
 }
 
@@ -506,9 +538,9 @@ static BOOL winfripp_bgimg_set_process_blend(HDC bg_hdc, int bg_height, int bg_w
 	BOOL rc = FALSE;
 
 
-	WINFRIPP_DEBUG_ASSERT(bg_hdc);
-	WINFRIPP_DEBUG_ASSERT(bg_height > 0);
-	WINFRIPP_DEBUG_ASSERT(bg_width > 0);
+	WFR_DEBUG_ASSERT(bg_hdc);
+	WFR_DEBUG_ASSERT(bg_height > 0);
+	WFR_DEBUG_ASSERT(bg_width > 0);
 
 	if ((blend_hdc = CreateCompatibleDC(bg_hdc))) {
 		if ((blend_bmp = CreateCompatibleBitmap(bg_hdc, 1, 1))) {
@@ -539,7 +571,7 @@ static BOOL winfripp_bgimg_set_process_blend(HDC bg_hdc, int bg_height, int bg_w
 		DeleteObject(blend_bmp);
 	}
 
-	WINFRIPP_DEBUG_ASSERT(rc == TRUE);
+	WFR_DEBUG_ASSERT(rc == TRUE);
 	return rc;
 }
 
@@ -554,18 +586,18 @@ static BOOL winfripp_bgimg_set(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle)
 	BOOL rc = FALSE;
 
 
-	WINFRIPP_DEBUG_ASSERT(hdc);
+	WFR_DEBUG_ASSERT(hdc);
 
 	switch (winfripp_bgimg_state) {
 	default:
-		WINFRIPP_DEBUG_FAIL(); break;
+		WFR_DEBUG_FAIL(); break;
 
 	case WINFRIPP_BGIMG_STATE_NONE:
 		break;
 
 	case WINFRIPP_BGIMG_STATE_FAILED:
 		if (!force) {
-			WINFRIPP_DEBUG_FAIL();
+			WFR_DEBUG_FAIL();
 			return FALSE;
 		} else {
 			break;
@@ -623,7 +655,7 @@ static BOOL winfripp_bgimg_set(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle)
 		DeleteObject(bmp_src);
 	}
 	winfripp_bgimg_state = WINFRIPP_BGIMG_STATE_FAILED;
-	WINFRIPP_DEBUG_FAIL();
+	WFR_DEBUG_FAIL();
 
 	return FALSE;
 }
@@ -634,7 +666,6 @@ static void winfripp_bgimg_slideshow_reconf(Conf *conf)
 	Filename *bg_dname_conf;
 	size_t bg_dname_len;
 
-	char *bg_fname;
 	size_t bg_fname_len;
 
 	size_t dname_filec_new = 0;
@@ -646,12 +677,12 @@ static void winfripp_bgimg_slideshow_reconf(Conf *conf)
 
 	char *p, **pp;
 
-	WinfrippBgimgContext *timer_ctx_new = NULL;
+	WinfrippBgImgContext *timer_ctx_new = NULL;
 
 
 	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
 	default:
-		WINFRIPP_DEBUG_FAIL(); break;
+		WFR_DEBUG_FAIL(); break;
 
 	case WINFRIPP_BGIMG_SLIDESHOW_SINGLE_IMAGE:
 		if (winfripp_bgimg_dname) {
@@ -692,7 +723,7 @@ static void winfripp_bgimg_slideshow_reconf(Conf *conf)
 		if (bg_dname_len == 0) {
 			goto fail;
 		} else {
-			for (size_t nch = (bg_dname_len - 1); nch >= 0; nch--) {
+			for (ssize_t nch = (bg_dname_len - 1); nch >= 0; nch--) {
 				if ((bg_dname[nch] == '\\') || (bg_dname[nch] == '/')) {
 					bg_dname_len = nch; break;
 				}
@@ -742,7 +773,7 @@ static void winfripp_bgimg_slideshow_reconf(Conf *conf)
 				winfripp_bgimg_dname_filec = dname_filec_new;
 				winfripp_bgimg_dname_filev = dname_filev_new;
 
-				if (!(timer_ctx_new = snew(WinfrippBgimgContext))) {
+				if (!(timer_ctx_new = snew(WinfrippBgImgContext))) {
 					goto fail;
 				} else if (winfripp_bgimg_timer_ctx) {
 					expire_timer_context(winfripp_bgimg_timer_ctx);
@@ -754,7 +785,7 @@ static void winfripp_bgimg_slideshow_reconf(Conf *conf)
 				schedule_timer(conf_get_int(conf, CONF_frip_bgimg_slideshow_freq) * 1000,
 							   winfripp_bgimg_timer_fn, (void *)winfripp_bgimg_timer_ctx);
 			} else {
-				WINFRIPP_DEBUG_FAIL();
+				WFR_DEBUG_FAIL();
 			}
 		}
 		break;
@@ -779,10 +810,10 @@ fail:
 		sfree(timer_ctx_new);
 	}
 
-	WINFRIPP_DEBUG_FAIL();
+	WFR_DEBUG_FAIL();
 }
 
-static BOOL winfripp_bgimg_slideshow_shuffle(Conf *conf)
+static BOOL winfripp_bgimg_slideshow_shuffle(void)
 {
 	char *bg_fname = NULL;
 	size_t bg_fname_idx, bg_fname_len;
@@ -794,14 +825,14 @@ static BOOL winfripp_bgimg_slideshow_shuffle(Conf *conf)
 			if ((status = BCryptOpenAlgorithmProvider(
 					&winfripp_bgimg_hAlgorithm,
 					BCRYPT_RNG_ALGORITHM, NULL, 0)) != STATUS_SUCCESS) {
-				WINFRIPP_DEBUG_FAIL();
+				WFR_DEBUG_FAIL();
 				return FALSE;
 			}
 		}
 		if ((status = BCryptGenRandom(
 				winfripp_bgimg_hAlgorithm, (PUCHAR)&bg_fname_idx,
 				sizeof(bg_fname_idx), 0) != STATUS_SUCCESS)) {
-			WINFRIPP_DEBUG_FAIL();
+			WFR_DEBUG_FAIL();
 			return FALSE;
 		} else {
 			bg_fname_idx %= winfripp_bgimg_dname_filec;
@@ -811,14 +842,15 @@ static BOOL winfripp_bgimg_slideshow_shuffle(Conf *conf)
 		}
 
 		if ((winfripp_bgimg_dname_len == 0) || (winfripp_bgimg_dname_filev[bg_fname_idx] == NULL) || (bg_fname_len == 0)) {
-			WINFRIPP_DEBUG_FAIL();
+			WFR_DEBUG_FAIL();
 			return FALSE;
 		} else if (!(bg_fname = snewn(winfripp_bgimg_dname_len + 1 + bg_fname_len + 1, char))) {
-			WINFRIPP_DEBUG_FAIL();
+			WFR_DEBUG_FAIL();
 			return FALSE;
 		} else {
 			snprintf(bg_fname, winfripp_bgimg_dname_len + 1 + bg_fname_len + 1, "%*.*s\\%s",
-				 winfripp_bgimg_dname_len, winfripp_bgimg_dname_len, winfripp_bgimg_dname,
+				 (int)winfripp_bgimg_dname_len,
+				 (int)winfripp_bgimg_dname_len, winfripp_bgimg_dname,
 				 winfripp_bgimg_dname_filev[bg_fname_idx]);
 
 			if (winfripp_bgimg_fname) {
@@ -828,14 +860,14 @@ static BOOL winfripp_bgimg_slideshow_shuffle(Conf *conf)
 			return TRUE;
 		}
 	} else {
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 		return FALSE;
 	}
 }
 
 static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now)
 {
-	WinfrippBgimgContext *context = (WinfrippBgimgContext *)ctx;
+	WinfrippBgImgContext *context = (WinfrippBgImgContext *)ctx;
 	HDC hDC;
 
 	(void)now;
@@ -859,7 +891,7 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
 	struct controlset *s_bgimg_settings, *s_bgimg_params, *s_slideshow;
 
 
-	WINFRIPP_DEBUG_ASSERT(b);
+	WFR_DEBUG_ASSERT(b);
 
 	/*
 	 * The Frippery: background panel.
@@ -877,7 +909,8 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
 				 WINFRIPP_HELP_CTX, conf_filesel_handler, I(CONF_frip_bgimg_filename));
 	c->fileselect.just_button = false;
 	ctrl_text(s_bgimg_settings, "In order to select an image directory for slideshows, select "
-								"an arbitrary file inside the directory in question.", WINFRIPP_HELP_CTX);
+								"an arbitrary file inside the directory in question.",
+								WINFRIPP_HELP_CTX);
 	ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, WINFRIPP_HELP_CTX,
 				  winfripp_bgimg_config_panel_type, P(NULL));
 	ctrl_droplist(s_bgimg_settings, "Style:", 's', 45, WINFRIPP_HELP_CTX,
@@ -920,19 +953,19 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 		hdc = hdc_in;
 	} else if (!hdc_in) {
 		hdc = GetDC(hwnd);
-		WINFRIPP_DEBUG_ASSERT(hdc);
+		WFR_DEBUG_ASSERT(hdc);
 	}
 
 	switch (op) {
 	default:
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 		rc = WINFRIP_RETURN_FAILURE;
 		goto out;
 
 	case WINFRIP_BGIMG_OP_DRAW:
-		WINFRIPP_DEBUG_ASSERT(hdc);
-		WINFRIPP_DEBUG_ASSERT(font_height > 0);
-		WINFRIPP_DEBUG_ASSERT(len > 0);
+		WFR_DEBUG_ASSERT(hdc);
+		WFR_DEBUG_ASSERT(font_height > 0);
+		WFR_DEBUG_ASSERT(len > 0);
 		if ((nbg == 258) || (nbg == 259)) {
 			if (winfripp_bgimg_hdc || winfripp_bgimg_set(conf, hdc, FALSE, TRUE)) {
 				if (rc_width > 0) {
@@ -948,12 +981,12 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 					goto out;
 				} else {
 					*pbgfl = FALSE;
-					WINFRIPP_DEBUG_FAIL();
+					WFR_DEBUG_FAIL();
 					rc = WINFRIP_RETURN_FAILURE;
 					goto out;
 				}
 			} else {
-				WINFRIPP_DEBUG_FAIL();
+				WFR_DEBUG_FAIL();
 				rc = WINFRIP_RETURN_FAILURE;
 				goto out;
 			}
@@ -972,7 +1005,7 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 			rc = WINFRIP_RETURN_CONTINUE;
 			goto out;
 		} else {
-			WINFRIPP_DEBUG_FAIL();
+			WFR_DEBUG_FAIL();
 			rc = WINFRIP_RETURN_FAILURE;
 			goto out;
 		}
@@ -980,7 +1013,7 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 	case WINFRIP_BGIMG_OP_SIZE:
 		switch (conf_get_int(conf, CONF_frip_bgimg_style)) {
 		default:
-			WINFRIPP_DEBUG_FAIL();
+			WFR_DEBUG_FAIL();
 			rc = WINFRIP_RETURN_FAILURE;
 			goto out;
 
@@ -996,7 +1029,7 @@ WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC h
 				rc = WINFRIP_RETURN_CONTINUE;
 				goto out;
 			} else {
-				WINFRIPP_DEBUG_FAIL();
+				WFR_DEBUG_FAIL();
 				rc = WINFRIP_RETURN_FAILURE;
 				goto out;
 			}
