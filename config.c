@@ -10,7 +10,7 @@
 #include "dialog.h"
 #include "storage.h"
 /* {{{ winfrip */
-#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_putty_config.h"
 /* winfrip }}} */
 #include "tree234.h"
 

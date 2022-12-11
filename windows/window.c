@@ -23,7 +23,13 @@
 #include "tree234.h"
 
 /* {{{ winfrip */
-#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_bgimg.h"
+#include "PuTTie/winfrip_feature_general.h"
+#include "PuTTie/winfrip_feature_mouse.h"
+#include "PuTTie/winfrip_feature_trans.h"
+#include "PuTTie/winfrip_feature_urls.h"
+#include "PuTTie/winfrip_rtl.h"
 /* winfrip }}} */
 
 #ifndef NO_MULTIMON
@@ -467,7 +473,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     int guess_width, guess_height;
 
     /* {{{ winfrip */
-    winfrip_debug_init();
+    WfrDebugInit();
     /* winfrip }}} */
 
     dll_hijacking_protection();

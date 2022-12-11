@@ -13,7 +13,7 @@
 #endif
 
 /* {{{ winfrip */
-#include "PuTTie/winfrip.h"
+#include "PuTTie/winfrip_putty_settings.h"
 /* winfrip }}} */
 
 /* The cipher order given here is the default order. */

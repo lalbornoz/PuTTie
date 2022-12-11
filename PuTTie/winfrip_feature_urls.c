@@ -1,18 +1,48 @@
 /*
- * winfrip_urls.c - pointless frippery & tremendous amounts of bloat
+ * winfrip_feature_urls.c - pointless frippery & tremendous amounts of bloat
  * Copyright (c) 2018, 2021, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
 #include "dialog.h"
 #include "terminal.h"
+#pragma GCC diagnostic pop
 
-#include "PuTTie/winfrip.h"
-#include "PuTTie/winfrip_priv.h"
-#include "PuTTie/winfrip_pcre2.h"
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_urls.h"
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_pcre2.h"
+#include "PuTTie/winfrip_rtl_putty.h"
 
 /*
- * Preprocessor macros
+ * Private type definitions
+ */
+
+typedef enum WinFrippUrlsModifierKey {
+	WINFRIPP_URLS_MODIFIER_KEY_CTRL			= 0,
+	WINFRIPP_URLS_MODIFIER_KEY_DEFAULT		= WINFRIPP_URLS_MODIFIER_KEY_CTRL,
+	WINFRIPP_URLS_MODIFIER_KEY_ALT			= 1,
+	WINFRIPP_URLS_MODIFIER_KEY_RIGHT_CTRL	= 2,
+	WINFRIPP_URLS_MODIFIER_KEY_RIGHT_ALT	= 3,
+} WinFrippUrlsModifierKey;
+
+typedef enum WinFrippUrlsModifierShift {
+	WINFRIPP_URLS_MODIFIER_SHIFT_NONE		= 0,
+	WINFRIPP_URLS_MODIFIER_SHIFT_DEFAULT	= WINFRIPP_URLS_MODIFIER_SHIFT_NONE,
+	WINFRIPP_URLS_MODIFIER_SHIFT_LSHIFT		= 1,
+	WINFRIPP_URLS_MODIFIER_SHIFT_RSHIFT		= 2,
+} WinFrippUrlsModifierShift;
+
+typedef enum WinFrippUrlsState {
+	WINFRIPP_URLS_STATE_NONE				= 0,
+	WINFRIPP_URLS_STATE_CLICK				= 1,
+	WINFRIPP_URLS_STATE_SELECT				= 2,
+} WinFrippUrlsState;
+
+/*
+ * Private preprocessor macros
  */
 
 /*
@@ -24,7 +54,7 @@
 		((py) < (p2).y || ((py) == (p2).y && (px) < (p2).x))
 
 /*
- * Static variables
+ * Private variables
  */
 
 /*
@@ -94,11 +124,11 @@ static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend,
 	WinFrippP2MGState pcre2_state;
 
 
-	WINFRIPP_DEBUG_ASSERT(term);
-	WINFRIPP_DEBUG_ASSERT(pbegin);
-	WINFRIPP_DEBUG_ASSERT(pend);
-	WINFRIPP_DEBUG_ASSERT(phover_url_w);
-	WINFRIPP_DEBUG_ASSERT(phover_url_w_size);
+	WFR_DEBUG_ASSERT(term);
+	WFR_DEBUG_ASSERT(pbegin);
+	WFR_DEBUG_ASSERT(pend);
+	WFR_DEBUG_ASSERT(phover_url_w);
+	WFR_DEBUG_ASSERT(phover_url_w_size);
 
 	/*
 	 * Fail given non-initialised pcre2 regular expression {code,match data
@@ -110,13 +140,13 @@ static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend,
 	 */
 
 	if (!winfripp_re_code || !winfripp_re_md) {
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 		return FALSE;
 	} else if ((x < 0) || (x >= term->cols) || (y < 0) || (y >= term->rows)) {
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 		return FALSE;
-	} else if (!winfripp_get_term_line(term, &line_w, &line_w_len, y)) {
-		WINFRIPP_DEBUG_FAIL();
+	} else if (WFR_STATUS_FAILURE(WfrpGetTermLine(term, &line_w, &line_w_len, y))) {
+		WFR_DEBUG_FAIL();
 		return FALSE;
 	} else {
 		winfripp_pcre2_init(&pcre2_state, winfripp_re_code,
@@ -127,16 +157,19 @@ static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend,
 	 * Iteratively attempt to match the regular expression and UTF-16 encoded
 	 * terminal buffer string described by pcre2_state until either a non-zero
 	 * length match comprising a range intersected by the x coordinate parameter
-	 * is found or until either WINFRIPP_P2MG_ERROR, WINFRIPP_P2MG_NO_MATCH, or
-	 * WINFRIPP_P2MG_DONE is returned.
+	 * is found or until either WFR_STATUS_CONDITION_PCRE2_ERROR, WFR_STATUS_CONDITION_PCRE2_NO_MATCH, or
+	 * WFR_STATUS_CONDITION_PCRE2_DONE is returned.
 	 */
 
 	do {
-		switch (winfripp_pcre2_match_global(&pcre2_state, &match_begin, &match_end)) {
-		case WINFRIPP_P2MG_ERROR:
-			WINFRIPP_DEBUGF("error %d trying to match any URL(s) in line `%S'", pcre2_state.last_error, line_w);
+		switch (WFR_STATUS_CONDITION(
+					winfripp_pcre2_match_global(
+						&pcre2_state, &match_begin, &match_end)))
+		{
+		case WFR_STATUS_CONDITION_PCRE2_ERROR:
+			WFR_DEBUGF("error %d trying to match any URL(s) in line `%S'", pcre2_state.last_error, line_w);
 			breakfl = true; break;
-		case WINFRIPP_P2MG_NO_MATCH:
+		case WFR_STATUS_CONDITION_PCRE2_NO_MATCH:
 			breakfl = true; break;
 
 		/*
@@ -146,14 +179,17 @@ static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend,
 		 * failure, return failure.
 		 */
 
-		case WINFRIPP_P2MG_DONE:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+		case WFR_STATUS_CONDITION_PCRE2_DONE:
 			breakfl = true;
-		case WINFRIPP_P2MG_CONTINUE:
-			if ((x >= match_begin) && (x <= match_end)) {
+#pragma GCC diagnostic pop
+		case WFR_STATUS_CONDITION_PCRE2_CONTINUE:
+			if (((size_t)x >= match_begin) && ((size_t)x <= match_end)) {
 				match_len = match_end - match_begin;
 				if (match_len > 0) {
-					WINFRIPP_DEBUGF("URL `%*.*S' matches regular expression", match_len, match_len, &line_w[match_begin]);
-					if (!(*phover_url_w = winfripp_wcsndup(&line_w[match_begin], match_len))) {
+					WFR_DEBUGF("URL `%*.*S' matches regular expression", match_len, match_len, &line_w[match_begin]);
+					if (!(*phover_url_w = WfrWcsNDup(&line_w[match_begin], match_len))) {
 						sfree(line_w); return FALSE;
 					} else {
 						pbegin->x = match_begin, pend->x = match_end;
@@ -201,7 +237,7 @@ static void winfripp_urls_config_panel_modifier_key_handler(dlgcontrol *ctrl, dl
 		case WINFRIPP_URLS_MODIFIER_KEY_RIGHT_ALT:
 			dlg_listbox_select(ctrl, dlg, 3); break;
 		default:
-			WINFRIPP_DEBUG_FAIL(); break;
+			WFR_DEBUG_FAIL(); break;
 		}
 		dlg_update_done(ctrl, dlg);
 		break;
@@ -237,7 +273,7 @@ static void winfripp_urls_config_panel_modifier_shift_handler(dlgcontrol *ctrl, 
 		case WINFRIPP_URLS_MODIFIER_SHIFT_RSHIFT:
 			dlg_listbox_select(ctrl, dlg, 2); break;
 		default:
-			WINFRIPP_DEBUG_FAIL(); break;
+			WFR_DEBUG_FAIL(); break;
 		}
 		dlg_update_done(ctrl, dlg);
 		break;
@@ -279,10 +315,10 @@ static WinFripReturn winfripp_urls_reconfig(Conf *conf)
 		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 		snprintf(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
 		goto fail;
-	} else if (!winfripp_towcsdup(spec, spec_len + 1, &spec_w)) {
-		WINFRIPP_DEBUG_FAIL();
+	} else if (WFR_STATUS_FAILURE(WfrToWcsDup(spec, spec_len + 1, &spec_w))) {
+		WFR_DEBUG_FAIL();
 		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling winfripp_towcsdup()");
+		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
 		goto fail;
 	} else {
 		if (winfripp_re_code) {
@@ -305,9 +341,12 @@ static WinFripReturn winfripp_urls_reconfig(Conf *conf)
 				sizeof(winfripp_re_error_message) / sizeof(winfripp_re_error_message[0]));
 
 			snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat="
 			snprintf(dlg_text, sizeof(dlg_text),
-					 "Error in regex %S at offset %u: %S",
+					 "Error in regex %S at offset %llu: %S",
 					 spec_w, re_erroroffset, winfripp_re_error_message);
+#pragma GCC diagnostic pop
 
 			goto fail;
 		}
@@ -352,7 +391,7 @@ static void winfripp_urls_reconfig_modifier_key(Conf *conf)
 	case WINFRIPP_URLS_MODIFIER_KEY_RIGHT_ALT:
 		winfripp_urls_modifier = VK_RMENU; break;
 	default:
-		winfripp_urls_modifier = 0; WINFRIPP_DEBUG_FAIL(); break;
+		winfripp_urls_modifier = 0; WFR_DEBUG_FAIL(); break;
 	}
 }
 
@@ -366,15 +405,15 @@ static void winfripp_urls_reconfig_modifier_shift(Conf *conf)
 	case WINFRIPP_URLS_MODIFIER_SHIFT_RSHIFT:
 		winfripp_urls_modifier_shift = VK_RSHIFT; break;
 	default:
-		winfripp_urls_modifier_shift = 0; WINFRIPP_DEBUG_FAIL(); break;
+		winfripp_urls_modifier_shift = 0; WFR_DEBUG_FAIL(); break;
 	}
 }
 
 static bool winfripp_urls_state_match(int x, int y)
 {
-	return (winfripp_is_vkey_down(winfripp_urls_modifier)
+	return (WfrpIsVKeyDown(winfripp_urls_modifier)
 	&&    ((winfripp_urls_modifier_shift != 0)
-	 ?     winfripp_is_vkey_down(winfripp_urls_modifier_shift)
+	 ?     WfrpIsVKeyDown(winfripp_urls_modifier_shift)
 	 :     true)
 	&&  (y == winfripp_urls_begin.y)
 	&&  (y == winfripp_urls_end.y)
@@ -404,7 +443,7 @@ void winfripp_urls_config_panel(struct controlbox *b)
 {
 	struct controlset *s_browser, *s_input, *s_re, *s_visual;
 
-	WINFRIPP_DEBUG_ASSERT(b);
+	WFR_DEBUG_ASSERT(b);
 
 	/*
 	 * The Frippery: URLs panel.
@@ -471,6 +510,10 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 {
 	WinFripReturn rc;
 
+
+	(void)hwnd;
+	(void)wParam;
+
 	switch (op) {
 
 	/*
@@ -501,7 +544,7 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 				break;
 
 			default:
-				WINFRIPP_DEBUG_FAIL();
+				WFR_DEBUG_FAIL();
 			}
 		}
 		return WINFRIP_RETURN_CONTINUE;
@@ -516,6 +559,7 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 		case WINFRIPP_URLS_STATE_SELECT:
 			winfripp_urls_state_reset(term, true); break;
 		default:
+			break;
 		}
 		break;
 
@@ -537,11 +581,11 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 			if ((message == WM_LBUTTONDOWN) && winfripp_urls_state_match(x, y)) {
 				winfripp_urls_state = WINFRIPP_URLS_STATE_CLICK; term_update(term);
 				if (conf_get_bool(conf, CONF_frip_urls_browser_default)) {
-					WINFRIPP_DEBUGF("ShellExecuteW(\"open\", `%S')", winfripp_urls_buf_w);
+					WFR_DEBUGF("ShellExecuteW(\"open\", `%S')", winfripp_urls_buf_w);
 					ShellExecuteW(NULL, L"open", winfripp_urls_buf_w, NULL, NULL, SW_SHOWNORMAL);
 				} else {
-					WINFRIPP_DEBUG_ASSERT(winfripp_urls_app_w);
-					WINFRIPP_DEBUGF("ShellExecuteW(`%S', `%S')", winfripp_urls_app_w, winfripp_urls_buf_w);
+					WFR_DEBUG_ASSERT(winfripp_urls_app_w);
+					WFR_DEBUGF("ShellExecuteW(`%S', `%S')", winfripp_urls_app_w, winfripp_urls_buf_w);
 					ShellExecuteW(NULL, NULL, winfripp_urls_app_w, winfripp_urls_buf_w, NULL, SW_SHOWNORMAL);
 				}
 				rc = WINFRIP_RETURN_BREAK;
@@ -552,6 +596,7 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 			return rc;
 
 		default:
+			break;
 		}
 		return WINFRIP_RETURN_CONTINUE;
 
@@ -567,9 +612,9 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 		 */
 
 		case WINFRIPP_URLS_STATE_NONE:
-			if (winfripp_is_vkey_down(winfripp_urls_modifier)
+			if (WfrpIsVKeyDown(winfripp_urls_modifier)
 			&& ((winfripp_urls_modifier_shift != 0)
-			 ? winfripp_is_vkey_down(winfripp_urls_modifier_shift)
+			 ? WfrpIsVKeyDown(winfripp_urls_modifier_shift)
 			 : true))
 			{
 				if (winfripp_urls_get(
@@ -598,6 +643,7 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 			break;
 
 		default:
+			break;
 		}
 		return WINFRIP_RETURN_CONTINUE;
 
@@ -605,9 +651,11 @@ WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT mess
 		return winfripp_urls_reconfig(conf);
 
 	default:
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 		return WINFRIP_RETURN_CONTINUE;
 	}
+
+	return WINFRIP_RETURN_CONTINUE;
 }
 
 /*

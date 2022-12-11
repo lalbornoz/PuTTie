@@ -1,12 +1,17 @@
 /*
- * winfrip_mouse.c - pointless frippery & tremendous amounts of bloat
+ * winfrip_feature_mouse.c - pointless frippery & tremendous amounts of bloat
  * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
 #include "dialog.h"
-#include "PuTTie/winfrip.h"
-#include "PuTTie/winfrip_priv.h"
+#pragma GCC diagnostic pop
+
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_mouse.h"
+#include "PuTTie/winfrip_rtl.h"
 
 /*
  * Public subroutines private to PuTTie/winfrip*.c
@@ -16,7 +21,7 @@ void winfripp_mouse_config_panel(struct controlbox *b)
 {
 	struct controlset *s;
 
-	WINFRIPP_DEBUG_ASSERT(b);
+	WFR_DEBUG_ASSERT(b);
 
 	/*
 	 * The Frippery: mouse panel.
@@ -37,9 +42,7 @@ void winfripp_mouse_config_panel(struct controlbox *b)
 WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPARAM wParam)
 {
 	FontSpec *font;
-	BYTE keystate[256];
 	short wheel_distance;
-	int rc;
 
 
 	if (op == WINFRIP_MOUSE_OP_MOUSE_EVENT) {
@@ -52,7 +55,7 @@ WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPAR
 
 	switch (op) {
 	default:
-		WINFRIPP_DEBUG_FAIL();
+		WFR_DEBUG_FAIL();
 		return WINFRIP_RETURN_FAILURE;
 
 	case WINFRIP_MOUSE_OP_WHEEL:
@@ -67,7 +70,7 @@ WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPAR
 					font->height--;
 					return WINFRIP_RETURN_BREAK_RESET_WINDOW;
 				} else {
-					WINFRIPP_DEBUG_FAIL();
+					WFR_DEBUG_FAIL();
 					return WINFRIP_RETURN_FAILURE;
 				}
 			} else {

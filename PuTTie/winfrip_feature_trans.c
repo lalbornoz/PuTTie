@@ -1,12 +1,45 @@
 /*
- * winfrip_trans.c - pointless frippery & tremendous amounts of bloat
+ * winfrip_feature_trans.c - pointless frippery & tremendous amounts of bloat
  * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
 #include "dialog.h"
-#include "PuTTie/winfrip.h"
-#include "PuTTie/winfrip_priv.h"
+#pragma GCC diagnostic pop
+
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_trans.h"
+#include "PuTTie/winfrip_rtl.h"
+
+/*
+ * Private type definitions
+ */
+
+typedef enum WinFrippTransLevel {
+	WINFRIPP_TRANS_LEVEL_OFF				= 255,
+	WINFRIPP_TRANS_LEVEL_DEFAULT			= WINFRIPP_TRANS_LEVEL_OFF,
+	WINFRIPP_TRANS_LEVEL_LOW				= 255 - 16,
+	WINFRIPP_TRANS_LEVEL_MEDIUM				= 255 - 32,
+	WINFRIPP_TRANS_LEVEL_HIGH				= 255 - 48,
+} WinFrippTransLevel;
+
+typedef enum WinFrippTransOpaqueOn {
+	WINFRIPP_TRANS_OPAQUE_NEVER				= 0,
+	WINFRIPP_TRANS_OPAQUE_DEFAULT			= WINFRIPP_TRANS_OPAQUE_NEVER,
+	WINFRIPP_TRANS_OPAQUE_FOCUS_KILL		= 1,
+	WINFRIPP_TRANS_OPAQUE_FOCUS_SET			= 2,
+} WinFrippTransOpaqueOn;
+
+typedef enum WinFrippTransSetting {
+	WINFRIPP_TRANS_SETTING_OFF				= 0,
+	WINFRIPP_TRANS_SETTING_DEFAULT			= WINFRIPP_TRANS_SETTING_OFF,
+	WINFRIPP_TRANS_SETTING_LOW				= 1,
+	WINFRIPP_TRANS_SETTING_MEDIUM			= 2,
+	WINFRIPP_TRANS_SETTING_HIGH				= 3,
+	WINFRIPP_TRANS_SETTING_CUSTOM			= 4,
+} WinFrippTransSetting;
 
 /*
  * Private subroutine prototypes
@@ -39,7 +72,7 @@ static void winfripp_trans_config_panel_opaque(dlgcontrol *ctrl, dlgparam *dlg, 
 		case WINFRIPP_TRANS_OPAQUE_FOCUS_SET:
 			dlg_listbox_select(ctrl, dlg, 2); break;
 		default:
-			WINFRIPP_DEBUG_FAIL(); break;
+			WFR_DEBUG_FAIL(); break;
 		}
 		dlg_update_done(ctrl, dlg);
 		break;
@@ -79,7 +112,7 @@ static void winfripp_trans_config_panel_setting(dlgcontrol *ctrl, dlgparam *dlg,
 		case WINFRIPP_TRANS_SETTING_CUSTOM:
 			dlg_listbox_select(ctrl, dlg, 4); break;
 		default:
-			WINFRIPP_DEBUG_FAIL(); break;
+			WFR_DEBUG_FAIL(); break;
 		}
 		dlg_update_done(ctrl, dlg);
 		break;
@@ -101,7 +134,7 @@ void winfripp_trans_config_panel(struct controlbox *b)
 {
 	struct controlset *s;
 
-	WINFRIPP_DEBUG_ASSERT(b);
+	WFR_DEBUG_ASSERT(b);
 
 	/*
 	 * The Frippery: trans-arency panel.
@@ -129,7 +162,7 @@ void winfrip_trans_op(WinFripTransOp op, Conf *conf, HWND hwnd)
 
 	switch (conf_get_int(conf, CONF_frip_trans_setting)) {
 	default:
-		WINFRIPP_DEBUG_FAIL(); return;
+		WFR_DEBUG_FAIL(); return;
 	case WINFRIPP_TRANS_SETTING_OFF:
 		opacity = WINFRIPP_TRANS_LEVEL_OFF; break;
 	case WINFRIPP_TRANS_SETTING_LOW:
@@ -144,11 +177,11 @@ void winfrip_trans_op(WinFripTransOp op, Conf *conf, HWND hwnd)
 
 	switch (op) {
 	default:
-		WINFRIPP_DEBUG_FAIL(); return;
+		WFR_DEBUG_FAIL(); return;
 	case WINFRIP_TRANS_OP_FOCUS_KILL:
 		switch (conf_get_int(conf, CONF_frip_trans_opaque_on)) {
 		default:
-			WINFRIPP_DEBUG_FAIL(); return;
+			WFR_DEBUG_FAIL(); return;
 		case WINFRIPP_TRANS_OPAQUE_FOCUS_KILL:
 			ex_style = GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED;
 			opacity = 255;
@@ -163,7 +196,7 @@ void winfrip_trans_op(WinFripTransOp op, Conf *conf, HWND hwnd)
 	case WINFRIP_TRANS_OP_FOCUS_SET:
 		switch (conf_get_int(conf, CONF_frip_trans_opaque_on)) {
 		default:
-			WINFRIPP_DEBUG_FAIL(); return;
+			WFR_DEBUG_FAIL(); return;
 		case WINFRIPP_TRANS_OPAQUE_FOCUS_SET:
 			ex_style = GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED;
 			opacity = 255;
@@ -176,7 +209,7 @@ void winfrip_trans_op(WinFripTransOp op, Conf *conf, HWND hwnd)
 		break;
 	}
 	rc = SetWindowLongPtr(hwnd, GWL_EXSTYLE, ex_style);
-	WINFRIPP_DEBUG_ASSERT(rc > 0);
+	WFR_DEBUG_ASSERT(rc > 0);
 
 	/*
 	 * Ignore return value as the Windows API is fucking braindead.

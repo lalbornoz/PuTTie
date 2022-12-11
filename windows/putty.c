@@ -1,6 +1,11 @@
 #include "putty.h"
 #include "storage.h"
 
+/* {{{ winfrip */
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_urls.h"
+/* winfrip }}} */
+
 extern bool sesslist_demo_mode;
 extern const char *dialog_box_demo_screenshot_filename;
 static strbuf *demo_terminal_data = NULL;
