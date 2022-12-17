@@ -52,9 +52,16 @@ static void winfripp_trans_config_panel_setting(dlgcontrol *ctrl, dlgparam *dlg,
  * Private subroutines
  */
 
-static void winfripp_trans_config_panel_opaque(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
+static void
+winfripp_trans_config_panel_opaque(
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
+	void *			data,
+	int				event
+	)
 {
-	Conf *conf = (Conf *)data;
+	Conf *	conf = (Conf *)data;
+
 
 	switch (event) {
 	case EVENT_REFRESH:
@@ -86,9 +93,16 @@ static void winfripp_trans_config_panel_opaque(dlgcontrol *ctrl, dlgparam *dlg, 
 	}
 }
 
-static void winfripp_trans_config_panel_setting(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
+static void
+winfripp_trans_config_panel_setting(
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
+	void *			data,
+	int				event
+	)
 {
-	Conf *conf = (Conf *)data;
+	Conf *	conf = (Conf *)data;
+
 
 	switch (event) {
 	case EVENT_REFRESH:
@@ -130,9 +144,13 @@ static void winfripp_trans_config_panel_setting(dlgcontrol *ctrl, dlgparam *dlg,
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
-void winfripp_trans_config_panel(struct controlbox *b)
+void
+winfripp_trans_config_panel(
+	struct controlbox *		b
+	)
 {
-	struct controlset *s;
+	struct controlset *		s;
+
 
 	WFR_DEBUG_ASSERT(b);
 
@@ -154,10 +172,15 @@ void winfripp_trans_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-void winfrip_trans_op(WinFripTransOp op, Conf *conf, HWND hwnd)
+void
+winfrip_trans_op(
+	WinFripTransOp	op,
+	Conf *			conf,
+	HWND			hwnd
+	)
 {
-	LONG_PTR ex_style, rc;
-	int opacity;
+	LONG_PTR	ex_style, rc;
+	int			opacity;
 
 
 	switch (conf_get_int(conf, CONF_frip_trans_setting)) {

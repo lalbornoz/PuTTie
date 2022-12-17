@@ -32,7 +32,7 @@ build_clang_compile_cmds() {
 			-not -path "\*/CMake\*/\*"		\
 			-iname \*.c);
 	do
-		_pname="${_pname#./}"; 
+		_pname="${_pname#./}";
 		_fname="${_pname##*/}"; _dname="${_pname%/*}";
 		[ "${_dname}" = "${_pname}" ] && _dname="";
 
