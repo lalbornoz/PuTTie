@@ -17,9 +17,13 @@
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
-void winfripp_mouse_config_panel(struct controlbox *b)
+void
+winfripp_mouse_config_panel(
+	struct controlbox *		b
+	)
 {
-	struct controlset *s;
+	struct controlset *	s;
+
 
 	WFR_DEBUG_ASSERT(b);
 
@@ -39,10 +43,16 @@ void winfripp_mouse_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-WinFripReturn winfrip_mouse_op(WinFripMouseOp op, Conf *conf, UINT message, WPARAM wParam)
+WinFripReturn
+winfrip_mouse_op(
+	WinFripMouseOp	op,
+	Conf *			conf,
+	UINT			message,
+	WPARAM			wParam
+	)
 {
-	FontSpec *font;
-	short wheel_distance;
+	FontSpec *	font;
+	short		wheel_distance;
 
 
 	if (op == WINFRIP_MOUSE_OP_MOUSE_EVENT) {

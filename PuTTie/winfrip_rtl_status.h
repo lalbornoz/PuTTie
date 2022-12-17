@@ -19,7 +19,7 @@ typedef uint64_t WfrStatus;
 #define WFR_STATUS_CONDITION_(condition)						\
 		((((uint64_t)(condition)) & 0x00ffffffffffffff) << 4)
 
-// FIXME TODO use SEVERITY_{BREAK,CONTINUE,DONE} everywhere
+// FIXME TODO XXX use SEVERITY_{BREAK,CONTINUE,DONE} everywhere
 #define WFR_STATUS_SEVERITY_ERROR		0
 #define WFR_STATUS_SEVERITY_SUCCESS		1
 #define WFR_STATUS_SEVERITY_BREAK		3

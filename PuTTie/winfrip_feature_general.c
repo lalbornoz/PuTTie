@@ -19,16 +19,18 @@
  */
 
 /*
- * XXX
+ * IDM_TRAY_{FIRST,LAST,QUIT,RESTORE}: PuTTie system tray icon menu command identifier constants
  */
+
 #define IDM_TRAY_FIRST		0x6010
 #define IDM_TRAY_LAST		0x6020
 #define IDM_TRAY_QUIT		0x6020
 #define IDM_TRAY_RESTORE	0x6010
 
 /*
- * XXX
+ * WM_SYSTRAY: user-defined system tray window message constant
  */
+
 #define WM_SYSTRAY			(WM_USER + (0x7FFF - WM_USER))
 
 /*
@@ -36,9 +38,10 @@
  */
 
 /*
- * XXX
+ * winfripp_general_notifyicon: PuTTie notification area information structrue
  */
-static NOTIFYICONDATAA winfripp_general_notifyicon;
+
+static NOTIFYICONDATAA	winfripp_general_notifyicon;
 
 /*
  * Private subroutine prototypes
@@ -53,7 +56,11 @@ static void winfripp_general_systray_wm_other(HWND hwnd, LPARAM lParam);
  * Private subroutines
  */
 
-static void winfripp_general_systray_init(HINSTANCE hinst, HWND hwnd)
+static void
+winfripp_general_systray_init(
+	HINSTANCE	hinst,
+	HWND		hwnd
+	)
 {
 	ZeroMemory(&winfripp_general_notifyicon, sizeof(winfripp_general_notifyicon));
 	winfripp_general_notifyicon.cbSize = sizeof(winfripp_general_notifyicon);
@@ -64,7 +71,11 @@ static void winfripp_general_systray_init(HINSTANCE hinst, HWND hwnd)
 	winfripp_general_notifyicon.uVersion = NOTIFYICON_VERSION;
 }
 
-static void winfripp_general_systray_minimise(Conf *conf, HWND hwnd)
+static void
+winfripp_general_systray_minimise(
+	Conf *	conf,
+	HWND	hwnd
+	)
 {
 	if (conf_get_bool(conf, CONF_frip_general_minimise_to_systray)) {
 		GetWindowTextA(hwnd, winfripp_general_notifyicon.szTip, sizeof(winfripp_general_notifyicon.szTip));
@@ -73,7 +84,11 @@ static void winfripp_general_systray_minimise(Conf *conf, HWND hwnd)
 	}
 }
 
-static WinFripReturn winfripp_general_systray_wm_menu(HWND hwnd, WPARAM wParam)
+static WinFripReturn
+winfripp_general_systray_wm_menu(
+	HWND	hwnd,
+	WPARAM	wParam
+	)
 {
 	switch (wParam & ~0xF) {
 	case IDM_TRAY_RESTORE:
@@ -94,10 +109,14 @@ static WinFripReturn winfripp_general_systray_wm_menu(HWND hwnd, WPARAM wParam)
 	return WINFRIP_RETURN_CONTINUE;
 }
 
-static void winfripp_general_systray_wm_other(HWND hwnd, LPARAM lParam)
+static void
+winfripp_general_systray_wm_other(
+	HWND	hwnd,
+	LPARAM	lParam
+	)
 {
-	HMENU systray_menu;
 	POINT pt;
+	HMENU systray_menu;
 
 
 	switch (lParam) {
@@ -125,9 +144,13 @@ static void winfripp_general_systray_wm_other(HWND hwnd, LPARAM lParam)
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
-void winfripp_general_config_panel(struct controlbox *b)
+void
+winfripp_general_config_panel(
+	struct controlbox *		b
+	)
 {
 	struct controlset *s;
+
 
 	WFR_DEBUG_ASSERT(b);
 
@@ -143,7 +166,10 @@ void winfripp_general_config_panel(struct controlbox *b)
 				  conf_checkbox_handler, I(CONF_frip_general_minimise_to_systray));
 }
 
-UINT winfripp_general_get_wm_systray(void)
+UINT
+winfripp_general_get_wm_systray(
+	void
+	)
 {
 	return WM_SYSTRAY;
 }
@@ -152,7 +178,16 @@ UINT winfripp_general_get_wm_systray(void)
  * Public subroutines
  */
 
-WinFripReturn winfrip_general_op(WinFripGeneralOp op, Conf *conf, HINSTANCE hinst, HWND hwnd, LPARAM lParam, int reconfiguring, WPARAM wParam)
+WinFripReturn
+winfrip_general_op(
+	WinFripGeneralOp	op,
+	Conf *				conf,
+	HINSTANCE			hinst,
+	HWND				hwnd,
+	LPARAM				lParam,
+	int					reconfiguring,
+	WPARAM				wParam
+	)
 {
 	switch (op) {
 	case WINFRIP_GENERAL_OP_CONFIG_DIALOG:

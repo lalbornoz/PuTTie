@@ -20,9 +20,9 @@
 
 wchar_t *
 WfrWcsNDup(
-		const wchar_t *	in_w,
-		size_t			in_w_len
-)
+	const wchar_t *		in_w,
+	size_t				in_w_len
+	)
 {
 	wchar_t *	out_w;
 	size_t		out_w_size;
@@ -40,10 +40,10 @@ WfrWcsNDup(
 
 WfrStatus
 WfrToWcsDup(
-		char *		in,
-		size_t		in_size,
-		wchar_t **	pout_w
-)
+	char *		in,
+	size_t		in_size,
+	wchar_t **	pout_w
+	)
 {
 	wchar_t *	out_w;
 	int			out_w_len, out_w_size;

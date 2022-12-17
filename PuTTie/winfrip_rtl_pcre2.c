@@ -17,12 +17,12 @@
 
 void
 winfripp_pcre2_init(
-		WinFrippP2MGState *	state,
-		pcre2_code *		code,
-		size_t				length,
-		pcre2_match_data *	md,
-		wchar_t *			subject
-)
+	WinFrippP2MGState *		state,
+	pcre2_code *			code,
+	size_t					length,
+	pcre2_match_data *		md,
+	wchar_t *				subject
+	)
 {
 	uint32_t	newline = 0;
 
@@ -46,7 +46,7 @@ winfripp_pcre2_init(
 
 	(void)pcre2_pattern_info(state->code, PCRE2_INFO_NEWLINE, &newline);
 	state->crlf_is_newline =
-	       (newline == PCRE2_NEWLINE_ANY)
+		   (newline == PCRE2_NEWLINE_ANY)
 		|| (newline == PCRE2_NEWLINE_CRLF)
 		|| (newline == PCRE2_NEWLINE_ANYCRLF);
 }
@@ -54,14 +54,14 @@ winfripp_pcre2_init(
 
 WfrStatus
 winfripp_pcre2_get_match(
-		WinfrippP2Regex *	regex,
-		bool				alloc_value,
-		int					match_offset,
-		WinfrippP2RType		match_type,
-		wchar_t *			subject,
-		void *				pvalue,
-		size_t *			pvalue_size
-)
+	WinfrippP2Regex *	regex,
+	bool				alloc_value,
+	int					match_offset,
+	WinfrippP2RType		match_type,
+	wchar_t *			subject,
+	void *				pvalue,
+	size_t *			pvalue_size
+	)
 {
 	wchar_t			int_string_buf[sizeof("-2147483647")];
 	const wchar_t *	match_begin, *match_end;
@@ -206,10 +206,10 @@ winfripp_pcre2_get_match(
 
 WfrStatus
 winfripp_pcre2_match_global(
-		WinFrippP2MGState *	state,
-		size_t *			pbegin,
-		size_t *			pend
-)
+	WinFrippP2MGState *		state,
+	size_t *				pbegin,
+	size_t *				pend
+	)
 {
 	uint32_t	options = 0;
 	PCRE2_SIZE	startchar;

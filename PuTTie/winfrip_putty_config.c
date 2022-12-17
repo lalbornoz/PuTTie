@@ -17,7 +17,10 @@
  * Public subroutines
  */
 
-void winfrip_config_panel(struct controlbox *b)
+void
+winfrip_config_panel(
+	struct controlbox *		b
+	)
 {
 	/*
 	 * The Frippery panel.

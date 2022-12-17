@@ -28,11 +28,11 @@ typedef struct compressed_scrollback_line {
 
 WfrStatus
 WfrpGetTermLine(
-		Terminal *	term,
-		wchar_t **	pline_w,
-		size_t *	pline_w_len,
-		int			y
-)
+	Terminal *	term,
+	wchar_t **	pline_w,
+	size_t *	pline_w_len,
+	int			y
+	)
 {
 	size_t		idx_in, idx_out;
 	termline *	line = NULL;
@@ -141,8 +141,8 @@ WfrpGetTermLine(
 
 bool
 WfrpIsVKeyDown(
-		int		nVirtKey
-)
+	int		nVirtKey
+	)
 {
 	return (GetKeyState(nVirtKey) < 0);
 }

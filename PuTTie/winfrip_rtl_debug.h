@@ -14,27 +14,27 @@ void WfrDebugInit(void);
 
 #ifdef WINFRIP_DEBUG
 
-#define WFR_DEBUG_ASSERT(expr) do {								\
-			if (!(expr)) {										\
-				WFR_DEBUGF("assertion failure: %s\n"			\
-						   "GetLastError(): 0x%08x",			\
-						   #expr, GetLastError());				\
-			}													\
+#define WFR_DEBUG_ASSERT(expr) do {							\
+		if (!(expr)) {										\
+			WFR_DEBUGF("assertion failure: %s\n"			\
+					   "GetLastError(): 0x%08x",			\
+					   #expr, GetLastError());				\
+			}												\
 		} while (0)
 
-#define WFR_DEBUG_ASSERTF(expr, fmt, ...) do {					\
-			if (!(expr)) {										\
-				WFR_DEBUGF(fmt "\n" "assertion failure: %s\n"	\
-						"GetLastError(): 0x%08x",				\
-						##__VA_ARGS__, #expr,					\
-						GetLastError());						\
-			}													\
+#define WFR_DEBUG_ASSERTF(expr, fmt, ...) do {				\
+		if (!(expr)) {										\
+			WFR_DEBUGF(fmt "\n" "assertion failure: %s\n"	\
+					   "GetLastError(): 0x%08x",			\
+					   ##__VA_ARGS__, #expr,				\
+					   GetLastError());						\
+			}												\
 		} while (0)
 
-#define WFR_DEBUG_FAIL()										\
+#define WFR_DEBUG_FAIL()									\
 		WFR_DEBUGF("failure condition", __FILE__, __func__, __LINE__)
 
-#define WFR_DEBUGF(fmt, ...)									\
+#define WFR_DEBUGF(fmt, ...)								\
 		WfrDebugF(fmt, __FILE__, __func__, __LINE__, ##__VA_ARGS__)
 
 void WfrDebugF(const char *fmt, const char *file, const char *func, int line, ...);

@@ -15,8 +15,8 @@
 
 void
 WfrDebugInit(
-		void
-)
+	void
+	)
 {
 #ifdef WINFRIP_DEBUG
 	COORD		dwSize = {.X = 125, .Y = 50 * 25};
@@ -37,17 +37,16 @@ WfrDebugInit(
 #ifdef WINFRIP_DEBUG
 void
 WfrDebugF(
-		const char *	fmt,
-		const char *	file,
-		const char *	func,
-		int				line,
-						...
-)
+	const char *	fmt,
+	const char *	file,
+	const char *	func,
+	int				line,
+					...
+	)
 {
 	va_list		ap;
 
 
-	return;
 	fprintf(stderr, "In %s:%d:%s():\n", file, line, func);
 	va_start(ap, line);
 	vfprintf(stderr, fmt, ap);

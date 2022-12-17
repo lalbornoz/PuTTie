@@ -77,26 +77,26 @@ typedef enum WinFrippBgImgType {
  */
 
 // window.c
-extern WinGuiSeat wgs;
+extern WinGuiSeat				wgs;
 
 /*
  * Private variables
  */
 
-static char *winfripp_bgimg_dname = NULL;
-static size_t winfripp_bgimg_dname_len = 0;
-static size_t winfripp_bgimg_dname_filec = 0;
-static char **winfripp_bgimg_dname_filev = NULL;
-static char *winfripp_bgimg_fname = NULL;
+static char *					winfripp_bgimg_dname = NULL;
+static size_t					winfripp_bgimg_dname_len = 0;
+static size_t					winfripp_bgimg_dname_filec = 0;
+static char **					winfripp_bgimg_dname_filev = NULL;
+static char *					winfripp_bgimg_fname = NULL;
 
-static BCRYPT_ALG_HANDLE winfripp_bgimg_hAlgorithm = NULL;
+static BCRYPT_ALG_HANDLE		winfripp_bgimg_hAlgorithm = NULL;
 
-static HDC winfripp_bgimg_hdc = NULL;
-static HGDIOBJ winfripp_bgimg_hdc_old = NULL;
+static HDC						winfripp_bgimg_hdc = NULL;
+static HGDIOBJ					winfripp_bgimg_hdc_old = NULL;
 
-static WinFrippBgImgState winfripp_bgimg_state = WINFRIPP_BGIMG_STATE_NONE;
+static WinFrippBgImgState		winfripp_bgimg_state = WINFRIPP_BGIMG_STATE_NONE;
 
-static WinfrippBgImgContext *winfripp_bgimg_timer_ctx = NULL;
+static WinfrippBgImgContext *	winfripp_bgimg_timer_ctx = NULL;
 
 /*
  * External subroutine prototypes
@@ -129,9 +129,16 @@ static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now);
  * Private subroutines
  */
 
-static void winfripp_bgimg_config_panel_slideshow(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
+static void
+winfripp_bgimg_config_panel_slideshow(
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
+	void *			data,
+	int				event
+	)
 {
 	Conf *conf = (Conf *)data;
+
 
 	switch (event) {
 	case EVENT_REFRESH:
@@ -160,9 +167,16 @@ static void winfripp_bgimg_config_panel_slideshow(dlgcontrol *ctrl, dlgparam *dl
 	}
 }
 
-static void winfripp_bgimg_config_panel_style(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
+static void
+winfripp_bgimg_config_panel_style(
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
+	void *			data,
+	int				event
+	)
 {
 	Conf *conf = (Conf *)data;
+
 
 	switch (event) {
 	case EVENT_REFRESH:
@@ -200,9 +214,16 @@ static void winfripp_bgimg_config_panel_style(dlgcontrol *ctrl, dlgparam *dlg, v
 	}
 }
 
-static void winfripp_bgimg_config_panel_type(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
+static void
+winfripp_bgimg_config_panel_type(
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
+	void *			data,
+	int				event
+	)
 {
 	Conf *conf = (Conf *)data;
+
 
 	switch (event) {
 	case EVENT_REFRESH:
@@ -231,13 +252,19 @@ static void winfripp_bgimg_config_panel_type(dlgcontrol *ctrl, dlgparam *dlg, vo
 	}
 }
 
-static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **pbg_fname_w, BOOL *pbg_bmpfl)
+static BOOL
+winfripp_bgimg_set_get_fname(
+	Conf *		conf,
+	BOOL		reshuffle,
+	wchar_t **	pbg_fname_w,
+	BOOL *		pbg_bmpfl
+	)
 {
-	char *bg_fname = NULL;
-	Filename *bg_fname_conf;
-	size_t bg_fname_len;
+	char *		bg_fname = NULL;
+	Filename *	bg_fname_conf;
+	size_t		bg_fname_len;
 
-	WfrStatus status;
+	WfrStatus	status;
 
 
 	WFR_DEBUG_ASSERT(pbg_fname_w);
@@ -300,14 +327,23 @@ static BOOL winfripp_bgimg_set_get_fname(Conf *conf, BOOL reshuffle, wchar_t **p
 	return FALSE;
 }
 
-static BOOL winfripp_bgimg_set_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc)
+static BOOL
+winfripp_bgimg_set_load_bmp(
+	HDC *		pbg_hdc,
+	HGDIOBJ *	pbg_hdc_old,
+	int *		pbg_height,
+	int *		pbg_width,
+	HBITMAP *	pbmp_src,
+	wchar_t *	bmp_src_fname_w,
+	HDC			hdc
+	)
 {
-	HBITMAP bg_bmp = NULL;
-	HDC bg_hdc = NULL;
-	HGDIOBJ bg_hdc_old = NULL;
-	int bg_height, bg_width;
-	HBITMAP bmp_src = NULL;
-	BOOL rc = FALSE;
+	HBITMAP		bg_bmp = NULL;
+	HDC			bg_hdc = NULL;
+	HGDIOBJ		bg_hdc_old = NULL;
+	int			bg_height, bg_width;
+	HBITMAP		bmp_src = NULL;
+	BOOL		rc = FALSE;
 
 
 	WFR_DEBUG_ASSERT(pbg_hdc);
@@ -337,20 +373,29 @@ static BOOL winfripp_bgimg_set_load_bmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int 
 	return rc;
 }
 
-static BOOL winfripp_bgimg_set_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc)
+static BOOL
+winfripp_bgimg_set_load_nonbmp(
+	HDC *		pbg_hdc,
+	HGDIOBJ *	pbg_hdc_old,
+	int *		pbg_height,
+	int *		pbg_width,
+	HBITMAP *	pbmp_src,
+	wchar_t *	bmp_src_fname_w,
+	HDC			hdc
+	)
 {
-	HBITMAP bg_bmp = NULL;
-	HDC bg_hdc = NULL;
-	HGDIOBJ bg_hdc_old = NULL;
-	int bg_height, bg_width;
-	HBITMAP bmp_src = NULL;
+	HBITMAP					bg_bmp = NULL;
+	HDC						bg_hdc = NULL;
+	HGDIOBJ					bg_hdc_old = NULL;
+	int						bg_height, bg_width;
+	HBITMAP					bmp_src = NULL;
 
-	GpBitmap *gdip_bmp;
-	GdiplusStartupInput gdip_si;
-	GpStatus gdip_status;
-	ULONG_PTR gdip_token;
+	GpBitmap *				gdip_bmp;
+	GdiplusStartupInput		gdip_si;
+	GpStatus				gdip_status;
+	ULONG_PTR				gdip_token;
 
-	BOOL rc = FALSE;
+	BOOL					rc = FALSE;
 
 
 	WFR_DEBUG_ASSERT(pbg_hdc);
@@ -399,28 +444,36 @@ static BOOL winfripp_bgimg_set_load_nonbmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, i
 	return rc;
 }
 
-static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, Conf *conf, HDC hdc)
+static BOOL
+winfripp_bgimg_set_process(
+	HDC			bg_hdc,
+	int			bg_height,
+	int			bg_width,
+	HBITMAP		bmp_src,
+	Conf *		conf,
+	HDC			hdc
+	)
 {
-	HBRUSH bg_brush;
-	int bg_hdc_sb_mode;
-	RECT bg_rect, cr;
-	int bgimg_style;
+	HBRUSH		bg_brush;
+	int			bg_hdc_sb_mode;
+	RECT		bg_rect, cr;
+	int			bgimg_style;
 
-	int bmp_offset_x, bmp_offset_y;
-	HDC bmp_src_hdc;
-	BITMAP bmp_src_obj;
-	HGDIOBJ bmp_src_old;
+	int			bmp_offset_x, bmp_offset_y;
+	HDC			bmp_src_hdc;
+	BITMAP		bmp_src_obj;
+	HGDIOBJ		bmp_src_old;
 
-	int cr_height, cr_width;
+	int			cr_height, cr_width;
 
-	HWND hwnd;
+	HWND		hwnd;
 
-	int padding;
-	float ratio, ratioH, ratioW;
+	int			padding;
+	float		ratio, ratioH, ratioW;
 
-	BOOL rc = FALSE;
+	BOOL		rc = FALSE;
 
-	int x, y;
+	int			x, y;
 
 
 	WFR_DEBUG_ASSERT(bg_hdc);
@@ -527,15 +580,21 @@ static BOOL winfripp_bgimg_set_process(HDC bg_hdc, int bg_height, int bg_width, 
 	return rc;
 }
 
-static BOOL winfripp_bgimg_set_process_blend(HDC bg_hdc, int bg_height, int bg_width, Conf *conf)
+static BOOL
+winfripp_bgimg_set_process_blend(
+	HDC		bg_hdc,
+	int		bg_height,
+	int		bg_width,
+	Conf *	conf
+	)
 {
-	RECT bg_rect;
-	HBITMAP blend_bmp = NULL;
-	COLORREF blend_colour;
-	BLENDFUNCTION blend_ftn;
-	HDC blend_hdc = NULL;
-	HGDIOBJ blend_old = NULL;
-	BOOL rc = FALSE;
+	RECT			bg_rect;
+	HBITMAP			blend_bmp = NULL;
+	COLORREF		blend_colour;
+	BLENDFUNCTION	blend_ftn;
+	HDC				blend_hdc = NULL;
+	HGDIOBJ			blend_old = NULL;
+	BOOL			rc = FALSE;
 
 
 	WFR_DEBUG_ASSERT(bg_hdc);
@@ -575,15 +634,21 @@ static BOOL winfripp_bgimg_set_process_blend(HDC bg_hdc, int bg_height, int bg_w
 	return rc;
 }
 
-static BOOL winfripp_bgimg_set(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle)
+static BOOL
+winfripp_bgimg_set(
+	Conf *	conf,
+	HDC		hdc,
+	BOOL	force,
+	BOOL	reshuffle
+	)
 {
-	wchar_t *bg_bmp_fname_w;
-	BOOL bg_bmpfl;
-	HDC bg_hdc = NULL;
-	HGDIOBJ bg_hdc_cur, bg_hdc_old = NULL;
-	int bg_height, bg_width;
-	HBITMAP bmp_src = NULL;
-	BOOL rc = FALSE;
+	wchar_t *	bg_bmp_fname_w;
+	BOOL		bg_bmpfl;
+	HDC			bg_hdc = NULL;
+	HGDIOBJ		bg_hdc_cur, bg_hdc_old = NULL;
+	int			bg_height, bg_width;
+	HBITMAP		bmp_src = NULL;
+	BOOL		rc = FALSE;
 
 
 	WFR_DEBUG_ASSERT(hdc);
@@ -660,24 +725,27 @@ static BOOL winfripp_bgimg_set(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle)
 	return FALSE;
 }
 
-static void winfripp_bgimg_slideshow_reconf(Conf *conf)
+static void
+winfripp_bgimg_slideshow_reconf(
+	Conf *	conf
+	)
 {
-	char *bg_dname;
-	Filename *bg_dname_conf;
-	size_t bg_dname_len;
+	char *					bg_dname;
+	Filename *				bg_dname_conf;
+	size_t					bg_dname_len;
 
-	size_t bg_fname_len;
+	size_t					bg_fname_len;
 
-	size_t dname_filec_new = 0;
-	char **dname_filev_new = NULL;
+	size_t					dname_filec_new = 0;
+	char **					dname_filev_new = NULL;
 
-	char *dname_new = NULL;
-	WIN32_FIND_DATA dname_new_ffd;
-	HANDLE dname_new_hFind = INVALID_HANDLE_VALUE;
+	char *					dname_new = NULL;
+	WIN32_FIND_DATA			dname_new_ffd;
+	HANDLE					dname_new_hFind = INVALID_HANDLE_VALUE;
 
-	char *p, **pp;
+	char *					p, **pp;
 
-	WinfrippBgImgContext *timer_ctx_new = NULL;
+	WinfrippBgImgContext *	timer_ctx_new = NULL;
 
 
 	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
@@ -813,11 +881,14 @@ fail:
 	WFR_DEBUG_FAIL();
 }
 
-static BOOL winfripp_bgimg_slideshow_shuffle(void)
+static BOOL
+winfripp_bgimg_slideshow_shuffle(
+	void
+	)
 {
-	char *bg_fname = NULL;
-	size_t bg_fname_idx, bg_fname_len;
-	NTSTATUS status;
+	char *		bg_fname = NULL;
+	size_t		bg_fname_idx, bg_fname_len;
+	NTSTATUS	status;
 
 
 	if ((winfripp_bgimg_dname_filec > 0) && (winfripp_bgimg_dname_filev != NULL)) {
@@ -865,10 +936,15 @@ static BOOL winfripp_bgimg_slideshow_shuffle(void)
 	}
 }
 
-static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now)
+static void
+winfripp_bgimg_timer_fn(
+	void *			ctx,
+	unsigned long	now
+	)
 {
-	WinfrippBgImgContext *context = (WinfrippBgImgContext *)ctx;
-	HDC hDC;
+	WinfrippBgImgContext *	context = (WinfrippBgImgContext *)ctx;
+	HDC						hDC;
+
 
 	(void)now;
 
@@ -885,10 +961,13 @@ static void winfripp_bgimg_timer_fn(void *ctx, unsigned long now)
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
-void winfripp_bgimg_config_panel(struct controlbox *b)
+void
+winfripp_bgimg_config_panel(
+	struct controlbox *		b
+	)
 {
-	dlgcontrol *c;
-	struct controlset *s_bgimg_settings, *s_bgimg_params, *s_slideshow;
+	dlgcontrol *			c;
+	struct controlset *		s_bgimg_settings, *s_bgimg_params, *s_slideshow;
 
 
 	WFR_DEBUG_ASSERT(b);
@@ -941,10 +1020,24 @@ void winfripp_bgimg_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-WinFripReturn winfrip_bgimg_op(WinFripBgImgOp op, BOOL *pbgfl, Conf *conf, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y)
+WinFripReturn
+winfrip_bgimg_op(
+	WinFripBgImgOp	op,
+	BOOL *			pbgfl,
+	Conf *			conf,
+	HDC				hdc_in,
+	HWND			hwnd,
+	int				char_width,
+	int				font_height,
+	int				len,
+	int				nbg,
+	int				rc_width,
+	int				x,
+	int				y
+	)
 {
-	HDC hdc;
-	WinFripReturn rc;
+	HDC				hdc;
+	WinFripReturn	rc;
 
 
 	if (conf_get_int(conf, CONF_frip_bgimg_type) != WINFRIPP_BGIMG_TYPE_IMAGE) {

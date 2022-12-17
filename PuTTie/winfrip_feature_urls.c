@@ -60,41 +60,41 @@ typedef enum WinFrippUrlsState {
 /*
  * UTF-16 encoded pathname to browser application or NULL (default)
  */
-static wchar_t *winfripp_urls_app_w = NULL;
+static wchar_t *			winfripp_urls_app_w = NULL;
 
 /*
  * Zero-based inclusive beginning and exclusive end terminal buffer coordinates
  * of URL during URL operations
  */
-static pos winfripp_urls_begin = {0, 0};
-static pos winfripp_urls_end = {0, 0};
+static pos					winfripp_urls_begin = {0, 0};
+static pos					winfripp_urls_end = {0, 0};
 
 /*
  * UTF-16 encoded URL buffer and buffer size in bytes during URL operations
  * or NULL/0, resp.
  */
-static wchar_t *winfripp_urls_buf_w = NULL;
-static size_t winfripp_urls_buf_w_size = 0;
+static wchar_t *			winfripp_urls_buf_w = NULL;
+static size_t				winfripp_urls_buf_w_size = 0;
 
 /*
  * Windows base API GetKeyState() virtual keys corresponding to the URL mouse
  * motion and LMB click modifier and shift modifier keys configured by the user.
  */
-static int winfripp_urls_modifier = 0;
-static int winfripp_urls_modifier_shift = 0;
+static int					winfripp_urls_modifier = 0;
+static int					winfripp_urls_modifier_shift = 0;
 
 /*
  * PCRE2 regular expression compiled code or NULL, error message buffer, and
  * match data block or NULL
  */
-static pcre2_code *winfripp_re_code = NULL;
-static wchar_t winfripp_re_error_message[256] = {0,};
-static pcre2_match_data *winfripp_re_md = NULL;
+static pcre2_code *			winfripp_re_code = NULL;
+static wchar_t				winfripp_re_error_message[256] = {0,};
+static pcre2_match_data *	winfripp_re_md = NULL;
 
 /*
  * URL operation state (WINFRIPP_URLS_STATE_{NONE,CLICK,SELECT})
  */
-static WinFrippUrlsState winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
+static WinFrippUrlsState	winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
 
 /*
  * Private subroutine prototypes
@@ -113,15 +113,22 @@ static void winfripp_urls_state_reset(Terminal *term, bool update_term);
  * Private subroutines
  */
 
-static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend,
-			      wchar_t **phover_url_w, size_t *phover_url_w_size,
-			      int x, int y)
+static bool
+winfripp_urls_get(
+	Terminal *	term,
+	pos *		pbegin,
+	pos *		pend,
+	wchar_t **	phover_url_w,
+	size_t *	phover_url_w_size,
+	int			x,
+	int			y
+	)
 {
-	bool breakfl = false;
-	wchar_t *line_w;
-	size_t line_w_len;
-	size_t match_begin, match_end, match_len;
-	WinFrippP2MGState pcre2_state;
+	bool				breakfl = false;
+	wchar_t *			line_w;
+	size_t				line_w_len;
+	size_t				match_begin, match_end, match_len;
+	WinFrippP2MGState	pcre2_state;
 
 
 	WFR_DEBUG_ASSERT(term);
@@ -212,10 +219,16 @@ static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend,
 	return FALSE;
 }
 
-static void winfripp_urls_config_panel_modifier_key_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
+static void
+winfripp_urls_config_panel_modifier_key_handler(
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
+	void *			data,
+	int				event
+	)
 {
-	Conf *conf = (Conf *)data;
-	int id;
+	Conf *	conf = (Conf *)data;
+	int		id;
 
 
 	switch (event) {
@@ -251,10 +264,16 @@ static void winfripp_urls_config_panel_modifier_key_handler(dlgcontrol *ctrl, dl
 	}
 }
 
-static void winfripp_urls_config_panel_modifier_shift_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event)
+static void
+winfripp_urls_config_panel_modifier_shift_handler(
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
+	void *			data,
+	int				event
+	)
 {
-	Conf *conf = (Conf *)data;
-	int id;
+	Conf *	conf = (Conf *)data;
+	int		id;
 
 
 	switch (event) {
@@ -287,15 +306,17 @@ static void winfripp_urls_config_panel_modifier_shift_handler(dlgcontrol *ctrl, 
 	}
 }
 
-static WinFripReturn winfripp_urls_reconfig(Conf *conf)
+static WinFripReturn
+winfripp_urls_reconfig(
+	Conf *	conf
+	)
 {
-	static char dlg_caption[96];
-	static char dlg_text[256];
-	int re_errorcode = 0;
-	PCRE2_SIZE re_erroroffset = 0;
-	char *spec;
-	size_t spec_len;
-	wchar_t *spec_w;
+	static char		dlg_caption[96], dlg_text[256];
+	int				re_errorcode = 0;
+	PCRE2_SIZE		re_erroroffset = 0;
+	char *			spec;
+	size_t			spec_len;
+	wchar_t *		spec_w;
 
 
 	/*
@@ -379,7 +400,10 @@ fail:
 	}
 }
 
-static void winfripp_urls_reconfig_modifier_key(Conf *conf)
+static void
+winfripp_urls_reconfig_modifier_key(
+	Conf *	conf
+	)
 {
 	switch (conf_get_int(conf, CONF_frip_urls_modifier_key)) {
 	case WINFRIPP_URLS_MODIFIER_KEY_CTRL:
@@ -395,7 +419,10 @@ static void winfripp_urls_reconfig_modifier_key(Conf *conf)
 	}
 }
 
-static void winfripp_urls_reconfig_modifier_shift(Conf *conf)
+static void
+winfripp_urls_reconfig_modifier_shift(
+	Conf *	conf
+	)
 {
 	switch (conf_get_int(conf, CONF_frip_urls_modifier_shift)) {
 	case WINFRIPP_URLS_MODIFIER_SHIFT_NONE:
@@ -409,7 +436,11 @@ static void winfripp_urls_reconfig_modifier_shift(Conf *conf)
 	}
 }
 
-static bool winfripp_urls_state_match(int x, int y)
+static bool
+winfripp_urls_state_match(
+	int		x,
+	int		y
+	)
 {
 	return (WfrpIsVKeyDown(winfripp_urls_modifier)
 	&&    ((winfripp_urls_modifier_shift != 0)
@@ -421,7 +452,11 @@ static bool winfripp_urls_state_match(int x, int y)
 	&&  (x  < winfripp_urls_end.x));
 }
 
-static void winfripp_urls_state_reset(Terminal *term, bool update_term)
+static void
+winfripp_urls_state_reset(
+	Terminal *	term,
+	bool		update_term
+	)
 {
 	winfripp_urls_begin.x = winfripp_urls_begin.y = 0;
 	winfripp_urls_end.x = winfripp_urls_end.y = 0;
@@ -439,9 +474,13 @@ static void winfripp_urls_state_reset(Terminal *term, bool update_term)
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
-void winfripp_urls_config_panel(struct controlbox *b)
+void
+winfripp_urls_config_panel(
+	struct controlbox *		b
+	)
 {
 	struct controlset *s_browser, *s_input, *s_re, *s_visual;
+
 
 	WFR_DEBUG_ASSERT(b);
 
@@ -504,9 +543,18 @@ void winfripp_urls_config_panel(struct controlbox *b)
  * Public subroutines
  */
 
-WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT message,
-			      unsigned long *tattr, Terminal *term, WPARAM wParam,
-			      int x, int y)
+WinFripReturn
+winfrip_urls_op(
+	WinFripUrlsOp		op,
+	Conf *				conf,
+	HWND				hwnd,
+	UINT				message,
+	unsigned long *		tattr,
+	Terminal *			term,
+	WPARAM				wParam,
+	int					x,
+	int					y
+	)
 {
 	WinFripReturn rc;
 
