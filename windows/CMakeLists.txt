@@ -174,6 +174,10 @@ target_link_libraries(puttytel
   gdiplus.lib msimg32.lib
   bcrypt.lib
   ${platform_libraries})
+if (MINGW)
+  target_link_options(puttytel PRIVATE
+    -Wl,-Bstatic -l:libwinpthread.a)
+endif()
 set_target_properties(puttytel PROPERTIES
   WIN32_EXECUTABLE ON
   LINK_FLAGS "${LFLAG_MANIFEST_NO}")
@@ -196,6 +200,10 @@ target_link_libraries(puttygen
   keygen guimisc crypto utils
   ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
   ${platform_libraries})
+if (MINGW)
+  target_link_options(puttygen PRIVATE
+    -Wl,-Bstatic -l:libwinpthread.a)
+endif()
 set_target_properties(puttygen PROPERTIES
   WIN32_EXECUTABLE ON
   LINK_FLAGS "${LFLAG_MANIFEST_NO}")
@@ -218,6 +226,10 @@ if(HAVE_CONPTY)
   target_link_libraries(pterm
     guiterminal guimisc eventloop settings network utils
     ${platform_libraries})
+  if (MINGW)
+    target_link_options(pterm PRIVATE
+      -Wl,-Bstatic -l:libwinpthread.a)
+  endif()
   set_target_properties(pterm PROPERTIES
     WIN32_EXECUTABLE ON
     LINK_FLAGS "${LFLAG_MANIFEST_NO}")
