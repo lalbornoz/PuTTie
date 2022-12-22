@@ -60,10 +60,10 @@ typedef enum WinfrippP2RType {
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
 
-void winfripp_pcre2_init(WinFrippP2MGState *state, pcre2_code *code, size_t length, pcre2_match_data *md, wchar_t *subject);
+void WinfrippPcre2Init(WinFrippP2MGState *state, pcre2_code *code, size_t length, pcre2_match_data *md, wchar_t *subject);
 
-WfrStatus winfripp_pcre2_get_match(WinfrippP2Regex *regex, bool alloc_value, int match_offset, WinfrippP2RType match_type, wchar_t *subject, void *pvalue, size_t *pvalue_size);
-WfrStatus winfripp_pcre2_match_global(WinFrippP2MGState *state, size_t *pbegin, size_t *pend);
+WfrStatus WinfrippPcre2GetMatch(WinfrippP2Regex *regex, bool alloc_value, int match_offset, WinfrippP2RType match_type, wchar_t *subject, void *pvalue, size_t *pvalue_size);
+WfrStatus WinfrippPcre2MatchGlobal(WinFrippP2MGState *state, size_t *pbegin, size_t *pend);
 
 #endif // !PUTTY_WINFRIP_PCRE2_H
 

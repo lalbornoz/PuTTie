@@ -16,7 +16,7 @@
  */
 
 void
-winfripp_pcre2_init(
+WinfrippPcre2Init(
 	WinFrippP2MGState *		state,
 	pcre2_code *			code,
 	size_t					length,
@@ -53,7 +53,7 @@ winfripp_pcre2_init(
 
 
 WfrStatus
-winfripp_pcre2_get_match(
+WinfrippPcre2GetMatch(
 	WinfrippP2Regex *	regex,
 	bool				alloc_value,
 	int					match_offset,
@@ -180,7 +180,7 @@ winfripp_pcre2_get_match(
 				if ((value_new = snewn(value_new_size + 1, char))) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
-					snprintf(
+					WFR_SNPRINTF(
 							value_new, value_new_size, "%*.*S",
 							(int)(match_end - match_begin),
 							(int)(match_end - match_begin),
@@ -205,7 +205,7 @@ winfripp_pcre2_get_match(
 }
 
 WfrStatus
-winfripp_pcre2_match_global(
+WinfrippPcre2MatchGlobal(
 	WinFrippP2MGState *		state,
 	size_t *				pbegin,
 	size_t *				pend

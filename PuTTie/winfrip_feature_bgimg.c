@@ -753,22 +753,14 @@ winfripp_bgimg_slideshow_reconf(
 		WFR_DEBUG_FAIL(); break;
 
 	case WINFRIPP_BGIMG_SLIDESHOW_SINGLE_IMAGE:
-		if (winfripp_bgimg_dname) {
-			sfree(winfripp_bgimg_dname);
-		}
+		WFR_SFREE_IF_NOTNULL(winfripp_bgimg_dname);
 		if (winfripp_bgimg_dname_filev) {
 			for (size_t nfile = 0; nfile < winfripp_bgimg_dname_filec; nfile++) {
-				if (winfripp_bgimg_dname_filev[nfile]) {
-					sfree(winfripp_bgimg_dname_filev[nfile]);
-				}
+				WFR_SFREE_IF_NOTNULL(winfripp_bgimg_dname_filev[nfile]);
 			}
 
 			sfree(winfripp_bgimg_dname_filev);
-
-			if (winfripp_bgimg_fname) {
-				sfree(winfripp_bgimg_fname);
-				winfripp_bgimg_fname = NULL;
-			}
+			WFR_SFREE_IF_NOTNULL(winfripp_bgimg_fname); winfripp_bgimg_fname = NULL;
 		}
 
 		winfripp_bgimg_dname = NULL;
@@ -824,14 +816,10 @@ winfripp_bgimg_slideshow_reconf(
 					}
 				} while (FindNextFile(dname_new_hFind, &dname_new_ffd) != 0);
 
-				if (winfripp_bgimg_dname) {
-					sfree(winfripp_bgimg_dname);
-				}
+				WFR_SFREE_IF_NOTNULL(winfripp_bgimg_dname);
 				if (winfripp_bgimg_dname_filev) {
 					for (size_t nfile = 0; nfile < winfripp_bgimg_dname_filec; nfile++) {
-						if (winfripp_bgimg_dname_filev[nfile]) {
-							sfree(winfripp_bgimg_dname_filev[nfile]);
-						}
+						WFR_SFREE_IF_NOTNULL(winfripp_bgimg_dname_filev[nfile]);
 					}
 					sfree(winfripp_bgimg_dname_filev);
 				}
@@ -864,19 +852,13 @@ winfripp_bgimg_slideshow_reconf(
 fail:
 	if (dname_filev_new) {
 		for (size_t nfile = 0; nfile < dname_filec_new; nfile++) {
-			if (dname_filev_new[nfile]) {
-				sfree(dname_filev_new[nfile]);
-			}
+			WFR_SFREE_IF_NOTNULL(dname_filev_new[nfile]);
 		}
 
 		sfree(dname_filev_new);
 	}
-	if (dname_new) {
-		sfree(dname_new);
-	}
-	if (timer_ctx_new) {
-		sfree(timer_ctx_new);
-	}
+	WFR_SFREE_IF_NOTNULL(dname_new);
+	WFR_SFREE_IF_NOTNULL(timer_ctx_new);
 
 	WFR_DEBUG_FAIL();
 }
@@ -919,14 +901,14 @@ winfripp_bgimg_slideshow_shuffle(
 			WFR_DEBUG_FAIL();
 			return FALSE;
 		} else {
-			snprintf(bg_fname, winfripp_bgimg_dname_len + 1 + bg_fname_len + 1, "%*.*s\\%s",
-				 (int)winfripp_bgimg_dname_len,
-				 (int)winfripp_bgimg_dname_len, winfripp_bgimg_dname,
-				 winfripp_bgimg_dname_filev[bg_fname_idx]);
+			WFR_SNPRINTF(bg_fname,
+				winfripp_bgimg_dname_len + 1 + bg_fname_len + 1,
+				"%*.*s\\%s",
+				(int)winfripp_bgimg_dname_len,
+				(int)winfripp_bgimg_dname_len, winfripp_bgimg_dname,
+				winfripp_bgimg_dname_filev[bg_fname_idx]);
 
-			if (winfripp_bgimg_fname) {
-				sfree(winfripp_bgimg_fname);
-			}
+			WFR_SFREE_IF_NOTNULL(winfripp_bgimg_fname);
 			winfripp_bgimg_fname = dupstr(bg_fname);
 			return TRUE;
 		}
