@@ -10,6 +10,21 @@
 #include "winfrip_rtl_debug.h"
 
 /*
+ * Public macros private to PuTTie/winfrip*.c
+ */
+
+#define WFR_SFREE_IF_NOTNULL(p)									\
+		if ((p) != NULL) {										\
+			sfree((p));											\
+		}
+
+#define WFR_SNPRINTF(s, n, fmt, ...) ({							\
+		int		c = snprintf((s), (n), (fmt), ## __VA_ARGS__);	\
+		((char *)(s))[(n) - 1] = '\0';							\
+		c;														\
+	})
+
+/*
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
 

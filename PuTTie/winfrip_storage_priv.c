@@ -85,17 +85,11 @@ static int wfsp_add_item(WfspItem *item,
 
 err:
 	if (item_new) {
-		if (item_new->key) {
-			sfree(item_new->key);
-		}
-		if (item_new->value) {
-			sfree(item_new->value);
-		}
+		WFR_SFREE_IF_NOTNULL(item_new->key);
+		WFR_SFREE_IF_NOTNULL(item_new->value);
 		sfree(item_new);
 	}
-	if (binv_new) {
-		sfree(binv_new);
-	}
+	WFR_SFREE_IF_NOTNULL(binv_new);
 	return rc;
 }
 

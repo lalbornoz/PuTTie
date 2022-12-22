@@ -398,7 +398,7 @@ LONG wfsp_file_load(WfspHKEYMap *hkey_map, WfspKey **pkey_list, HKEY hKey)
 	} else {
 		wfsp_get_basename(key_item, &name, NULL);
 		ZeroMemory(fname, sizeof(fname));
-		snprintf(fname, sizeof(fname), "%s.ini", name);
+		WFR_SNPRINTF(fname, sizeof(fname), "%s.ini", name);
 	}
 
 	/*
@@ -516,9 +516,7 @@ out:
 	if (file) {
 		fclose(file);
 	}
-	if (file_buffer) {
-		sfree(file_buffer);
-	}
+	WFR_SFREE_IF_NOTNULL(file_buffer);
 	return rc;
 
 err:

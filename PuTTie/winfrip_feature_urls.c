@@ -156,7 +156,7 @@ winfripp_urls_get(
 		WFR_DEBUG_FAIL();
 		return FALSE;
 	} else {
-		winfripp_pcre2_init(&pcre2_state, winfripp_re_code,
+		WinfrippPcre2Init(&pcre2_state, winfripp_re_code,
 							line_w_len, winfripp_re_md, line_w);
 	}
 
@@ -170,7 +170,7 @@ winfripp_urls_get(
 
 	do {
 		switch (WFR_STATUS_CONDITION(
-					winfripp_pcre2_match_global(
+					WinfrippPcre2MatchGlobal(
 						&pcre2_state, &match_begin, &match_end)))
 		{
 		case WFR_STATUS_CONDITION_PCRE2_ERROR:
@@ -333,13 +333,13 @@ winfripp_urls_reconfig(
 	winfripp_urls_reconfig_modifier_shift(conf);
 
 	if (spec_len == 0) {
-		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-		snprintf(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
+		WFR_SNPRINTF(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+		WFR_SNPRINTF(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
 		goto fail;
 	} else if (WFR_STATUS_FAILURE(WfrToWcsDup(spec, spec_len + 1, &spec_w))) {
 		WFR_DEBUG_FAIL();
-		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
+		WFR_SNPRINTF(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+		WFR_SNPRINTF(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
 		goto fail;
 	} else {
 		if (winfripp_re_code) {
@@ -361,10 +361,10 @@ winfripp_urls_reconfig(
 				winfripp_re_error_message,
 				sizeof(winfripp_re_error_message) / sizeof(winfripp_re_error_message[0]));
 
-			snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+			WFR_SNPRINTF(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
-			snprintf(dlg_text, sizeof(dlg_text),
+			WFR_SNPRINTF(dlg_text, sizeof(dlg_text),
 					 "Error in regex %S at offset %llu: %S",
 					 spec_w, re_erroroffset, winfripp_re_error_message);
 #pragma GCC diagnostic pop
