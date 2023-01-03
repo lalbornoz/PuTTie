@@ -12,7 +12,6 @@
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
 
-WfrStatus WfrpGetTermLine(Terminal *term, wchar_t **pline_w, size_t *pline_w_len, int y);
 bool WfrpIsVKeyDown(int nVirtKey);
 
 #endif // !PUTTY_WINFRIP_RTL_PUTTY_H

@@ -101,6 +101,7 @@ static WinFrippUrlsState	winfripp_urls_state = WINFRIPP_URLS_STATE_NONE;
  */
 
 static bool winfripp_urls_get(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, int x, int y);
+WfrStatus winfripp_urls_get_term_line(Terminal *term, wchar_t **pline_w, size_t *pline_w_len, int y);
 static void winfripp_urls_config_panel_modifier_key_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static void winfripp_urls_config_panel_modifier_shift_handler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static WinFripReturn winfripp_urls_reconfig(Conf *conf);
@@ -152,7 +153,7 @@ winfripp_urls_get(
 	} else if ((x < 0) || (x >= term->cols) || (y < 0) || (y >= term->rows)) {
 		WFR_DEBUG_FAIL();
 		return FALSE;
-	} else if (WFR_STATUS_FAILURE(WfrpGetTermLine(term, &line_w, &line_w_len, y))) {
+	} else if (WFR_STATUS_FAILURE(winfripp_urls_get_term_line(term, &line_w, &line_w_len, y))) {
 		WFR_DEBUG_FAIL();
 		return FALSE;
 	} else {
@@ -217,6 +218,119 @@ winfripp_urls_get(
 
 	sfree(line_w);
 	return FALSE;
+}
+
+WfrStatus
+winfripp_urls_get_term_line(
+	Terminal *	term,
+	wchar_t **	pline_w,
+	size_t *	pline_w_len,
+	int			y
+	)
+{
+	size_t		idx_in, idx_out;
+	termline *	line = NULL;
+	wchar_t *	line_w;
+	size_t		line_w_len;
+	size_t		rtl_idx, rtl_len;
+	int			rtl_start;
+	wchar_t		wch;
+
+
+	WFR_DEBUG_ASSERT(term);
+	WFR_DEBUG_ASSERT(pline_w);
+	WFR_DEBUG_ASSERT(pline_w_len);
+
+	/*
+	 * Reject invalid y coordinates falling outside of term->{cols,rows}. Fail given
+	 * failure to allocate sufficient memory to the line_w buffer of term->cols + 1
+	 * units of wchar_t.
+	 */
+
+	if (y >= term->rows) {
+		WFR_DEBUG_FAIL();
+		return WFR_STATUS_FROM_ERRNO1(EINVAL);
+	} else {
+		line_w_len = term->cols;
+		if (!(line_w = sresize(NULL, line_w_len + 1, wchar_t))) {
+			WFR_DEBUG_FAIL();
+			return WFR_STATUS_FROM_ERRNO1(EINVAL);
+		} else {
+			line = term->disptext[y];
+		}
+	}
+
+	/*
+	 * Iteratively copy UTF-16 wide characters from the terminal's
+	 * buffer of text on real screen into line_w. If a Right-To-Left
+	 * character or continuous sequence thereof is encountered, it is
+	 * iteratively copied in its entirety from right to left. If a
+	 * direct-to-font mode character using the D800 hack is encountered,
+	 * only its least significant 8 bits are copied.
+	 */
+
+	for (idx_in = idx_out = 0, rtl_len = 0, rtl_start = -1; idx_in < (size_t)term->cols; idx_in++) {
+		wch = line->chars[idx_in].chr;
+
+		switch (rtl_start) {
+		/*
+		 * Non-RTL character
+		 */
+		case -1:
+			if (DIRECT_CHAR(wch) || DIRECT_FONT(wch) || !is_rtl(wch)) {
+				if (DIRECT_CHAR(wch) || DIRECT_FONT(wch)) {
+					wch &= 0xFF;
+				}
+				line_w[idx_out] = wch; idx_out++;
+			} else if (is_rtl(wch)) {
+				rtl_start = idx_in; rtl_len = 1;
+			}
+			break;
+
+		/*
+		 * RTL character or continuous sequence thereof
+		 */
+		default:
+			if (DIRECT_CHAR(wch) || DIRECT_FONT(wch) || !is_rtl(wch)) {
+				for (rtl_idx = 0; rtl_idx < rtl_len; rtl_idx++) {
+					wch = line->chars[rtl_start + (rtl_len - 1 - rtl_idx)].chr;
+					line_w[idx_out] = wch;
+					idx_out++;
+				}
+				rtl_start = -1; rtl_len = 0;
+				wch = line->chars[idx_in].chr;
+				if (DIRECT_CHAR(wch) || DIRECT_FONT(wch)) {
+					wch &= 0xFF;
+				}
+				line_w[idx_out] = wch; idx_out++;
+			} else if (is_rtl(wch)) {
+				rtl_len++;
+			}
+			break;
+		}
+	}
+
+	/*
+	 * Given a remnant of a continuous sequence of RTL characters,
+	 * iteratively copy it from right to left.
+	 */
+
+	if (rtl_start != -1) {
+		for (rtl_idx = 0; rtl_idx < rtl_len; rtl_idx++) {
+			wch = line->chars[rtl_start + (rtl_len - 1 - rtl_idx)].chr;
+			line_w[idx_out] = wch;
+			idx_out++;
+		}
+		rtl_start = -1; rtl_len = 0;
+	}
+
+	/*
+	 * NUL-terminate the line_w buffer, write out parameters, and return success.
+	 */
+
+	line_w[term->cols] = L'\0';
+	*pline_w = line_w, *pline_w_len = line_w_len;
+	return WFR_STATUS_CONDITION_SUCCESS;
 }
 
 static void
