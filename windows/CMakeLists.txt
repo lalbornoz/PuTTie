@@ -73,6 +73,8 @@ target_sources(network PRIVATE $<TARGET_OBJECTS:handle-io>)
 add_library(guimisc STATIC
   select-gui.c)
 
+# {{{ winfrip
+if (MINGW)
 set_source_files_properties(../PuTTie/winfrip_feature_bgimg.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_feature_general.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_feature_mouse.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -96,11 +98,16 @@ if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
   set(DEFAULT_STORAGE_BACKEND "WFS_BACKEND_REGISTRY")
 endif()
 set_property(SOURCE ../PuTTie/winfrip_storage.c APPEND_STRING PROPERTY COMPILE_FLAGS " -DWFS_DEFAULT_STORAGE_BACKEND=${DEFAULT_STORAGE_BACKEND}")
+endif()
+# winfrip }}}
 
 add_executable(pageant
   pageant.c
   help.c
-  pageant.rc
+  pageant.rc)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET pageant APPEND PROPERTY SOURCES
   ../PuTTie/no-jump-list-pageant.c
   ../PuTTie/winfrip_rtl.c
   ../PuTTie/winfrip_rtl_debug.c
@@ -112,6 +119,8 @@ add_executable(pageant
   ../PuTTie/winfrip_storage_backend_registry.c
   ../PuTTie/winfrip_storage_putty_adapter.c
   ../PuTTie/winfrip_storage_tree.c)
+endif()
+# winfrip }}}
 add_dependencies(pageant generated_licence_h)
 target_link_libraries(pageant
   guimisc eventloop agent network crypto utils
@@ -138,7 +147,10 @@ add_executable(putty
   putty.c
   help.c
   ${CMAKE_SOURCE_DIR}/stubs/no-console.c
-  putty.rc
+  putty.rc)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET putty APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_feature_bgimg.c
   ../PuTTie/winfrip_feature_general.c
   ../PuTTie/winfrip_feature_mouse.c
@@ -157,6 +169,8 @@ add_executable(putty
   ../PuTTie/winfrip_storage_backend_registry.c
   ../PuTTie/winfrip_storage_putty_adapter.c
   ../PuTTie/winfrip_storage_tree.c)
+endif()
+# winfrip }}}
 be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
@@ -185,7 +199,10 @@ add_executable(puttytel
   ${CMAKE_SOURCE_DIR}/stubs/no-rand.c
   ${CMAKE_SOURCE_DIR}/proxy/nocproxy.c
   ${CMAKE_SOURCE_DIR}/proxy/nosshproxy.c
-  puttytel.rc
+  puttytel.rc)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET puttytel APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_feature_bgimg.c
   ../PuTTie/winfrip_feature_general.c
   ../PuTTie/winfrip_feature_mouse.c
@@ -204,6 +221,8 @@ add_executable(puttytel
   ../PuTTie/winfrip_storage_backend_registry.c
   ../PuTTie/winfrip_storage_putty_adapter.c
   ../PuTTie/winfrip_storage_tree.c)
+endif()
+# winfrip }}}
 be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel
