@@ -1,6 +1,6 @@
 /*
  * winfrip_putty_config.c - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #pragma GCC diagnostic push
@@ -11,6 +11,13 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_bgimg.h"
+#include "PuTTie/winfrip_feature_general.h"
+#include "PuTTie/winfrip_feature_mouse.h"
+#include "PuTTie/winfrip_feature_storage_host_keys.h"
+#include "PuTTie/winfrip_feature_storage_sessions.h"
+#include "PuTTie/winfrip_feature_trans.h"
+#include "PuTTie/winfrip_feature_urls.h"
 #include "PuTTie/winfrip_putty_config.h"
 
 /*

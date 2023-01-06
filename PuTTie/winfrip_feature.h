@@ -29,17 +29,6 @@ typedef enum WinFripReturn {
 	WINFRIP_RETURN_RETRY				= 7,
 } WinFripReturn;
 
-/*
- * Public subroutine prototypes used by/in:
- * winfrip_putty_config.c
- */
-
-void winfripp_bgimg_config_panel(struct controlbox *b);
-void winfripp_general_config_panel(struct controlbox *b);
-void winfripp_mouse_config_panel(struct controlbox *b);
-void winfripp_trans_config_panel(struct controlbox *b);
-void winfripp_urls_config_panel(struct controlbox *b);
-
 #endif // !PUTTY_WINFRIP_FEATURE_H
 
 /*

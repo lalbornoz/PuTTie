@@ -7,6 +7,13 @@
 #define PUTTY_WINFRIP_FEATURE_URLS_H
 
 /*
+ * Public subroutine prototypes used by/in:
+ * winfrip_putty_config.c
+ */
+
+void winfripp_urls_config_panel(struct controlbox *b);
+
+/*
  * Public type definitions used by/in:
  * terminal/terminal.c:do_paint()
  * windows/window.c:WndProc()

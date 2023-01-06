@@ -7,6 +7,13 @@
 #define PUTTY_WINFRIP_FEATURE_GENERAL_H
 
 /*
+ * Public subroutine prototypes used by/in:
+ * winfrip_putty_config.c
+ */
+
+void winfripp_general_config_panel(struct controlbox *b);
+
+/*
  * Public type definitions used by/in:
  * windows/window.c:WndProc()
  */

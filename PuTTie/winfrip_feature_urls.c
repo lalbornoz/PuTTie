@@ -447,13 +447,13 @@ winfripp_urls_reconfig(
 	winfripp_urls_reconfig_modifier_shift(conf);
 
 	if (spec_len == 0) {
-		WFR_SNPRINTF(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-		WFR_SNPRINTF(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
+		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+		snprintf(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
 		goto fail;
 	} else if (WFR_STATUS_FAILURE(WfrToWcsDup(spec, spec_len + 1, &spec_w))) {
 		WFR_DEBUG_FAIL();
-		WFR_SNPRINTF(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-		WFR_SNPRINTF(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
+		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
 		goto fail;
 	} else {
 		if (winfripp_re_code) {
@@ -475,10 +475,10 @@ winfripp_urls_reconfig(
 				winfripp_re_error_message,
 				sizeof(winfripp_re_error_message) / sizeof(winfripp_re_error_message[0]));
 
-			WFR_SNPRINTF(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+			snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
-			WFR_SNPRINTF(dlg_text, sizeof(dlg_text),
+			snprintf(dlg_text, sizeof(dlg_text),
 					 "Error in regex %S at offset %llu: %S",
 					 spec_w, re_erroroffset, winfripp_re_error_message);
 #pragma GCC diagnostic pop

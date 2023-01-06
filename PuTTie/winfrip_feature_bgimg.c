@@ -901,12 +901,10 @@ winfripp_bgimg_slideshow_shuffle(
 			WFR_DEBUG_FAIL();
 			return FALSE;
 		} else {
-			WFR_SNPRINTF(bg_fname,
-				winfripp_bgimg_dname_len + 1 + bg_fname_len + 1,
-				"%*.*s\\%s",
-				(int)winfripp_bgimg_dname_len,
-				(int)winfripp_bgimg_dname_len, winfripp_bgimg_dname,
-				winfripp_bgimg_dname_filev[bg_fname_idx]);
+			snprintf(bg_fname, winfripp_bgimg_dname_len + 1 + bg_fname_len + 1, "%*.*s\\%s",
+				 (int)winfripp_bgimg_dname_len,
+				 (int)winfripp_bgimg_dname_len, winfripp_bgimg_dname,
+				 winfripp_bgimg_dname_filev[bg_fname_idx]);
 
 			WFR_SFREE_IF_NOTNULL(winfripp_bgimg_fname);
 			winfripp_bgimg_fname = dupstr(bg_fname);
