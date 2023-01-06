@@ -113,6 +113,8 @@ add_executable(bidi_test
   terminal/bidi_test.c)
 target_link_libraries(bidi_test guiterminal utils ${platform_libraries})
 
+# {{{ winfrip
+if (MINGW)
 set_source_files_properties(PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -127,9 +129,14 @@ if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
   set(DEFAULT_STORAGE_BACKEND "WFS_BACKEND_REGISTRY")
 endif()
 set_property(SOURCE PuTTie/winfrip_storage.c APPEND_STRING PROPERTY COMPILE_FLAGS " -DWFS_DEFAULT_STORAGE_BACKEND=${DEFAULT_STORAGE_BACKEND}")
+endif()
+# winfrip }}}
 
 add_executable(plink
-  ${platform}/plink.c
+  ${platform}/plink.c)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET plink APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c
@@ -139,6 +146,8 @@ add_executable(plink
   PuTTie/winfrip_storage_backend_registry.c
   PuTTie/winfrip_storage_putty_adapter.c
   PuTTie/winfrip_storage_tree.c)
+endif()
+# winfrip }}}
 # Note: if we ever port Plink to a platform where we can't implement a
 # serial backend, this be_list command will need to become platform-
 # dependent, so that it only sets the SERIAL option on platforms where
@@ -153,7 +162,10 @@ target_link_libraries(plink
 installed_program(plink)
 
 add_executable(pscp
-  pscp.c
+  pscp.c)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET pscp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c
@@ -163,6 +175,8 @@ add_executable(pscp
   PuTTie/winfrip_storage_backend_registry.c
   PuTTie/winfrip_storage_putty_adapter.c
   PuTTie/winfrip_storage_tree.c)
+endif()
+# winfrip }}}
 be_list(pscp PSCP SSH)
 target_link_libraries(pscp
   sftpclient eventloop console sshclient settings network crypto utils
@@ -171,7 +185,10 @@ target_link_libraries(pscp
 installed_program(pscp)
 
 add_executable(psftp
-  psftp.c
+  psftp.c)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET psftp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c
@@ -181,6 +198,8 @@ add_executable(psftp
   PuTTie/winfrip_storage_backend_registry.c
   PuTTie/winfrip_storage_putty_adapter.c
   PuTTie/winfrip_storage_tree.c)
+endif()
+# winfrip }}}
 be_list(psftp PSFTP SSH)
 target_link_libraries(psftp
   sftpclient eventloop console sshclient settings network crypto utils
