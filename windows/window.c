@@ -30,6 +30,7 @@
 #include "PuTTie/winfrip_feature_trans.h"
 #include "PuTTie/winfrip_feature_urls.h"
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_storage.h"
 /* winfrip }}} */
 
 #ifndef NO_MULTIMON
@@ -474,6 +475,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
     /* {{{ winfrip */
     WfrDebugInit();
+    if (WFR_STATUS_FAILURE(WfsInit())) {
+        return FALSE;
+    }
     /* winfrip }}} */
 
     dll_hijacking_protection();
@@ -2323,21 +2327,72 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
                 strbuf_free(serbuf);
                 inherit_handles = true;
+                /* {{{ winfrip */
+                char *backend_arg_string = "";
+                WfrStatus status;
+
+                status = WfsGetBackendArgString(&backend_arg_string);
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX("getting backend argument string", status);
+            #if 1
+                cl = dupprintf("putty%s%s%s &%p:%u",
+                               argprefix,
+                               backend_arg_string ? " " : "",
+                               backend_arg_string,
+                               filemap, (unsigned)size);
+            #else
+                /* winfrip }}} */
                 cl = dupprintf("putty %s&%p:%u", argprefix,
                                filemap, (unsigned)size);
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
             } else if (wParam == IDM_SAVEDSESS) {
                 unsigned int sessno = ((lParam - IDM_SAVED_MIN)
                                        / MENU_SAVED_STEP) + 1;
                 if (sessno < (unsigned)sesslist.nsessions) {
                     const char *session = sesslist.sessions[sessno];
+                    /* {{{ winfrip */
+                    char *backend_arg_string = "";
+                    WfrStatus status;
+
+                    status = WfsGetBackendArgString(&backend_arg_string);
+                    WFR_IF_STATUS_FAILURE_MESSAGEBOX("getting backend argument string", status);
+                #if 1
+                    cl = dupprintf("putty%s%s%s @%s",
+                                   argprefix,
+                                   backend_arg_string ? " ": "",
+                                   backend_arg_string,
+                                   session);
+                #else
+                    /* winfrip }}} */
                     cl = dupprintf("putty %s@%s", argprefix, session);
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     inherit_handles = false;
                 } else
                     break;
             } else /* IDM_NEWSESS */ {
+                /* {{{ winfrip */
+            #if 1
+                char *backend_arg_string = "";
+                WfrStatus status;
+
+                status = WfsGetBackendArgString(&backend_arg_string);
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX("getting backend argument string", status);
+                cl = dupprintf("putty%s%s%s%s",
+                               *argprefix ? " " : "",
+                               argprefix,
+                               backend_arg_string ? " " : "",
+                               backend_arg_string);
+            #else
+                /* winfrip }}} */
                 cl = dupprintf("putty%s%s",
                                *argprefix ? " " : "",
                                argprefix);
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
                 inherit_handles = false;
             }
 

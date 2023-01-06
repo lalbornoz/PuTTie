@@ -1,6 +1,6 @@
 /*
  * winfrip_rtl_status.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2021, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_RTL_STATUS_H
@@ -9,88 +9,73 @@
 #include <stdint.h>
 
 /*
- * Public type definitions and preprocessor macros private to PuTTie/winfrip*.c
+ * Public status type definitions and preprocessor macros private to PuTTie/winfrip*.c
  */
 
-typedef uint64_t WfrStatus;
+typedef enum WfrStatusFacility {
+	WFR_STATUS_FACILITY_NONE 	= 0,
+	WFR_STATUS_FACILITY_POSIX	= 1,
+	WFR_STATUS_FACILITY_WINDOWS = 2,
+	WFR_STATUS_FACILITY_PCRE2	= 3,
+} WfrStatusFacility;
 
-#define WFR_STATUS_CONDITION(status)							\
-		(((status) & 0x0ffffffffffffff0) >> 4)
-#define WFR_STATUS_CONDITION_(condition)						\
-		((((uint64_t)(condition)) & 0x00ffffffffffffff) << 4)
+typedef uint64_t WfrStatusCondition;
 
-// FIXME TODO XXX use SEVERITY_{BREAK,CONTINUE,DONE} everywhere
-#define WFR_STATUS_SEVERITY_ERROR		0
-#define WFR_STATUS_SEVERITY_SUCCESS		1
-#define WFR_STATUS_SEVERITY_BREAK		3
-#define WFR_STATUS_SEVERITY_CONTINUE	5
-#define WFR_STATUS_SEVERITY_DONE		7
-#define WFR_STATUS_SEVERITY(status)								\
-		((status) & 0x000000000000000f)
-#define WFR_STATUS_SEVERITY_(severity)							\
-		(((uint64_t)(severity)) & 0x000000000000000f)
+typedef enum WfrStatusSeverity {
+	WFR_STATUS_SEVERITY_ERROR		= 0,
+	WFR_STATUS_SEVERITY_SUCCESS		= 1,
+	// FIXME TODO XXX use SEVERITY_{BREAK,CONTINUE,DONE} everywhere
+	WFR_STATUS_SEVERITY_BREAK		= 3,
+	WFR_STATUS_SEVERITY_CONTINUE	= 5,
+	WFR_STATUS_SEVERITY_DONE		= 7,
+} WfrStatusSeverity;
 
-#define WFR_STATUS_FACILITY_NONE		0
-#define WFR_STATUS_FACILITY_POSIX		1
-#define WFR_STATUS_FACILITY_WINDOWS		2
-#define WFR_STATUS_FACILITY(status)								\
-		(((status) & 0xf000000000000000) >> 60)
-#define WFR_STATUS_FACILITY_(facility)							\
-		((((uint64_t)(facility)) & 0x000000000000000f) << 60)
+typedef struct WfrStatus {
+	const char *		file;
+	int					line;
+	WfrStatusFacility	facility:4;
+	WfrStatusCondition	condition:56;
+	WfrStatusSeverity	severity:4;
+} __attribute__((packed)) WfrStatus;
 
-#define WFR_STATUS_FAILURE(status)								\
-		(((status) & 0x1) == 0)
-#define WFR_STATUS_SUCCESS(status)								\
-		(((status) & 0x1) == 1)
+/*
+ * Constructors
+ */
+
+#define WFR_STATUS(facility, severity, condition)				\
+		(WfrStatus){__FILE__, __LINE__, (facility), (condition), (severity)}
+#define WFR_STATUS1(file, line, facility, severity, condition)	\
+		(WfrStatus){(file), (line), (facility), (condition), (severity)}
 
 #define WFR_STATUS_CONDITION_ERROR								\
-		((WfrStatus)											\
-		   WFR_STATUS_SEVERITY_(WFR_STATUS_SEVERITY_SUCCESS)	\
-		 | WFR_STATUS_CONDITION_(WFR_STATUS_SEVERITY_ERROR)		\
-		 | WFR_STATUS_FACILITY_(WFR_STATUS_FACILITY_NONE)		\
-		 )
+		WFR_STATUS(WFR_STATUS_FACILITY_NONE, WFR_STATUS_SEVERITY_ERROR, WFR_STATUS_SEVERITY_SUCCESS)
 #define WFR_STATUS_CONDITION_SUCCESS							\
-		((WfrStatus)											\
-		   WFR_STATUS_SEVERITY_(WFR_STATUS_SEVERITY_SUCCESS)	\
-		 | WFR_STATUS_CONDITION_(WFR_STATUS_SEVERITY_SUCCESS)	\
-		 | WFR_STATUS_FACILITY_(WFR_STATUS_FACILITY_NONE)		\
-		 )
+		WFR_STATUS1(NULL, 0, WFR_STATUS_FACILITY_NONE, WFR_STATUS_SEVERITY_SUCCESS, WFR_STATUS_SEVERITY_SUCCESS)
 #define WFR_STATUS_FROM_ERRNO()									\
-		((WfrStatus)											\
-		   WFR_STATUS_SEVERITY_(WFR_STATUS_SEVERITY_ERROR)		\
-		 | WFR_STATUS_CONDITION_(errno)							\
-		 | WFR_STATUS_FACILITY_(WFR_STATUS_FACILITY_POSIX)		\
-		 )
+		WFR_STATUS(WFR_STATUS_FACILITY_POSIX, WFR_STATUS_SEVERITY_ERROR, errno)
 #define WFR_STATUS_FROM_ERRNO1(errno_)							\
-		((WfrStatus)											\
-		   WFR_STATUS_SEVERITY_(WFR_STATUS_SEVERITY_ERROR)		\
-		 | WFR_STATUS_CONDITION_(errno_)						\
-		 | WFR_STATUS_FACILITY_(WFR_STATUS_FACILITY_POSIX)		\
-		 )
+		WFR_STATUS(WFR_STATUS_FACILITY_POSIX, WFR_STATUS_SEVERITY_ERROR, (errno_))
 #define WFR_STATUS_FROM_WINDOWS()								\
-		((WfrStatus)											\
-		   WFR_STATUS_SEVERITY_(WFR_STATUS_SEVERITY_ERROR)		\
-		 | WFR_STATUS_CONDITION_(GetLastError())				\
-		 | WFR_STATUS_FACILITY_(WFR_STATUS_FACILITY_WINDOWS)	\
-		 )
+		WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, GetLastError())
 #define WFR_STATUS_FROM_WINDOWS1(dwResult)						\
-		((WfrStatus)											\
-		   WFR_STATUS_SEVERITY_(WFR_STATUS_SEVERITY_ERROR)		\
-		 | WFR_STATUS_CONDITION_(dwResult)						\
-		 | WFR_STATUS_FACILITY_(WFR_STATUS_FACILITY_WINDOWS)	\
-		 )
+		WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, (dwResult))
+#define WFR_STATUS_FROM_PCRE2(condition, severity)				\
+		WFR_STATUS(WFR_STATUS_FACILITY_PCRE2, (severity), (condition))
 
-//
-// winfrip_rtl_pcre2.[ch]
-//
+/*
+ * Getters
+ */
 
-#define WFR_STATUS_FACILITY_PCRE2		3
-#define WFR_STATUS_FROM_PCRE2(cond, sev)						\
-		((WfrStatus)											\
-		   WFR_STATUS_SEVERITY_(sev)							\
-		 | WFR_STATUS_CONDITION_(cond)							\
-		 | WFR_STATUS_FACILITY_(WFR_STATUS_FACILITY_PCRE2)		\
-		 )
+#define WFR_STATUS_CONDITION(status)							\
+		(status).condition
+#define WFR_STATUS_FACILITY(status)								\
+		(status).facility
+#define WFR_STATUS_SEVERITY(status)								\
+		(status).severity
+#define WFR_STATUS_FAILURE(status)								\
+		((WFR_STATUS_SEVERITY(status) & 0x1) == 0)
+#define WFR_STATUS_SUCCESS(status)								\
+		((WFR_STATUS_SEVERITY(status) & 0x1) == 1)
 
 #endif // !PUTTY_WINFRIP_RTL_STATUS_H
 

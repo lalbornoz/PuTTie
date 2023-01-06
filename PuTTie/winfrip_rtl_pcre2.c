@@ -1,6 +1,6 @@
 /*
  * winfrip_pcre2.c - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #pragma GCC diagnostic push
@@ -100,7 +100,7 @@ WinfrippPcre2GetMatch(
 		case WINFRIPP_P2RTYPE_UINT:
 			if (match_size < (sizeof(int_string_buf) / sizeof(int_string_buf[0]))) {
 				memcpy(int_string_buf, match_begin, match_size * sizeof(match_begin[0]));
-				int_string_buf[match_size + 1] = L'\0';
+				int_string_buf[match_size] = L'\0';
 
 				switch (match_type) {
 				default:
@@ -180,7 +180,7 @@ WinfrippPcre2GetMatch(
 				if ((value_new = snewn(value_new_size + 1, char))) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
-					WFR_SNPRINTF(
+					snprintf(
 							value_new, value_new_size, "%*.*S",
 							(int)(match_end - match_begin),
 							(int)(match_end - match_begin),

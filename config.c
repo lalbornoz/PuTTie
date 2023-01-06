@@ -10,6 +10,8 @@
 #include "dialog.h"
 #include "storage.h"
 /* {{{ winfrip */
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_storage_sessions.h"
 #include "PuTTie/winfrip_putty_config.h"
 /* winfrip }}} */
 #include "tree234.h"
@@ -774,6 +776,9 @@ static void sshbug_handler_manual_only(dlgcontrol *ctrl, dlgparam *dlg,
 
 struct sessionsaver_data {
     dlgcontrol *editbox, *listbox, *loadbutton, *savebutton, *delbutton;
+    /* {{{ winfrip */
+    dlgcontrol *droplist_backend;
+    /* winfrip }}} */
     dlgcontrol *okbutton, *cancelbutton;
     struct sesslist sesslist;
     bool midsession;
@@ -1901,10 +1906,26 @@ void setup_config_box(struct controlbox *b, bool midsession,
                     "Load, save or delete a stored session");
     ctrl_columns(s, 2, 75, 25);
     get_sesslist(&ssd->sesslist, true);
+    /* {{{ winfrip */
+#if 1
+    ssd->editbox = ctrl_editbox(s, NULL, 'e', 100,
+                                HELPCTX(session_saved),
+                                sessionsaver_handler, P(ssd), P(NULL));
+#else
+    /* winfrip }}} */
     ssd->editbox = ctrl_editbox(s, "Saved Sessions", 'e', 100,
                                 HELPCTX(session_saved),
                                 sessionsaver_handler, P(ssd), P(NULL));
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     ssd->editbox->column = 0;
+    /* {{{ winfrip */
+    dlgcontrol **ssd_listbox = snew(dlgcontrol *);
+    *ssd_listbox = NULL;
+    ssd->droplist_backend = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WINFRIPP_HELP_CTX, WffsSessionsConfigPanelDroplistBackendHandler, P(ssd_listbox));
+    ssd->droplist_backend->column = 0;
+    /* winfrip }}} */
     /* Reset columns so that the buttons are alongside the list, rather
      * than alongside that edit box. */
     ctrl_columns(s, 1, 100);
@@ -1912,6 +1933,9 @@ void setup_config_box(struct controlbox *b, bool midsession,
     ssd->listbox = ctrl_listbox(s, NULL, NO_SHORTCUT,
                                 HELPCTX(session_saved),
                                 sessionsaver_handler, P(ssd));
+    /* {{{ winfrip */
+    *ssd_listbox = ssd->listbox;
+    /* winfrip }}} */
     ssd->listbox->column = 0;
     ssd->listbox->listbox.height = 7;
     if (!midsession) {

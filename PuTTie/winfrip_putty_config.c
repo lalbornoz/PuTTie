@@ -37,6 +37,8 @@ winfrip_config_panel(
 	winfripp_bgimg_config_panel(b);
 	winfripp_general_config_panel(b);
 	winfripp_mouse_config_panel(b);
+	WffsHostKeysConfigPanel(b);
+	WffsSessionsConfigPanel(b);
 	winfripp_trans_config_panel(b);
 	winfripp_urls_config_panel(b);
 }

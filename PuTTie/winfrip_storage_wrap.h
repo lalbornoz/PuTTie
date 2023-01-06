@@ -29,12 +29,9 @@
 #define check_stored_host_key	check_stored_host_key_PuTTY
 #define store_host_key			store_host_key_PuTTY
 
-#define read_random_seed		read_random_seed_PuTTY
-#define write_random_seed		write_random_seed_PuTTY
-
 #define cleanup_all				cleanup_all_PuTTY
 
-#endif /* !PUTTY_WINFRIP_STORAGE_WRAP_H */
+#endif // !PUTTY_WINFRIP_STORAGE_WRAP_H
 
 /*
  * vim:noexpandtab sw=4 ts=4 tw=0

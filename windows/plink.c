@@ -13,6 +13,11 @@
 #include "tree234.h"
 #include "security-api.h"
 
+/* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_storage.h"
+/* winfrip }}} */
+
 void cmdline_error(const char *fmt, ...)
 {
     va_list ap;
@@ -31,7 +36,12 @@ static DWORD orig_console_mode;
 
 static Backend *backend;
 static LogContext *logctx;
+/* {{{ winfrip */
+Conf *conf;
+/* winfrip }}} */
+#if 0
 static Conf *conf;
+#endif
 
 static void plink_echoedit_update(Seat *seat, bool echo, bool edit)
 {
@@ -304,6 +314,20 @@ int main(int argc, char **argv)
      */
     settings_set_default_protocol(PROT_SSH);
     settings_set_default_port(22);
+
+    /* {{{ winfrip */
+    WfrStatus    status;
+
+    WfrDebugInit();
+    if (WFR_STATUS_SUCCESS(status = WfsInit())
+    &&  WFR_STATUS_SUCCESS(WfsSetBackendFromArgV(&argc, &argv)))
+    {
+        status = WFR_STATUS_CONDITION_SUCCESS;
+    } else {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("setting backend", status, "plink");
+        exit(1);
+    }
+    /* }}} */
 
     /*
      * Process the command line.

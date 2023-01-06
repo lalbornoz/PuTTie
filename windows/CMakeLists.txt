@@ -73,13 +73,49 @@ target_sources(network PRIVATE $<TARGET_OBJECTS:handle-io>)
 add_library(guimisc STATIC
   select-gui.c)
 
+set_source_files_properties(../PuTTie/winfrip_feature_bgimg.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_general.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_mouse.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_storage_host_keys.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_storage_sessions.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_trans.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_urls.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_putty_config.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_putty.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_storage_backend_ephemeral.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_storage_backend_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_storage_backend_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_storage_putty_adapter.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_storage_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+
+if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
+  set(DEFAULT_STORAGE_BACKEND "WFS_BACKEND_REGISTRY")
+endif()
+set_property(SOURCE ../PuTTie/winfrip_storage.c APPEND_STRING PROPERTY COMPILE_FLAGS " -DWFS_DEFAULT_STORAGE_BACKEND=${DEFAULT_STORAGE_BACKEND}")
+
 add_executable(pageant
   pageant.c
   help.c
-  pageant.rc)
+  pageant.rc
+  ../PuTTie/no-jump-list-pageant.c
+  ../PuTTie/winfrip_rtl.c
+  ../PuTTie/winfrip_rtl_debug.c
+  ../PuTTie/winfrip_rtl_pcre2.c
+  ../PuTTie/winfrip_rtl_putty.c
+  ../PuTTie/winfrip_storage.c
+  ../PuTTie/winfrip_storage_backend_ephemeral.c
+  ../PuTTie/winfrip_storage_backend_file.c
+  ../PuTTie/winfrip_storage_backend_registry.c
+  ../PuTTie/winfrip_storage_putty_adapter.c
+  ../PuTTie/winfrip_storage_tree.c)
 add_dependencies(pageant generated_licence_h)
 target_link_libraries(pageant
   guimisc eventloop agent network crypto utils
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
   ${platform_libraries})
 set_target_properties(pageant PROPERTIES
   WIN32_EXECUTABLE ON
@@ -97,18 +133,6 @@ add_dependencies(psftp generated_licence_h)
 
 add_sources_from_current_dir(psocks nohelp.c)
 
-set_source_files_properties(../PuTTie/winfrip_feature_bgimg.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_feature_general.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_feature_mouse.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_feature_trans.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_feature_urls.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_putty_config.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_rtl_putty.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_storage_file.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-
 add_executable(putty
   window.c
   putty.c
@@ -118,6 +142,8 @@ add_executable(putty
   ../PuTTie/winfrip_feature_bgimg.c
   ../PuTTie/winfrip_feature_general.c
   ../PuTTie/winfrip_feature_mouse.c
+  ../PuTTie/winfrip_feature_storage_host_keys.c
+  ../PuTTie/winfrip_feature_storage_sessions.c
   ../PuTTie/winfrip_feature_trans.c
   ../PuTTie/winfrip_feature_urls.c
   ../PuTTie/winfrip_putty_config.c
@@ -125,7 +151,12 @@ add_executable(putty
   ../PuTTie/winfrip_rtl_debug.c
   ../PuTTie/winfrip_rtl_pcre2.c
   ../PuTTie/winfrip_rtl_putty.c
-  ../PuTTie/winfrip_storage_file.c)
+  ../PuTTie/winfrip_storage.c
+  ../PuTTie/winfrip_storage_backend_ephemeral.c
+  ../PuTTie/winfrip_storage_backend_file.c
+  ../PuTTie/winfrip_storage_backend_registry.c
+  ../PuTTie/winfrip_storage_putty_adapter.c
+  ../PuTTie/winfrip_storage_tree.c)
 be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
@@ -158,6 +189,8 @@ add_executable(puttytel
   ../PuTTie/winfrip_feature_bgimg.c
   ../PuTTie/winfrip_feature_general.c
   ../PuTTie/winfrip_feature_mouse.c
+  ../PuTTie/winfrip_feature_storage_host_keys.c
+  ../PuTTie/winfrip_feature_storage_sessions.c
   ../PuTTie/winfrip_feature_trans.c
   ../PuTTie/winfrip_feature_urls.c
   ../PuTTie/winfrip_putty_config.c
@@ -165,7 +198,12 @@ add_executable(puttytel
   ../PuTTie/winfrip_rtl_debug.c
   ../PuTTie/winfrip_rtl_pcre2.c
   ../PuTTie/winfrip_rtl_putty.c
-  ../PuTTie/winfrip_storage_file.c)
+  ../PuTTie/winfrip_storage.c
+  ../PuTTie/winfrip_storage_backend_ephemeral.c
+  ../PuTTie/winfrip_storage_backend_file.c
+  ../PuTTie/winfrip_storage_backend_registry.c
+  ../PuTTie/winfrip_storage_putty_adapter.c
+  ../PuTTie/winfrip_storage_tree.c)
 be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel
@@ -188,13 +226,13 @@ add_executable(puttygen
   ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
   noise.c
   no-jump-list.c
+  ../PuTTie/no-jump-list-puttygen.c
   storage.c
   help.c
   ${CMAKE_SOURCE_DIR}/sshpubk.c
   ${CMAKE_SOURCE_DIR}/sshrand.c
   controls.c
-  puttygen.rc
-  ../PuTTie/winfrip_storage_file.c)
+  puttygen.rc)
 add_dependencies(puttygen generated_licence_h)
 target_link_libraries(puttygen
   keygen guimisc crypto utils
