@@ -34,7 +34,7 @@
 #define WM_SYSTRAY			(WM_USER + (0x7FFF - WM_USER))
 
 /*
- * Static variables
+ * Private variables
  */
 
 /*
