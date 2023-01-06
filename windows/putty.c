@@ -4,6 +4,8 @@
 /* {{{ winfrip */
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_urls.h"
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_storage.h"
 /* winfrip }}} */
 
 extern bool sesslist_demo_mode;
@@ -22,6 +24,8 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
     bool special_launchable_argument = false;
     bool demo_config_box = false;
 
+
+
     settings_set_default_protocol(be_default_protocol);
     /* Find the appropriate default port. */
     {
@@ -32,6 +36,15 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
             settings_set_default_port(vt->default_port);
     }
     conf_set_int(conf, CONF_logtype, LGTYP_NONE);
+
+    /* {{{ winfrip */
+    WfrStatus    status;
+	
+	if (WFR_STATUS_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX("setting backend", status);
+        exit(1);
+    }
+    /* winfrip }}} */
 
     do_defaults(NULL, conf);
 

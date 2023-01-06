@@ -19,6 +19,10 @@
 
 #include <assert.h>
 
+/* {{{ winfrip */
+#include "PuTTie/winfrip_storage_jumplist_wrap.h"
+#include "PuTTie/winfrip_storage_wrap.h"
+/* winfrip }}} */
 #include "putty.h"
 #include "storage.h"
 

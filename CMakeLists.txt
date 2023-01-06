@@ -113,17 +113,32 @@ add_executable(bidi_test
   terminal/bidi_test.c)
 target_link_libraries(bidi_test guiterminal utils ${platform_libraries})
 
-set_source_files_properties(../PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
-set_source_files_properties(../PuTTie/winfrip_storage_file.c PROPERTIES COMPILE_FLAGS "-pedantic -Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_backend_ephemeral.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_backend_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_backend_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_putty_adapter.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+
+if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
+  set(DEFAULT_STORAGE_BACKEND "WFS_BACKEND_REGISTRY")
+endif()
+set_property(SOURCE PuTTie/winfrip_storage.c APPEND_STRING PROPERTY COMPILE_FLAGS " -DWFS_DEFAULT_STORAGE_BACKEND=${DEFAULT_STORAGE_BACKEND}")
 
 add_executable(plink
   ${platform}/plink.c
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c
-  PuTTie/winfrip_storage_file.c)
+  PuTTie/winfrip_storage.c
+  PuTTie/winfrip_storage_backend_ephemeral.c
+  PuTTie/winfrip_storage_backend_file.c
+  PuTTie/winfrip_storage_backend_registry.c
+  PuTTie/winfrip_storage_putty_adapter.c
+  PuTTie/winfrip_storage_tree.c)
 # Note: if we ever port Plink to a platform where we can't implement a
 # serial backend, this be_list command will need to become platform-
 # dependent, so that it only sets the SERIAL option on platforms where
@@ -142,7 +157,12 @@ add_executable(pscp
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c
-  PuTTie/winfrip_storage_file.c)
+  PuTTie/winfrip_storage.c
+  PuTTie/winfrip_storage_backend_ephemeral.c
+  PuTTie/winfrip_storage_backend_file.c
+  PuTTie/winfrip_storage_backend_registry.c
+  PuTTie/winfrip_storage_putty_adapter.c
+  PuTTie/winfrip_storage_tree.c)
 be_list(pscp PSCP SSH)
 target_link_libraries(pscp
   sftpclient eventloop console sshclient settings network crypto utils
@@ -155,7 +175,12 @@ add_executable(psftp
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c
-  PuTTie/winfrip_storage_file.c)
+  PuTTie/winfrip_storage.c
+  PuTTie/winfrip_storage_backend_ephemeral.c
+  PuTTie/winfrip_storage_backend_file.c
+  PuTTie/winfrip_storage_backend_registry.c
+  PuTTie/winfrip_storage_putty_adapter.c
+  PuTTie/winfrip_storage_tree.c)
 be_list(psftp PSFTP SSH)
 target_link_libraries(psftp
   sftpclient eventloop console sshclient settings network crypto utils
@@ -169,8 +194,7 @@ add_executable(psocks
   stubs/no-rand.c
   proxy/nocproxy.c
   proxy/nosshproxy.c
-  ssh/portfwd.c
-  PuTTie/winfrip_storage_void.c)
+  ssh/portfwd.c)
 target_link_libraries(psocks
   eventloop console network utils
   ${platform_libraries})

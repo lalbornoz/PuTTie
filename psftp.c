@@ -14,6 +14,11 @@
 #include "ssh.h"
 #include "ssh/sftp.h"
 
+/* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_storage.h"
+/* winfrip }}} */
+
 /*
  * Since SFTP is a request-response oriented protocol, it requires
  * no buffer management: when we send data, we stop and wait for an
@@ -32,7 +37,12 @@ static void do_sftp_cleanup(void);
 static char *pwd, *homedir;
 static LogContext *psftp_logctx = NULL;
 static Backend *backend;
+/* {{{ winfrip */
+Conf *conf;
+/* winfrip }}} */
+#if 0
 static Conf *conf;
+#endif
 static bool sent_eof = false;
 
 /* ------------------------------------------------------------
@@ -2802,6 +2812,20 @@ int psftp_main(int argc, char *argv[])
     sk_init();
 
     userhost = user = NULL;
+
+    /* {{{ winfrip */
+    WfrStatus    status;
+
+    WfrDebugInit();
+    if (WFR_STATUS_SUCCESS(status = WfsInit())
+    &&  WFR_STATUS_SUCCESS(WfsSetBackendFromArgV(&argc, &argv)))
+    {
+        status = WFR_STATUS_CONDITION_SUCCESS;
+    } else {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("setting backend", status, "psftp");
+        exit(1);
+    }
+    /* }}} */
 
     /* Load Default Settings before doing anything else. */
     conf = conf_new();

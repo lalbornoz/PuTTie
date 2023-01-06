@@ -1,11 +1,8 @@
 /*
- * no-jump-list.c: stub jump list functions for Windows executables
+ * no-jump-list-puttygen.c: stub jump list functions for puttygen
  * that don't update the jump list.
  */
 
-/* {{{ winfrip */
-#include "PuTTie/winfrip_storage_jumplist_wrap.h"
-/* winfrip }}} */
 #include "putty.h"
 
 void add_session_to_jumplist(const char * const sessionname) {}

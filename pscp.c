@@ -25,6 +25,11 @@
 #include "ssh/sftp.h"
 #include "storage.h"
 
+/* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_storage.h"
+/* winfrip }}} */
+
 static bool list = false;
 static bool verbose = false;
 static bool recursive = false;
@@ -42,7 +47,12 @@ static bool using_sftp = false;
 static bool uploading = false;
 
 static Backend *backend;
+/* {{{ winfrip */
+Conf *conf;
+/* winfrip }}} */
+#if 0
 static Conf *conf;
+#endif
 static bool sent_eof = false;
 
 static void source(const char *src);
@@ -2262,6 +2272,20 @@ int psftp_main(int argc, char *argv[])
     bool sanitise_stderr = true;
 
     sk_init();
+
+    /* {{{ winfrip */
+    WfrStatus    status;
+
+    WfrDebugInit();
+    if (WFR_STATUS_SUCCESS(status = WfsInit())
+    &&  WFR_STATUS_SUCCESS(WfsSetBackendFromArgV(&argc, &argv)))
+    {
+        status = WFR_STATUS_CONDITION_SUCCESS;
+    } else {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("setting backend", status, "pscp");
+        exit(1);
+    }
+    /* }}} */
 
     /* Load Default Settings before doing anything else. */
     conf = conf_new();

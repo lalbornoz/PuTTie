@@ -1,12 +1,31 @@
 #include "putty.h"
 #include "storage.h"
 
+/* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_storage.h"
+/* winfrip }}} */
+
 const unsigned cmdline_tooltype =
     TOOLTYPE_NONNETWORK |
     TOOLTYPE_NO_VERBOSE_OPTION;
 
 void gui_term_process_cmdline(Conf *conf, char *cmdline)
 {
+    /* {{{ winfrip */
+    WfrStatus    status;
+
+    WfrDebugInit();
+    if (WFR_STATUS_SUCCESS(status = WfsInit())
+    &&  WFR_STATUS_SUCCESS(WfsSetBackendFromCmdLine(cmdline)))
+    {
+        status = WFR_STATUS_CONDITION_SUCCESS;
+    } else {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("setting backend", status, "pterm");
+        exit(1);
+    }
+    /* }}} */
+
     do_defaults(NULL, conf);
     conf_set_str(conf, CONF_remote_cmd, "");
 

@@ -519,9 +519,6 @@ void psocks_start(psocks_state *ps)
     conf_free(conf);
 }
 
-/* {{{ winfrip */
-#if 0
-/* winfrip }}} */
 /*
  * Some stubs that are needed to link against PuTTY modules.
  */
@@ -537,9 +534,6 @@ void store_host_key(Seat *seat, const char *hostname, int port,
 {
     unreachable("host keys not handled in this tool");
 }
-/* {{{ winfrip */
-#endif /* 0 */
-/* winfrip }}} */
 
 /*
  * stdio-targeted PsocksDataSink.

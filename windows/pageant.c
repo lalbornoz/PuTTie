@@ -9,6 +9,9 @@
 #include <assert.h>
 #include <tchar.h>
 
+/* {{{ winfrip */
+#include "PuTTie/winfrip_storage_jumplist_wrap.h"
+/* winfrip }}} */
 #include "putty.h"
 #include "ssh.h"
 #include "misc.h"
@@ -18,6 +21,11 @@
 #include "pageant.h"
 #include "licence.h"
 #include "pageant-rc.h"
+
+/* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_storage.h"
+/* winfrip }}} */
 
 #include <shellapi.h>
 
@@ -898,6 +906,73 @@ static BOOL AddTrayIcon(HWND hwnd)
 /* Update the saved-sessions menu. */
 static void update_sessions(void)
 {
+/* {{{ winfrip */
+#if 1
+    WfsBackend backend;
+    bool donefl;
+    void *handle;
+    MENUITEMINFO mii;
+    int num_entries;
+    char *sessionname;
+    WfrStatus status;
+
+    int index_menu;
+
+    if (!putty_path)
+        return;
+
+    backend = WfsGetBackend();
+    if (WFR_STATUS_FAILURE(status = WfsEnumerateSessions(
+                           backend, false, true,
+                           NULL, NULL, (void **)&handle)))
+	{
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
+        return;
+	}
+
+    for(num_entries = GetMenuItemCount(session_menu);
+        num_entries > initial_menuitems_count;
+        num_entries--)
+        RemoveMenu(session_menu, 0, MF_BYPOSITION);
+
+    index_menu = 0;
+
+    while (WFR_STATUS_SUCCESS(status = WfsEnumerateSessions(
+                              backend, false, false,
+                              &donefl, &sessionname, handle)) && !donefl) {
+        if(strcmp(sessionname, PUTTY_DEFAULT) != 0) {
+            memset(&mii, 0, sizeof(mii));
+            mii.cbSize = sizeof(mii);
+            mii.fMask = MIIM_TYPE | MIIM_STATE | MIIM_ID;
+            mii.fType = MFT_STRING;
+            mii.fState = MFS_ENABLED;
+            mii.wID = (index_menu * 16) + IDM_SESSIONS_BASE;
+            mii.dwTypeData = strdup(sessionname);
+
+            if (!mii.dwTypeData) {
+				status = WFR_STATUS_FROM_ERRNO();
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
+                return;
+			}
+            InsertMenuItem(session_menu, index_menu, true, &mii);
+            index_menu++;
+        }
+    }
+
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
+
+    sfree(handle);
+
+    if(index_menu == 0) {
+        mii.cbSize = sizeof(mii);
+        mii.fMask = MIIM_TYPE | MIIM_STATE;
+        mii.fType = MFT_STRING;
+        mii.fState = MFS_GRAYED;
+        mii.dwTypeData = _T("(No sessions)");
+        InsertMenuItem(session_menu, index_menu, true, &mii);
+    }
+#else
+/* }}} winfrip */
     int num_entries;
     HKEY hkey;
     TCHAR buf[MAX_PATH + 1];
@@ -950,6 +1025,9 @@ static void update_sessions(void)
         mii.dwTypeData = _T("(No sessions)");
         InsertMenuItem(session_menu, index_menu, true, &mii);
     }
+/* {{{ winfrip */
+#endif
+/* }}} winfrip */
 }
 
 /*
@@ -1310,7 +1388,19 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
             cmdline[0] = '\0';
             if (restrict_putty_acl)
                 strcat(cmdline, "&R");
+            /* {{{ winfrip */
+            char *backend_arg_string = NULL;
+            WfrStatus status;
 
+            status = WfsGetBackendArgString(&backend_arg_string);
+	        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("getting argument string", status, "Pageant");
+            if (backend_arg_string) {
+                if (strlen(cmdline) > 0) {
+                    strcat(cmdline, " ");
+                }
+                strcat(cmdline, backend_arg_string);
+            }
+            /* winfrip }}} */
             if((INT_PTR)ShellExecute(hwnd, NULL, putty_path, cmdline,
                                      _T(""), SW_SHOW) <= 32) {
                 MessageBox(NULL, "Unable to execute PuTTY!",
@@ -1384,6 +1474,20 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
                 param[0] = '\0';
                 if (restrict_putty_acl)
                     strcat(param, "&R");
+                /* {{{ winfrip */
+                char *backend_arg_string;
+                WfrStatus status;
+
+                status = WfsGetBackendArgString(&backend_arg_string);
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX1("getting argument string", status, "Pageant");
+                if (backend_arg_string) {
+                    if (strlen(param) > 0) {
+                        strcat(param, " ");
+                    }
+                    strcat(param, backend_arg_string);
+                    strcat(param, " ");
+                }
+                /* winfrip }}} */
                 strcat(param, "@");
                 strcat(param, mii.dwTypeData);
                 if((INT_PTR)ShellExecute(hwnd, NULL, putty_path, param,
@@ -1591,6 +1695,15 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         } else
             putty_path = NULL;
     }
+
+    /* {{{ winfrip */
+    WfrDebugInit();
+    if (WFR_STATUS_FAILURE(WfsInit())) {
+    	return FALSE;
+    } else if (WFR_STATUS_FAILURE(WfsSetBackendFromCmdLine(cmdline))) {
+        exit(1);
+    }
+    /* winfrip }}} */
 
     /*
      * Process the command line, handling anything that can be done
