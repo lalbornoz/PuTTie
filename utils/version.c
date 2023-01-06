@@ -11,7 +11,13 @@
 #include "putty.h"
 #include "ssh.h"
 
+/* {{{ winfrip */
+#if 0
+/* winfrip }}} */
 #include "version.h"
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 
 const char ver[] = TEXTVER;
 const char sshver[] = SSHVER;
