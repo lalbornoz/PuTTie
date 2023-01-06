@@ -70,7 +70,7 @@ you should use PuTTie:
    User interfaces are provided within putty & puttytel to clear, copy, delete, rename, and
    move sessions and host keys from/to all storage backends (ephemeral, file, registry)
   
-   N.B. The random seed file ``PUTTY.RND`` stored beneath ``%LOCALAPPDATA`` is still read from,
+   N.B. The random seed file ``PUTTY.RND`` stored beneath ``%LOCALAPPDATA%`` is still read from,
    if present, on startup and written to on exit due to security concerns, even when ephemeral storage
    is selected.
 
@@ -100,7 +100,7 @@ $ ./PuTTie/build.sh -B file -c -R -j 4
 # Help screen:
 $ ./PuTTie/build.sh -h
 usage: ./PuTTie/build.sh [-B <backend>] [-c] [--clang] [-d] [-h] [-i] [-j jobs] [-R] [-t <target>]
-       -B <backend>..: select default storage backend to either of ephemeral, file, or registry (default)
+       -B <backend>..: set default storage backend to either of ephemeral, file, or registry (default)
        -c............: clean cmake(1) cache file(s) and output directory/ies before build
        --clang.......: regenerate compile_commands.json
        -d............: select Debug (vs. Release) build
