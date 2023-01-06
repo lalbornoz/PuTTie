@@ -1,6 +1,6 @@
 /*
  * winfrip_feature_urls.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_FEATURE_URLS_H
@@ -11,7 +11,7 @@
  * winfrip_putty_config.c
  */
 
-void winfripp_urls_config_panel(struct controlbox *b);
+void WffUrlsConfigPanel(struct controlbox *b);
 
 /*
  * Public type definitions used by/in:
@@ -19,13 +19,13 @@ void winfripp_urls_config_panel(struct controlbox *b);
  * windows/window.c:WndProc()
  */
 
-typedef enum WinFripUrlsOp {
-	WINFRIP_URLS_OP_DRAW				= 1,
-	WINFRIP_URLS_OP_FOCUS_KILL			= 2,
-	WINFRIP_URLS_OP_MOUSE_BUTTON_EVENT	= 3,
-	WINFRIP_URLS_OP_MOUSE_MOTION_EVENT	= 4,
-	WINFRIP_URLS_OP_RECONFIG			= 5,
-} WinFripUrlsOp;
+typedef enum WffUrlsOp {
+	WFF_URLS_OP_DRAW				= 1,
+	WFF_URLS_OP_FOCUS_KILL			= 2,
+	WFF_URLS_OP_MOUSE_BUTTON_EVENT	= 3,
+	WFF_URLS_OP_MOUSE_MOTION_EVENT	= 4,
+	WFF_URLS_OP_RECONFIG			= 5,
+} WffUrlsOp;
 
 /*
  * Public subroutine prototypes used by/in:
@@ -33,7 +33,7 @@ typedef enum WinFripUrlsOp {
  * windows/window.c:WndProc()
  */
 
-WinFripReturn winfrip_urls_op(WinFripUrlsOp op, Conf *conf, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
+WfReturn WffUrlsOperation(WffUrlsOp op, Conf *conf, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
 
 #endif // !PUTTY_WINFRIP_FEATURE_URLS_H
 

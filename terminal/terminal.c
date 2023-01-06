@@ -6140,7 +6140,7 @@ static void do_paint(Terminal *term)
 
             /* {{{ winfrip */
         #ifndef PUTTY_UNIX_H
-            winfrip_urls_op(WINFRIP_URLS_OP_DRAW, term->conf, NULL, 0, &tattr, term, 0, scrpos.x, scrpos.y);
+            WffUrlsOperation(WFF_URLS_OP_DRAW, term->conf, NULL, 0, &tattr, term, 0, scrpos.x, scrpos.y);
         #endif
             /* winfrip }}} */
 

@@ -1,6 +1,6 @@
 /*
  * winfrip_feature.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_FEATURE_H
@@ -11,23 +11,23 @@
  * PuTTie/winfrip_feature_*.c
  */
 
-#define WINFRIPP_HELP_CTX	\
-		"appearance.frippery:config-winfrippery"
+#define WFP_HELP_CTX	\
+		"appearance.frippery:config-WFPery"
 
 /*
  * Public type definitions used by/in:
  * PuTTie/winfrip_feature_*.[ch]
  */
 
-typedef enum WinFripReturn {
-	WINFRIP_RETURN_BREAK				= 1,
-	WINFRIP_RETURN_BREAK_RESET_WINDOW	= 2,
-	WINFRIP_RETURN_CANCEL				= 3,
-	WINFRIP_RETURN_CONTINUE				= 4,
-	WINFRIP_RETURN_FAILURE				= 5,
-	WINFRIP_RETURN_NOOP					= 6,
-	WINFRIP_RETURN_RETRY				= 7,
-} WinFripReturn;
+typedef enum WfReturn {
+	WF_RETURN_BREAK					= 1,
+	WF_RETURN_BREAK_RESET_WINDOW	= 2,
+	WF_RETURN_CANCEL				= 3,
+	WF_RETURN_CONTINUE				= 4,
+	WF_RETURN_FAILURE				= 5,
+	WF_RETURN_NOOP					= 6,
+	WF_RETURN_RETRY					= 7,
+} WfReturn;
 
 #endif // !PUTTY_WINFRIP_FEATURE_H
 

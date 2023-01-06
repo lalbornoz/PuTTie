@@ -1,6 +1,6 @@
 /*
  * winfrip_feature_trans.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_FEATURE_TRANS_H
@@ -11,24 +11,24 @@
  * winfrip_putty_config.c
  */
 
-void winfripp_trans_config_panel(struct controlbox *b);
+void WffTransConfigPanel(struct controlbox *b);
 
 /*
  * Public type definitions used by/in:
  * windows/window.c:{WinMain,WndProc}()
  */
 
-typedef enum WinFripTransOp {
-	WINFRIP_TRANS_OP_FOCUS_KILL		= 1,
-	WINFRIP_TRANS_OP_FOCUS_SET		= 2,
-} WinFripTransOp;
+typedef enum WffTransOp {
+	WFF_TRANS_OP_FOCUS_KILL		= 1,
+	WFF_TRANS_OP_FOCUS_SET		= 2,
+} WffTransOp;
 
 /*
  * Public subroutine prototypes used by/in:
  * windows/window.c:{WinMain,WndProc}()
  */
 
-void winfrip_trans_op(WinFripTransOp op, Conf *conf, HWND hwnd);
+void WffTransOperation(WffTransOp op, Conf *conf, HWND hwnd);
 
 #endif // !PUTTY_WINFRIP_FEATURE_TRANS_H
 

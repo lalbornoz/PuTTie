@@ -1,6 +1,6 @@
 /*
  * winfrip_putty_settings.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_PUTTY_SETTINGS_H
@@ -11,10 +11,10 @@
  * settings.c:load_open_settings()
  */
 
-#define WINFRIP_URLS_REGEX																											\
+#define WF_URLS_REGEX																												\
 		"((https?|ftp)://|www\\.).(([^ ]*\\([^ ]*\\))([^ ()]*[^ ,;.:\"')>])?|([^ ()]*[^ ,;.:\"')>]))"
 
-#define WINFRIP_LOAD_OPEN_SETTINGS(sesskey, conf) do {																				\
+#define WF_LOAD_OPEN_SETTINGS(sesskey, conf) do {																					\
 		gppfile((sesskey), "FripBgImgFile", (conf), CONF_frip_bgimg_filename);														\
 		gppi((sesskey), "FripBgImgOpacity", 75, (conf), CONF_frip_bgimg_opacity);													\
 		gppi((sesskey), "FripBgImgPadding", 10, (conf), CONF_frip_bgimg_padding);													\
@@ -32,7 +32,7 @@
 		gpps((sesskey), "FripUrlsBrowserPNameVerb", "", (conf), CONF_frip_urls_browser_pname_verb);									\
 		gppi((sesskey), "FripUrlsModifierKey", 0, (conf), CONF_frip_urls_modifier_key);												\
 		gppi((sesskey), "FripUrlsModifierShift", 0, (conf), CONF_frip_urls_modifier_shift);											\
-		gpps((sesskey), "FripUrlsRegex", WINFRIP_URLS_REGEX, (conf), CONF_frip_urls_regex);											\
+		gpps((sesskey), "FripUrlsRegex", WF_URLS_REGEX, (conf), CONF_frip_urls_regex);												\
 		gppb((sesskey), "FripUrlsReverseVideoOnClick", true, (conf), CONF_frip_urls_revvideo_onclick);								\
 		gppb((sesskey), "FripUrlsUnderlineOnHighlight", true, (conf), CONF_frip_urls_underline_onhl);								\
 	} while (0)
@@ -42,7 +42,7 @@
  * settings.c:save_open_settings()
  */
 
-#define WINFRIP_SAVE_OPEN_SETTINGS(sesskey, conf) do {																				\
+#define WF_SAVE_OPEN_SETTINGS(sesskey, conf) do {																					\
 		write_setting_filename((sesskey), "FripBgImgFile", conf_get_filename((conf), CONF_frip_bgimg_filename));					\
 		write_setting_i((sesskey), "FripBgImgOpacity", conf_get_int((conf), CONF_frip_bgimg_opacity));								\
 		write_setting_i((sesskey), "FripBgImgPadding", conf_get_int((conf), CONF_frip_bgimg_padding));								\
