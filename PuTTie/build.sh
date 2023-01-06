@@ -190,7 +190,7 @@ build_install() {
 
 buildp_usage() {
 	echo "usage: ${0} [-B <backend>] [-c] [--clang] [-d] [-h] [-i] [-j jobs] [-R] [-t <target>]" >&2;
-	echo "       -B <backend>..: select default storage backend to either of ephemeral, file, or registry (default)" >&2;
+	echo "       -B <backend>..: set default storage backend to either of ephemeral, file, or registry (default)" >&2;
 	echo "       -c............: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
 	echo "       --clang.......: regenerate compile_commands.json" >&2;
 	echo "       -d............: select Debug (vs. Release) build" >&2;
