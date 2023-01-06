@@ -1,6 +1,6 @@
 /*
  * winfrip_pcre2.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_PCRE2_H
@@ -24,7 +24,7 @@
 #define WFR_STATUS_PCRE2_CONTINUE				WFR_STATUS_FROM_PCRE2(WFR_STATUS_CONDITION_PCRE2_CONTINUE, WFR_STATUS_SEVERITY_SUCCESS)
 #define WFR_STATUS_PCRE2_DONE					WFR_STATUS_FROM_PCRE2(WFR_STATUS_CONDITION_PCRE2_DONE, WFR_STATUS_SEVERITY_SUCCESS)
 
-typedef struct WinFrippP2MGState {
+typedef struct Wfp2MGState {
 	pcre2_code *		code;
 	bool				crlf_is_newline;
 	bool				first_match;
@@ -34,9 +34,9 @@ typedef struct WinFrippP2MGState {
 	PCRE2_SIZE *		ovector;
 	PCRE2_SIZE			startoffset;
 	wchar_t *			subject;
-} WinFrippP2MGState;
+} Wfp2MGState;
 
-typedef struct WinfrippP2Regex {
+typedef struct Wfp2Regex {
 	int					ovecsize;
 	const wchar_t *		spec_w;
 
@@ -46,24 +46,24 @@ typedef struct WinfrippP2Regex {
 	PCRE2_SIZE			erroroffset;
 	pcre2_match_data *	md;
 	size_t *			ovec;
-} WinfrippP2Regex;
+} Wfp2Regex;
 
-typedef enum WinfrippP2RType {
-	WINFRIPP_P2RTYPE_BOOL	= 0,
-	WINFRIPP_P2RTYPE_INT	= 1,
-	WINFRIPP_P2RTYPE_SINT	= WINFRIPP_P2RTYPE_INT,
-	WINFRIPP_P2RTYPE_STRING	= 2,
-	WINFRIPP_P2RTYPE_UINT	= 3,
-} WinfrippP2RType;
+typedef enum Wfp2RType {
+	WFP2_RTYPE_BOOL		= 0,
+	WFP2_RTYPE_INT		= 1,
+	WFP2_RTYPE_SINT		= WFP2_RTYPE_INT,
+	WFP2_RTYPE_STRING	= 2,
+	WFP2_RTYPE_UINT		= 3,
+} Wfp2RType;
 
 /*
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
 
-void WinfrippPcre2Init(WinFrippP2MGState *state, pcre2_code *code, size_t length, pcre2_match_data *md, wchar_t *subject);
+WfrStatus Wfp2GetMatch(Wfp2Regex *regex, bool alloc_value, int match_offset, Wfp2RType match_type, wchar_t *subject, void *pvalue, size_t *pvalue_size);
+WfrStatus Wfp2MatchGlobal(Wfp2MGState *state, size_t *pbegin, size_t *pend);
 
-WfrStatus WinfrippPcre2GetMatch(WinfrippP2Regex *regex, bool alloc_value, int match_offset, WinfrippP2RType match_type, wchar_t *subject, void *pvalue, size_t *pvalue_size);
-WfrStatus WinfrippPcre2MatchGlobal(WinFrippP2MGState *state, size_t *pbegin, size_t *pend);
+void Wfp2Init(Wfp2MGState *state, pcre2_code *code, size_t length, pcre2_match_data *md, wchar_t *subject);
 
 #endif // !PUTTY_WINFRIP_PCRE2_H
 

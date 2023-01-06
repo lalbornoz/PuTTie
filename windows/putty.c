@@ -57,13 +57,13 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
         /* {{{ winfrip */
         bool breakfl = false;
         do {
-            switch (winfrip_urls_op(WINFRIP_URLS_OP_RECONFIG, conf, NULL, -1, NULL, NULL, 0, 0, 0)) {
+            switch (WffUrlsOperation(WFF_URLS_OP_RECONFIG, conf, NULL, -1, NULL, NULL, 0, 0, 0)) {
             default:
-            case WINFRIP_RETURN_CANCEL:
+            case WF_RETURN_CANCEL:
                 cleanup_exit(0);
-            case WINFRIP_RETURN_CONTINUE:
+            case WF_RETURN_CONTINUE:
                 breakfl = true; break;
-            case WINFRIP_RETURN_RETRY:
+            case WF_RETURN_RETRY:
                 if (!do_config(conf, "Frippery/URLs")) {
                     cleanup_exit(0);
                 }; break;
@@ -186,13 +186,13 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
         /* {{{ winfrip */
         bool breakfl = false;
         do {
-            switch (winfrip_urls_op(WINFRIP_URLS_OP_RECONFIG, conf, NULL, -1, NULL, NULL, 0, 0, 0)) {
+            switch (WffUrlsOperation(WFF_URLS_OP_RECONFIG, conf, NULL, -1, NULL, NULL, 0, 0, 0)) {
             default:
-            case WINFRIP_RETURN_CANCEL:
+            case WF_RETURN_CANCEL:
                 cleanup_exit(0);
-            case WINFRIP_RETURN_CONTINUE:
+            case WF_RETURN_CONTINUE:
                 breakfl = true; break;
-            case WINFRIP_RETURN_RETRY:
+            case WF_RETURN_RETRY:
                 if (!do_config(conf, "Frippery/URLs")) {
                     cleanup_exit(0);
                 }; break;

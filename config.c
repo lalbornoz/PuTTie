@@ -1923,7 +1923,7 @@ void setup_config_box(struct controlbox *b, bool midsession,
     /* {{{ winfrip */
     dlgcontrol **ssd_listbox = snew(dlgcontrol *);
     *ssd_listbox = NULL;
-    ssd->droplist_backend = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WINFRIPP_HELP_CTX, WffsSessionsConfigPanelDroplistBackendHandler, P(ssd_listbox));
+    ssd->droplist_backend = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WFP_HELP_CTX, WffsSessionsConfigPanelDroplistBackendHandler, P(ssd_listbox));
     ssd->droplist_backend->column = 0;
     /* winfrip }}} */
     /* Reset columns so that the buttons are alongside the list, rather
@@ -2327,7 +2327,7 @@ void setup_config_box(struct controlbox *b, bool midsession,
 
     /* {{{ winfrip */
 #ifndef PUTTY_UNIX_H
-    winfrip_config_panel(b);
+    WfConfigPanel(b);
 #endif
     /* winfrip }}} */
 

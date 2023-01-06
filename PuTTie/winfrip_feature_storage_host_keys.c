@@ -526,53 +526,53 @@ WffsHostKeysConfigPanel(
 
 	s = ctrl_getset(b, "Frippery/Host keys", "frip_host_keys_from", "From:");
 	ctrl_columns(s, 2, 70, 30);
-	ctx->editbox[WFFSP_CDIR_FROM] = ctrl_editbox(s, NULL, NO_SHORTCUT, 100, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx), P(NULL));
+	ctx->editbox[WFFSP_CDIR_FROM] = ctrl_editbox(s, NULL, NO_SHORTCUT, 100, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx), P(NULL));
 	ctx->editbox[WFFSP_CDIR_FROM]->column = 0;
-	ctx->droplist[WFFSP_CDIR_FROM] = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->droplist[WFFSP_CDIR_FROM] = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->droplist[WFFSP_CDIR_FROM]->column = 1;
 	/* Reset columns so that the buttons are alongside the list, rather
 	 * than alongside that edit box. */
 	ctrl_columns(s, 1, 100);
 	ctrl_columns(s, 2, 75, 25);
-	ctx->listbox[WFFSP_CDIR_FROM] = ctrl_listbox(s, NULL, NO_SHORTCUT, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->listbox[WFFSP_CDIR_FROM] = ctrl_listbox(s, NULL, NO_SHORTCUT, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->listbox[WFFSP_CDIR_FROM]->column = 0;
 	ctx->listbox[WFFSP_CDIR_FROM]->listbox.height = 6;
 	ctx->listbox[WFFSP_CDIR_FROM]->listbox.multisel = 1;
-	ctx->button_clear[WFFSP_CDIR_FROM] = ctrl_pushbutton(s, "Clear...", NO_SHORTCUT, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->button_clear[WFFSP_CDIR_FROM] = ctrl_pushbutton(s, "Clear...", NO_SHORTCUT, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->button_clear[WFFSP_CDIR_FROM]->column = 1;
-	ctx->button_delete[WFFSP_CDIR_FROM] = ctrl_pushbutton(s, "Delete", NO_SHORTCUT, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->button_delete[WFFSP_CDIR_FROM] = ctrl_pushbutton(s, "Delete", NO_SHORTCUT, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->button_delete[WFFSP_CDIR_FROM]->column = 1;
-	ctx->button_rename[WFFSP_CDIR_FROM] = ctrl_pushbutton(s, "Rename", NO_SHORTCUT, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->button_rename[WFFSP_CDIR_FROM] = ctrl_pushbutton(s, "Rename", NO_SHORTCUT, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->button_rename[WFFSP_CDIR_FROM]->column = 1;
 	ctrl_columns(s, 1, 100);
 
 	s = ctrl_getset(b, "Frippery/Host keys", "frip_host_keys_export", "Export from/to:");
 	ctrl_columns(s, 2, 50, 50);
-	ctx->button_copy = ctrl_pushbutton(s, "Copy", 'p', WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->button_copy = ctrl_pushbutton(s, "Copy", 'p', WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->button_copy->column = 0;
-	ctx->button_move = ctrl_pushbutton(s, "Move", 'm', WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->button_move = ctrl_pushbutton(s, "Move", 'm', WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->button_move->column = 1;
 	ctrl_columns(s, 1, 100);
 
 	s = ctrl_getset(b, "Frippery/Host keys", "frip_host_keys_to", "To:");
 	ctrl_columns(s, 2, 70, 30);
-	ctx->editbox[WFFSP_CDIR_TO] = ctrl_editbox(s, NULL, NO_SHORTCUT, 100, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx), P(NULL));
+	ctx->editbox[WFFSP_CDIR_TO] = ctrl_editbox(s, NULL, NO_SHORTCUT, 100, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx), P(NULL));
 	ctx->editbox[WFFSP_CDIR_TO]->column = 0;
-	ctx->droplist[WFFSP_CDIR_TO] = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->droplist[WFFSP_CDIR_TO] = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->droplist[WFFSP_CDIR_TO]->column = 1;
 	/* Reset columns so that the buttons are alongside the list, rather
 	 * than alongside that edit box. */
 	ctrl_columns(s, 1, 100);
 	ctrl_columns(s, 2, 75, 25);
-	ctx->listbox[WFFSP_CDIR_TO] = ctrl_listbox(s, NULL, NO_SHORTCUT, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->listbox[WFFSP_CDIR_TO] = ctrl_listbox(s, NULL, NO_SHORTCUT, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->listbox[WFFSP_CDIR_TO]->column = 0;
 	ctx->listbox[WFFSP_CDIR_TO]->listbox.height = 6;
 	ctx->listbox[WFFSP_CDIR_TO]->listbox.multisel = 1;
-	ctx->button_clear[WFFSP_CDIR_TO] = ctrl_pushbutton(s, "Clear...", NO_SHORTCUT, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->button_clear[WFFSP_CDIR_TO] = ctrl_pushbutton(s, "Clear...", NO_SHORTCUT, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->button_clear[WFFSP_CDIR_TO]->column = 1;
-	ctx->button_delete[WFFSP_CDIR_TO] = ctrl_pushbutton(s, "Delete", NO_SHORTCUT, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->button_delete[WFFSP_CDIR_TO] = ctrl_pushbutton(s, "Delete", NO_SHORTCUT, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->button_delete[WFFSP_CDIR_TO]->column = 1;
-	ctx->button_rename[WFFSP_CDIR_TO] = ctrl_pushbutton(s, "Rename", NO_SHORTCUT, WINFRIPP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
+	ctx->button_rename[WFFSP_CDIR_TO] = ctrl_pushbutton(s, "Rename", NO_SHORTCUT, WFP_HELP_CTX, WffspConfigHostKeysHandler, P(ctx));
 	ctx->button_rename[WFFSP_CDIR_TO]->column = 1;
 	ctrl_columns(s, 1, 100);
 }

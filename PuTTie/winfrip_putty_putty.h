@@ -1,6 +1,6 @@
 /*
  * winfrip_putty_putty.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_PUTTY_PUTTY_H
@@ -11,7 +11,7 @@
  * putty.h:CONFIG_OPTIONS()
  */
 
-#define WINFRIP_CONFIG_OPTIONS(X)						\
+#define WF_CONFIG_OPTIONS(X)							\
 		X(FILENAME, NONE, frip_bgimg_filename)			\
 		X(INT, NONE, frip_bgimg_opacity)				\
 		X(INT, NONE, frip_bgimg_padding)				\

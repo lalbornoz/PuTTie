@@ -52,13 +52,13 @@ typedef enum WfspFileReMatchesOffset {
  * WfsppFileExtSessions: file name extension of PuTTie session files
  */
 
-static char *			WfsppFileAppData = NULL;
-static char				WfsppFileDnameHostKeys[MAX_PATH + 1] = "";
-static char				WfsppFileDnameSessions[MAX_PATH + 1] = "";
-static char				WfsppFileExtHostKeys[] = ".hostkey";
-static char				WfsppFileExtSessions[] = ".ini";
+static char *		WfsppFileAppData = NULL;
+static char			WfsppFileDnameHostKeys[MAX_PATH + 1] = "";
+static char			WfsppFileDnameSessions[MAX_PATH + 1] = "";
+static char			WfsppFileExtHostKeys[] = ".hostkey";
+static char			WfsppFileExtSessions[] = ".ini";
 
-static WinfrippP2Regex	WfsppFileRegex = {
+static Wfp2Regex	WfsppFileRegex = {
 	.ovecsize = 16,
 	.spec_w = L"^([^=]+)=(int|string):(.*)$",
 	.code = NULL,
@@ -71,12 +71,12 @@ static WinfrippP2Regex	WfsppFileRegex = {
  * Private subroutine prototypes
  */
 
-static WfrStatus		WfsppFileClear(const char *dname, const char *ext);
-static WfrStatus		WfsppFileEnumerateInit(const char *dname, WfspFileEnumerateState **enum_state);
-static WfrStatus		WfsppFileInitAppDataSubdir(void);
-static WfrStatus		WfsppFileInitRegex(void);
-static WfrStatus		WfsppFileNameEscape(const char *dname, const char *ext, const char *name, bool tmpfl, char *fname, size_t fname_size);
-static WfrStatus		WfsppFileNameUnescape(char *fname, const char **pname);
+static WfrStatus	WfsppFileClear(const char *dname, const char *ext);
+static WfrStatus	WfsppFileEnumerateInit(const char *dname, WfspFileEnumerateState **enum_state);
+static WfrStatus	WfsppFileInitAppDataSubdir(void);
+static WfrStatus	WfsppFileInitRegex(void);
+static WfrStatus	WfsppFileNameEscape(const char *dname, const char *ext, const char *name, bool tmpfl, char *fname, size_t fname_size);
+static WfrStatus	WfsppFileNameUnescape(char *fname, const char **pname);
 
 /*
  * Private subroutines
@@ -819,26 +819,26 @@ WfspFileLoadSession(
 						item_type_string = NULL; item_type_string_size = 0;
 						value_new = NULL; value_new_size = 0;
 
-						if (WFR_STATUS_SUCCESS(status = WinfrippPcre2GetMatch(
+						if (WFR_STATUS_SUCCESS(status = Wfp2GetMatch(
 									&WfsppFileRegex, true, WFSP_FILE_RMO_KEY,
-									WINFRIPP_P2RTYPE_STRING, line_w, &key,
+									WFP2_RTYPE_STRING, line_w, &key,
 									&key_size))
-						&&  WFR_STATUS_SUCCESS(status = WinfrippPcre2GetMatch(
+						&&  WFR_STATUS_SUCCESS(status = Wfp2GetMatch(
 									&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE_TYPE,
-									WINFRIPP_P2RTYPE_STRING, line_w, &item_type_string,
+									WFP2_RTYPE_STRING, line_w, &item_type_string,
 									&item_type_string_size)))
 						{
 							if (memcmp(item_type_string, "int", item_type_string_size) == 0) {
 								item_type = WFSP_TREE_ITYPE_INT;
-								status = WinfrippPcre2GetMatch(
+								status = Wfp2GetMatch(
 										&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
-										WINFRIPP_P2RTYPE_INT, line_w,
+										WFP2_RTYPE_INT, line_w,
 										&value_new, &value_new_size);
 							} else if (memcmp(item_type_string, "string", item_type_string_size) == 0) {
 								item_type = WFSP_TREE_ITYPE_STRING;
-								status = WinfrippPcre2GetMatch(
+								status = Wfp2GetMatch(
 										&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
-										WINFRIPP_P2RTYPE_STRING, line_w,
+										WFP2_RTYPE_STRING, line_w,
 										&value_new, &value_new_size);
 							} else {
 								status = WFR_STATUS_FROM_ERRNO1(EINVAL);

@@ -25,7 +25,7 @@
  */
 
 void
-winfrip_config_panel(
+WfConfigPanel(
 	struct controlbox *		b
 	)
 {
@@ -34,13 +34,13 @@ winfrip_config_panel(
 	 */
 	ctrl_settitle(b, "Frippery", "Pointless frippery");
 
-	winfripp_bgimg_config_panel(b);
-	winfripp_general_config_panel(b);
-	winfripp_mouse_config_panel(b);
+	WffBgImgConfigPanel(b);
+	WffGeneralConfigPanel(b);
+	WffMouseConfigPanel(b);
 	WffsHostKeysConfigPanel(b);
 	WffsSessionsConfigPanel(b);
-	winfripp_trans_config_panel(b);
-	winfripp_urls_config_panel(b);
+	WffTransConfigPanel(b);
+	WffUrlsConfigPanel(b);
 }
 
 /*

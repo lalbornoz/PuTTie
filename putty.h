@@ -1981,7 +1981,7 @@ NORETURN void cleanup_exit(int);
     X(BOOL, NONE, sunken_edge) \
     X(INT, NONE, window_border) /* in pixels */ \
     /* {{{ winfrip */ \
-    WINFRIP_CONFIG_OPTIONS(X) \
+    WF_CONFIG_OPTIONS(X) \
     /* winfrip }}} */ \
     X(STR, NONE, answerback) \
     X(STR, NONE, printer) \

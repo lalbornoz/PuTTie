@@ -15,66 +15,24 @@
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
-void
-WinfrippPcre2Init(
-	WinFrippP2MGState *		state,
-	pcre2_code *			code,
-	size_t					length,
-	pcre2_match_data *		md,
-	wchar_t *				subject
-	)
-{
-	uint32_t	newline = 0;
-
-
-	WFR_DEBUG_ASSERT(state);
-	WFR_DEBUG_ASSERT(code);
-	WFR_DEBUG_ASSERT(md);
-	WFR_DEBUG_ASSERT(subject);
-
-	state->code = code;
-	state->first_match = true;
-	state->last_error = 0;
-	state->length = length;
-	state->md = md;
-	state->ovector = pcre2_get_ovector_pointer(state->md);
-	state->startoffset = 0;
-	state->subject = subject;
-
-	WFR_DEBUG_ASSERT(state->ovector);
-	ZeroMemory(state->ovector, pcre2_get_ovector_count(state->md) * 2 * sizeof(*state->ovector));
-
-	(void)pcre2_pattern_info(state->code, PCRE2_INFO_NEWLINE, &newline);
-	state->crlf_is_newline =
-		   (newline == PCRE2_NEWLINE_ANY)
-		|| (newline == PCRE2_NEWLINE_CRLF)
-		|| (newline == PCRE2_NEWLINE_ANYCRLF);
-}
-
-
 WfrStatus
-WinfrippPcre2GetMatch(
-	WinfrippP2Regex *	regex,
-	bool				alloc_value,
-	int					match_offset,
-	WinfrippP2RType		match_type,
-	wchar_t *			subject,
-	void *				pvalue,
-	size_t *			pvalue_size
+Wfp2GetMatch(
+	Wfp2Regex *		regex,
+	bool			alloc_value,
+	int				match_offset,
+	Wfp2RType		match_type,
+	wchar_t *		subject,
+	void *			pvalue,
+	size_t *		pvalue_size
 	)
 {
-	wchar_t			int_string_buf[sizeof("-2147483647")];
-	const wchar_t *	match_begin, *match_end;
-	size_t			match_size;
-	WfrStatus		status;
-	void *			value_new;
-	size_t			value_new_size;
+	wchar_t				int_string_buf[sizeof("-2147483647")];
+	const wchar_t *		match_begin, *match_end;
+	size_t				match_size;
+	WfrStatus			status;
+	void *				value_new;
+	size_t				value_new_size;
 
-
-	WFR_DEBUG_ASSERT(regex);
-	WFR_DEBUG_ASSERT(regex->ovec);
-	WFR_DEBUG_ASSERT(subject);
-	WFR_DEBUG_ASSERT(pvalue);
 
 	match_offset *= 2;
 	if ((match_offset >= regex->ovecsize)
@@ -95,9 +53,9 @@ WinfrippPcre2GetMatch(
 			status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 			break;
 
-		case WINFRIPP_P2RTYPE_BOOL:
-		case WINFRIPP_P2RTYPE_SINT:
-		case WINFRIPP_P2RTYPE_UINT:
+		case WFP2_RTYPE_BOOL:
+		case WFP2_RTYPE_SINT:
+		case WFP2_RTYPE_UINT:
 			if (match_size < (sizeof(int_string_buf) / sizeof(int_string_buf[0]))) {
 				memcpy(int_string_buf, match_begin, match_size * sizeof(match_begin[0]));
 				int_string_buf[match_size] = L'\0';
@@ -106,7 +64,7 @@ WinfrippPcre2GetMatch(
 				default:
 					break;
 
-				case WINFRIPP_P2RTYPE_BOOL:
+				case WFP2_RTYPE_BOOL:
 					if (alloc_value) {
 						if ((value_new = snew(bool))) {
 							*(bool *)value_new = wcstol(int_string_buf, NULL, 10);
@@ -127,7 +85,7 @@ WinfrippPcre2GetMatch(
 					}
 					break;
 
-				case WINFRIPP_P2RTYPE_SINT:
+				case WFP2_RTYPE_SINT:
 					if (alloc_value) {
 						if ((value_new = snew(signed int))) {
 							*(signed int *)value_new = wcstol(int_string_buf, NULL, 10);
@@ -148,7 +106,7 @@ WinfrippPcre2GetMatch(
 					}
 					break;
 
-				case WINFRIPP_P2RTYPE_UINT:
+				case WFP2_RTYPE_UINT:
 					if (alloc_value) {
 						if ((value_new = snew(unsigned int))) {
 							*(unsigned int *)value_new = wcstoul(int_string_buf, NULL, 10);
@@ -174,7 +132,7 @@ WinfrippPcre2GetMatch(
 			}
 			break;
 
-		case WINFRIPP_P2RTYPE_STRING:
+		case WFP2_RTYPE_STRING:
 			if (alloc_value) {
 				value_new_size = match_size + 1;
 				if ((value_new = snewn(value_new_size + 1, char))) {
@@ -205,8 +163,8 @@ WinfrippPcre2GetMatch(
 }
 
 WfrStatus
-WinfrippPcre2MatchGlobal(
-	WinFrippP2MGState *		state,
+Wfp2MatchGlobal(
+	Wfp2MGState *		state,
 	size_t *				pbegin,
 	size_t *				pend
 	)
@@ -215,15 +173,6 @@ WinfrippPcre2MatchGlobal(
 	PCRE2_SIZE	startchar;
 	WfrStatus	status = WFR_STATUS_PCRE2_ERROR;
 
-
-	WFR_DEBUG_ASSERT(state);
-	WFR_DEBUG_ASSERT(state->code);
-	WFR_DEBUG_ASSERT(state->md);
-	WFR_DEBUG_ASSERT(state->ovector);
-	WFR_DEBUG_ASSERT(state->startoffset < state->length);
-	WFR_DEBUG_ASSERT(state->subject);
-	WFR_DEBUG_ASSERT(pbegin);
-	WFR_DEBUG_ASSERT(pend);
 
 	/*
 	 * If the previous match was for an empty string, we are finished if we are
@@ -319,6 +268,37 @@ out:
 	}
 
 	return status;
+}
+
+
+void
+Wfp2Init(
+	Wfp2MGState *		state,
+	pcre2_code *		code,
+	size_t				length,
+	pcre2_match_data *	md,
+	wchar_t *			subject
+	)
+{
+	uint32_t	newline = 0;
+
+
+	state->code = code;
+	state->first_match = true;
+	state->last_error = 0;
+	state->length = length;
+	state->md = md;
+	state->ovector = pcre2_get_ovector_pointer(state->md);
+	state->startoffset = 0;
+	state->subject = subject;
+
+	ZeroMemory(state->ovector, pcre2_get_ovector_count(state->md) * 2 * sizeof(*state->ovector));
+
+	(void)pcre2_pattern_info(state->code, PCRE2_INFO_NEWLINE, &newline);
+	state->crlf_is_newline =
+		   (newline == PCRE2_NEWLINE_ANY)
+		|| (newline == PCRE2_NEWLINE_CRLF)
+		|| (newline == PCRE2_NEWLINE_ANYCRLF);
 }
 
 /*

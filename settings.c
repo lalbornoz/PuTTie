@@ -656,7 +656,7 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
     write_setting_b(sesskey, "SunkenEdge", conf_get_bool(conf, CONF_sunken_edge));
     write_setting_i(sesskey, "WindowBorder", conf_get_int(conf, CONF_window_border));
     /* {{{ winfrip */
-    WINFRIP_SAVE_OPEN_SETTINGS(sesskey, conf);
+    WF_SAVE_OPEN_SETTINGS(sesskey, conf);
     /* winfrip }}} */
     write_setting_i(sesskey, "CurType", conf_get_int(conf, CONF_cursor_type));
     write_setting_b(sesskey, "BlinkCur", conf_get_bool(conf, CONF_blink_cur));
@@ -1091,7 +1091,7 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
     gppb(sesskey, "SunkenEdge", false, conf, CONF_sunken_edge);
     gppi(sesskey, "WindowBorder", 1, conf, CONF_window_border);
     /* {{{ winfrip */
-    WINFRIP_LOAD_OPEN_SETTINGS(sesskey, conf);
+    WF_LOAD_OPEN_SETTINGS(sesskey, conf);
     /* winfrip }}} */
     gppi(sesskey, "CurType", 0, conf, CONF_cursor_type);
     gppb(sesskey, "BlinkCur", false, conf, CONF_blink_cur);

@@ -1,6 +1,6 @@
 /*
  * winfrip_putty_config.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_PUTTY_CONFIG_H
@@ -11,7 +11,7 @@
  * config.c:setup_config_box()
  */
 
-void winfrip_config_panel(struct controlbox *b);
+void WfConfigPanel(struct controlbox *b);
 
 #endif // !PUTTY_WINFRIP_PUTTY_CONFIG_H
 
