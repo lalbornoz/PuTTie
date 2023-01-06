@@ -94,7 +94,12 @@ build_clean() {
 build_configure() {
 	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
 			_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-			_tflag="${9}";
+			_tflag="${9}"													\
+			_git_branch="" _git_commit="" _version_ssh="" _version_text="";
+
+	_git_branch="$(git branch --show-current)" || exit 2;
+	_git_commit="$(git rev-parse --short HEAD)" || exit 2;
+	_version_text="PuTTie ${_build_type} build (Git commit ${_git_commit} on branch ${_git_branch})";
 
 	if ! [ -e PuTTie/pcre2@master/CMakeCache.txt ]\
 	|| ! [ -e PuTTie/pcre2@master/CMakeFiles/ ]; then
@@ -131,6 +136,8 @@ build_configure() {
 	|| ! [ -e windows/CMakeCache.txt ]\
 	|| ! [ -e windows/CMakeFiles/ ]; then
 		"${CMAKE}" . \
+			-DBUILD_SSH_VERSION="${_version_ssh}"							\
+			-DBUILD_TEXT_VERSION="${_version_text}"							\
 			-DCMAKE_BUILD_TYPE="${_build_type}"								\
 			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -DWINFRIP_DEBUG -g3 -O0"			\
 			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"								\

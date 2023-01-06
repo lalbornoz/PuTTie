@@ -1,7 +1,15 @@
 #include "rcstuff.h"
 #include "putty-rc.h"
 
+/* {{{ winfrip */
+#if 1
+#define APPNAME "PuTTie"
+#else
+/* winfrip }}} */
 #define APPNAME "PuTTY"
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 #define APPDESC "SSH, Telnet, Rlogin, and SUPDUP client"
 
 IDI_MAINICON ICON "putty.ico"

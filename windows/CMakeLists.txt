@@ -98,6 +98,15 @@ if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
   set(DEFAULT_STORAGE_BACKEND "WFS_BACKEND_REGISTRY")
 endif()
 set_property(SOURCE ../PuTTie/winfrip_storage.c APPEND_STRING PROPERTY COMPILE_FLAGS " -DWFS_DEFAULT_STORAGE_BACKEND=${DEFAULT_STORAGE_BACKEND}")
+
+if ("${BUILD_SSH_VERSION}" STREQUAL "")
+  set(BUILD_SSH_VERSION "-Unidentified-Local-Build")
+endif()
+if ("${BUILD_TEXT_VERSION}" STREQUAL "")
+  set(BUILD_TEXT_VERSION "Unidentified build")
+endif()
+set_property(SOURCE utils/version.c APPEND_STRING PROPERTY COMPILE_FLAGS " -DSSHVER=\"\\\"${BUILD_SSH_VERSION}\\\"\" -DTEXTVER=\"\\\"${BUILD_TEXT_VERSION}\\\"\"")
+
 endif()
 # winfrip }}}
 
@@ -171,7 +180,7 @@ set_property(TARGET putty APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_storage_tree.c)
 endif()
 # winfrip }}}
-be_list(putty PuTTY SSH SERIAL OTHERBACKENDS)
+be_list(putty PuTTie SSH SERIAL OTHERBACKENDS)
 add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
   guiterminal guimisc eventloop sshclient otherbackends settings network crypto

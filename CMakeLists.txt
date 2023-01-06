@@ -129,6 +129,15 @@ if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
   set(DEFAULT_STORAGE_BACKEND "WFS_BACKEND_REGISTRY")
 endif()
 set_property(SOURCE PuTTie/winfrip_storage.c APPEND_STRING PROPERTY COMPILE_FLAGS " -DWFS_DEFAULT_STORAGE_BACKEND=${DEFAULT_STORAGE_BACKEND}")
+
+if ("${BUILD_SSH_VERSION}" STREQUAL "")
+  set(BUILD_SSH_VERSION "-Unidentified-Local-Build")
+endif()
+if ("${BUILD_TEXT_VERSION}" STREQUAL "")
+  set(BUILD_TEXT_VERSION "Unidentified build")
+endif()
+set_property(SOURCE utils/version.c APPEND_STRING PROPERTY COMPILE_FLAGS " -DSSHVER=\"\\\"${BUILD_SSH_VERSION}\\\"\" -DTEXTVER=\"\\\"${BUILD_TEXT_VERSION}\\\"\"")
+
 endif()
 # winfrip }}}
 
