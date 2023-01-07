@@ -483,6 +483,12 @@ WfsDeleteHostKey(
 			status = WfspTreeDelete(
 					backend_impl->tree_host_key, NULL,
 					key_name, WFSP_TREE_ITYPE_HOST_KEY);
+
+			if ((WFR_STATUS_CONDITION(status) == ENOENT)
+			&&  delete_in_backend)
+			{
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
 		}
 	}
 
@@ -895,6 +901,12 @@ WfsDeleteSession(
 						backend_impl->tree_session,
 						NULL, sessionname,
 						WFSP_TREE_ITYPE_SESSION);
+
+			if ((WFR_STATUS_CONDITION(status) == ENOENT)
+			&&  delete_in_backend)
+			{
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
 		}
 	}
 
