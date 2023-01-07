@@ -211,7 +211,15 @@ Conf *conf_new(void)
     return conf;
 }
 
+/* {{{ winfrip */
+#if 1
+void conf_clear(Conf *conf)
+#else
+/* winfrip }}} */
 static void conf_clear(Conf *conf)
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 {
     struct conf_entry *entry;
 

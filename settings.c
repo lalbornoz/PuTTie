@@ -796,10 +796,17 @@ void save_open_settings(settings_w *sesskey, Conf *conf)
     write_setting_b(sesskey, "SUPDUPScrolling", conf_get_bool(conf, CONF_supdup_scroll));
 }
 
+/* {{{ winfrip */
+void conf_clear(Conf *conf);
+/* winfrip }}} */
+
 bool load_settings(const char *section, Conf *conf)
 {
     settings_r *sesskey;
 
+    /* {{{ winfrip */
+    conf_clear(conf);
+    /* winfrip }}} */
     sesskey = open_settings_r(section);
     bool exists = (sesskey != NULL);
     load_open_settings(sesskey, conf);
