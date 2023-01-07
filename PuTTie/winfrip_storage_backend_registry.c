@@ -126,6 +126,9 @@ WfsppRegistryEnumerateValues(
 	donefl = false;
 	enum_state = (WfspRegistryEnumerateState *)state;
 	status = WFR_STATUS_CONDITION_SUCCESS;
+	if (*pdonefl) {
+		return status;
+	}
 
 	if (!(item_data = snewn(1, char))) {
 		status = WFR_STATUS_FROM_ERRNO();
@@ -152,6 +155,7 @@ WfsppRegistryEnumerateValues(
 				break;
 
 			case ERROR_NO_MORE_ITEMS:
+				sfree(item_data);
 				donefl = true; *pdonefl = true;
 				status = WFR_STATUS_CONDITION_SUCCESS;
 
