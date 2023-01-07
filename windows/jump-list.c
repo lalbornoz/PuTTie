@@ -588,6 +588,15 @@ static void update_jumplist_from_registry(void)
     pCDL->lpVtbl->AppendCategory(pCDL, L"Recent Sessions", array);
 
     /*
+     * Now we can clean up the array and collection variables, so as
+     * to be able to reuse them.
+     */
+    array->lpVtbl->Release(array);
+    array = NULL;
+    collection->lpVtbl->Release(collection);
+    collection = NULL;
+
+    /*
      * Create an object collection to form the 'Tasks' category on the
      * jump list.
      */
