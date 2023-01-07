@@ -705,9 +705,12 @@ WfspFileEnumerateSessions(
 			if (!(sessionname = strdup(fname))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
-				*pdonefl = false;
 				sessionname[sessionname_len] = '\0';
 				status = WfsppFileNameUnescape(sessionname, (const char **)psessionname);
+				sfree(sessionname);
+				if (WFR_STATUS_SUCCESS(status)) {
+					*pdonefl = false;
+				}
 			}
 			goto out;
 		}
