@@ -106,7 +106,7 @@ WfspTreeClear(
 	WfrStatus		status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-	WFSP_TREE234_FOREACH(status, *tree, idx, item) {
+    while ((item = delpos234(*tree, 0)) != NULL) {
 		WfsppTreeFreeItem(item);
 		sfree(item);
 	}
