@@ -168,6 +168,7 @@ WfspSetBackendFromArg(
 				*psetfl = true;
 				*pbackend = *pbackend_from = backend;
 				status = WFR_STATUS_CONDITION_SUCCESS;
+				break;
 			}
 		}
 	} while (WFR_STATUS_SUCCESS(status) && WfsGetBackendNext(&backend));
@@ -188,6 +189,7 @@ WfspSetBackendFromArg(
 					*pbackend_from = backend;
 					*psetfl = true;
 					status = WFR_STATUS_CONDITION_SUCCESS;
+					break;
 				}
 			}
 		} while (WFR_STATUS_SUCCESS(status) && WfsGetBackendNext(&backend));
@@ -364,7 +366,7 @@ WfsSetBackendFromArgV(
 			if (!(argv_new_ = sresize(argv_new, argc_new, char *))) {
 				status = WFR_STATUS_FROM_ERRNO();
 				sfree(argv_new);
-			} else if (WFR_STATUS_FAILURE(status = WfsSetBackend(backend, backend_from, false))) {
+			} else if (WFR_STATUS_FAILURE(status = WfsSetBackend(backend, backend_from, true))) {
 				sfree(argv_new);
 			} else {
 				argv_new = argv_new_;
@@ -425,7 +427,7 @@ WfsSetBackendFromCmdLine(
 	}
 
 	if (WFR_STATUS_SUCCESS(status)) {
-		status = WfsSetBackend(backend, backend_from, false);
+		status = WfsSetBackend(backend, backend_from, true);
 		if (WFR_STATUS_SUCCESS(status)) {
 			WfspLastBackend = backend; WfspLastBackendFrom = backend_from;
 		}
@@ -557,6 +559,7 @@ WfsExportHostKey(
 	return status;
 }
 
+// FIXME TODO XXX continue on error
 WfrStatus
 WfsExportHostKeys(
 	WfsBackend	backend_from,
@@ -968,6 +971,7 @@ WfsExportSession(
 	return status;
 }
 
+// FIXME TODO XXX continue on error
 WfrStatus
 WfsExportSessions(
 	WfsBackend	backend_from,
