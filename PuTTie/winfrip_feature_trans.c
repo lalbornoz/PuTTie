@@ -45,8 +45,8 @@ typedef enum WfftpSetting {
  * Private subroutine prototypes
  */
 
-static void WfftpConfigPanelOpaque(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static void WfftpConfigPanelSetting(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void		WfftpConfigPanelOpaque(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void		WfftpConfigPanelSetting(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 /*
  * Private subroutines

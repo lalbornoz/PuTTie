@@ -115,8 +115,8 @@ WffgpSysTrayWmOther(
 	LPARAM	lParam
 	)
 {
-	POINT pt;
-	HMENU systray_menu;
+	POINT	pt;
+	HMENU	systray_menu;
 
 
 	switch (lParam) {
@@ -149,7 +149,7 @@ WffGeneralConfigPanel(
 	struct controlbox *		b
 	)
 {
-	struct controlset *s;
+	struct controlset *		s;
 
 
 	/*

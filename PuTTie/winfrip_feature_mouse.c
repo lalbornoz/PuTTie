@@ -22,7 +22,7 @@ WffMouseConfigPanel(
 	struct controlbox *		b
 	)
 {
-	struct controlset *	s;
+	struct controlset *		s;
 
 
 	/*

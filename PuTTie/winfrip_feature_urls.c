@@ -128,11 +128,11 @@ WffupGet(
 	int			y
 	)
 {
-	bool				breakfl = false;
-	wchar_t *			line_w;
-	size_t				line_w_len;
-	size_t				match_begin, match_end, match_len;
-	Wfp2MGState			pcre2_state;
+	bool			breakfl = false;
+	wchar_t *		line_w;
+	size_t			line_w_len;
+	size_t			match_begin, match_end, match_len;
+	Wfp2MGState		pcre2_state;
 
 
 	/*
@@ -167,12 +167,13 @@ WffupGet(
 	 */
 
 	do {
-		switch (WFR_STATUS_CONDITION(
-					Wfp2MatchGlobal(&pcre2_state, &match_begin, &match_end)))
+		switch (WFR_STATUS_CONDITION(Wfp2MatchGlobal(
+						&pcre2_state, &match_begin, &match_end)))
 		{
 		case WFR_STATUS_CONDITION_PCRE2_ERROR:
 			WFR_DEBUGF("error %d trying to match any URL(s) in line `%S'", pcre2_state.last_error, line_w);
 			breakfl = true; break;
+
 		case WFR_STATUS_CONDITION_PCRE2_NO_MATCH:
 			breakfl = true; break;
 
@@ -188,6 +189,7 @@ WffupGet(
 		case WFR_STATUS_CONDITION_PCRE2_DONE:
 			breakfl = true;
 #pragma GCC diagnostic pop
+
 		case WFR_STATUS_CONDITION_PCRE2_CONTINUE:
 			if (((size_t)x >= match_begin) && ((size_t)x <= match_end)) {
 				match_len = match_end - match_begin;
@@ -588,7 +590,7 @@ WffUrlsConfigPanel(
 	struct controlbox *		b
 	)
 {
-	struct controlset *s_browser, *s_input, *s_re, *s_visual;
+	struct controlset *		s_browser, *s_input, *s_re, *s_visual;
 
 
 	/*
