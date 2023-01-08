@@ -162,7 +162,7 @@ WffbpConfigPanelSlideshow(
 	case EVENT_VALCHANGE:
 		conf_set_int(conf, CONF_frip_bgimg_slideshow,
 					 dlg_listbox_getid(ctrl, dlg,
-									   dlg_listbox_index(ctrl, dlg)));
+					 dlg_listbox_index(ctrl, dlg)));
 		break;
 	}
 }
@@ -209,7 +209,7 @@ WffbpConfigPanelStyle(
 	case EVENT_VALCHANGE:
 		conf_set_int(conf, CONF_frip_bgimg_style,
 					 dlg_listbox_getid(ctrl, dlg,
-									   dlg_listbox_index(ctrl, dlg)));
+					 dlg_listbox_index(ctrl, dlg)));
 		break;
 	}
 }
@@ -247,7 +247,7 @@ WffbpConfigPanelType(
 	case EVENT_VALCHANGE:
 		conf_set_int(conf, CONF_frip_bgimg_type,
 					 dlg_listbox_getid(ctrl, dlg,
-									   dlg_listbox_index(ctrl, dlg)));
+					 dlg_listbox_index(ctrl, dlg)));
 		break;
 	}
 }
@@ -695,22 +695,22 @@ WffbpSlideshowReconf(
 	Conf *	conf
 	)
 {
-	char *					bg_dname;
-	Filename *				bg_dname_conf;
-	size_t					bg_dname_len;
+	char *				bg_dname;
+	Filename *			bg_dname_conf;
+	size_t				bg_dname_len;
 
-	size_t					bg_fname_len;
+	size_t				bg_fname_len;
 
-	size_t					dname_filec_new = 0;
-	char **					dname_filev_new = NULL;
+	size_t				dname_filec_new = 0;
+	char **				dname_filev_new = NULL;
 
-	char *					dname_new = NULL;
-	WIN32_FIND_DATA			dname_new_ffd;
-	HANDLE					dname_new_hFind = INVALID_HANDLE_VALUE;
+	char *				dname_new = NULL;
+	WIN32_FIND_DATA		dname_new_ffd;
+	HANDLE				dname_new_hFind = INVALID_HANDLE_VALUE;
 
-	char *					p, **pp;
+	char *				p, **pp;
 
-	WffbpContext *	timer_ctx_new = NULL;
+	WffbpContext *		timer_ctx_new = NULL;
 
 
 	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
@@ -888,7 +888,7 @@ WffbpTimerFunction(
 	)
 {
 	WffbpContext *	context = (WffbpContext *)ctx;
-	HDC						hDC;
+	HDC				hDC;
 
 
 	(void)now;
@@ -979,13 +979,21 @@ WffBgImgOperation(
 	int			y
 	)
 {
+	Filename *	bg_fname_conf;
 	HDC			hdc;
 	WfReturn	rc;
 
 
 	if (conf_get_int(conf, CONF_frip_bgimg_type) != WFFBP_TYPE_IMAGE) {
-		return WF_RETURN_NOOP;
-	} else if (hdc_in) {
+		return WF_RETURN_CONTINUE;
+	}
+	if (!(bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename))) {
+		return WF_RETURN_CONTINUE;
+	} else if (!bg_fname_conf->path || (strlen(bg_fname_conf->path) == 0)) {
+		return WF_RETURN_CONTINUE;
+	}
+
+	if (hdc_in) {
 		hdc = hdc_in;
 	} else if (!hdc_in) {
 		hdc = GetDC(hwnd);

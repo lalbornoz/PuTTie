@@ -164,9 +164,9 @@ Wfp2GetMatch(
 
 WfrStatus
 Wfp2MatchGlobal(
-	Wfp2MGState *		state,
-	size_t *				pbegin,
-	size_t *				pend
+	Wfp2MGState *	state,
+	size_t *		pbegin,
+	size_t *		pend
 	)
 {
 	uint32_t	options = 0;
