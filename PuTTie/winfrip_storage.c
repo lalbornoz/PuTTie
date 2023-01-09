@@ -516,7 +516,7 @@ WfsEnumerateHostKeys(
 	void *			state
 	)
 {
-	WfspBackend *	backend_impl;
+	WfspBackend *	backend_impl = NULL;
 	WfspTreeItem *	item;
 	WfrStatus		status;
 
