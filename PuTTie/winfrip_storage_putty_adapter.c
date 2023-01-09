@@ -145,7 +145,7 @@ open_settings_w(
 	if (WFR_STATUS_SUCCESS(status)) {
 		return (settings_w *)session;
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX("opening session", status);
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session");
 		return NULL;
 	}
 }
@@ -313,7 +313,7 @@ close_settings_w(
 
 	session = (WfspSession *)handle;
 	status = WfsSaveSession(WfsGetBackend(), session);
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("closing session", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session");
 }
 
 /*
@@ -355,7 +355,7 @@ open_settings_r(
 	if (WFR_STATUS_SUCCESS(status)) {
 		return (settings_r *)session;
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX("opening session (read-only)", status);
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session (read-only)");
 		return NULL;
 	}
 }
@@ -548,7 +548,7 @@ close_settings_r(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("closing session (read-only)", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session (read-only)");
 }
 
 /*
@@ -564,7 +564,7 @@ del_settings(
 
 
 	status = WfsDeleteSession(WfsGetBackend(), false, sessionname);
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("deleting session", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting session");
 }
 
 /*
@@ -586,7 +586,7 @@ enum_settings_start(
 	{
 		return handle;
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX("enumerating sessions", status);
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating sessions");
 		return NULL;
 	}
 }
@@ -609,7 +609,7 @@ enum_settings_next(
 
 	if (WFR_STATUS_FAILURE(status) || donefl) {
 		if (WFR_STATUS_FAILURE(status)) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX("enumerating sessions", status);
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating sessions");
 		}
 		return false;
 	} else {
@@ -669,7 +669,7 @@ check_stored_host_key(
 			return 1;
 		}
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX("checking stored host key", status);
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "checking stored host key");
 		return 1;
 	}
 }
@@ -708,7 +708,7 @@ store_host_key(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("storing host key", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "storing host key");
 }
 
 /* ----------------------------------------------------------------------

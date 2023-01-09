@@ -13,17 +13,35 @@
  * Public macros private to PuTTie/winfrip*.c
  */
 
-#define WFR_IF_STATUS_FAILURE_MESSAGEBOX(context, status)						\
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1(context, status, "PuTTie")
-#define WFR_IF_STATUS_FAILURE_MESSAGEBOX1(context, status, title)				\
+#define WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, fmt, ...)						\
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("PuTTie", (status), fmt, ## __VA_ARGS__)
+#define WFR_IF_STATUS_FAILURE_MESSAGEBOX1(caption, status, fmt, ...)			\
 		if (WFR_STATUS_FAILURE((status))) {										\
-			MessageBox(															\
-				NULL, WfrStatusToErrorMessage((context), (status)), (title),	\
-				MB_ICONERROR | MB_OK | MB_DEFBUTTON1);							\
+			(void)WfrMessageBoxF(												\
+					(caption), MB_ICONERROR | MB_OK | MB_DEFBUTTON1,			\
+					fmt ": %s",	## __VA_ARGS__,									\
+					WfrStatusToErrorMessage((status)));							\
 		}
 
 #define WFR_INTCMP(i1, i2)														\
 		(((i1) < (i2)) ? -1 : ((i1) > (i2)) ? 1 : 0)
+
+#define WFR_LAMBDA(type, fn) ({													\
+		type __fn__ fn															\
+			__fn__;																\
+	})
+
+#define WFR_MAX(a, b) ({														\
+		__typeof__ (a) _a = (a);												\
+		__typeof__ (b) _b = (b);												\
+		_a > _b ? _a : _b;														\
+	})
+
+#define WFR_MIN(a, b) ({														\
+		__typeof__ (a) _a = (a);												\
+		__typeof__ (b) _b = (b);												\
+		_a < _b ? _a : _b;														\
+	})
 
 #define WFR_SFREE_IF_NOTNULL(p)													\
 		if ((p) != NULL) {														\
@@ -57,8 +75,9 @@
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
 
+int WfrMessageBoxF(const char *lpCaption, unsigned int uType, const char *format, ...);
 WfrStatus WfrSnDuprintf(char **restrict ps, size_t *pn, const char *restrict format, ...);
-const char *WfrStatusToErrorMessage(const char *context, WfrStatus status);
+const char *WfrStatusToErrorMessage(WfrStatus status);
 WfrStatus WfrToWcsDup(char *in, size_t in_size, wchar_t **pout_w);
 wchar_t *WfrWcsNDup(const wchar_t *in_w, size_t in_w_len);
 

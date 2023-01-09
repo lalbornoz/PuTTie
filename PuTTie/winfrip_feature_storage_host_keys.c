@@ -150,7 +150,7 @@ WffspClearHostKeys(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("clearing host keys", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "clearing host keys");
 
 	return status;
 }
@@ -164,7 +164,7 @@ WffspDeleteHostKey(
 {
 	WfsBackend				backend, backend_from, backend_to;
 	WffspConfigDirection	dir;
-	char *					key_name;
+	char *					key_name = NULL;
 	int						nhost_key;
 	WfrStatus				status;
 
@@ -189,7 +189,7 @@ WffspDeleteHostKey(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("deleting host key", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting host key %s", key_name);
 
 	return status;
 }
@@ -219,9 +219,11 @@ WffspExportHostKey(
 			if (dlg_listbox_issel(ctx->listbox[WFFSP_CDIR_FROM], dlg, index)) {
 				nhost_key = dlg_listbox_getid(ctx->listbox[WFFSP_CDIR_FROM], dlg, index);
 				key_name = ctx->itemv[WFFSP_CDIR_FROM][nhost_key];
+
 				status = WfsExportHostKey(backend_from, backend_to, movefl, key_name);
 				if (WFR_STATUS_FAILURE(status)) {
-					break;
+					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host key %s", key_name);
+					status = WFR_STATUS_CONDITION_SUCCESS;
 				}
 			}
 		}
@@ -238,7 +240,7 @@ WffspExportHostKey(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("exporting host key", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host keys");
 
 	return status;
 }
@@ -252,7 +254,7 @@ WffspRenameHostKey(
 {
 	WfsBackend				backend, backend_from, backend_to;
 	WffspConfigDirection	dir;
-	char *					key_name, *key_name_new = NULL;
+	char *					key_name = NULL, *key_name_new = NULL;
 	int						nhost_key;
 	WfrStatus				status;
 
@@ -284,7 +286,7 @@ WffspRenameHostKey(
 		sfree(key_name_new);
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("renaming host key", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "renaming host key %s", key_name);
 
 	return status;
 }
@@ -333,7 +335,7 @@ WffspRefreshHostKeys(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("refreshing host key list", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "refreshing host key list");
 
 	return status;
 }
@@ -371,7 +373,7 @@ WffspSelectHostKey(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("selecting host key", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "selecting host key");
 
 	return status;
 }
@@ -497,7 +499,7 @@ WffspConfigUpdateHostKeys(
 		sfree(enum_state);
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("updating host key list", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "updating host key list");
 
 	return status;
 }

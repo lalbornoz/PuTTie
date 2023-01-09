@@ -20,6 +20,26 @@
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
+int
+WfrMessageBoxF(
+	const char *	lpCaption,
+	unsigned int	uType,
+	const char *	format,
+					...
+	)
+{
+	va_list			ap;
+	static char		msg_buf[255];
+
+
+	va_start(ap, format);
+	(void)vsnprintf(msg_buf, sizeof(msg_buf), format, ap);
+	va_end(ap);
+	msg_buf[sizeof(msg_buf) - 1] = '\0';
+
+	return MessageBox(NULL, msg_buf, lpCaption, uType);
+}
+
 WfrStatus
 WfrSnDuprintf(
 	char **restrict			ps,
@@ -73,8 +93,7 @@ WfrSnDuprintf(
 
 const char *
 WfrStatusToErrorMessage(
-	const char *	context,
-	WfrStatus		status
+	WfrStatus	status
 	)
 {
 	static char		condition_msg[128];
@@ -117,9 +136,8 @@ WfrStatusToErrorMessage(
 
 	WFR_SNPRINTF(
 			error_msg, sizeof(error_msg),
-			"Error %s in %s:%d: %s",
-			context, status.file, status.line,
-			condition_msg);
+			"Error in %s:%d: %s",
+			status.file, status.line, condition_msg);
 
 	return error_msg;
 }
