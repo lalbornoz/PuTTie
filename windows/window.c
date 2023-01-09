@@ -2334,7 +2334,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 WfrStatus status;
 
                 status = WfsGetBackendArgString(&backend_arg_string);
-                WFR_IF_STATUS_FAILURE_MESSAGEBOX("getting backend argument string", status);
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend argument string");
             #if 1
                 cl = dupprintf("putty%s%s%s &%p:%u",
                                argprefix,
@@ -2358,7 +2358,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                     WfrStatus status;
 
                     status = WfsGetBackendArgString(&backend_arg_string);
-                    WFR_IF_STATUS_FAILURE_MESSAGEBOX("getting backend argument string", status);
+                    WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend argument string");
                 #if 1
                     cl = dupprintf("putty%s%s%s @%s",
                                    argprefix,
@@ -2381,7 +2381,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 WfrStatus status;
 
                 status = WfsGetBackendArgString(&backend_arg_string);
-                WFR_IF_STATUS_FAILURE_MESSAGEBOX("getting backend argument string", status);
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend argument string");
                 cl = dupprintf("putty%s%s%s%s",
                                *argprefix ? " " : "",
                                argprefix,

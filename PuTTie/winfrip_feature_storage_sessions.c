@@ -151,7 +151,7 @@ WffspClearSessions(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("clearing sessions", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "clearing sessions");
 
 	return status;
 }
@@ -165,7 +165,8 @@ WffspDeleteSession(
 {
 	WfsBackend				backend, backend_from, backend_to;
 	WffspConfigDirection	dir;
-	int						nsession;
+	int						nsession = -1;
+	char *					sessionname = NULL;
 	WfrStatus				status;
 
 
@@ -174,9 +175,10 @@ WffspDeleteSession(
 	backend_from = WFFSP_CONFIG_GET_BACKEND(ctx, WFFSP_CDIR_FROM, dlg);
 	backend_to = WFFSP_CONFIG_GET_BACKEND(ctx, WFFSP_CDIR_TO, dlg);
 
-	if (WFR_STATUS_SUCCESS(status = WFFSP_CONFIG_GET_NSESSION(ctx, dir, dlg, nsession))
-	&&  WFR_STATUS_SUCCESS(status = WfsDeleteSession(backend, true, ctx->itemv[dir][nsession])))
-	{
+	if (WFR_STATUS_SUCCESS(status = WFFSP_CONFIG_GET_NSESSION(ctx, dir, dlg, nsession))) {
+		sessionname = ctx->itemv[dir][nsession];
+		status = WfsDeleteSession(backend, true, sessionname);
+
 		if (backend_from == backend_to) {
 			if (WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_FROM, dlg, true))
 			&&  WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_TO, dlg, true)))
@@ -188,7 +190,7 @@ WffspDeleteSession(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("deleting session", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting session %s", sessionname);
 
 	return status;
 }
@@ -221,7 +223,8 @@ WffspExportSession(
 
 				status = WfsExportSession(backend_from, backend_to, movefl, sessionname);
 				if (WFR_STATUS_FAILURE(status)) {
-					break;
+					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting session %s", sessionname);
+					status = WFR_STATUS_CONDITION_SUCCESS;
 				}
 			}
 		}
@@ -234,11 +237,11 @@ WffspExportSession(
 				status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_TO, dlg, true);
 			}
 		}
+
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting sessions");
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
-
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("exporting session", status);
 
 	return status;
 }
@@ -253,7 +256,7 @@ WffspRenameSession(
 	WfsBackend				backend, backend_from, backend_to;
 	WffspConfigDirection	dir;
 	int						nsession;
-	char *					sessionname_new;
+	char *					sessionname = NULL, *sessionname_new;
 	WfrStatus				status;
 
 
@@ -263,23 +266,28 @@ WffspRenameSession(
 	backend_to = WFFSP_CONFIG_GET_BACKEND(ctx, WFFSP_CDIR_TO, dlg);
 	sessionname_new = dlg_editbox_get(ctx->editbox[dir], dlg);
 
-	if (WFR_STATUS_SUCCESS(status = WFFSP_CONFIG_GET_NSESSION(ctx, dir, dlg, nsession))
-	&&  WFR_STATUS_SUCCESS(status = WfsRenameSession(backend, true, ctx->itemv[dir][nsession], sessionname_new)))
-	{
-		if (backend_from == backend_to) {
-			if (WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_FROM, dlg, true))
-			&&  WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_TO, dlg, true)))
-			{
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
+	if (WFR_STATUS_SUCCESS(status = WFFSP_CONFIG_GET_NSESSION(ctx, dir, dlg, nsession))) {
+		sessionname = ctx->itemv[dir][nsession];
+
+		status = WfsRenameSession(backend, true, sessionname, sessionname_new);
+		if (WFR_STATUS_FAILURE(status)) {
+			sfree(sessionname_new);
 		} else {
-			status = WffspConfigUpdateSessions(ctx, dir, dlg, true);
+			if (backend_from == backend_to) {
+				if (WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_FROM, dlg, true))
+				&&  WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_TO, dlg, true)))
+				{
+					status = WFR_STATUS_CONDITION_SUCCESS;
+				}
+			} else {
+				status = WffspConfigUpdateSessions(ctx, dir, dlg, true);
+			}
 		}
+	} else {
+		sfree(sessionname_new);
 	}
 
-	sfree(sessionname_new);
-
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("renaming session", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "renaming session %s", sessionname);
 
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
@@ -328,7 +336,7 @@ WffspRefreshSessions(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("refreshing session list", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "refreshing session list");
 
 	return status;
 }
@@ -366,7 +374,7 @@ WffspSelectSession(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("selecting session", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "selecting session");
 
 	return status;
 }
@@ -486,7 +494,7 @@ WffspConfigUpdateSessions(
 		sfree(enum_state);
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX("updating session list", status);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "updating session list");
 
 	return status;
 }
@@ -600,7 +608,7 @@ WffsSessionsConfigPanelDroplistBackendHandler(
 		dlg_listbox_select(ctrl, dlg, WfsGetBackend());
 		dlg_update_done(ctrl, dlg);
 
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX("updating backends list", status);
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "updating backends list");
 
 		break;
 
@@ -610,7 +618,7 @@ WffsSessionsConfigPanelDroplistBackendHandler(
 		status = WfsSetBackend(id, id, false);
 		ctrl_sessionsaver->handler(ctrl_sessionsaver, dlg, data, EVENT_REFRESH);
 
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX("setting backend", status);
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "setting backend");
 
 		break;
 	}

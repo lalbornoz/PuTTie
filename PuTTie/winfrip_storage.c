@@ -297,6 +297,17 @@ WfsSetBackend(
 	bool		reset
 	)
 {
+	void			(*error_fn_host_key)(const char *, WfrStatus) =
+		WFR_LAMBDA(void, (const char *key_name, WfrStatus status) {
+			(void)key_name;
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host key %s", key_name);
+		});
+	void			(*error_fn_session)(const char *, WfrStatus) =
+		WFR_LAMBDA(void, (const char *sessionname, WfrStatus status) {
+			(void)sessionname;
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting session %s", sessionname);
+		});
+
 	WfspBackend *	new_backend_impl;
 	WfrStatus		status;
 
@@ -309,8 +320,8 @@ WfsSetBackend(
 			if ((new_backend_from != new_backend)
 			&&  WFR_STATUS_SUCCESS(status))
 			{
-				if (WFR_STATUS_SUCCESS(status = WfsExportSessions(new_backend_from, new_backend, true))
-				&&  WFR_STATUS_SUCCESS(status = WfsExportHostKeys(new_backend_from, new_backend, true)))
+				if (WFR_STATUS_SUCCESS(status = WfsExportSessions(new_backend_from, new_backend, true, true, error_fn_session))
+				&&  WFR_STATUS_SUCCESS(status = WfsExportHostKeys(new_backend_from, new_backend, true, true, error_fn_host_key)))
 				{
 					status = WFR_STATUS_CONDITION_SUCCESS;
 				}
@@ -565,12 +576,13 @@ WfsExportHostKey(
 	return status;
 }
 
-// FIXME TODO XXX continue on error
 WfrStatus
 WfsExportHostKeys(
 	WfsBackend	backend_from,
 	WfsBackend	backend_to,
-	bool		clear_to
+	bool		clear_to,
+	bool		continue_on_error,
+	void		(*error_fn)(const char *, WfrStatus)
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
@@ -595,6 +607,7 @@ WfsExportHostKeys(
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		do {
+			key_name = NULL;
 			status = WfsEnumerateHostKeys(
 					backend_from, false, false,
 					&donefl, &key_name, enum_state);
@@ -604,7 +617,15 @@ WfsExportHostKeys(
 							backend_from, backend_to,
 							false, key_name);
 			}
-		} while(!donefl && WFR_STATUS_SUCCESS(status));
+
+			if (WFR_STATUS_FAILURE(status)) {
+				error_fn(key_name, status);
+			}
+		} while(!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
+	}
+
+	if (WFR_STATUS_FAILURE(status) && continue_on_error) {
+		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
 	if (WFR_STATUS_FAILURE(status)) {
@@ -983,12 +1004,13 @@ WfsExportSession(
 	return status;
 }
 
-// FIXME TODO XXX continue on error
 WfrStatus
 WfsExportSessions(
 	WfsBackend	backend_from,
 	WfsBackend	backend_to,
-	bool		clear_to
+	bool		clear_to,
+	bool		continue_on_error,
+	void		(*error_fn)(const char *, WfrStatus)
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
@@ -1012,15 +1034,25 @@ WfsExportSessions(
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		do {
+			sessionname = NULL;
 			status = WfsEnumerateSessions(
 					backend_from, false, false,
 					&donefl, &sessionname, enum_state);
+
 			if (WFR_STATUS_SUCCESS(status) && sessionname) {
 				status = WfsExportSession(
 							backend_from, backend_to,
 							false, sessionname);
 			}
-		} while(!donefl && WFR_STATUS_SUCCESS(status));
+
+			if (WFR_STATUS_FAILURE(status)) {
+				error_fn(sessionname, status);
+			}
+		} while(!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
+	}
+
+	if (WFR_STATUS_FAILURE(status) && continue_on_error) {
+		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
 	if (WFR_STATUS_FAILURE(status)) {
