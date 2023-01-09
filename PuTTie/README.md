@@ -55,7 +55,9 @@ you should use PuTTie:
    \<Ctrl\>, \<Alt\>, \<RightAlt|AltGr\>, \<RightCtrl\>,
    and optionally as well as additionally \<Shift\> or \<RightShift\>  
    Configurable underline and/or reverse video on highlight/click, resp. behaviour  
-   Regular expressions may contain/match on whitespaces, etc. pp.
+   Regular expressions may contain/match on whitespaces, etc. pp.  
+   Extend/shrink URL selection for URLs spanning multiple lines prior to opening URL
+   with mouse wheel and configurable (defaults to \<Alt\>) modifier key
 4. **Change font size with \<Ctrl\> + \<Mouse wheel\>**, similarly to the mintty[[7](#r7)] and PuTTYTray[[11](#r11)] implementations  
 5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation
 6. **Minimise to system tray[[2](#r2)]**, similarly to[[11](#r11)]
@@ -116,7 +118,6 @@ usage: ./PuTTie/build.sh [-B <backend>] [-c] [--clang] [-d] [-h] [-i] [-j jobs] 
 2. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
 3. **New feature**: ssh:// protocol handler registration, similarly to[[19](#r19)]
 4. **New feature**: ReGIS[[22](#r22)] and/or Sixel[[23](#r23)] terminal graphics support
-7. **New feature**: clickable URLs spanning >1 line(s)
 
 ## Pull requests policy
 Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn,
