@@ -64,10 +64,12 @@ static wchar_t *			WffupAppW = NULL;
 
 /*
  * Zero-based inclusive beginning and exclusive end terminal buffer coordinates
- * of URL during URL operations
+ * of URL during URL matching and selecting operations
  */
-static pos					WffupBegin = {0, 0};
-static pos					WffupEnd = {0, 0};
+static pos					WffupMatchBegin = {0, 0};
+static pos					WffupMatchEnd = {0, 0};
+static pos					WffupSelectBegin = {0, 0};
+static pos					WffupSelectEnd = {0, 0};
 
 /*
  * UTF-16 encoded URL buffer and buffer size in bytes during URL operations
@@ -78,9 +80,11 @@ static size_t				WffupBufW_size = 0;
 
 /*
  * Windows base API GetKeyState() virtual keys corresponding to the URL mouse
- * motion and LMB click modifier and shift modifier keys configured by the user.
+ * motion, URL extending/shrinking, and LMB click modifier and shift modifier
+ * keys configured by the user.
  */
 static int					WffupModifier = 0;
+static int					WffupModifierExtendShrink = 0;
 static int					WffupModifierShiftState = 0;
 
 /*
@@ -100,14 +104,16 @@ static WffupState			WffupStateCurrent = WFFUP_STATE_NONE;
  * Private subroutine prototypes
  */
 
-static bool			WffupGet(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, int x, int y);
+static bool			WffupGet(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, pos begin, pos end);
 WfrStatus			WffupGetTermLine(Terminal *term, wchar_t **pline_w, size_t *pline_w_len, int y);
 
 static void			WffupConfigPanelModifierKeyHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void			WffupConfigPanelModifierExtendShrinkHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static void			WffupConfigPanelModifierShiftHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 static WfReturn		WffupReconfig(Conf *conf);
 static void			WffupReconfigModifierKey(Conf *conf);
+static void			WffupReconfigModifierExtendShrinkKey(Conf *conf);
 static void			WffupReconfigModifierShift(Conf *conf);
 
 static bool			WffupStateMatch(int x, int y);
@@ -124,46 +130,84 @@ WffupGet(
 	pos *		pend,
 	wchar_t **	phover_url_w,
 	size_t *	phover_url_w_size,
-	int			x,
-	int			y
+	pos			begin,
+	pos			end
 	)
 {
 	bool			breakfl = false;
-	wchar_t *		line_w;
-	size_t			line_w_len;
+	wchar_t *		line_w = NULL, *line_new_w;
+	bool			line_w_initfl = true;
+	size_t			line_w_size = 0, line_new_w_len;
 	size_t			match_begin, match_end, match_len;
 	Wfp2MGState		pcre2_state;
+	WfrStatus		status;
 
 
 	/*
 	 * Fail given non-initialised pcre2 regular expression {code,match data
 	 * block}, whether due to failure to initialise or an invalid regular
-	 * expression provided by the user. Reject invalid {x,y} coordinates, be
-	 * they negative or falling outside of term->{cols,rows}. Fail given
-	 * failure to get the line from the terminal's buffer of text on real
-	 * screen specified by the coordinate y.
+	 * expression provided by the user. Reject invalid {begin,end}.{x,y}
+	 * coordinates, be they negative or falling outside of term->{cols,rows}
 	 */
 
 	if (!WffupReCode || !WffupReMd) {
 		WFR_DEBUG_FAIL();
 		return FALSE;
-	} else if ((x < 0) || (x >= term->cols) || (y < 0) || (y >= term->rows)) {
-		WFR_DEBUG_FAIL();
-		return FALSE;
-	} else if (WFR_STATUS_FAILURE(WffupGetTermLine(term, &line_w, &line_w_len, y))) {
+	} else if ((begin.x < 0) || (begin.x >= term->cols)
+			|| (begin.y < 0) || (begin.y >= term->rows)
+			|| (end.x < 0)   || (end.x >= term->cols)
+			|| (end.y < 0)   || (end.y >= term->rows))
+	{
 		WFR_DEBUG_FAIL();
 		return FALSE;
 	} else {
-		Wfp2Init(&pcre2_state, WffupReCode,
-				 line_w_len, WffupReMd, line_w);
+		/*
+		 * Iteratively get and concatenate entire lines from the terminal's
+		 * buffer of text on real screen specified by the coordinates {begin,end}.{x,y}.
+		 */
+
+		status = WFR_STATUS_CONDITION_SUCCESS;
+		for (int y = begin.y; y <= end.y; y++) {
+			if (WFR_STATUS_FAILURE(status = WffupGetTermLine(
+							term, &line_new_w, &line_new_w_len, y)))
+			{
+				break;
+			} else if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
+							line_w, line_w_size,
+							line_w_size ? (line_w_size + line_new_w_len)
+										: (line_new_w_len + 1),
+							wchar_t)))
+			{
+				sfree(line_new_w);
+				break;
+			} else {
+				if (line_w_initfl) {
+					wcscpy(line_w, line_new_w);
+					line_w_initfl = false;
+				} else {
+					wcscat(line_w, line_new_w);
+				}
+				sfree(line_new_w);
+			}
+		}
+
+		if (WFR_STATUS_SUCCESS(status)) {
+			Wfp2Init(&pcre2_state, WffupReCode,
+					 wcslen(line_w), WffupReMd, line_w);
+		} else {
+			WFR_SFREE_IF_NOTNULL(line_w);
+			WFR_DEBUG_FAIL();
+			return FALSE;
+		}
 	}
 
 	/*
 	 * Iteratively attempt to match the regular expression and UTF-16 encoded
 	 * terminal buffer string described by pcre2_state until either a non-zero
 	 * length match comprising a range intersected by the x coordinate parameter
-	 * is found or until either WFR_STATUS_CONDITION_PCRE2_ERROR, WFR_STATUS_CONDITION_PCRE2_NO_MATCH, or
-	 * WFR_STATUS_CONDITION_PCRE2_DONE is returned.
+	 * is found or until either WFR_STATUS_CONDITION_PCRE2_ERROR,
+	 * WFR_STATUS_CONDITION_PCRE2_NO_MATCH, or WFR_STATUS_CONDITION_PCRE2_DONE
+	 * is returned.
 	 */
 
 	do {
@@ -178,10 +222,9 @@ WffupGet(
 			breakfl = true; break;
 
 		/*
-		 * Given a non-zero length match the range of which is intersected by x,
-		 * attempt to duplicate the corresponding substring and return it, its
-		 * size in bytes, and the beginning and end positions thereof. Given
-		 * failure, return failure.
+		 * Given a non-zero length match the range of which is intersected by {begin,end},
+		 * attempt to duplicate the corresponding substring and return it, its size in bytes,
+		 * and the beginning and end positions thereof. Given failure, return failure.
 		 */
 
 #pragma GCC diagnostic push
@@ -191,16 +234,32 @@ WffupGet(
 #pragma GCC diagnostic pop
 
 		case WFR_STATUS_CONDITION_PCRE2_CONTINUE:
-			if (((size_t)x >= match_begin) && ((size_t)x <= match_end)) {
+			if (((size_t)begin.x >= match_begin) && ((size_t)begin.x <= match_end)) {
 				match_len = match_end - match_begin;
 				if (match_len > 0) {
 					WFR_DEBUGF("URL `%*.*S' matches regular expression", match_len, match_len, &line_w[match_begin]);
 					if (!(*phover_url_w = WfrWcsNDup(&line_w[match_begin], match_len))) {
 						sfree(line_w); return FALSE;
 					} else {
-						pbegin->x = match_begin, pend->x = match_end;
-						pbegin->y = y, pend->y = y;
-						*phover_url_w_size = match_len + 1; breakfl = true; return TRUE;
+						pbegin->x = match_begin;
+						if (pbegin->x > term->cols) {
+							pbegin->y = begin.y + (pbegin->x / term->cols);
+							pbegin->x %= term->cols;
+						} else {
+							pbegin->y = begin.y;
+						}
+
+						pend->x = match_end;
+						if (pend->x > term->cols) {
+							pend->y = begin.y + (pend->x / term->cols);
+							pend->x %= term->cols;
+						} else {
+							pend->y = end.y;
+						}
+
+						*phover_url_w_size = match_len + 1; breakfl = true;
+						sfree(line_w);
+						return TRUE;
 					}
 				} else {
 					breakfl = true;
@@ -214,7 +273,7 @@ WffupGet(
 	 * Free line_w and implictly return failure.
 	 */
 
-	sfree(line_w);
+	WFR_SFREE_IF_NOTNULL(line_w);
 	return FALSE;
 }
 
@@ -374,6 +433,51 @@ WffupConfigPanelModifierKeyHandler(
 }
 
 static void
+WffupConfigPanelModifierExtendShrinkHandler(
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
+	void *			data,
+	int				event
+	)
+{
+	Conf *	conf = (Conf *)data;
+	int		id;
+
+
+	switch (event) {
+	case EVENT_REFRESH:
+		dlg_update_start(ctrl, dlg);
+		dlg_listbox_clear(ctrl, dlg);
+		dlg_listbox_addwithid(ctrl, dlg, "Ctrl", WFFUP_MODIFIER_KEY_CTRL);
+		dlg_listbox_addwithid(ctrl, dlg, "Alt", WFFUP_MODIFIER_KEY_ALT);
+		dlg_listbox_addwithid(ctrl, dlg, "Right Ctrl", WFFUP_MODIFIER_KEY_RIGHT_CTRL);
+		dlg_listbox_addwithid(ctrl, dlg, "Right Alt/AltGr", WFFUP_MODIFIER_KEY_RIGHT_ALT);
+
+		switch (conf_get_int(conf, CONF_frip_urls_modifier_extendshrink_key)) {
+		case WFFUP_MODIFIER_KEY_CTRL:
+			dlg_listbox_select(ctrl, dlg, 0); break;
+		case WFFUP_MODIFIER_KEY_ALT:
+			dlg_listbox_select(ctrl, dlg, 1); break;
+		case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
+			dlg_listbox_select(ctrl, dlg, 2); break;
+		case WFFUP_MODIFIER_KEY_RIGHT_ALT:
+			dlg_listbox_select(ctrl, dlg, 3); break;
+		default:
+			WFR_DEBUG_FAIL(); break;
+		}
+		dlg_update_done(ctrl, dlg);
+		break;
+
+	case EVENT_SELCHANGE:
+	case EVENT_VALCHANGE:
+		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
+		conf_set_int(conf, CONF_frip_urls_modifier_extendshrink_key, id);
+		WffupReconfigModifierExtendShrinkKey(conf);
+		break;
+	}
+}
+
+static void
 WffupConfigPanelModifierShiftHandler(
 	dlgcontrol *	ctrl,
 	dlgparam *		dlg,
@@ -440,6 +544,7 @@ WffupReconfig(
 
 	spec = conf_get_str(conf, CONF_frip_urls_regex); spec_len = strlen(spec);
 	WffupReconfigModifierKey(conf);
+	WffupReconfigModifierExtendShrinkKey(conf);
 	WffupReconfigModifierShift(conf);
 
 	if (spec_len == 0) {
@@ -530,6 +635,25 @@ WffupReconfigModifierKey(
 }
 
 static void
+WffupReconfigModifierExtendShrinkKey(
+	Conf *	conf
+	)
+{
+	switch (conf_get_int(conf, CONF_frip_urls_modifier_extendshrink_key)) {
+	case WFFUP_MODIFIER_KEY_CTRL:
+		WffupModifierExtendShrink = VK_CONTROL; break;
+	case WFFUP_MODIFIER_KEY_ALT:
+		WffupModifierExtendShrink = VK_MENU; break;
+	case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
+		WffupModifierExtendShrink = VK_RCONTROL; break;
+	case WFFUP_MODIFIER_KEY_RIGHT_ALT:
+		WffupModifierExtendShrink = VK_RMENU; break;
+	default:
+		WffupModifierExtendShrink = 0; WFR_DEBUG_FAIL(); break;
+	}
+}
+
+static void
 WffupReconfigModifierShift(
 	Conf *	conf
 	)
@@ -557,10 +681,10 @@ WffupStateMatch(
 	&&    ((WffupModifierShiftState != 0)
 	 ?     WfrpIsVKeyDown(WffupModifierShiftState)
 	 :     true)
-	&&  (y == WffupBegin.y)
-	&&  (y == WffupEnd.y)
-	&&  (x >= WffupBegin.x)
-	&&  (x  < WffupEnd.x));
+	&&  (y >= WffupMatchBegin.y)
+	&&  ((y == WffupMatchBegin.y) ? (x >= WffupMatchBegin.x) : true)
+	&&  (y <= WffupMatchEnd.y)
+	&&  ((y == WffupMatchEnd.y) ? (x < WffupMatchEnd.x) : true));
 }
 
 static void
@@ -569,8 +693,8 @@ WffupStateReset(
 	bool		update_term
 	)
 {
-	WffupBegin.x = WffupBegin.y = 0;
-	WffupEnd.x = WffupEnd.y = 0;
+	WffupMatchBegin.x = WffupMatchBegin.y = 0;
+	WffupMatchEnd.x = WffupMatchEnd.y = 0;
 	if (WffupBufW) {
 		sfree(WffupBufW);
 		WffupBufW = NULL, WffupBufW_size = 0;
@@ -619,6 +743,9 @@ WffUrlsConfigPanel(
 	ctrl_droplist(s_input, "Modifier key:",
 				  'm', 35, WFP_HELP_CTX,
 				  WffupConfigPanelModifierKeyHandler, P(NULL));
+	ctrl_droplist(s_input, "Extend/shrink modifier key:",
+				  'x', 35, WFP_HELP_CTX,
+				  WffupConfigPanelModifierExtendShrinkHandler, P(NULL));
 	ctrl_droplist(s_input, "Shift key:",
 				  's', 35, WFP_HELP_CTX,
 				  WffupConfigPanelModifierShiftHandler, P(NULL));
@@ -665,13 +792,19 @@ WffUrlsOperation(
 	int					y
 	)
 {
+	wchar_t *	buf_w_new;
 	WfReturn 	rc;
+	short		wheel_distance;
 
 
 	(void)hwnd;
-	(void)wParam;
 
 	switch (op) {
+
+	case WFF_URLS_OP_INIT:
+		WffupReconfig(conf);
+		rc = WF_RETURN_CONTINUE;
+		break;
 
 	/*
 	 * Given WFF_URLS_OP_DRAW from terminal.c:do_paint(), apply either of
@@ -684,8 +817,8 @@ WffUrlsOperation(
 	 */
 
 	case WFF_URLS_OP_DRAW:
-		if (WffupPosLe(WffupBegin, x, y - term->disptop) &&
-			WffupPosLt(x, y - term->disptop, WffupEnd))
+		if (WffupPosLe(WffupMatchBegin, x, y - term->disptop) &&
+			WffupPosLt(x, y - term->disptop, WffupMatchEnd))
 		{
 			switch (WffupStateCurrent) {
 			case WFFUP_STATE_CLICK:
@@ -774,9 +907,12 @@ WffUrlsOperation(
 			 : true))
 			{
 				if (WffupGet(
-						term, &WffupBegin, &WffupEnd,
+						term, &WffupMatchBegin, &WffupMatchEnd,
 						&WffupBufW, &WffupBufW_size,
-						x, y)) {
+						(pos){.x=x, .y=y}, (pos){.x=x, .y=y}))
+				{
+					WffupSelectBegin = (pos){.x=x, .y=y};
+					WffupSelectEnd = (pos){.x=x, .y=y};
 					WffupStateCurrent = WFFUP_STATE_SELECT;
 					term_update(term);
 				}
@@ -787,7 +923,7 @@ WffUrlsOperation(
 		 * Given WFFUP_STATE_SELECT, enforce the constraint that the
 		 * configured modifier, and optionally shift modifier, keys must remain
 		 * held down and that the mouse pointer must remain pointing into the
-		 * region described by Wffup{Begin,End}.{x,y}. If this
+		 * region described by WffupMatch{Begin,End}.{x,y}. If this
 		 * constraint is violated, reset the URL operation state and update the
 		 * terminal.
 		 */
@@ -795,6 +931,45 @@ WffUrlsOperation(
 		case WFFUP_STATE_SELECT:
 			if (!WffupStateMatch(x, y)) {
 				WffupStateReset(term, true);
+			}
+			break;
+
+		default:
+			break;
+		}
+		return WF_RETURN_CONTINUE;
+
+	case WFF_URLS_OP_MOUSE_WHEEL_EVENT:
+		switch (WffupStateCurrent) {
+		case WFFUP_STATE_NONE:
+			break;
+
+		case WFFUP_STATE_SELECT:
+			if (WfrpIsVKeyDown(WffupModifier)
+			&&  WfrpIsVKeyDown(WffupModifierExtendShrink)
+			&&  ((WffupModifierShiftState != 0)
+			 ?   WfrpIsVKeyDown(WffupModifierShiftState)
+			 :   true))
+			{
+				wheel_distance = (short)HIWORD(wParam);
+				if ((wheel_distance > 0) && (WffupSelectEnd.y < term->rows)) {
+					WffupSelectEnd.y++;
+				} else if ((wheel_distance < 0) && (WffupSelectEnd.y > WffupSelectBegin.y)) {
+					WffupSelectEnd.y--;
+				}
+
+				if (WffupGet(
+						term, &WffupMatchBegin, &WffupMatchEnd,
+						&buf_w_new, &WffupBufW_size,
+						WffupSelectBegin, WffupSelectEnd))
+				{
+					if (WffupBufW) {
+						sfree(WffupBufW);
+					}
+					WffupBufW = buf_w_new;
+					term_update(term);
+				}
+				return WF_RETURN_BREAK;
 			}
 			break;
 

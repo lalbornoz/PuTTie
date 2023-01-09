@@ -2218,10 +2218,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
     switch (message) {
       case WM_SHOWWINDOW:
-	/* {{{ winfrip */
-	WffBgImgOperation(WFF_BGIMG_OP_INIT, NULL, wgs->conf,
-			 NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
-	/* winfrip }}} */
+        /* {{{ winfrip */
+        (void)WffBgImgOperation(WFF_BGIMG_OP_INIT, NULL, wgs->conf,
+                                NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
+        (void)WffUrlsOperation(WFF_URLS_OP_INIT, wgs->conf, hwnd, -1,
+                               NULL, NULL, -1, 0, 0);
+        /* winfrip }}} */
         break;
       case WM_CLOSE: {
         char *title, *msg, *additional = NULL;
@@ -2851,10 +2853,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
          */
         noise_ultralight(NOISE_SOURCE_MOUSEPOS, lParam);
 
-	/* {{{ winfrip */
+        /* {{{ winfrip */
         if (WffUrlsOperation(WFF_URLS_OP_MOUSE_MOTION_EVENT, wgs->conf, NULL, message, NULL, wgs->term,
                             wParam, TO_CHR_X(X_POS(lParam)), TO_CHR_Y(Y_POS(lParam))) == WF_RETURN_BREAK) {
-	    return 0;
+            return 0;
         }
         /* winfrip }}} */
 
@@ -3553,8 +3555,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
             if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL) {
                 /* {{{ winfrip */
-                if (WffMouseOperation(WFF_MOUSE_OP_MOUSE_EVENT, wgs->conf, message, wParam) == WF_RETURN_BREAK_RESET_WINDOW) {
-                    reset_window(wgs, 2); return 0;
+                if (WffUrlsOperation(
+                            WFF_URLS_OP_MOUSE_WHEEL_EVENT, wgs->conf, wgs->term_hwnd,
+                            message, NULL, wgs->term, wParam, TO_CHR_X(X_POS(lParam)),
+                            TO_CHR_Y(Y_POS(lParam))) == WF_RETURN_BREAK)
+                {
+                    return 0;
+                }
+
+                if (WffMouseOperation(
+                            WFF_MOUSE_OP_MOUSE_EVENT, wgs->conf,
+                            message, wParam) == WF_RETURN_BREAK_RESET_WINDOW) 
+                {
+                    reset_window(wgs, 2);
+					return 0;
                 }
                 /* winfrip }}} */
                 wgs->wheel_accumulator += (short)HIWORD(wParam);
