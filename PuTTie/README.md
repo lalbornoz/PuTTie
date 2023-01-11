@@ -63,6 +63,8 @@ you should use PuTTie:
 6. **Minimise to system tray[[2](#r2)]**, similarly to[[11](#r11)]
 7. **Store configuration in disk files[[1](#r1)]**, similarly to[[11](#r11)]  
    Selectable w/ command-line option ``--file`` in plink, pscp, psftp, pterm, putty & puttytel  
+   Additionally, file storage may be initialised from the registry w/ the command-
+   line option ``--file=registry``  
    User interfaces are provided within putty & puttytel to clear, copy, delete, rename, and
    move sessions and host keys from/to all storage backends (ephemeral, file, registry)
 8. **Store configuration in ephemeral storage**  
