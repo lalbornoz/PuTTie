@@ -321,9 +321,9 @@ WffspRefreshSessions(
 		} while (WfsGetBackendNext(&backend));
 
 		if (ctrl == ctx->droplist[WFFSP_CDIR_FROM]) {
-			dlg_listbox_select(ctrl, dlg, WFS_BACKEND_FILE);
-		} else if (ctrl == ctx->droplist[WFFSP_CDIR_TO]) {
 			dlg_listbox_select(ctrl, dlg, WFS_BACKEND_REGISTRY);
+		} else if (ctrl == ctx->droplist[WFFSP_CDIR_TO]) {
+			dlg_listbox_select(ctrl, dlg, WFS_BACKEND_FILE);
 		}
 
 		status = WffspConfigUpdateSessions(ctx, dir, dlg, true);
