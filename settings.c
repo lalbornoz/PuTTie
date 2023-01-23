@@ -13,6 +13,15 @@
 #endif
 
 /* {{{ winfrip */
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_bgimg.h"
+#include "PuTTie/winfrip_feature_general.h"
+#include "PuTTie/winfrip_feature_mouse.h"
+#include "PuTTie/winfrip_feature_storage_general.h"
+#include "PuTTie/winfrip_feature_storage_host_keys.h"
+#include "PuTTie/winfrip_feature_storage_sessions.h"
+#include "PuTTie/winfrip_feature_trans.h"
+#include "PuTTie/winfrip_feature_urls.h"
 #include "PuTTie/winfrip_putty_settings.h"
 /* winfrip }}} */
 

@@ -7,6 +7,13 @@
 #define PUTTY_WINFRIP_FEATURE_GENERAL_H
 
 /*
+ * Public defaults
+ */
+
+#define	WFF_GENERAL_DEFAULT_ALWAYS_ON_TOP		false
+#define	WFF_GENERAL_DEFAULT_MINIMISE_TO_SYSTRAY		true
+
+/*
  * Public subroutine prototypes used by/in:
  * winfrip_putty_config.c
  */

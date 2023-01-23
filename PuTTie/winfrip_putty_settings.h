@@ -11,31 +11,28 @@
  * settings.c:load_open_settings()
  */
 
-#define WF_URLS_REGEX																													\
-	"((https?|ftp)://|www\\.).(([^ ]*\\([^ ]*\\))([^ ()]*[^ ,;.:\"')>])?|([^ ()]*[^ ,;.:\"')>]))"
-
-#define WF_LOAD_OPEN_SETTINGS(sesskey, conf) do {											\
-	gppfile((sesskey), "FripBgImgFile", (conf), CONF_frip_bgimg_filename);								\
-	gppi((sesskey), "FripBgImgOpacity", 75, (conf), CONF_frip_bgimg_opacity);							\
-	gppi((sesskey), "FripBgImgPadding", 10, (conf), CONF_frip_bgimg_padding);							\
-	gppi((sesskey), "FripBgImgSlideshow", 0, (conf), CONF_frip_bgimg_slideshow);							\
-	gppi((sesskey), "FripBgImgSlideshowFreq", 3600, (conf), CONF_frip_bgimg_slideshow_freq);					\
-	gppi((sesskey), "FripBgImgStyle", 0, (conf), CONF_frip_bgimg_style);								\
-	gppi((sesskey), "FripBgImgType", 0, (conf), CONF_frip_bgimg_type);								\
-	gppb((sesskey), "FripGeneralAlwaysOnTop", false, (conf), CONF_frip_general_always_on_top);					\
-	gppb((sesskey), "FripGeneralMinimiseToSysTray", true, (conf), CONF_frip_general_minimise_to_systray);				\
-	gppb((sesskey), "FripMouseFontSizeWheel", true, (conf), CONF_frip_mouse_font_size_wheel);					\
-	gppi((sesskey), "FripTranspCustom", 0, (conf), CONF_frip_trans_custom);								\
-	gppi((sesskey), "FripTranspOpaqueOn", 1, (conf), CONF_frip_trans_opaque_on);							\
-	gppi((sesskey), "FripTranspSetting", 0, (conf), CONF_frip_trans_setting);							\
-	gppb((sesskey), "FripUrlsBrowserDefault", true, (conf), CONF_frip_urls_browser_default);					\
-	gpps((sesskey), "FripUrlsBrowserPNameVerb", "", (conf), CONF_frip_urls_browser_pname_verb);					\
-	gppi((sesskey), "FripUrlsModifierKey", 0, (conf), CONF_frip_urls_modifier_key);							\
-	gppi((sesskey), "FripUrlsModifierExtendShrinkKey", 1, (conf), CONF_frip_urls_modifier_extendshrink_key);			\
-	gppi((sesskey), "FripUrlsModifierShift", 0, (conf), CONF_frip_urls_modifier_shift);						\
-	gpps((sesskey), "FripUrlsRegex", WF_URLS_REGEX, (conf), CONF_frip_urls_regex);							\
-	gppb((sesskey), "FripUrlsReverseVideoOnClick", true, (conf), CONF_frip_urls_revvideo_onclick);					\
-	gppb((sesskey), "FripUrlsUnderlineOnHighlight", true, (conf), CONF_frip_urls_underline_onhl);					\
+#define WF_LOAD_OPEN_SETTINGS(sesskey, conf) do {														\
+	gppfile((sesskey), "FripBgImgFile", (conf), CONF_frip_bgimg_filename);											\
+	gppi((sesskey), "FripBgImgOpacity", WFF_BGIMG_DEFAULT_OPACITY, (conf), CONF_frip_bgimg_opacity);							\
+	gppi((sesskey), "FripBgImgPadding", WFF_BGIMG_DEFAULT_PADDING, (conf), CONF_frip_bgimg_padding);							\
+	gppi((sesskey), "FripBgImgSlideshow", WFF_BGIMG_DEFAULT_SLIDESHOW, (conf), CONF_frip_bgimg_slideshow);							\
+	gppi((sesskey), "FripBgImgSlideshowFreq", WFF_BGIMG_DEFAULT_SLIDESHOW_FREQ, (conf), CONF_frip_bgimg_slideshow_freq);					\
+	gppi((sesskey), "FripBgImgStyle", WFF_BGIMG_DEFAULT_STYLE, (conf), CONF_frip_bgimg_style);								\
+	gppi((sesskey), "FripBgImgType", WFF_BGIMG_DEFAULT_TYPE, (conf), CONF_frip_bgimg_type);									\
+	gppb((sesskey), "FripGeneralAlwaysOnTop", WFF_GENERAL_DEFAULT_ALWAYS_ON_TOP, (conf), CONF_frip_general_always_on_top);					\
+	gppb((sesskey), "FripGeneralMinimiseToSysTray", WFF_GENERAL_DEFAULT_MINIMISE_TO_SYSTRAY, (conf), CONF_frip_general_minimise_to_systray);		\
+	gppb((sesskey), "FripMouseFontSizeWheel", WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL, (conf), CONF_frip_mouse_font_size_wheel);					\
+	gppi((sesskey), "FripTranspCustom", WFF_TRANS_DEFAULT_CUSTOM, (conf), CONF_frip_trans_custom);								\
+	gppi((sesskey), "FripTranspOpaqueOn", WFF_TRANS_DEFAULT_OPAQUE_ON, (conf), CONF_frip_trans_opaque_on);							\
+	gppi((sesskey), "FripTranspSetting", WFF_TRANS_DEFAULT_SETTING, (conf), CONF_frip_trans_setting);							\
+	gppb((sesskey), "FripUrlsBrowserDefault", WFF_URLS_DEFAULT_BROWSER_DEFAULT, (conf), CONF_frip_urls_browser_default);					\
+	gpps((sesskey), "FripUrlsBrowserPNameVerb", WFF_URLS_DEFAULT_BROWSER_PNAME_VERB, (conf), CONF_frip_urls_browser_pname_verb);				\
+	gppi((sesskey), "FripUrlsModifierKey", WFF_URLS_DEFAULT_MODIFIER_KEY, (conf), CONF_frip_urls_modifier_key);						\
+	gppi((sesskey), "FripUrlsModifierExtendShrinkKey", WFF_URLS_DEFAULT_MODIFIER_EXTEND_SHRINK_KEY, (conf), CONF_frip_urls_modifier_extendshrink_key);	\
+	gppi((sesskey), "FripUrlsModifierShift", WFF_URLS_DEFAULT_MODIFIER_SHIFT, (conf), CONF_frip_urls_modifier_shift);					\
+	gpps((sesskey), "FripUrlsRegex", WFF_URLS_DEFAULT_REGEX, (conf), CONF_frip_urls_regex);									\
+	gppb((sesskey), "FripUrlsReverseVideoOnClick", WFF_URLS_DEFAULT_REVERSE_VIDEO_ON_CLICK, (conf), CONF_frip_urls_revvideo_onclick);			\
+	gppb((sesskey), "FripUrlsUnderlineOnHighlight", WFF_URLS_DEFAULT_UNDERLINE_ON_HIGHLIGHT, (conf), CONF_frip_urls_underline_onhl);			\
 } while (0)
 
 /*

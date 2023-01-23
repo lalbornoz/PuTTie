@@ -7,6 +7,14 @@
 #define PUTTY_WINFRIP_FEATURE_TRANS_H
 
 /*
+ * Public defaults
+ */
+
+#define	WFF_TRANS_DEFAULT_CUSTOM	0
+#define	WFF_TRANS_DEFAULT_OPAQUE_ON	1
+#define	WFF_TRANS_DEFAULT_SETTING	0
+
+/*
  * Public subroutine prototypes used by/in:
  * winfrip_putty_config.c
  */
