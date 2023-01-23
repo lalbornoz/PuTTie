@@ -7,6 +7,19 @@
 #define PUTTY_WINFRIP_FEATURE_URLS_H
 
 /*
+ * Public defaults
+ */
+
+#define	WFF_URLS_DEFAULT_BROWSER_DEFAULT		true
+#define	WFF_URLS_DEFAULT_BROWSER_PNAME_VERB		""
+#define	WFF_URLS_DEFAULT_MODIFIER_KEY			0
+#define	WFF_URLS_DEFAULT_MODIFIER_EXTEND_SHRINK_KEY	1
+#define	WFF_URLS_DEFAULT_MODIFIER_SHIFT			0
+#define	WFF_URLS_DEFAULT_REGEX				"((https?|ftp)://|www\\.).(([^ ]*\\([^ ]*\\))([^ ()]*[^ ,;.:\"')>])?|([^ ()]*[^ ,;.:\"')>]))"
+#define	WFF_URLS_DEFAULT_REVERSE_VIDEO_ON_CLICK		true
+#define	WFF_URLS_DEFAULT_UNDERLINE_ON_HIGHLIGHT		true
+
+/*
  * Public subroutine prototypes used by/in:
  * winfrip_putty_config.c
  */

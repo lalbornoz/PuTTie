@@ -7,6 +7,12 @@
 #define PUTTY_WINFRIP_FEATURE_MOUSE_H
 
 /*
+ * Public defaults
+ */
+
+#define	WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL	true
+
+/*
  * Public subroutine prototypes used by/in:
  * winfrip_putty_config.c
  */

@@ -7,6 +7,17 @@
 #define PUTTY_WINFRIP_FEATURE_BGIMG_H
 
 /*
+ * Public defaults
+ */
+
+#define	WFF_BGIMG_DEFAULT_OPACITY		75
+#define	WFF_BGIMG_DEFAULT_PADDING		10
+#define	WFF_BGIMG_DEFAULT_SLIDESHOW		0
+#define	WFF_BGIMG_DEFAULT_SLIDESHOW_FREQ	3600
+#define	WFF_BGIMG_DEFAULT_STYLE			0
+#define	WFF_BGIMG_DEFAULT_TYPE			0
+
+/*
  * Public subroutine prototypes used by/in:
  * winfrip_putty_config.c
  */
