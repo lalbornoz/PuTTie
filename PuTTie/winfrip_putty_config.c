@@ -27,7 +27,7 @@
 
 void
 WfConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
 	/*
@@ -46,5 +46,5 @@ WfConfigPanel(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

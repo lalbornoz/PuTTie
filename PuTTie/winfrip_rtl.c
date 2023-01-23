@@ -25,11 +25,11 @@ WfrMessageBoxF(
 	const char *	lpCaption,
 	unsigned int	uType,
 	const char *	format,
-					...
+			...
 	)
 {
-	va_list			ap;
-	static char		msg_buf[255];
+	va_list		ap;
+	static char	msg_buf[255];
 
 
 	va_start(ap, format);
@@ -42,16 +42,16 @@ WfrMessageBoxF(
 
 WfrStatus
 WfrSnDuprintf(
-	char **restrict			ps,
-	size_t *				pn,
+	char **restrict		ps,
+	size_t *		pn,
 	const char *restrict	format,
-							...
+				...
 	)
 {
 	va_list		ap;
 	WfrStatus	status;
 	char *		s = NULL;
-	int			s_len;
+	int		s_len;
 	size_t		s_size;
 
 
@@ -68,7 +68,7 @@ WfrSnDuprintf(
 		} else if (s_len == 0) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		} else if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
-						s, s_size, (size_t)s_len + 1, char)))
+				s, s_size, (size_t)s_len + 1, char)))
 		{
 			va_start(ap, format);
 			s_len = vsnprintf(s, s_size, format, ap);
@@ -96,9 +96,9 @@ WfrStatusToErrorMessage(
 	WfrStatus	status
 	)
 {
-	static char		condition_msg[128];
+	static char	condition_msg[128];
 	static wchar_t	condition_msg_w[128];
-	static char		error_msg[256];
+	static char	error_msg[256];
 
 
 	switch (WFR_STATUS_FACILITY(status)) {
@@ -113,31 +113,31 @@ WfrStatusToErrorMessage(
 	case WFR_STATUS_FACILITY_WINDOWS:
 		condition_msg[0] = '\0';
 		(void)FormatMessageA(
-				FORMAT_MESSAGE_FROM_SYSTEM,
-				NULL, status.condition,
-				LANG_USER_DEFAULT,
-				condition_msg, sizeof(condition_msg),
-				NULL);
+			FORMAT_MESSAGE_FROM_SYSTEM,
+			NULL, status.condition,
+			LANG_USER_DEFAULT,
+			condition_msg, sizeof(condition_msg),
+			NULL);
 		break;
 
 	case WFR_STATUS_FACILITY_PCRE2:
 		condition_msg[0] = '\0';
 		condition_msg_w[0] = L'\0';
 		(void)pcre2_get_error_message(
-				status.condition,
-				condition_msg_w, sizeof(condition_msg_w));
+			status.condition,
+			condition_msg_w, sizeof(condition_msg_w));
 		(void)WideCharToMultiByte(
-				CP_UTF8, 0, condition_msg_w,
-				wcslen(condition_msg_w) + 1,
-				condition_msg, sizeof(condition_msg),
-				NULL, NULL);
+			CP_UTF8, 0, condition_msg_w,
+			wcslen(condition_msg_w) + 1,
+			condition_msg, sizeof(condition_msg),
+			NULL, NULL);
 		break;
 	}
 
 	WFR_SNPRINTF(
-			error_msg, sizeof(error_msg),
-			"Error in %s:%d: %s",
-			status.file, status.line, condition_msg);
+		error_msg, sizeof(error_msg),
+		"Error in %s:%d: %s",
+		status.file, status.line, condition_msg);
 
 	return error_msg;
 }
@@ -150,7 +150,7 @@ WfrToWcsDup(
 	)
 {
 	wchar_t *	out_w;
-	int			out_w_len, out_w_size;
+	int		out_w_len, out_w_size;
 	WfrStatus	status;
 
 
@@ -175,7 +175,7 @@ WfrToWcsDup(
 wchar_t *
 WfrWcsNDup(
 	const wchar_t *		in_w,
-	size_t				in_w_len
+	size_t			in_w_len
 	)
 {
 	wchar_t *	out_w;
@@ -190,5 +190,5 @@ WfrWcsNDup(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

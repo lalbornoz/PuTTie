@@ -1,13 +1,13 @@
 #!/bin/sh
-# Copyright (c) 2018, 2019, 2020, 2021 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+# Copyright (c) 2018, 2019, 2020, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
 #
 
 # {{{ build_clang_compile_cmds()
 build_clang_compile_cmds() {
-	local	_args="" _clang_fname=""					\
-			_compile_commands_fname=""					\
-			_compile_flags_fname="" _dname="" _fname=""	\
-			_pname="" _pwd="" _tmp_fname="";
+	local	_args="" _clang_fname=""			\
+		_compile_commands_fname=""			\
+		_compile_flags_fname="" _dname="" _fname=""	\
+		_pname="" _pwd="" _tmp_fname="";
 
 	_clang_fname="$(which clang)" || return 1;
 	_compile_commands_fname="${0%/*}/../compile_commands.json";
@@ -65,16 +65,16 @@ build_clang_compile_cmds() {
 # {{{ build_clean($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_clean() {
 	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-			_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-			_tflag="${9}"													\
-			_fname="" _IFS0="${IFS:- 	}";
+		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
+		_tflag="${9}"							\
+		_fname="" _IFS0="${IFS:- 	}";
 
 	if [ "${_cflag:-0}" -eq 1 ]; then
 		rm -fr	\
-			CMakeCache.txt						\
-			CMakeFiles/							\
-			windows/CMakeCache.txt				\
-			windows/CMakeFiles/					\
+			CMakeCache.txt				\
+			CMakeFiles/				\
+			windows/CMakeCache.txt			\
+			windows/CMakeFiles/			\
 			PuTTie/pcre2@master/CMakeCache.txt	\
 			PuTTie/pcre2@master/CMakeFiles/		\
 			PuTTie/pcre2@master/libpcre2-16.a	\
@@ -93,9 +93,9 @@ build_clean() {
 # {{{ build_configure($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_configure() {
 	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-			_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-			_tflag="${9}"													\
-			_git_branch="" _git_commit="" _version_ssh="" _version_text="";
+		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
+		_tflag="${9}"							\
+		_git_branch="" _git_commit="" _version_ssh="" _version_text="";
 
 	_git_branch="$(git branch --show-current)" || exit 2;
 	_git_commit="$(git rev-parse --short HEAD)" || exit 2;
@@ -105,29 +105,29 @@ build_configure() {
 	|| ! [ -e PuTTie/pcre2@master/CMakeFiles/ ]; then
 		cd PuTTie/pcre2@master;
 		"${CMAKE}" . \
-			-DCMAKE_BUILD_TYPE="${_build_type}"								\
-			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -g3 -O0"							\
-			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"								\
-			-DCMAKE_TOOLCHAIN_FILE="../../cmake/toolchain-mingw.cmake"		\
-																			\
-			-DBUILD_SHARED_LIBS=OFF											\
-			-DBUILD_STATIC_LIBS=ON											\
-			-DPCRE2_BUILD_PCRE2_8=OFF										\
-			-DPCRE2_BUILD_PCRE2_16=ON										\
-			-DPCRE2_BUILD_PCRE2_32=OFF										\
-			-DPCRE2_STATIC_PIC=ON											\
-			-DPCRE2_DEBUG=OFF												\
-			-DPCRE2_DISABLE_PERCENT_ZT=ON									\
-			-DPCRE2_EBCDIC=OFF												\
-			-DPCRE2_SUPPORT_UNICODE=ON										\
-																			\
-			-DPCRE2_BUILD_PCRE2GREP=OFF										\
-			-DPCRE2_BUILD_TESTS=OFF											\
-																			\
-			-DPCRE2_SUPPORT_LIBBZ2=OFF										\
-			-DPCRE2_SUPPORT_LIBZ=OFF										\
-			-DPCRE2_SUPPORT_LIBEDIT=OFF										\
-			-DPCRE2_SUPPORT_LIBREADLINE=OFF									\
+			-DCMAKE_BUILD_TYPE="${_build_type}"				\
+			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -g3 -O0"				\
+			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
+			-DCMAKE_TOOLCHAIN_FILE="../../cmake/toolchain-mingw.cmake"	\
+											\
+			-DBUILD_SHARED_LIBS=OFF						\
+			-DBUILD_STATIC_LIBS=ON						\
+			-DPCRE2_BUILD_PCRE2_8=OFF					\
+			-DPCRE2_BUILD_PCRE2_16=ON					\
+			-DPCRE2_BUILD_PCRE2_32=OFF					\
+			-DPCRE2_STATIC_PIC=ON						\
+			-DPCRE2_DEBUG=OFF						\
+			-DPCRE2_DISABLE_PERCENT_ZT=ON					\
+			-DPCRE2_EBCDIC=OFF						\
+			-DPCRE2_SUPPORT_UNICODE=ON					\
+											\
+			-DPCRE2_BUILD_PCRE2GREP=OFF					\
+			-DPCRE2_BUILD_TESTS=OFF						\
+											\
+			-DPCRE2_SUPPORT_LIBBZ2=OFF					\
+			-DPCRE2_SUPPORT_LIBZ=OFF					\
+			-DPCRE2_SUPPORT_LIBEDIT=OFF					\
+			-DPCRE2_SUPPORT_LIBREADLINE=OFF					\
 			;
 		cd "${OLDPWD}";
 	fi;
@@ -136,13 +136,13 @@ build_configure() {
 	|| ! [ -e windows/CMakeCache.txt ]\
 	|| ! [ -e windows/CMakeFiles/ ]; then
 		"${CMAKE}" . \
-			-DBUILD_SSH_VERSION="${_version_ssh}"							\
-			-DBUILD_TEXT_VERSION="${_version_text}"							\
-			-DCMAKE_BUILD_TYPE="${_build_type}"								\
-			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -DWINFRIP_DEBUG -g3 -O0"			\
-			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"								\
-			-DCMAKE_TOOLCHAIN_FILE="cmake/toolchain-mingw.cmake"			\
-			-DDEFAULT_STORAGE_BACKEND="${_Bflag}"							\
+			-DBUILD_SSH_VERSION="${_version_ssh}"				\
+			-DBUILD_TEXT_VERSION="${_version_text}"				\
+			-DCMAKE_BUILD_TYPE="${_build_type}"				\
+			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -DWINFRIP_DEBUG -g3 -O0"		\
+			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
+			-DCMAKE_TOOLCHAIN_FILE="cmake/toolchain-mingw.cmake"		\
+			-DDEFAULT_STORAGE_BACKEND="${_Bflag}"				\
 			;
 	fi;
 };
@@ -150,8 +150,8 @@ build_configure() {
 # {{{ build_make($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_make() {
 	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-			_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-			_tflag="${9}";
+		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
+		_tflag="${9}";
 
 	cd PuTTie/pcre2@master;
 	"${CMAKE}" --build . --parallel "${_jflag:-1}";
@@ -165,9 +165,9 @@ build_make() {
 # {{{ build_install($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_install() {
 	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-			_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-			_tflag="${9}"													\
-			_fname="" _IFS0="${IFS:- 	}";
+		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
+		_tflag="${9}"							\
+		_fname="" _IFS0="${IFS:- 	}";
 
 	if [ "${_iflag:-0}" -eq 1 ]; then
 		if ! [ -d "PuTTie/${_install_dname}" ]; then
@@ -175,11 +175,12 @@ build_install() {
 		fi;
 		IFS="
 ";		for _fname in $(find .				\
-				-maxdepth 1					\
-				-mindepth 1					\
-				-name \*.exe				\
+				-maxdepth 1			\
+				-mindepth 1			\
+				-name \*.exe			\
 				\( -not -name test\* \)		\
-				-type f); do
+				-type f);
+		do
 			_fname="${_fname#./}";
 			cp -a "${_fname}" "PuTTie/${_install_dname}";
 			stat "PuTTie/${_install_dname}/${_fname}";
@@ -210,9 +211,9 @@ buildp_usage() {
 
 build() {
 	local	_build_type="Release" _Bflag="registry" _cflag=0 _clangflag=0	\
-			_dflag=0 _iflag=0 _jflag=1 _Rflag=0 _tflag="" _install_dname=""	\
-			_opt=""															\
-			CMAKE="${CMAKE:-cmake}" OPTIND=1;
+		_dflag=0 _iflag=0 _jflag=1 _Rflag=0 _tflag="" _install_dname=""	\
+		_opt=""								\
+		CMAKE="${CMAKE:-cmake}" OPTIND=1;
 
 	while [ "${#}" -gt 0 ]; do
 		case "${1}" in
@@ -257,4 +258,4 @@ build() {
 set -o errexit -o noglob -o nounset;
 export LANG=C LC_ALL=C; build "${@}";
 
-# vim:fdm=marker sw=4 ts=4 tw=0
+# vim:fdm=marker sw=8 ts=8 tw=0

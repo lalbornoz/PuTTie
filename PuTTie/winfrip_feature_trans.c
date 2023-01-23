@@ -18,26 +18,26 @@
  */
 
 typedef enum WfftpLevel {
-	WFFTP_LEVEL_OFF				= 255,
-	WFFTP_LEVEL_DEFAULT			= WFFTP_LEVEL_OFF,
-	WFFTP_LEVEL_LOW				= 255 - 16,
-	WFFTP_LEVEL_MEDIUM			= 255 - 32,
-	WFFTP_LEVEL_HIGH			= 255 - 48,
+	WFFTP_LEVEL_OFF			= 255,
+	WFFTP_LEVEL_DEFAULT		= WFFTP_LEVEL_OFF,
+	WFFTP_LEVEL_LOW			= 255 - 16,
+	WFFTP_LEVEL_MEDIUM		= 255 - 32,
+	WFFTP_LEVEL_HIGH		= 255 - 48,
 } WfftpLevel;
 
 typedef enum WfftpOpaqueOn {
-	WFFTP_OPAQUE_NEVER			= 0,
+	WFFTP_OPAQUE_NEVER		= 0,
 	WFFTP_OPAQUE_DEFAULT		= WFFTP_OPAQUE_NEVER,
 	WFFTP_OPAQUE_FOCUS_KILL		= 1,
 	WFFTP_OPAQUE_FOCUS_SET		= 2,
 } WfftpOpaqueOn;
 
 typedef enum WfftpSetting {
-	WFFTP_SETTING_OFF			= 0,
+	WFFTP_SETTING_OFF		= 0,
 	WFFTP_SETTING_DEFAULT		= WFFTP_SETTING_OFF,
-	WFFTP_SETTING_LOW			= 1,
+	WFFTP_SETTING_LOW		= 1,
 	WFFTP_SETTING_MEDIUM		= 2,
-	WFFTP_SETTING_HIGH			= 3,
+	WFFTP_SETTING_HIGH		= 3,
 	WFFTP_SETTING_CUSTOM		= 4,
 } WfftpSetting;
 
@@ -45,8 +45,8 @@ typedef enum WfftpSetting {
  * Private subroutine prototypes
  */
 
-static void		WfftpConfigPanelOpaque(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static void		WfftpConfigPanelSetting(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void	WfftpConfigPanelOpaque(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void	WfftpConfigPanelSetting(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 /*
  * Private subroutines
@@ -55,9 +55,9 @@ static void		WfftpConfigPanelSetting(dlgcontrol *ctrl, dlgparam *dlg, void *data
 static void
 WfftpConfigPanelOpaque(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
 	Conf *	conf = (Conf *)data;
@@ -86,9 +86,10 @@ WfftpConfigPanelOpaque(
 
 	case EVENT_SELCHANGE:
 	case EVENT_VALCHANGE:
-		conf_set_int(conf, CONF_frip_trans_opaque_on,
-					 dlg_listbox_getid(ctrl, dlg,
-					 dlg_listbox_index(ctrl, dlg)));
+		conf_set_int(
+			conf, CONF_frip_trans_opaque_on,
+			dlg_listbox_getid(ctrl, dlg,
+			dlg_listbox_index(ctrl, dlg)));
 		break;
 	}
 }
@@ -96,9 +97,9 @@ WfftpConfigPanelOpaque(
 static void
 WfftpConfigPanelSetting(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
 	Conf *	conf = (Conf *)data;
@@ -133,9 +134,10 @@ WfftpConfigPanelSetting(
 
 	case EVENT_SELCHANGE:
 	case EVENT_VALCHANGE:
-		conf_set_int(conf, CONF_frip_trans_setting,
-					 dlg_listbox_getid(ctrl, dlg,
-					 dlg_listbox_index(ctrl, dlg)));
+		conf_set_int(
+			conf, CONF_frip_trans_setting,
+			dlg_listbox_getid(ctrl, dlg,
+			dlg_listbox_index(ctrl, dlg)));
 		break;
 	}
 }
@@ -146,10 +148,10 @@ WfftpConfigPanelSetting(
 
 void
 WffTransConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
-	struct controlset *		s;
+	struct controlset *	s;
 
 
 	/*
@@ -158,12 +160,9 @@ WffTransConfigPanel(
 
 	ctrl_settitle(b, "Frippery/Trans-arency", "Configure pointless frippery: trans-arency");
 	s = ctrl_getset(b, "Frippery/Trans-arency", "frip_trans", "Trans-arency settings");
-	ctrl_droplist(s, "Setting:", 't', 35, WFP_HELP_CTX,
-				  WfftpConfigPanelSetting, P(NULL));
-	ctrl_editbox(s, "Custom (0-255):", 'u', 15, WFP_HELP_CTX,
-				 conf_editbox_handler, I(CONF_frip_trans_custom), ED_INT);
-	ctrl_droplist(s, "Opaque on:", 'q', 35, WFP_HELP_CTX,
-				  WfftpConfigPanelOpaque, P(NULL));
+	ctrl_droplist(s, "Setting:", 't', 35, WFP_HELP_CTX, WfftpConfigPanelSetting, P(NULL));
+	ctrl_editbox(s, "Custom (0-255):", 'u', 15, WFP_HELP_CTX, conf_editbox_handler, I(CONF_frip_trans_custom), ED_INT);
+	ctrl_droplist(s, "Opaque on:", 'q', 35, WFP_HELP_CTX, WfftpConfigPanelOpaque, P(NULL));
 }
 
 /*
@@ -178,7 +177,7 @@ WffTransOperation(
 	)
 {
 	LONG_PTR	ex_style;
-	int			opacity;
+	int		opacity;
 
 
 	switch (conf_get_int(conf, CONF_frip_trans_setting)) {
@@ -238,5 +237,5 @@ WffTransOperation(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

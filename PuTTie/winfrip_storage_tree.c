@@ -22,8 +22,8 @@
  * Private subroutine prototypes
  */
 
-static int		WfsppTree234Cmp(void *e1, void *e2);
-static void		WfsppTreeFreeItem(WfspTreeItem *item);
+static int	WfsppTree234Cmp(void *e1, void *e2);
+static void	WfsppTreeFreeItem(WfspTreeItem *item);
 
 /*
  * Private subroutines
@@ -35,7 +35,7 @@ WfsppTree234Cmp(
 	void *	e2
 	)
 {
-	int				cmp;
+	int		cmp;
 	WfspTreeItem *	item1, *item2;
 
 
@@ -99,14 +99,14 @@ WfsppTreeFreeItem(
 
 WfrStatus
 WfspTreeClear(
-	WfspTree **		tree
+	WfspTree **	tree
 	)
 {
 	WfspTreeItem *	item;
-	WfrStatus		status = WFR_STATUS_CONDITION_SUCCESS;
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-    while ((item = delpos234(*tree, 0)) != NULL) {
+	while ((item = delpos234(*tree, 0)) != NULL) {
 		WfsppTreeFreeItem(item);
 		sfree(item);
 	}
@@ -119,7 +119,7 @@ WfspTreeClear(
 WfrStatus
 WfspTreeCloneValue(
 	WfspTreeItem *	item,
-	void **			pvalue_new
+	void **		pvalue_new
 	)
 {
 	WfrStatus	status;
@@ -163,16 +163,16 @@ WfspTreeCopy(
 	)
 {
 	WfspTreeItem *	item;
-	WfrStatus		status;
-	void *			value_new;
+	WfrStatus	status;
+	void *		value_new;
 
 
 	WFSP_TREE234_FOREACH(status, tree_from, idx, item) {
 		if (WFR_STATUS_SUCCESS(status = WfspTreeCloneValue(item, &value_new)))
 		{
 			status = WfspTreeSet(
-						tree_to, item->key, item->type,
-						value_new, item->value_size);
+				tree_to, item->key, item->type,
+				value_new, item->value_size);
 			if (WFR_STATUS_FAILURE(status)) {
 				sfree(value_new);
 			}
@@ -184,7 +184,7 @@ WfspTreeCopy(
 
 WfrStatus
 WfspTreeDelete(
-	WfspTree *			tree,
+	WfspTree *		tree,
 	WfspTreeItem *		item,
 	const char *		key,
 	WfspTreeItemType	type
@@ -211,15 +211,15 @@ WfspTreeDelete(
 
 WfrStatus
 WfspTreeEnumerate(
-	WfspTree *			tree,
-	bool				initfl,
-	bool *				pdonefl,
+	WfspTree *		tree,
+	bool			initfl,
+	bool *			pdonefl,
 	WfspTreeItem **		pitem,
-	void *				state
+	void *			state
 	)
 {
 	WfspTreeItem *	item;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (initfl) {
@@ -249,14 +249,14 @@ WfspTreeEnumerate(
 
 WfrStatus
 WfspTreeGet(
-	WfspTree *			tree,
+	WfspTree *		tree,
 	const char *		key,
 	WfspTreeItemType	type,
 	WfspTreeItem **		pitem
 	)
 {
 	WfspTreeItem *	item, item_find;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	WFSP_TREE_ITEM_INIT(item_find);
@@ -275,7 +275,7 @@ WfspTreeGet(
 
 WfrStatus
 WfspTreeInit(
-	WfspTree **		tree
+	WfspTree **	tree
 	)
 {
 	*tree = newtree234(WfsppTree234Cmp);
@@ -285,7 +285,7 @@ WfspTreeInit(
 
 WfrStatus
 WfspTreeRename(
-	WfspTree *			tree,
+	WfspTree *		tree,
 	WfspTreeItem *		item,
 	const char *		key,
 	WfspTreeItemType	type,
@@ -293,9 +293,9 @@ WfspTreeRename(
 	)
 {
 	WfspTreeItem *	item_old;
-	char *			key_new_ = NULL;
-	size_t			key_new__size;
-	WfrStatus		status;
+	char *		key_new_ = NULL;
+	size_t		key_new__size;
+	WfrStatus	status;
 
 
 	if (type == WFSP_TREE_ITYPE_ANY) {
@@ -336,16 +336,16 @@ WfspTreeRename(
 
 WfrStatus
 WfspTreeSet(
-	WfspTree *			tree,
+	WfspTree *		tree,
 	const char *		key,
 	WfspTreeItemType	type,
-	void *				value,
-	size_t				value_size
+	void *			value,
+	size_t			value_size
 	)
 {
 	WfspTreeItem *	item = NULL, *item_old;
-	char *			key_new = NULL;
-	WfrStatus		status;
+	char *		key_new = NULL;
+	WfrStatus	status;
 
 
 	if (type == WFSP_TREE_ITYPE_ANY) {
@@ -385,5 +385,5 @@ WfspTreeSet(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

@@ -19,10 +19,10 @@
 
 void
 WffMouseConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
-	struct controlset *		s;
+	struct controlset *	s;
 
 
 	/*
@@ -32,8 +32,7 @@ WffMouseConfigPanel(
 	ctrl_settitle(b, "Frippery/Mouse", "Configure pointless frippery: mouse behaviour");
 	s = ctrl_getset(b, "Frippery/Mouse", "frip_mouse", "Mouse behaviour");
 
-	ctrl_checkbox(s, "Change font size with mouse wheel", 'n', WFP_HELP_CTX,
-				  conf_checkbox_handler, I(CONF_frip_mouse_font_size_wheel));
+	ctrl_checkbox(s, "Change font size with mouse wheel", 'n', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_mouse_font_size_wheel));
 	ctrl_text(s, "This only affects mouse wheel actions with the CTRL modifier.", WFP_HELP_CTX);
 }
 
@@ -92,5 +91,5 @@ WffMouseOperation(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

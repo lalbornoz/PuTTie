@@ -31,7 +31,7 @@
  * WM_SYSTRAY: user-defined system tray window message constant
  */
 
-#define WM_SYSTRAY			(WM_USER + (0x7FFF - WM_USER))
+#define WM_SYSTRAY		(WM_USER + (0x7FFF - WM_USER))
 
 /*
  * Private variables
@@ -47,10 +47,10 @@ static NOTIFYICONDATAA	WffgpNotifyIcon;
  * Private subroutine prototypes
  */
 
-static void			WffgpSysTrayInit(HINSTANCE hinst, HWND hwnd);
-static void			WffgpSysTrayMinimise(Conf *conf, HWND hwnd);
+static void		WffgpSysTrayInit(HINSTANCE hinst, HWND hwnd);
+static void		WffgpSysTrayMinimise(Conf *conf, HWND hwnd);
 static WfReturn		WffgpSysTrayWmMenu(HWND hwnd, WPARAM wParam);
-static void			WffgpSysTrayWmOther(HWND hwnd, LPARAM lParam);
+static void		WffgpSysTrayWmOther(HWND hwnd, LPARAM lParam);
 
 /*
  * Private subroutines
@@ -146,10 +146,10 @@ WffgpSysTrayWmOther(
 
 void
 WffGeneralConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
-	struct controlset *		s;
+	struct controlset *	s;
 
 
 	/*
@@ -158,10 +158,8 @@ WffGeneralConfigPanel(
 
 	ctrl_settitle(b, "Frippery", "Configure pointless frippery: general frippery");
 	s = ctrl_getset(b, "Frippery", "frip_general", "General pointless frippery");
-	ctrl_checkbox(s, "Always on top", 'l', WFP_HELP_CTX,
-				  conf_checkbox_handler, I(CONF_frip_general_always_on_top));
-	ctrl_checkbox(s, "Minimise to system tray", 'y', WFP_HELP_CTX,
-				  conf_checkbox_handler, I(CONF_frip_general_minimise_to_systray));
+	ctrl_checkbox(s, "Always on top", 'l', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_general_always_on_top));
+	ctrl_checkbox(s, "Minimise to system tray", 'y', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_general_minimise_to_systray));
 }
 
 UINT
@@ -179,12 +177,12 @@ WffGeneralGetWmSysTray(
 WfReturn
 WffGeneralOperation(
 	WffGeneralOp	op,
-	Conf *			conf,
-	HINSTANCE		hinst,
-	HWND			hwnd,
-	LPARAM			lParam,
-	int				reconfiguring,
-	WPARAM			wParam
+	Conf *		conf,
+	HINSTANCE	hinst,
+	HWND		hwnd,
+	LPARAM		lParam,
+	int		reconfiguring,
+	WPARAM		wParam
 	)
 {
 	switch (op) {
@@ -224,5 +222,5 @@ WffGeneralOperation(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

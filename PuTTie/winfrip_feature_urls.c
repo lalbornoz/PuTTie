@@ -14,31 +14,30 @@
 #include "PuTTie/winfrip_feature_urls.h"
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_pcre2.h"
-#include "PuTTie/winfrip_rtl_putty.h"
 
 /*
  * Private type definitions
  */
 
 typedef enum WffupModifierKey {
-	WFFUP_MODIFIER_KEY_CTRL			= 0,
-	WFFUP_MODIFIER_KEY_DEFAULT		= WFFUP_MODIFIER_KEY_CTRL,
-	WFFUP_MODIFIER_KEY_ALT			= 1,
+	WFFUP_MODIFIER_KEY_CTRL		= 0,
+	WFFUP_MODIFIER_KEY_DEFAULT	= WFFUP_MODIFIER_KEY_CTRL,
+	WFFUP_MODIFIER_KEY_ALT		= 1,
 	WFFUP_MODIFIER_KEY_RIGHT_CTRL	= 2,
 	WFFUP_MODIFIER_KEY_RIGHT_ALT	= 3,
 } WffupModifierKey;
 
 typedef enum WffupModifierShift {
-	WFFUP_MODIFIER_SHIFT_NONE		= 0,
+	WFFUP_MODIFIER_SHIFT_NONE	= 0,
 	WFFUP_MODIFIER_SHIFT_DEFAULT	= WFFUP_MODIFIER_SHIFT_NONE,
-	WFFUP_MODIFIER_SHIFT_LSHIFT		= 1,
-	WFFUP_MODIFIER_SHIFT_RSHIFT		= 2,
+	WFFUP_MODIFIER_SHIFT_LSHIFT	= 1,
+	WFFUP_MODIFIER_SHIFT_RSHIFT	= 2,
 } WffupModifierShift;
 
 typedef enum WffupState {
-	WFFUP_STATE_NONE				= 0,
-	WFFUP_STATE_CLICK				= 1,
-	WFFUP_STATE_SELECT				= 2,
+	WFFUP_STATE_NONE		= 0,
+	WFFUP_STATE_CLICK		= 1,
+	WFFUP_STATE_SELECT		= 2,
 } WffupState;
 
 /*
@@ -49,9 +48,9 @@ typedef enum WffupState {
  * Terminal buffer position comparision macros
  */
 #define WffupPosLe(p1,px,py)	\
-		((p1).y < (py) || ((p1).y == (py) && (p1).x <= (px)))
+	((p1).y < (py) || ((p1).y == (py) && (p1).x <= (px)))
 #define WffupPosLt(px,py,p2)	\
-		((py) < (p2).y || ((py) == (p2).y && (px) < (p2).x))
+	((py) < (p2).y || ((py) == (p2).y && (px) < (p2).x))
 
 /*
  * Private variables
@@ -60,68 +59,203 @@ typedef enum WffupState {
 /*
  * UTF-16 encoded pathname to browser application or NULL (default)
  */
-static wchar_t *			WffupAppW = NULL;
+static wchar_t *		WffupAppW = NULL;
 
 /*
  * Zero-based inclusive beginning and exclusive end terminal buffer coordinates
  * of URL during URL matching and selecting operations
  */
-static pos					WffupMatchBegin = {0, 0};
-static pos					WffupMatchEnd = {0, 0};
-static pos					WffupSelectBegin = {0, 0};
-static pos					WffupSelectEnd = {0, 0};
+static pos			WffupMatchBegin = {0, 0};
+static pos			WffupMatchEnd = {0, 0};
+static pos			WffupSelectBegin = {0, 0};
+static pos			WffupSelectEnd = {0, 0};
 
 /*
  * UTF-16 encoded URL buffer and buffer size in bytes during URL operations
  * or NULL/0, resp.
  */
-static wchar_t *			WffupBufW = NULL;
-static size_t				WffupBufW_size = 0;
+static wchar_t *		WffupBufW = NULL;
+static size_t			WffupBufW_size = 0;
 
 /*
  * Windows base API GetKeyState() virtual keys corresponding to the URL mouse
  * motion, URL extending/shrinking, and LMB click modifier and shift modifier
  * keys configured by the user.
  */
-static int					WffupModifier = 0;
-static int					WffupModifierExtendShrink = 0;
-static int					WffupModifierShiftState = 0;
+static int			WffupModifier = 0;
+static int			WffupModifierExtendShrink = 0;
+static int			WffupModifierShiftState = 0;
 
 /*
  * PCRE2 regular expression compiled code or NULL, error message buffer, and
  * match data block or NULL
  */
-static pcre2_code *			WffupReCode = NULL;
-static wchar_t				WffupReErrorMessage[256] = {0,};
+static pcre2_code *		WffupReCode = NULL;
+static wchar_t			WffupReErrorMessage[256] = {0,};
 static pcre2_match_data *	WffupReMd = NULL;
 
 /*
  * URL operation state (WFFUP_STATE_{NONE,CLICK,SELECT})
  */
-static WffupState			WffupStateCurrent = WFFUP_STATE_NONE;
+static WffupState		WffupStateCurrent = WFFUP_STATE_NONE;
 
 /*
  * Private subroutine prototypes
  */
 
-static bool			WffupGet(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, pos begin, pos end);
-WfrStatus			WffupGetTermLine(Terminal *term, wchar_t **pline_w, size_t *pline_w_len, int y);
+static void		WffupConfigPanelModifierKeyHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void		WffupConfigPanelModifierExtendShrinkHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void		WffupConfigPanelModifierShiftHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
-static void			WffupConfigPanelModifierKeyHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static void			WffupConfigPanelModifierExtendShrinkHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static void			WffupConfigPanelModifierShiftHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static bool		WffupGet(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, pos begin, pos end);
+WfrStatus		WffupGetTermLine(Terminal *term, wchar_t **pline_w, size_t *pline_w_len, int y);
+
+static bool		WffupIsVKeyDown(int nVirtKey);
 
 static WfReturn		WffupReconfig(Conf *conf);
-static void			WffupReconfigModifierKey(Conf *conf);
-static void			WffupReconfigModifierExtendShrinkKey(Conf *conf);
-static void			WffupReconfigModifierShift(Conf *conf);
+static void		WffupReconfigModifierKey(Conf *conf);
+static void		WffupReconfigModifierExtendShrinkKey(Conf *conf);
+static void		WffupReconfigModifierShift(Conf *conf);
 
-static bool			WffupStateMatch(int x, int y);
-static void			WffupStateReset(Terminal *term, bool update_term);
+static bool		WffupStateMatch(int x, int y);
+static void		WffupStateReset(Terminal *term, bool update_term);
 
 /*
  * Private subroutines
  */
+
+static void
+WffupConfigPanelModifierKeyHandler(
+	dlgcontrol *	ctrl,
+	dlgparam *	dlg,
+	void *		data,
+	int		event
+	)
+{
+	Conf *	conf = (Conf *)data;
+	int	id;
+
+
+	switch (event) {
+	case EVENT_REFRESH:
+		dlg_update_start(ctrl, dlg);
+		dlg_listbox_clear(ctrl, dlg);
+		dlg_listbox_addwithid(ctrl, dlg, "Ctrl", WFFUP_MODIFIER_KEY_CTRL);
+		dlg_listbox_addwithid(ctrl, dlg, "Alt", WFFUP_MODIFIER_KEY_ALT);
+		dlg_listbox_addwithid(ctrl, dlg, "Right Ctrl", WFFUP_MODIFIER_KEY_RIGHT_CTRL);
+		dlg_listbox_addwithid(ctrl, dlg, "Right Alt/AltGr", WFFUP_MODIFIER_KEY_RIGHT_ALT);
+
+		switch (conf_get_int(conf, CONF_frip_urls_modifier_key)) {
+		case WFFUP_MODIFIER_KEY_CTRL:
+			dlg_listbox_select(ctrl, dlg, 0); break;
+		case WFFUP_MODIFIER_KEY_ALT:
+			dlg_listbox_select(ctrl, dlg, 1); break;
+		case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
+			dlg_listbox_select(ctrl, dlg, 2); break;
+		case WFFUP_MODIFIER_KEY_RIGHT_ALT:
+			dlg_listbox_select(ctrl, dlg, 3); break;
+		default:
+			WFR_DEBUG_FAIL(); break;
+		}
+		dlg_update_done(ctrl, dlg);
+		break;
+
+	case EVENT_SELCHANGE:
+	case EVENT_VALCHANGE:
+		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
+		conf_set_int(conf, CONF_frip_urls_modifier_key, id);
+		WffupReconfigModifierKey(conf);
+		break;
+	}
+}
+
+static void
+WffupConfigPanelModifierExtendShrinkHandler(
+	dlgcontrol *	ctrl,
+	dlgparam *	dlg,
+	void *		data,
+	int		event
+	)
+{
+	Conf *	conf = (Conf *)data;
+	int	id;
+
+
+	switch (event) {
+	case EVENT_REFRESH:
+		dlg_update_start(ctrl, dlg);
+		dlg_listbox_clear(ctrl, dlg);
+		dlg_listbox_addwithid(ctrl, dlg, "Ctrl", WFFUP_MODIFIER_KEY_CTRL);
+		dlg_listbox_addwithid(ctrl, dlg, "Alt", WFFUP_MODIFIER_KEY_ALT);
+		dlg_listbox_addwithid(ctrl, dlg, "Right Ctrl", WFFUP_MODIFIER_KEY_RIGHT_CTRL);
+		dlg_listbox_addwithid(ctrl, dlg, "Right Alt/AltGr", WFFUP_MODIFIER_KEY_RIGHT_ALT);
+
+		switch (conf_get_int(conf, CONF_frip_urls_modifier_extendshrink_key)) {
+		case WFFUP_MODIFIER_KEY_CTRL:
+			dlg_listbox_select(ctrl, dlg, 0); break;
+		case WFFUP_MODIFIER_KEY_ALT:
+			dlg_listbox_select(ctrl, dlg, 1); break;
+		case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
+			dlg_listbox_select(ctrl, dlg, 2); break;
+		case WFFUP_MODIFIER_KEY_RIGHT_ALT:
+			dlg_listbox_select(ctrl, dlg, 3); break;
+		default:
+			WFR_DEBUG_FAIL(); break;
+		}
+		dlg_update_done(ctrl, dlg);
+		break;
+
+	case EVENT_SELCHANGE:
+	case EVENT_VALCHANGE:
+		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
+		conf_set_int(conf, CONF_frip_urls_modifier_extendshrink_key, id);
+		WffupReconfigModifierExtendShrinkKey(conf);
+		break;
+	}
+}
+
+static void
+WffupConfigPanelModifierShiftHandler(
+	dlgcontrol *	ctrl,
+	dlgparam *	dlg,
+	void *		data,
+	int		event
+	)
+{
+	Conf *	conf = (Conf *)data;
+	int	id;
+
+
+	switch (event) {
+	case EVENT_REFRESH:
+		dlg_update_start(ctrl, dlg);
+		dlg_listbox_clear(ctrl, dlg);
+		dlg_listbox_addwithid(ctrl, dlg, "None", WFFUP_MODIFIER_SHIFT_NONE);
+		dlg_listbox_addwithid(ctrl, dlg, "Shift", WFFUP_MODIFIER_SHIFT_LSHIFT);
+		dlg_listbox_addwithid(ctrl, dlg, "Right Shift", WFFUP_MODIFIER_SHIFT_RSHIFT);
+
+		switch (conf_get_int(conf, CONF_frip_urls_modifier_shift)) {
+		case WFFUP_MODIFIER_SHIFT_NONE:
+			dlg_listbox_select(ctrl, dlg, 0); break;
+		case WFFUP_MODIFIER_SHIFT_LSHIFT:
+			dlg_listbox_select(ctrl, dlg, 1); break;
+		case WFFUP_MODIFIER_SHIFT_RSHIFT:
+			dlg_listbox_select(ctrl, dlg, 2); break;
+		default:
+			WFR_DEBUG_FAIL(); break;
+		}
+		dlg_update_done(ctrl, dlg);
+		break;
+
+	case EVENT_SELCHANGE:
+	case EVENT_VALCHANGE:
+		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
+		conf_set_int(conf, CONF_frip_urls_modifier_shift, id);
+		WffupReconfigModifierShift(conf);
+		break;
+	}
+}
+
 
 static bool
 WffupGet(
@@ -130,17 +264,17 @@ WffupGet(
 	pos *		pend,
 	wchar_t **	phover_url_w,
 	size_t *	phover_url_w_size,
-	pos			begin,
-	pos			end
+	pos		begin,
+	pos		end
 	)
 {
-	bool			breakfl = false;
-	wchar_t *		line_w = NULL, *line_new_w;
-	bool			line_w_initfl = true;
-	size_t			line_w_size = 0, line_new_w_len;
-	size_t			match_begin, match_end, match_len;
-	Wfp2MGState		pcre2_state;
-	WfrStatus		status;
+	bool		breakfl = false;
+	wchar_t *	line_w = NULL, *line_new_w;
+	bool		line_w_initfl = true;
+	size_t		line_w_size = 0, line_new_w_len;
+	size_t		match_begin, match_end, match_len;
+	Wfp2MGState	pcre2_state;
+	WfrStatus	status;
 
 
 	/*
@@ -154,9 +288,9 @@ WffupGet(
 		WFR_DEBUG_FAIL();
 		return FALSE;
 	} else if ((begin.x < 0) || (begin.x >= term->cols)
-			|| (begin.y < 0) || (begin.y >= term->rows)
-			|| (end.x < 0)   || (end.x >= term->cols)
-			|| (end.y < 0)   || (end.y >= term->rows))
+		|| (begin.y < 0) || (begin.y >= term->rows)
+		|| (end.x < 0)   || (end.x >= term->cols)
+		|| (end.y < 0)   || (end.y >= term->rows))
 	{
 		WFR_DEBUG_FAIL();
 		return FALSE;
@@ -169,14 +303,13 @@ WffupGet(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 		for (int y = begin.y; y <= end.y; y++) {
 			if (WFR_STATUS_FAILURE(status = WffupGetTermLine(
-							term, &line_new_w, &line_new_w_len, y)))
+					term, &line_new_w, &line_new_w_len, y)))
 			{
 				break;
 			} else if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
-							line_w, line_w_size,
-							line_w_size ? (line_w_size + line_new_w_len)
-										: (line_new_w_len + 1),
-							wchar_t)))
+					line_w, line_w_size,
+					line_w_size ? (line_w_size + line_new_w_len) : (line_new_w_len + 1),
+					wchar_t)))
 			{
 				sfree(line_new_w);
 				break;
@@ -192,8 +325,9 @@ WffupGet(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			Wfp2Init(&pcre2_state, WffupReCode,
-					 wcslen(line_w), WffupReMd, line_w);
+			Wfp2Init(
+				&pcre2_state, WffupReCode,
+				wcslen(line_w), WffupReMd, line_w);
 		} else {
 			WFR_SFREE_IF_NOTNULL(line_w);
 			WFR_DEBUG_FAIL();
@@ -212,7 +346,7 @@ WffupGet(
 
 	do {
 		switch (WFR_STATUS_CONDITION(Wfp2MatchGlobal(
-						&pcre2_state, &match_begin, &match_end)))
+				&pcre2_state, &match_begin, &match_end)))
 		{
 		case WFR_STATUS_CONDITION_PCRE2_ERROR:
 			WFR_DEBUGF("error %d trying to match any URL(s) in line `%S'", pcre2_state.last_error, line_w);
@@ -282,7 +416,7 @@ WffupGetTermLine(
 	Terminal *	term,
 	wchar_t **	pline_w,
 	size_t *	pline_w_len,
-	int			y
+	int		y
 	)
 {
 	size_t		idx_in, idx_out;
@@ -290,7 +424,7 @@ WffupGetTermLine(
 	wchar_t *	line_w;
 	size_t		line_w_len;
 	size_t		rtl_idx, rtl_len;
-	int			rtl_start;
+	int		rtl_start;
 	wchar_t		wch;
 
 
@@ -387,136 +521,12 @@ WffupGetTermLine(
 }
 
 
-static void
-WffupConfigPanelModifierKeyHandler(
-	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+static bool
+WffupIsVKeyDown(
+	int	nVirtKey
 	)
 {
-	Conf *	conf = (Conf *)data;
-	int		id;
-
-
-	switch (event) {
-	case EVENT_REFRESH:
-		dlg_update_start(ctrl, dlg);
-		dlg_listbox_clear(ctrl, dlg);
-		dlg_listbox_addwithid(ctrl, dlg, "Ctrl", WFFUP_MODIFIER_KEY_CTRL);
-		dlg_listbox_addwithid(ctrl, dlg, "Alt", WFFUP_MODIFIER_KEY_ALT);
-		dlg_listbox_addwithid(ctrl, dlg, "Right Ctrl", WFFUP_MODIFIER_KEY_RIGHT_CTRL);
-		dlg_listbox_addwithid(ctrl, dlg, "Right Alt/AltGr", WFFUP_MODIFIER_KEY_RIGHT_ALT);
-
-		switch (conf_get_int(conf, CONF_frip_urls_modifier_key)) {
-		case WFFUP_MODIFIER_KEY_CTRL:
-			dlg_listbox_select(ctrl, dlg, 0); break;
-		case WFFUP_MODIFIER_KEY_ALT:
-			dlg_listbox_select(ctrl, dlg, 1); break;
-		case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
-			dlg_listbox_select(ctrl, dlg, 2); break;
-		case WFFUP_MODIFIER_KEY_RIGHT_ALT:
-			dlg_listbox_select(ctrl, dlg, 3); break;
-		default:
-			WFR_DEBUG_FAIL(); break;
-		}
-		dlg_update_done(ctrl, dlg);
-		break;
-
-	case EVENT_SELCHANGE:
-	case EVENT_VALCHANGE:
-		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
-		conf_set_int(conf, CONF_frip_urls_modifier_key, id);
-		WffupReconfigModifierKey(conf);
-		break;
-	}
-}
-
-static void
-WffupConfigPanelModifierExtendShrinkHandler(
-	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
-	)
-{
-	Conf *	conf = (Conf *)data;
-	int		id;
-
-
-	switch (event) {
-	case EVENT_REFRESH:
-		dlg_update_start(ctrl, dlg);
-		dlg_listbox_clear(ctrl, dlg);
-		dlg_listbox_addwithid(ctrl, dlg, "Ctrl", WFFUP_MODIFIER_KEY_CTRL);
-		dlg_listbox_addwithid(ctrl, dlg, "Alt", WFFUP_MODIFIER_KEY_ALT);
-		dlg_listbox_addwithid(ctrl, dlg, "Right Ctrl", WFFUP_MODIFIER_KEY_RIGHT_CTRL);
-		dlg_listbox_addwithid(ctrl, dlg, "Right Alt/AltGr", WFFUP_MODIFIER_KEY_RIGHT_ALT);
-
-		switch (conf_get_int(conf, CONF_frip_urls_modifier_extendshrink_key)) {
-		case WFFUP_MODIFIER_KEY_CTRL:
-			dlg_listbox_select(ctrl, dlg, 0); break;
-		case WFFUP_MODIFIER_KEY_ALT:
-			dlg_listbox_select(ctrl, dlg, 1); break;
-		case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
-			dlg_listbox_select(ctrl, dlg, 2); break;
-		case WFFUP_MODIFIER_KEY_RIGHT_ALT:
-			dlg_listbox_select(ctrl, dlg, 3); break;
-		default:
-			WFR_DEBUG_FAIL(); break;
-		}
-		dlg_update_done(ctrl, dlg);
-		break;
-
-	case EVENT_SELCHANGE:
-	case EVENT_VALCHANGE:
-		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
-		conf_set_int(conf, CONF_frip_urls_modifier_extendshrink_key, id);
-		WffupReconfigModifierExtendShrinkKey(conf);
-		break;
-	}
-}
-
-static void
-WffupConfigPanelModifierShiftHandler(
-	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
-	)
-{
-	Conf *	conf = (Conf *)data;
-	int		id;
-
-
-	switch (event) {
-	case EVENT_REFRESH:
-		dlg_update_start(ctrl, dlg);
-		dlg_listbox_clear(ctrl, dlg);
-		dlg_listbox_addwithid(ctrl, dlg, "None", WFFUP_MODIFIER_SHIFT_NONE);
-		dlg_listbox_addwithid(ctrl, dlg, "Shift", WFFUP_MODIFIER_SHIFT_LSHIFT);
-		dlg_listbox_addwithid(ctrl, dlg, "Right Shift", WFFUP_MODIFIER_SHIFT_RSHIFT);
-
-		switch (conf_get_int(conf, CONF_frip_urls_modifier_shift)) {
-		case WFFUP_MODIFIER_SHIFT_NONE:
-			dlg_listbox_select(ctrl, dlg, 0); break;
-		case WFFUP_MODIFIER_SHIFT_LSHIFT:
-			dlg_listbox_select(ctrl, dlg, 1); break;
-		case WFFUP_MODIFIER_SHIFT_RSHIFT:
-			dlg_listbox_select(ctrl, dlg, 2); break;
-		default:
-			WFR_DEBUG_FAIL(); break;
-		}
-		dlg_update_done(ctrl, dlg);
-		break;
-
-	case EVENT_SELCHANGE:
-	case EVENT_VALCHANGE:
-		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
-		conf_set_int(conf, CONF_frip_urls_modifier_shift, id);
-		WffupReconfigModifierShift(conf);
-		break;
-	}
+	return (GetKeyState(nVirtKey) < 0);
 }
 
 
@@ -525,12 +535,12 @@ WffupReconfig(
 	Conf *	conf
 	)
 {
-	static char		dlg_caption[96], dlg_text[256];
-	int				re_errorcode = 0;
-	PCRE2_SIZE		re_erroroffset = 0;
-	char *			spec;
-	size_t			spec_len;
-	wchar_t *		spec_w;
+	static char	dlg_caption[96], dlg_text[256];
+	int		re_errorcode = 0;
+	PCRE2_SIZE	re_erroroffset = 0;
+	char *		spec;
+	size_t		spec_len;
+	wchar_t *	spec_w;
 
 
 	/*
@@ -572,16 +582,16 @@ WffupReconfig(
 		} else {
 			ZeroMemory(WffupReErrorMessage, sizeof(WffupReErrorMessage));
 			pcre2_get_error_message(
-				re_errorcode,
-				WffupReErrorMessage,
+				re_errorcode, WffupReErrorMessage,
 				sizeof(WffupReErrorMessage) / sizeof(WffupReErrorMessage[0]));
 
 			snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
-			snprintf(dlg_text, sizeof(dlg_text),
-					 "Error in regex %S at offset %llu: %S",
-					 spec_w, re_erroroffset, WffupReErrorMessage);
+			snprintf(
+				dlg_text, sizeof(dlg_text),
+				"Error in regex %S at offset %llu: %S",
+				spec_w, re_erroroffset, WffupReErrorMessage);
 #pragma GCC diagnostic pop
 
 			goto fail;
@@ -673,14 +683,14 @@ WffupReconfigModifierShift(
 
 static bool
 WffupStateMatch(
-	int		x,
-	int		y
+	int	x,
+	int	y
 	)
 {
-	return (WfrpIsVKeyDown(WffupModifier)
-	&&    ((WffupModifierShiftState != 0)
-	 ?     WfrpIsVKeyDown(WffupModifierShiftState)
-	 :     true)
+	return (WffupIsVKeyDown(WffupModifier)
+	&&		((WffupModifierShiftState != 0)
+	 ?		WffupIsVKeyDown(WffupModifierShiftState)
+	 :		true)
 	&&  (y >= WffupMatchBegin.y)
 	&&  ((y == WffupMatchBegin.y) ? (x >= WffupMatchBegin.x) : true)
 	&&  (y <= WffupMatchEnd.y)
@@ -711,10 +721,10 @@ WffupStateReset(
 
 void
 WffUrlsConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
-	struct controlset *		s_browser, *s_input, *s_re, *s_visual;
+	struct controlset *	s_browser, *s_input, *s_re, *s_visual;
 
 
 	/*
@@ -728,51 +738,33 @@ WffUrlsConfigPanel(
 	 */
 
 	s_visual = ctrl_getset(b, "Frippery/URLs", "frip_urls_visual", "Visual behaviour");
-	ctrl_checkbox(s_visual, "Underline hyperlinks on highlight",
-				  'u', WFP_HELP_CTX,
-				  conf_checkbox_handler, I(CONF_frip_urls_underline_onhl));
-	ctrl_checkbox(s_visual, "Apply reverse video to hyperlinks on click",
-				  'v', WFP_HELP_CTX,
-				  conf_checkbox_handler, I(CONF_frip_urls_revvideo_onclick));
+	ctrl_checkbox(s_visual, "Underline hyperlinks on highlight", 'u', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_urls_underline_onhl));
+	ctrl_checkbox(s_visual, "Apply reverse video to hyperlinks on click", 'v', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_urls_revvideo_onclick));
 
 	/*
 	 * The Frippery: URLs: Input behaviour controls box.
 	 */
 
 	s_input = ctrl_getset(b, "Frippery/URLs", "frip_urls_input", "Input behaviour");
-	ctrl_droplist(s_input, "Modifier key:",
-				  'm', 35, WFP_HELP_CTX,
-				  WffupConfigPanelModifierKeyHandler, P(NULL));
-	ctrl_droplist(s_input, "Extend/shrink modifier key:",
-				  'x', 35, WFP_HELP_CTX,
-				  WffupConfigPanelModifierExtendShrinkHandler, P(NULL));
-	ctrl_droplist(s_input, "Shift key:",
-				  's', 35, WFP_HELP_CTX,
-				  WffupConfigPanelModifierShiftHandler, P(NULL));
+	ctrl_droplist(s_input, "Modifier key:", 'm', 35, WFP_HELP_CTX, WffupConfigPanelModifierKeyHandler, P(NULL));
+	ctrl_droplist(s_input, "Extend/shrink modifier key:", 'x', 35, WFP_HELP_CTX, WffupConfigPanelModifierExtendShrinkHandler, P(NULL));
+	ctrl_droplist(s_input, "Shift key:", 's', 35, WFP_HELP_CTX, WffupConfigPanelModifierShiftHandler, P(NULL));
 
 	/*
 	 * The Frippery: URLs: Regular expression controls box.
 	 */
 
 	s_re = ctrl_getset(b, "Frippery/URLs", "frip_urls_regex", "Regular expression");
-	ctrl_editbox(s_re, NULL,
-				 'r', 100, WFP_HELP_CTX,
-				 conf_editbox_handler, I(CONF_frip_urls_regex), ED_STR);
-	ctrl_text(s_re, "Regexes are matched against whole lines and may contain/match on whitespaces, etc.",
-			  WFP_HELP_CTX);
+	ctrl_editbox(s_re, NULL, 'r', 100, WFP_HELP_CTX, conf_editbox_handler, I(CONF_frip_urls_regex), ED_STR);
+	ctrl_text(s_re, "Regexes are matched against whole lines and may contain/match on whitespaces, etc.", WFP_HELP_CTX);
 
 	/*
 	 * The Frippery: URLs: Browser controls box.
 	 */
 
 	s_browser = ctrl_getset(b, "Frippery/URLs", "frip_urls_browser", "Browser");
-	ctrl_checkbox(s_browser, "Default application associated with \"open\" verb",
-				  'd', WFP_HELP_CTX,
-				  conf_checkbox_handler, I(CONF_frip_urls_browser_default));
-	ctrl_text(s_browser, "Pathname to browser application:", WFP_HELP_CTX);
-	ctrl_editbox(s_browser, NULL,
-				 'p', 100, WFP_HELP_CTX,
-				 conf_editbox_handler, I(CONF_frip_urls_browser_pname_verb), ED_STR);
+	ctrl_checkbox(s_browser, "Default application associated with \"open\" verb", 'd', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_urls_browser_default));
+	ctrl_text(s_browser, "Pathname to browser application:", WFP_HELP_CTX); ctrl_editbox(s_browser, NULL, 'p', 100, WFP_HELP_CTX, conf_editbox_handler, I(CONF_frip_urls_browser_pname_verb), ED_STR);
 }
 
 /*
@@ -781,15 +773,15 @@ WffUrlsConfigPanel(
 
 WfReturn
 WffUrlsOperation(
-	WffUrlsOp			op,
-	Conf *				conf,
-	HWND				hwnd,
-	UINT				message,
+	WffUrlsOp		op,
+	Conf *			conf,
+	HWND			hwnd,
+	UINT			message,
 	unsigned long *		tattr,
-	Terminal *			term,
-	WPARAM				wParam,
-	int					x,
-	int					y
+	Terminal *		term,
+	WPARAM			wParam,
+	int			x,
+	int			y
 	)
 {
 	wchar_t *	buf_w_new;
@@ -800,7 +792,6 @@ WffUrlsOperation(
 	(void)hwnd;
 
 	switch (op) {
-
 	case WFF_URLS_OP_INIT:
 		WffupReconfig(conf);
 		rc = WF_RETURN_CONTINUE;
@@ -817,8 +808,9 @@ WffUrlsOperation(
 	 */
 
 	case WFF_URLS_OP_DRAW:
-		if (WffupPosLe(WffupMatchBegin, x, y - term->disptop) &&
-			WffupPosLt(x, y - term->disptop, WffupMatchEnd))
+		if (WffupPosLe(
+				WffupMatchBegin, x, y - term->disptop) &&
+				WffupPosLt(x, y - term->disptop, WffupMatchEnd))
 		{
 			switch (WffupStateCurrent) {
 			case WFFUP_STATE_CLICK:
@@ -901,9 +893,9 @@ WffUrlsOperation(
 		 */
 
 		case WFFUP_STATE_NONE:
-			if (WfrpIsVKeyDown(WffupModifier)
+			if (WffupIsVKeyDown(WffupModifier)
 			&& ((WffupModifierShiftState != 0)
-			 ? WfrpIsVKeyDown(WffupModifierShiftState)
+			 ? WffupIsVKeyDown(WffupModifierShiftState)
 			 : true))
 			{
 				if (WffupGet(
@@ -945,10 +937,10 @@ WffUrlsOperation(
 			break;
 
 		case WFFUP_STATE_SELECT:
-			if (WfrpIsVKeyDown(WffupModifier)
-			&&  WfrpIsVKeyDown(WffupModifierExtendShrink)
+			if (WffupIsVKeyDown(WffupModifier)
+			&&  WffupIsVKeyDown(WffupModifierExtendShrink)
 			&&  ((WffupModifierShiftState != 0)
-			 ?   WfrpIsVKeyDown(WffupModifierShiftState)
+			 ?   WffupIsVKeyDown(WffupModifierShiftState)
 			 :   true))
 			{
 				wheel_distance = (short)HIWORD(wParam);
@@ -990,5 +982,5 @@ WffUrlsOperation(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

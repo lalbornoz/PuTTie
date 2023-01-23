@@ -24,13 +24,13 @@ typedef struct WffspConfigContext {
 	dlgcontrol *	button_copy;
 	dlgcontrol *	button_move;
 } WffspConfigContext;
-#define WFFSP_CONFIG_CONTEXT_EMPTY {				\
-		.droplist_from = NULL,						\
-		.droplist_to = NULL,						\
-		.button_copy = NULL,						\
-		.button_move = NULL,						\
-	}
-#define WFFSP_CONFIG_CONTEXT_INIT(ctx)				\
+#define WFFSP_CONFIG_CONTEXT_EMPTY {			\
+	.droplist_from = NULL,				\
+	.droplist_to = NULL,				\
+	.button_copy = NULL,				\
+	.button_move = NULL,				\
+}
+#define WFFSP_CONFIG_CONTEXT_INIT(ctx)			\
 		(ctx) = (WffspConfigContext)WFFSP_CONFIG_CONTEXT_EMPTY
 
 /*
@@ -38,23 +38,23 @@ typedef struct WffspConfigContext {
  */
 
 #define WFFSP_CONFIG_GET_BACKEND_FROM(ctx, dlg)		\
-		(WfsBackend)dlg_listbox_getid(				\
-				(ctx)->droplist_from, (dlg),		\
-				dlg_listbox_index((ctx)->droplist_from, (dlg)));
+	(WfsBackend)dlg_listbox_getid(			\
+			(ctx)->droplist_from, (dlg),	\
+			dlg_listbox_index((ctx)->droplist_from, (dlg)));
 
 #define WFFSP_CONFIG_GET_BACKEND_TO(ctx, dlg)		\
-		(WfsBackend)dlg_listbox_getid(				\
-				(ctx)->droplist_to, (dlg),			\
-				dlg_listbox_index((ctx)->droplist_to, (dlg)));
+	(WfsBackend)dlg_listbox_getid(			\
+			(ctx)->droplist_to, (dlg),	\
+			dlg_listbox_index((ctx)->droplist_to, (dlg)));
 
 /*
  * Private subroutine prototypes
  */
 
-static WfrStatus WffspExportJumpList(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspRefreshBackends(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspExportJumpList(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspRefreshBackends(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
 
-static void WffspConfigGeneralHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void		WffspConfigGeneralHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 /*
  * Private subroutines
@@ -62,8 +62,8 @@ static void WffspConfigGeneralHandler(dlgcontrol *ctrl, dlgparam *dlg, void *dat
 
 static WfrStatus
 WffspExportJumpList(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *	ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
@@ -92,14 +92,14 @@ WffspExportJumpList(
 
 static WfrStatus
 WffspRefreshBackends(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend		backend;
+	WfsBackend	backend;
 	const char *	backend_name;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if ((ctrl == ctx->droplist_from)
@@ -135,9 +135,9 @@ WffspRefreshBackends(
 static void
 WffspConfigGeneralHandler(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
 	WffspConfigContext *	ctx = (WffspConfigContext *)ctrl->context.p;
@@ -169,11 +169,11 @@ WffspConfigGeneralHandler(
 
 void
 WffsGeneralConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
 	WffspConfigContext *	ctx;
-	struct controlset *		s;
+	struct controlset *	s;
 
 
 	/*
@@ -201,5 +201,5 @@ WffsGeneralConfigPanel(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

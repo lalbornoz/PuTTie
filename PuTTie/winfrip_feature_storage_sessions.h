@@ -11,12 +11,11 @@
  * winfrip_putty_config.c
  */
 
-
-void WffsSessionsConfigPanel(struct controlbox *b);
-void WffsSessionsConfigPanelDroplistBackendHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+void	WffsSessionsConfigPanel(struct controlbox *b);
+void	WffsSessionsConfigPanelDroplistBackendHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 #endif // !PUTTY_WINFRIP_FEATURE_STORAGE_SESSIONS_H
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

@@ -35,9 +35,9 @@
  */
 
 typedef enum WfspFileReMatchesOffset {
-	WFSP_FILE_RMO_KEY				= 1,
-	WFSP_FILE_RMO_VALUE_TYPE		= 2,
-	WFSP_FILE_RMO_VALUE				= 3,
+	WFSP_FILE_RMO_KEY		= 1,
+	WFSP_FILE_RMO_VALUE_TYPE	= 2,
+	WFSP_FILE_RMO_VALUE		= 3,
 } WfspFileReMatchesOffset;
 
 /*
@@ -54,11 +54,11 @@ typedef enum WfspFileReMatchesOffset {
  */
 
 static char *		WfsppFileAppData = NULL;
-static char			WfsppFileDnameHostKeys[MAX_PATH + 1] = "";
-static char			WfsppFileDnameSessions[MAX_PATH + 1] = "";
-static char			WfsppFileExtHostKeys[] = ".hostkey";
-static char			WfsppFileExtSessions[] = ".ini";
-static char			WfsppFileFnameJumpList[MAX_PATH + 1] = "";
+static char		WfsppFileDnameHostKeys[MAX_PATH + 1] = "";
+static char		WfsppFileDnameSessions[MAX_PATH + 1] = "";
+static char		WfsppFileExtHostKeys[] = ".hostkey";
+static char		WfsppFileExtSessions[] = ".ini";
+static char		WfsppFileFnameJumpList[MAX_PATH + 1] = "";
 
 static Wfp2Regex	WfsppFileRegex = {
 	.ovecsize = 16,
@@ -94,12 +94,12 @@ WfsppFileClear(
 	)
 {
 	struct dirent *		dire;
-	DIR *				dirp = NULL;
-	size_t				ext_len;
-	char				fname[MAX_PATH + 1];
-	char *				pext;
-	struct stat			statbuf;
-	WfrStatus			status;
+	DIR *			dirp = NULL;
+	size_t			ext_len;
+	char			fname[MAX_PATH + 1];
+	char *			pext;
+	struct stat		statbuf;
+	WfrStatus		status;
 
 
 	ext_len = strlen(ext);
@@ -138,12 +138,12 @@ WfsppFileClear(
 
 static WfrStatus
 WfsppFileEnumerateInit(
-	const char *				dname,
+	const char *			dname,
 	WfspFileEnumerateState **	enum_state
 	)
 {
-	struct stat		statbuf;
-	WfrStatus		status;
+	struct stat	statbuf;
+	WfrStatus	status;
 
 
 	if (!(((*enum_state) = snew(WfspFileEnumerateState)))) {
@@ -177,14 +177,14 @@ WfsppFileInitAppDataSubdir(
 	} else {
 		WfsppFileAppData = appdata;
 		WFR_SNPRINTF(
-				WfsppFileDnameHostKeys, sizeof(WfsppFileDnameHostKeys),
-				"%s/PuTTie/hostkeys", WfsppFileAppData);
+			WfsppFileDnameHostKeys, sizeof(WfsppFileDnameHostKeys),
+			"%s/PuTTie/hostkeys", WfsppFileAppData);
 		WFR_SNPRINTF(
-				WfsppFileDnameSessions, sizeof(WfsppFileDnameSessions),
-				"%s/PuTTie/sessions", WfsppFileAppData);
+			WfsppFileDnameSessions, sizeof(WfsppFileDnameSessions),
+			"%s/PuTTie/sessions", WfsppFileAppData);
 		WFR_SNPRINTF(
-				WfsppFileFnameJumpList, sizeof(WfsppFileFnameJumpList),
-				"%s/PuTTie/jump.list", WfsppFileAppData);
+			WfsppFileFnameJumpList, sizeof(WfsppFileFnameJumpList),
+			"%s/PuTTie/jump.list", WfsppFileAppData);
 
 		if ((mkdir(WfsppFileDnameHostKeys) < 0) && (errno != EEXIST)) {
 			status = WFR_STATUS_FROM_ERRNO();
@@ -234,11 +234,11 @@ WfsppFileJumpListGet(
 	size_t *	pjump_list_size
 	)
 {
-	FILE *			file = NULL;
-	char *			jump_list = NULL;
-	size_t			jump_list_size = 0;
-	struct stat		statbuf;
-	WfrStatus		status;
+	FILE *		file = NULL;
+	char *		jump_list = NULL;
+	size_t		jump_list_size = 0;
+	struct stat	statbuf;
+	WfrStatus	status;
 
 
 	if (stat(WfsppFileFnameJumpList, &statbuf) < 0) {
@@ -246,7 +246,7 @@ WfsppFileJumpListGet(
 	} else if ((jump_list_size = statbuf.st_size) < 2) {
 		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 	} else if (!(file = fopen(WfsppFileFnameJumpList, "rb"))
-		   ||  !(jump_list = snewn(jump_list_size = statbuf.st_size, char)))
+		|| !(jump_list = snewn(jump_list_size = statbuf.st_size, char)))
 	{
 		status = WFR_STATUS_FROM_ERRNO();
 	} else if (fread(jump_list, statbuf.st_size, 1, file) != 1) {
@@ -280,11 +280,11 @@ WfsppFileJumpListGet(
 static WfrStatus
 WfsppFileJumpListSet(
 	const char *	jump_list,
-	size_t			jump_list_size
+	size_t		jump_list_size
 	)
 {
 	char *		dname_tmp;
-	int			fd = -1;
+	int		fd = -1;
 	FILE *		file = NULL;
 	char		fname_tmp[MAX_PATH + 1];
 	ssize_t		nwritten;
@@ -338,8 +338,8 @@ WfsppFileJumpListSet(
 
 static WfrStatus
 WfsppFileJumpListTransform(
-	bool				addfl,
-	bool				delfl,
+	bool			addfl,
+	bool			delfl,
 	const char *const	trans_item
 	)
 {
@@ -398,8 +398,8 @@ WfsppFileJumpListTransform(
 			if (&jump_list_new_last[0] < &jump_list_new[jump_list_new_size - 1]) {
 				jump_list_new_delta = (&jump_list_new[jump_list_new_size - 1] - &jump_list_new_last[0]);
 				WFR_SRESIZE_IF_NEQ_SIZE(
-						jump_list_new, jump_list_new_size,
-						jump_list_new_size - jump_list_new_delta, char);
+					jump_list_new, jump_list_new_size,
+					jump_list_new_size - jump_list_new_delta, char);
 			}
 
 			status = WfsppFileJumpListSet(jump_list_new, jump_list_new_size);
@@ -417,9 +417,9 @@ WfsppFileNameEscape(
 	const char *	dname,
 	const char *	ext,
 	const char *	name,
-	bool			tmpfl,
-	char *			fname,
-	size_t			fname_size
+	bool		tmpfl,
+	char *		fname,
+	size_t		fname_size
 	)
 {
 	bool		catfl;
@@ -443,16 +443,16 @@ WfsppFileNameEscape(
 				||  (*p == '|') || (*p == '/') || (*p == '\\'))
 				{
 					if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
-									name_escaped, name_escaped_size,
-									name_escaped_size + (sizeof("%00") - 1),
-									char)))
+							name_escaped, name_escaped_size,
+							name_escaped_size + (sizeof("%00") - 1),
+							char)))
 					{
 						strncat(name_escaped, name, p - name);
 						name_escaped_len = strlen(name_escaped);
 						WFR_SNPRINTF(
-								&name_escaped[name_escaped_len],
-								name_escaped_size - name_escaped_len,
-								"%%%02x", (int)*p);
+							&name_escaped[name_escaped_len],
+							name_escaped_size - name_escaped_len,
+							"%%%02x", (int)*p);
 						name = ++p; catfl = true;
 						break;
 					}
@@ -467,9 +467,9 @@ WfsppFileNameEscape(
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			WFR_SNPRINTF(
-					fname, fname_size, "%s/%s%s%s",
-					dname, name_escaped, ext,
-					(tmpfl ? ".XXXXXX" : ""));
+				fname, fname_size, "%s/%s%s%s",
+				dname, name_escaped, ext,
+				(tmpfl ? ".XXXXXX" : ""));
 		}
 	}
 
@@ -480,7 +480,7 @@ WfsppFileNameEscape(
 
 static WfrStatus
 WfsppFileNameUnescape(
-	char *			fname,
+	char *		fname,
 	const char **	pname
 	)
 {
@@ -510,7 +510,7 @@ WfsppFileNameUnescape(
 					ch = (char)strtoul(seq, NULL, 16);
 
 					if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
-								name, name_size, name_size + 1, char)))
+							name, name_size, name_size + 1, char)))
 					{
 						strncat(name, fname, p - fname);
 						name_len = strlen(name);
@@ -555,21 +555,21 @@ WfspFileClearHostKeys(
 
 WfrStatus
 WfspFileDeleteHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name
 	)
 {
-	char			fname[MAX_PATH];
-	struct stat		statbuf;
-	WfrStatus		status;
+	char		fname[MAX_PATH];
+	struct stat	statbuf;
+	WfrStatus	status;
 
 
 	(void)backend;
 
 	if (WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
-						WfsppFileDnameHostKeys,
-						WfsppFileExtHostKeys, key_name,
-						false, fname, sizeof(fname))))
+			WfsppFileDnameHostKeys,
+			WfsppFileExtHostKeys, key_name,
+			false, fname, sizeof(fname))))
 	{
 		if ((stat(fname, &statbuf) < 0)) {
 			status = WFR_STATUS_FROM_ERRNO();
@@ -585,24 +585,24 @@ WfspFileDeleteHostKey(
 
 WfrStatus
 WfspFileEnumerateHostKeys(
-	WfsBackend		backend,
-	bool			initfl,
-	bool *			pdonefl,
+	WfsBackend	backend,
+	bool		initfl,
+	bool *		pdonefl,
 	const char **	pkey_name,
-	void *			state
+	void *		state
 	)
 {
 	WfspFileEnumerateState *	enum_state;
-	char *						fname, *fname_ext;
-	WfrStatus					status;
+	char *				fname, *fname_ext;
+	WfrStatus			status;
 
 
 	(void)backend;
 
 	if (initfl) {
 		return WfsppFileEnumerateInit(
-				WfsppFileDnameHostKeys,
-				(WfspFileEnumerateState **)state);
+			WfsppFileDnameHostKeys,
+			(WfspFileEnumerateState **)state);
 	}
 
 	enum_state = (WfspFileEnumerateState *)state; errno = 0;
@@ -611,8 +611,8 @@ WfspFileEnumerateHostKeys(
 		&&  (enum_state->dire->d_name[1] == '\0')) {
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
-			   &&  (enum_state->dire->d_name[1] == '.')
-			   &&  (enum_state->dire->d_name[2] == '\0')) {
+			&& (enum_state->dire->d_name[1] == '.')
+			&& (enum_state->dire->d_name[2] == '\0')) {
 			continue;
 		} else {
 			*pdonefl = false;
@@ -645,22 +645,22 @@ out:
 
 WfrStatus
 WfspFileLoadHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name,
 	const char **	pkey
 	)
 {
-	FILE *			file = NULL;
-	char			fname[MAX_PATH + 1];
-	char *			key = NULL;
-	struct stat		statbuf;
-	WfrStatus		status;
+	FILE *		file = NULL;
+	char		fname[MAX_PATH + 1];
+	char *		key = NULL;
+	struct stat	statbuf;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
-						WfsppFileDnameHostKeys,
-						WfsppFileExtHostKeys, key_name,
-						false, fname, sizeof(fname))))
+			WfsppFileDnameHostKeys,
+			WfsppFileExtHostKeys, key_name,
+			false, fname, sizeof(fname))))
 	{
 		if ((stat(fname, &statbuf) < 0)
 		||  (!(file = fopen(fname, "rb")))
@@ -696,7 +696,7 @@ WfspFileLoadHostKey(
 
 WfrStatus
 WfspFileRenameHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name,
 	const char *	key_name_new
 	)
@@ -708,13 +708,13 @@ WfspFileRenameHostKey(
 	(void)backend;
 
 	if (WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
-						WfsppFileDnameHostKeys,
-						WfsppFileExtHostKeys, key_name,
-						false, fname, sizeof(fname)))
+			WfsppFileDnameHostKeys,
+			WfsppFileExtHostKeys, key_name,
+			false, fname, sizeof(fname)))
 	&&  WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
-						WfsppFileDnameHostKeys,
-						WfsppFileExtHostKeys, key_name_new,
-						false, fname_new, sizeof(fname_new))))
+			WfsppFileDnameHostKeys,
+			WfsppFileExtHostKeys, key_name_new,
+			false, fname_new, sizeof(fname_new))))
 	{
 		if (MoveFileEx(fname, fname_new, MOVEFILE_REPLACE_EXISTING) < 0) {
 			status = WFR_STATUS_FROM_WINDOWS();
@@ -728,13 +728,13 @@ WfspFileRenameHostKey(
 
 WfrStatus
 WfspFileSaveHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name,
 	const char *	key
 	)
 {
 	char *		dname_tmp;
-	int			fd = -1;
+	int		fd = -1;
 	FILE *		file = NULL;
 	char		fname[MAX_PATH + 1], fname_tmp[MAX_PATH + 1];
 	size_t		key_len;
@@ -750,12 +750,12 @@ WfspFileSaveHostKey(
 	}
 
 	if (WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
-						WfsppFileDnameHostKeys,
-						WfsppFileExtHostKeys, key_name,
-						false, fname, sizeof(fname)))
+			WfsppFileDnameHostKeys,
+			WfsppFileExtHostKeys, key_name,
+			false, fname, sizeof(fname)))
 	&&  WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
-						dname_tmp, WfsppFileExtHostKeys, key_name,
-						true, fname_tmp, sizeof(fname_tmp))))
+			dname_tmp, WfsppFileExtHostKeys, key_name,
+			true, fname_tmp, sizeof(fname_tmp))))
 	{
 		key_len = strlen(key);
 
@@ -811,7 +811,7 @@ WfspFileClearSessions(
 
 WfrStatus
 WfspFileCloseSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	WfspSession *	session
 	)
 {
@@ -823,21 +823,21 @@ WfspFileCloseSession(
 
 WfrStatus
 WfspFileDeleteSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	sessionname
 	)
 {
-	char			fname[MAX_PATH + 1];
-	struct stat		statbuf;
-	WfrStatus		status;
+	char		fname[MAX_PATH + 1];
+	struct stat	statbuf;
+	WfrStatus	status;
 
 
 	(void)backend;
 
 	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
-							WfsppFileDnameSessions,
-							WfsppFileExtSessions, sessionname,
-							false, fname, sizeof(fname))))
+			WfsppFileDnameSessions,
+			WfsppFileExtSessions, sessionname,
+			false, fname, sizeof(fname))))
 	{
 		return status;
 	}
@@ -863,18 +863,18 @@ WfspFileEnumerateSessions(
 	)
 {
 	WfspFileEnumerateState *	enum_state;
-	char *						fname, *pext;
-	char *						sessionname;
-	size_t						sessionname_len;
-	WfrStatus					status;
+	char *				fname, *pext;
+	char *				sessionname;
+	size_t				sessionname_len;
+	WfrStatus			status;
 
 
 	(void)backend;
 
 	if (initfl) {
 		return WfsppFileEnumerateInit(
-				WfsppFileDnameSessions,
-				(WfspFileEnumerateState **)state);
+			WfsppFileDnameSessions,
+			(WfspFileEnumerateState **)state);
 	}
 
 	enum_state = (WfspFileEnumerateState *)state; errno = 0;
@@ -883,8 +883,8 @@ WfspFileEnumerateSessions(
 		&&  (enum_state->dire->d_name[1] == '\0')) {
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
-			   &&  (enum_state->dire->d_name[1] == '.')
-			   &&  (enum_state->dire->d_name[2] == '\0')) {
+			&& (enum_state->dire->d_name[1] == '.')
+			&& (enum_state->dire->d_name[2] == '\0')) {
 			continue;
 		} else {
 			fname = enum_state->dire->d_name;
@@ -925,43 +925,44 @@ out:
 
 WfrStatus
 WfspFileLoadSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	sessionname,
 	WfspSession **	psession
 	)
 {
-	bool				addedfl = false;
-	FILE *				file = NULL;
-	char				fname[MAX_PATH];
-	char *				fname_buf = NULL;
+	bool			addedfl = false;
+	FILE *			file = NULL;
+	char			fname[MAX_PATH];
+	char *			fname_buf = NULL;
 	WfspTreeItemType	item_type;
-	char *				item_type_string;
-	size_t				item_type_string_size;
-	char *				key;
-	size_t				key_size;
-	char *				line, *line_sep;
-	size_t				line_len;
-	wchar_t *			line_w = NULL;
-	int					nmatches;
-	char *				p;
+	char *			item_type_string;
+	size_t			item_type_string_size;
+	char *			key;
+	size_t			key_size;
+	char *			line, *line_sep;
+	size_t			line_len;
+	wchar_t *		line_w = NULL;
+	int			nmatches;
+	char *			p;
 	WfspSession *		session;
-	struct stat			statbuf;
-	WfrStatus			status;
-	void *				value_new;
-	size_t				value_new_size;
+	struct stat		statbuf;
+	WfrStatus		status;
+	void *			value_new;
+	size_t			value_new_size;
 
 
 	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
-							WfsppFileDnameSessions,
-							WfsppFileExtSessions, sessionname,
-							false, fname, sizeof(fname))))
+			WfsppFileDnameSessions,
+			WfsppFileExtSessions, sessionname,
+			false, fname, sizeof(fname))))
 	{
 		return status;
 	}
 
 	if ((stat(fname, &statbuf) < 0)
 	||  (!(file = fopen(fname, "rb")))
-	||	(!(fname_buf = snewn(statbuf.st_size + 1, char)))) {
+	||  (!(fname_buf = snewn(statbuf.st_size + 1, char))))
+	{
 		status = WFR_STATUS_FROM_ERRNO();
 	} else if (fread(fname_buf, statbuf.st_size, 1, file) != 1) {
 		if (statbuf.st_size == 0) {
@@ -1007,34 +1008,34 @@ WfspFileLoadSession(
 				if ((line[0] != L'#') && (strlen(line) > 0)) {
 					if (WFR_STATUS_SUCCESS(status = WfrToWcsDup(line, line_len + 1, &line_w))
 					&&  ((nmatches = pcre2_match(
-								WfsppFileRegex.code, line_w, line_len,
-								0, 0, WfsppFileRegex.md, NULL)) <= (WfsppFileRegex.ovecsize / 2)))
+							WfsppFileRegex.code, line_w, line_len,
+							0, 0, WfsppFileRegex.md, NULL)) <= (WfsppFileRegex.ovecsize / 2)))
 					{
 						key = NULL; key_size = 0;
 						item_type_string = NULL; item_type_string_size = 0;
 						value_new = NULL; value_new_size = 0;
 
 						if (WFR_STATUS_SUCCESS(status = Wfp2GetMatch(
-									&WfsppFileRegex, true, WFSP_FILE_RMO_KEY,
-									WFP2_RTYPE_STRING, line_w, &key,
-									&key_size))
+								&WfsppFileRegex, true, WFSP_FILE_RMO_KEY,
+								WFP2_RTYPE_STRING, line_w, &key,
+								&key_size))
 						&&  WFR_STATUS_SUCCESS(status = Wfp2GetMatch(
-									&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE_TYPE,
-									WFP2_RTYPE_STRING, line_w, &item_type_string,
-									&item_type_string_size)))
+								&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE_TYPE,
+								WFP2_RTYPE_STRING, line_w, &item_type_string,
+								&item_type_string_size)))
 						{
 							if (memcmp(item_type_string, "int", item_type_string_size) == 0) {
 								item_type = WFSP_TREE_ITYPE_INT;
 								status = Wfp2GetMatch(
-										&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
-										WFP2_RTYPE_INT, line_w,
-										&value_new, &value_new_size);
+									&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
+									WFP2_RTYPE_INT, line_w,
+									&value_new, &value_new_size);
 							} else if (memcmp(item_type_string, "string", item_type_string_size) == 0) {
 								item_type = WFSP_TREE_ITYPE_STRING;
 								status = Wfp2GetMatch(
-										&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
-										WFP2_RTYPE_STRING, line_w,
-										&value_new, &value_new_size);
+									&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
+									WFP2_RTYPE_STRING, line_w,
+									&value_new, &value_new_size);
 							} else {
 								status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 							}
@@ -1043,8 +1044,8 @@ WfspFileLoadSession(
 
 							if (WFR_STATUS_SUCCESS(status)) {
 								status = WfsSetSessionKey(
-										session, key, value_new,
-										value_new_size, item_type);
+									session, key, value_new,
+									value_new_size, item_type);
 							} else {
 								sfree(value_new);
 							}
@@ -1080,7 +1081,7 @@ out:
 
 WfrStatus
 WfspFileRenameSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	sessionname,
 	const char *	sessionname_new
 	)
@@ -1092,13 +1093,13 @@ WfspFileRenameSession(
 	(void)backend;
 
 	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
-							WfsppFileDnameSessions,
-							WfsppFileExtSessions, sessionname,
-							false, fname, sizeof(fname)))
+			WfsppFileDnameSessions,
+			WfsppFileExtSessions, sessionname,
+			false, fname, sizeof(fname)))
 	||  WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
-							WfsppFileDnameSessions,
-							WfsppFileExtSessions, sessionname_new,
-							false, fname_new, sizeof(fname_new))))
+			WfsppFileDnameSessions,
+			WfsppFileExtSessions, sessionname_new,
+			false, fname_new, sizeof(fname_new))))
 	{
 		return status;
 	}
@@ -1114,17 +1115,17 @@ WfspFileRenameSession(
 
 WfrStatus
 WfspFileSaveSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	WfspSession *	session
 	)
 {
-	char *			dname_tmp;
-	int				fd = -1;
-	FILE *			file = NULL;
+	char *		dname_tmp;
+	int		fd = -1;
+	FILE *		file = NULL;
 	WfspTreeItem *	item;
-	char			fname[MAX_PATH], fname_tmp[MAX_PATH];
-	int				rc;
-	WfrStatus		status;
+	char		fname[MAX_PATH], fname_tmp[MAX_PATH];
+	int		rc;
+	WfrStatus	status;
 
 
 	(void)backend;
@@ -1135,12 +1136,12 @@ WfspFileSaveSession(
 	}
 
 	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
-							WfsppFileDnameSessions,
-							WfsppFileExtSessions, session->name,
-							false, fname, sizeof(fname)))
+			WfsppFileDnameSessions,
+			WfsppFileExtSessions, session->name,
+			false, fname, sizeof(fname)))
 	||  WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
-							dname_tmp, WfsppFileExtSessions, session->name,
-							true, fname_tmp, sizeof(fname_tmp))))
+			dname_tmp, WfsppFileExtSessions, session->name,
+			true, fname_tmp, sizeof(fname_tmp))))
 	{
 		return status;
 	}
@@ -1157,13 +1158,15 @@ WfspFileSaveSession(
 				rc = 0; break;
 
 			case WFSP_TREE_ITYPE_INT:
-				rc = fprintf(file, "%s=int:%d\r\n",
-						(char *)item->key, *((int *)item->value));
+				rc = fprintf(
+					file, "%s=int:%d\r\n",
+					(char *)item->key, *((int *)item->value));
 				break;
 
 			case WFSP_TREE_ITYPE_STRING:
-				rc = fprintf(file, "%s=string:%s\r\n",
-						(char *)item->key, (char *)item->value);
+				rc = fprintf(
+					file, "%s=string:%s\r\n",
+					(char *)item->key, (char *)item->value);
 				break;
 			}
 
@@ -1217,8 +1220,8 @@ WfspFileJumpListCleanup(
 	void
 	)
 {
-	struct stat		statbuf;
-	WfrStatus		status;
+	struct stat	statbuf;
+	WfrStatus	status;
 
 
 	if ((stat(WfsppFileFnameJumpList, &statbuf) < 0)) {
@@ -1271,7 +1274,7 @@ WfspFileJumpListRemove(
 WfrStatus
 WfspFileJumpListSetEntries(
 	const char *	jump_list,
-	size_t			jump_list_size
+	size_t		jump_list_size
 	)
 {
 	return WfsppFileJumpListSet(jump_list, jump_list_size);
@@ -1313,5 +1316,5 @@ WfspFileSetBackend(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

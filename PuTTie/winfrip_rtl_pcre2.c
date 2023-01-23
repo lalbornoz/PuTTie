@@ -17,21 +17,21 @@
 
 WfrStatus
 Wfp2GetMatch(
-	Wfp2Regex *		regex,
-	bool			alloc_value,
-	int				match_offset,
-	Wfp2RType		match_type,
-	wchar_t *		subject,
-	void *			pvalue,
-	size_t *		pvalue_size
+	Wfp2Regex *	regex,
+	bool		alloc_value,
+	int		match_offset,
+	Wfp2RType	match_type,
+	wchar_t *	subject,
+	void *		pvalue,
+	size_t *	pvalue_size
 	)
 {
-	wchar_t				int_string_buf[sizeof("-2147483647")];
+	wchar_t			int_string_buf[sizeof("-2147483647")];
 	const wchar_t *		match_begin, *match_end;
-	size_t				match_size;
-	WfrStatus			status;
-	void *				value_new;
-	size_t				value_new_size;
+	size_t			match_size;
+	WfrStatus		status;
+	void *			value_new;
+	size_t			value_new_size;
 
 
 	match_offset *= 2;
@@ -39,7 +39,7 @@ Wfp2GetMatch(
 	||  ((match_offset + 1) >= regex->ovecsize)) {
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 	} else if (((int)regex->ovec[match_offset] == -1)
-			&& ((int)regex->ovec[match_offset + 1] == -1))
+		&& ((int)regex->ovec[match_offset + 1] == -1))
 	{
 		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 	}
@@ -78,8 +78,7 @@ Wfp2GetMatch(
 						status = WFR_STATUS_CONDITION_SUCCESS;
 					}
 
-					if (WFR_STATUS_SUCCESS(status)
-					&&  pvalue_size)
+					if (WFR_STATUS_SUCCESS(status) && pvalue_size)
 					{
 						*pvalue_size = sizeof(bool);
 					}
@@ -139,10 +138,10 @@ Wfp2GetMatch(
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
 					snprintf(
-							value_new, value_new_size, "%*.*S",
-							(int)(match_end - match_begin),
-							(int)(match_end - match_begin),
-							match_begin);
+						value_new, value_new_size, "%*.*S",
+						(int)(match_end - match_begin),
+						(int)(match_end - match_begin),
+						match_begin);
 #pragma GCC diagnostic pop
 					*(char **)pvalue = value_new;
 					if (pvalue_size) {
@@ -165,8 +164,8 @@ Wfp2GetMatch(
 WfrStatus
 Wfp2MatchGlobal(
 	Wfp2MGState *	state,
-	size_t *		pbegin,
-	size_t *		pend
+	size_t *	pbegin,
+	size_t *	pend
 	)
 {
 	uint32_t	options = 0;
@@ -185,7 +184,7 @@ Wfp2MatchGlobal(
 			if (state->ovector[0] == state->length) {
 				*pbegin = state->ovector[0], *pend = state->ovector[1];
 				status = WFR_STATUS_PCRE2_DONE;
-				goto out;									// Subject is empty string
+				goto out;					// Subject is empty string
 			} else {
 				options = PCRE2_NOTEMPTY_ATSTART | PCRE2_ANCHORED;
 			}
@@ -205,9 +204,9 @@ Wfp2MatchGlobal(
 				if (startchar >= state->length) {
 					*pbegin = state->ovector[0], *pend = state->ovector[1];
 					status = WFR_STATUS_PCRE2_DONE;
-					goto out;								// Reached end of subject.
+					goto out;				// Reached end of subject.
 				} else {
-					state->startoffset = startchar + 1;		// Advance by one character.
+					state->startoffset = startchar + 1;	// Advance by one character.
 				}
 			}
 		}
@@ -220,8 +219,9 @@ Wfp2MatchGlobal(
 
 match:
 	state->last_error =
-		pcre2_match(state->code, state->subject, state->length,
-					state->startoffset, options, state->md, NULL);
+		pcre2_match(
+			state->code, state->subject, state->length,
+			state->startoffset, options, state->md, NULL);
 	if (state->first_match) {
 		state->first_match = false;
 	}
@@ -240,15 +240,15 @@ match:
 				status = WFR_STATUS_PCRE2_NO_MATCH;
 				goto out;
 			} else {
-				state->startoffset++;						// Advance by one character.
-			if (state->crlf_is_newline						// If CRLF is a newline &
-			&&  (state->startoffset < state->length - 1)	// we are at CRLF,
+				state->startoffset++;				// Advance by one character.
+			if (state->crlf_is_newline				// If CRLF is a newline &
+			&&  (state->startoffset < state->length - 1)		// we are at CRLF,
 			&&  (state->subject[state->startoffset] == '\r')
 			&&  (state->subject[state->startoffset + 1] == '\n'))
 			{
-				state->startoffset++;						// Advance by one more.
+				state->startoffset++;				// Advance by one more.
 			}
-			goto match;										// Go round the loop again
+			goto match;						// Go round the loop again
 			}
 		} else {
 			status = WFR_STATUS_PCRE2_ERROR; goto out;
@@ -275,9 +275,9 @@ void
 Wfp2Init(
 	Wfp2MGState *		state,
 	pcre2_code *		code,
-	size_t				length,
+	size_t			length,
 	pcre2_match_data *	md,
-	wchar_t *			subject
+	wchar_t *		subject
 	)
 {
 	uint32_t	newline = 0;
@@ -302,5 +302,5 @@ Wfp2Init(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */
