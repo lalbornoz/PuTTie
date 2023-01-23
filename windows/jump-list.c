@@ -517,6 +517,16 @@ static void update_jumplist_from_registry(void)
         goto cleanup;
 
     /*
+     * Call its SetAppID method to set the Application User Model ID.
+     * This is required in order for jump lists to work and must be
+     * set on PuTTie shortcuts as well as per:
+     * <https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-icustomdestinationlist-setappid#remarks>
+     * <https://github.com/MicrosoftDocs/win32/blob/docs/desktop-src/shell/appids.md>
+     */
+    if (!SUCCEEDED(pCDL->lpVtbl->SetAppID(pCDL, (void *)get_app_user_model_id())))
+        goto cleanup;
+
+    /*
      * Call its BeginList method to start compiling a list. This gives
      * us back 'num_items' (a hint derived from systemwide
      * configuration about how many things to put on the list) and
