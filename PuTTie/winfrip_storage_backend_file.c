@@ -664,7 +664,7 @@ WfspFileLoadHostKey(
 	{
 		if ((stat(fname, &statbuf) < 0)
 		||  (!(file = fopen(fname, "rb")))
-		||	(!(key = snewn(statbuf.st_size + 1, char)))) {
+		||  (!(key = snewn(statbuf.st_size + 1, char)))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (fread(key, statbuf.st_size, 1, file) != 1) {
 			if (statbuf.st_size == 0) {

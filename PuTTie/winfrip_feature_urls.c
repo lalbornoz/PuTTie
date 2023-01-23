@@ -687,14 +687,14 @@ WffupStateMatch(
 	int	y
 	)
 {
-	return (WffupIsVKeyDown(WffupModifier)
-	&&		((WffupModifierShiftState != 0)
-	 ?		WffupIsVKeyDown(WffupModifierShiftState)
-	 :		true)
-	&&  (y >= WffupMatchBegin.y)
-	&&  ((y == WffupMatchBegin.y) ? (x >= WffupMatchBegin.x) : true)
-	&&  (y <= WffupMatchEnd.y)
-	&&  ((y == WffupMatchEnd.y) ? (x < WffupMatchEnd.x) : true));
+	return (
+		   WffupIsVKeyDown(WffupModifier)
+		&& ((WffupModifierShiftState != 0) ? WffupIsVKeyDown(WffupModifierShiftState) : true)
+		&& (y >= WffupMatchBegin.y)
+		&& ((y == WffupMatchBegin.y) ? (x >= WffupMatchBegin.x) : true)
+		&& (y <= WffupMatchEnd.y)
+		&& ((y == WffupMatchEnd.y) ? (x < WffupMatchEnd.x) : true)
+	);
 }
 
 static void
