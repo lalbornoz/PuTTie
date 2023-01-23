@@ -24,17 +24,17 @@
  * Private preprocessor macros
  */
 
-#define WFFBP_FILTER_IMAGE_FILES (																		\
+#define WFFBP_FILTER_IMAGE_FILES (										\
 	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
-	"Bitmap Files (*.bmp)\0*.bmp\0"																		\
-	"EMF (*.emf)\0*.emf\0"																				\
-	"GIF (*.gif)\0*.gif\0"																				\
-	"ICO (*.ico)\0*.ico\0"																				\
-	"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"										\
-	"PNG (*.png)\0*.png\0"																				\
-	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"																\
-	"WMF (*.wmf)\0*.wmf\0"																				\
-	"All Files (*.*)\0*\0"																				\
+	"Bitmap Files (*.bmp)\0*.bmp\0"										\
+	"EMF (*.emf)\0*.emf\0"											\
+	"GIF (*.gif)\0*.gif\0"											\
+	"ICO (*.ico)\0*.ico\0"											\
+	"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"						\
+	"PNG (*.png)\0*.png\0"											\
+	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"									\
+	"WMF (*.wmf)\0*.wmf\0"											\
+	"All Files (*.*)\0*\0"											\
 	"\0\0")
 
 /*
@@ -46,30 +46,30 @@ typedef struct WffbpContext {
 } WffbpContext;
 
 typedef enum WffbpState {
-	WFFBP_STATE_NONE				= 0,
-	WFFBP_STATE_FAILED				= 1,
-	WFFBP_STATE_INIT				= 2,
+	WFFBP_STATE_NONE		= 0,
+	WFFBP_STATE_FAILED		= 1,
+	WFFBP_STATE_INIT		= 2,
 } WffbpState;
 
 typedef enum WffbpSlideshow {
 	WFFBP_SLIDESHOW_SINGLE_IMAGE	= 0,
-	WFFBP_SLIDESHOW_DEFAULT			= WFFBP_SLIDESHOW_SINGLE_IMAGE,
-	WFFBP_SLIDESHOW_SHUFFLE			= 1,
+	WFFBP_SLIDESHOW_DEFAULT		= WFFBP_SLIDESHOW_SINGLE_IMAGE,
+	WFFBP_SLIDESHOW_SHUFFLE		= 1,
 } WffbpSlideshow;
 
 typedef enum WffbpStyle {
-	WFFBP_STYLE_ABSOLUTE			= 0,
-	WFFBP_STYLE_DEFAULT				= WFFBP_STYLE_ABSOLUTE,
-	WFFBP_STYLE_CENTER				= 1,
-	WFFBP_STYLE_FIT					= 2,
-	WFFBP_STYLE_STRETCH				= 3,
-	WFFBP_STYLE_TILE				= 4,
+	WFFBP_STYLE_ABSOLUTE		= 0,
+	WFFBP_STYLE_DEFAULT		= WFFBP_STYLE_ABSOLUTE,
+	WFFBP_STYLE_CENTER		= 1,
+	WFFBP_STYLE_FIT			= 2,
+	WFFBP_STYLE_STRETCH		= 3,
+	WFFBP_STYLE_TILE		= 4,
 } WffbpStyle;
 
 typedef enum WffbpType {
-	WFFBP_TYPE_SOLID				= 0,
-	WFFBP_TYPE_DEFAULT				= WFFBP_TYPE_SOLID,
-	WFFBP_TYPE_IMAGE				= 1,
+	WFFBP_TYPE_SOLID		= 0,
+	WFFBP_TYPE_DEFAULT		= WFFBP_TYPE_SOLID,
+	WFFBP_TYPE_IMAGE		= 1,
 } WffbpType;
 
 /*
@@ -83,18 +83,18 @@ extern WinGuiSeat			wgs;
  * Private variables
  */
 
-static char *				WffbpDname = NULL;
-static size_t				WffbpDnameLen = 0;
-static size_t				WffbpDnameFileC = 0;
-static char **				WffbpDnameFileV = NULL;
-static char *				WffbpFname = NULL;
+static char *			WffbpDname = NULL;
+static size_t			WffbpDnameLen = 0;
+static size_t			WffbpDnameFileC = 0;
+static char **			WffbpDnameFileV = NULL;
+static char *			WffbpFname = NULL;
 
 static BCRYPT_ALG_HANDLE	WffbhAlgorithm = NULL;
 
-static HDC					WffbphDC = NULL;
-static HGDIOBJ				WffbphDCOld = NULL;
+static HDC			WffbphDC = NULL;
+static HGDIOBJ			WffbphDCOld = NULL;
 
-static WffbpState			WffbpStateCurrent = WFFBP_STATE_NONE;
+static WffbpState		WffbpStateCurrent = WFFBP_STATE_NONE;
 
 static WffbpContext *		WffbpTimerContext = NULL;
 
@@ -103,27 +103,27 @@ static WffbpContext *		WffbpTimerContext = NULL;
  */
 
 // window.c
-void			reset_window(int);
+void		reset_window(int);
 
 /*
  * Private subroutine prototypes
  */
 
-static void		WffbpConfigPanelSlideshow(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static void		WffbpConfigPanelStyle(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static void		WffbpConfigPanelType(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void	WffbpConfigPanelSlideshow(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void	WffbpConfigPanelStyle(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void	WffbpConfigPanelType(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
-static BOOL		WffbpSetGetFname(Conf *conf, BOOL reshuffle, wchar_t **pbg_bmp_fname_w, BOOL *pbg_bmpfl);
-static BOOL		WffbpSetLoadBmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
-static BOOL		WffbpSetLoadNonBmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
-static BOOL		WffbpSetProcess(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, Conf *conf, HDC hdc);
-static BOOL		WffbpSetProcessBlend(HDC bg_hdc, int bg_height, int bg_width, Conf *conf);
-static BOOL		WffbpSet(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle);
+static BOOL	WffbpSetGetFname(Conf *conf, BOOL reshuffle, wchar_t **pbg_bmp_fname_w, BOOL *pbg_bmpfl);
+static BOOL	WffbpSetLoadBmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
+static BOOL	WffbpSetLoadNonBmp(HDC *pbg_hdc, HGDIOBJ *pbg_hdc_old, int *pbg_height, int *pbg_width, HBITMAP *pbmp_src, wchar_t *bmp_src_fname_w, HDC hdc);
+static BOOL	WffbpSetProcess(HDC bg_hdc, int bg_height, int bg_width, HBITMAP bmp_src, Conf *conf, HDC hdc);
+static BOOL	WffbpSetProcessBlend(HDC bg_hdc, int bg_height, int bg_width, Conf *conf);
+static BOOL	WffbpSet(Conf *conf, HDC hdc, BOOL force, BOOL reshuffle);
 
-static void		WffbpSlideshowReconf(Conf *conf);
-static BOOL		WffbpSlideshowShuffle(void);
+static void	WffbpSlideshowReconf(Conf *conf);
+static BOOL	WffbpSlideshowShuffle(void);
 
-static void		WffbpTimerFunction(void *ctx, unsigned long now);
+static void	WffbpTimerFunction(void *ctx, unsigned long now);
 
 /*
  * Private subroutines
@@ -132,12 +132,12 @@ static void		WffbpTimerFunction(void *ctx, unsigned long now);
 static void
 WffbpConfigPanelSlideshow(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
-	Conf *conf = (Conf *)data;
+	Conf *	conf = (Conf *)data;
 
 
 	switch (event) {
@@ -160,9 +160,10 @@ WffbpConfigPanelSlideshow(
 
 	case EVENT_SELCHANGE:
 	case EVENT_VALCHANGE:
-		conf_set_int(conf, CONF_frip_bgimg_slideshow,
-					 dlg_listbox_getid(ctrl, dlg,
-					 dlg_listbox_index(ctrl, dlg)));
+		conf_set_int(
+			conf, CONF_frip_bgimg_slideshow,
+			dlg_listbox_getid(ctrl, dlg,
+			dlg_listbox_index(ctrl, dlg)));
 		break;
 	}
 }
@@ -170,12 +171,12 @@ WffbpConfigPanelSlideshow(
 static void
 WffbpConfigPanelStyle(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
-	Conf *conf = (Conf *)data;
+	Conf *	conf = (Conf *)data;
 
 
 	switch (event) {
@@ -207,9 +208,10 @@ WffbpConfigPanelStyle(
 
 	case EVENT_SELCHANGE:
 	case EVENT_VALCHANGE:
-		conf_set_int(conf, CONF_frip_bgimg_style,
-					 dlg_listbox_getid(ctrl, dlg,
-					 dlg_listbox_index(ctrl, dlg)));
+		conf_set_int(
+			conf, CONF_frip_bgimg_style,
+			dlg_listbox_getid(ctrl, dlg,
+			dlg_listbox_index(ctrl, dlg)));
 		break;
 	}
 }
@@ -217,12 +219,12 @@ WffbpConfigPanelStyle(
 static void
 WffbpConfigPanelType(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
-	Conf *conf = (Conf *)data;
+	Conf *	conf = (Conf *)data;
 
 
 	switch (event) {
@@ -245,9 +247,10 @@ WffbpConfigPanelType(
 
 	case EVENT_SELCHANGE:
 	case EVENT_VALCHANGE:
-		conf_set_int(conf, CONF_frip_bgimg_type,
-					 dlg_listbox_getid(ctrl, dlg,
-					 dlg_listbox_index(ctrl, dlg)));
+		conf_set_int(
+			conf, CONF_frip_bgimg_type,
+			dlg_listbox_getid(ctrl, dlg,
+			dlg_listbox_index(ctrl, dlg)));
 		break;
 	}
 }
@@ -332,13 +335,13 @@ WffbpSetLoadBmp(
 	int *		pbg_width,
 	HBITMAP *	pbmp_src,
 	wchar_t *	bmp_src_fname_w,
-	HDC			hdc
+	HDC		hdc
 	)
 {
 	HBITMAP		bg_bmp = NULL;
-	HDC			bg_hdc = NULL;
+	HDC		bg_hdc = NULL;
 	HGDIOBJ		bg_hdc_old = NULL;
-	int			bg_height, bg_width;
+	int		bg_height, bg_width;
 	HBITMAP		bmp_src = NULL;
 	BOOL		rc = FALSE;
 
@@ -369,21 +372,21 @@ WffbpSetLoadNonBmp(
 	int *		pbg_width,
 	HBITMAP *	pbmp_src,
 	wchar_t *	bmp_src_fname_w,
-	HDC			hdc
+	HDC		hdc
 	)
 {
-	HBITMAP					bg_bmp = NULL;
-	HDC						bg_hdc = NULL;
-	HGDIOBJ					bg_hdc_old = NULL;
-	int						bg_height, bg_width;
-	HBITMAP					bmp_src = NULL;
+	HBITMAP			bg_bmp = NULL;
+	HDC			bg_hdc = NULL;
+	HGDIOBJ			bg_hdc_old = NULL;
+	int			bg_height, bg_width;
+	HBITMAP			bmp_src = NULL;
 
-	GpBitmap *				gdip_bmp;
-	GdiplusStartupInput		gdip_si;
-	GpStatus				gdip_status;
-	ULONG_PTR				gdip_token;
+	GpBitmap *		gdip_bmp;
+	GdiplusStartupInput	gdip_si;
+	GpStatus		gdip_status;
+	ULONG_PTR		gdip_token;
 
-	BOOL					rc = FALSE;
+	BOOL			rc = FALSE;
 
 
 	gdip_si.GdiplusVersion = 2;
@@ -425,34 +428,34 @@ WffbpSetLoadNonBmp(
 
 static BOOL
 WffbpSetProcess(
-	HDC			bg_hdc,
-	int			bg_height,
-	int			bg_width,
+	HDC		bg_hdc,
+	int		bg_height,
+	int		bg_width,
 	HBITMAP		bmp_src,
 	Conf *		conf,
-	HDC			hdc
+	HDC		hdc
 	)
 {
 	HBRUSH		bg_brush;
-	int			bg_hdc_sb_mode;
+	int		bg_hdc_sb_mode;
 	RECT		bg_rect, cr;
-	int			bgimg_style;
+	int		bgimg_style;
 
-	int			bmp_offset_x, bmp_offset_y;
-	HDC			bmp_src_hdc;
+	int		bmp_offset_x, bmp_offset_y;
+	HDC		bmp_src_hdc;
 	BITMAP		bmp_src_obj;
 	HGDIOBJ		bmp_src_old;
 
-	int			cr_height, cr_width;
+	int		cr_height, cr_width;
 
 	HWND		hwnd;
 
-	int			padding;
+	int		padding;
 	float		ratio, ratioH, ratioW;
 
 	BOOL		rc = FALSE;
 
-	int			x, y;
+	int		x, y;
 
 
 	SetRect(&bg_rect, 0, 0, bg_width, bg_height);
@@ -474,9 +477,10 @@ WffbpSetProcess(
 				WFR_DEBUG_FAIL(); break;
 
 			case WFFBP_STYLE_ABSOLUTE:
-				rc = BitBlt(bg_hdc, bg_rect.left, bg_rect.top,
-							bmp_src_obj.bmWidth, bmp_src_obj.bmHeight,
-							bmp_src_hdc, 0, 0, SRCCOPY) > 0;
+				rc = BitBlt(
+					bg_hdc, bg_rect.left, bg_rect.top,
+					bmp_src_obj.bmWidth, bmp_src_obj.bmHeight,
+					bmp_src_hdc, 0, 0, SRCCOPY) > 0;
 				break;
 
 			case WFFBP_STYLE_CENTER:
@@ -492,10 +496,11 @@ WffbpSetProcess(
 					bmp_offset_y = (cr_height - bmp_src_obj.bmHeight) / 2;
 					bg_rect.top += bmp_offset_y; bg_rect.bottom -= bmp_offset_y;
 				}
-				rc = BitBlt(bg_hdc, bg_rect.left, bg_rect.top,
-							bg_rect.right - bg_rect.left,
-							bg_rect.bottom - bg_rect.top,
-							bmp_src_hdc, 0, 0, SRCCOPY) > 0;
+				rc = BitBlt(
+					bg_hdc, bg_rect.left, bg_rect.top,
+					bg_rect.right - bg_rect.left,
+					bg_rect.bottom - bg_rect.top,
+					bmp_src_hdc, 0, 0, SRCCOPY) > 0;
 				break;
 
 			case WFFBP_STYLE_FIT:
@@ -515,23 +520,25 @@ WffbpSetProcess(
 				y = (int)(((float)cr_height - ((float)bmp_src_obj.bmHeight * ratio)) / 2);
 
 				bg_hdc_sb_mode = SetStretchBltMode(bg_hdc, HALFTONE);
-				rc = StretchBlt(bg_hdc, x, y,
-						(int)((float)bmp_src_obj.bmWidth * ratio),
-						(int)((float)bmp_src_obj.bmHeight * ratio),
-						bmp_src_hdc,
-						0, 0,
-						bmp_src_obj.bmWidth, bmp_src_obj.bmHeight,
-						SRCCOPY) > 0;
+				rc = StretchBlt(
+					bg_hdc, x, y,
+					(int)((float)bmp_src_obj.bmWidth * ratio),
+					(int)((float)bmp_src_obj.bmHeight * ratio),
+					bmp_src_hdc,
+					0, 0,
+					bmp_src_obj.bmWidth, bmp_src_obj.bmHeight,
+					SRCCOPY) > 0;
 				SetStretchBltMode(bg_hdc, bg_hdc_sb_mode);
 				break;
 
 			case WFFBP_STYLE_STRETCH:
 				bg_hdc_sb_mode = SetStretchBltMode(bg_hdc, HALFTONE);
-				rc = StretchBlt(bg_hdc, bg_rect.left, bg_rect.top,
-						bg_rect.right - bg_rect.left,
-						bg_rect.bottom - bg_rect.top,
-						bmp_src_hdc, 0, 0,
-						bmp_src_obj.bmWidth, bmp_src_obj.bmHeight, SRCCOPY) > 0;
+				rc = StretchBlt(
+					bg_hdc, bg_rect.left, bg_rect.top,
+					bg_rect.right - bg_rect.left,
+					bg_rect.bottom - bg_rect.top,
+					bmp_src_hdc, 0, 0,
+					bmp_src_obj.bmWidth, bmp_src_obj.bmHeight, SRCCOPY) > 0;
 				SetStretchBltMode(bg_hdc, bg_hdc_sb_mode);
 				break;
 			}
@@ -554,19 +561,19 @@ WffbpSetProcess(
 
 static BOOL
 WffbpSetProcessBlend(
-	HDC		bg_hdc,
-	int		bg_height,
-	int		bg_width,
+	HDC	bg_hdc,
+	int	bg_height,
+	int	bg_width,
 	Conf *	conf
 	)
 {
-	RECT			bg_rect;
-	HBITMAP			blend_bmp = NULL;
-	COLORREF		blend_colour;
+	RECT		bg_rect;
+	HBITMAP		blend_bmp = NULL;
+	COLORREF	blend_colour;
 	BLENDFUNCTION	blend_ftn;
-	HDC				blend_hdc = NULL;
-	HGDIOBJ			blend_old = NULL;
-	BOOL			rc = FALSE;
+	HDC		blend_hdc = NULL;
+	HGDIOBJ		blend_old = NULL;
+	BOOL		rc = FALSE;
 
 
 	if ((blend_hdc = CreateCompatibleDC(bg_hdc))) {
@@ -580,11 +587,12 @@ WffbpSetProcessBlend(
 			blend_ftn.BlendFlags = 0;
 			blend_ftn.BlendOp = AC_SRC_OVER;
 			blend_ftn.SourceConstantAlpha = (0xff * conf_get_int(conf, CONF_frip_bgimg_opacity)) / 100;
-			rc = AlphaBlend(bg_hdc,
-					bg_rect.left, bg_rect.top,
-					bg_rect.right - bg_rect.left,
-					bg_rect.bottom - bg_rect.top,
-					blend_hdc, 0, 0, 1, 1, blend_ftn) > 0;
+			rc = AlphaBlend(
+				bg_hdc,
+				bg_rect.left, bg_rect.top,
+				bg_rect.right - bg_rect.left,
+				bg_rect.bottom - bg_rect.top,
+				blend_hdc, 0, 0, 1, 1, blend_ftn) > 0;
 		}
 	}
 
@@ -604,16 +612,16 @@ WffbpSetProcessBlend(
 static BOOL
 WffbpSet(
 	Conf *	conf,
-	HDC		hdc,
+	HDC	hdc,
 	BOOL	force,
 	BOOL	reshuffle
 	)
 {
 	wchar_t *	bg_bmp_fname_w;
 	BOOL		bg_bmpfl;
-	HDC			bg_hdc = NULL;
+	HDC		bg_hdc = NULL;
 	HGDIOBJ		bg_hdc_cur, bg_hdc_old = NULL;
-	int			bg_height, bg_width;
+	int		bg_height, bg_width;
 	HBITMAP		bmp_src = NULL;
 	BOOL		rc = FALSE;
 
@@ -695,20 +703,20 @@ WffbpSlideshowReconf(
 	Conf *	conf
 	)
 {
-	char *				bg_dname;
-	Filename *			bg_dname_conf;
-	size_t				bg_dname_len;
+	char *			bg_dname;
+	Filename *		bg_dname_conf;
+	size_t			bg_dname_len;
 
-	size_t				bg_fname_len;
+	size_t			bg_fname_len;
 
-	size_t				dname_filec_new = 0;
-	char **				dname_filev_new = NULL;
+	size_t			dname_filec_new = 0;
+	char **			dname_filev_new = NULL;
 
-	char *				dname_new = NULL;
+	char *			dname_new = NULL;
 	WIN32_FIND_DATA		dname_new_ffd;
-	HANDLE				dname_new_hFind = INVALID_HANDLE_VALUE;
+	HANDLE			dname_new_hFind = INVALID_HANDLE_VALUE;
 
-	char *				p, **pp;
+	char *			p, **pp;
 
 	WffbpContext *		timer_ctx_new = NULL;
 
@@ -803,8 +811,9 @@ WffbpSlideshowReconf(
 				WffbpTimerContext = timer_ctx_new;
 				WffbpTimerContext->conf = conf;
 
-				schedule_timer(conf_get_int(conf, CONF_frip_bgimg_slideshow_freq) * 1000,
-							   WffbpTimerFunction, (void *)WffbpTimerContext);
+				schedule_timer(
+					conf_get_int(conf, CONF_frip_bgimg_slideshow_freq) * 1000,
+					WffbpTimerFunction, (void *)WffbpTimerContext);
 			} else {
 				WFR_DEBUG_FAIL();
 			}
@@ -866,10 +875,10 @@ WffbpSlideshowShuffle(
 			WFR_DEBUG_FAIL();
 			return FALSE;
 		} else {
-			snprintf(bg_fname, WffbpDnameLen + 1 + bg_fname_len + 1, "%*.*s\\%s",
-				 (int)WffbpDnameLen,
-				 (int)WffbpDnameLen, WffbpDname,
-				 WffbpDnameFileV[bg_fname_idx]);
+			snprintf(
+				bg_fname, WffbpDnameLen + 1 + bg_fname_len + 1, "%*.*s\\%s",
+				(int)WffbpDnameLen, (int)WffbpDnameLen, WffbpDname,
+				WffbpDnameFileV[bg_fname_idx]);
 
 			WFR_SFREE_IF_NOTNULL(WffbpFname);
 			WffbpFname = dupstr(bg_fname);
@@ -883,18 +892,19 @@ WffbpSlideshowShuffle(
 
 static void
 WffbpTimerFunction(
-	void *			ctx,
+	void *		ctx,
 	unsigned long	now
 	)
 {
 	WffbpContext *	context = (WffbpContext *)ctx;
-	HDC				hDC;
+	HDC		hDC;
 
 
 	(void)now;
 
-	schedule_timer(conf_get_int(context->conf, CONF_frip_bgimg_slideshow_freq) * 1000,
-				   WffbpTimerFunction, ctx);
+	schedule_timer(
+		conf_get_int(context->conf, CONF_frip_bgimg_slideshow_freq) * 1000,
+		WffbpTimerFunction, ctx);
 	hDC = GetDC(wgs.term_hwnd);
 	WffbpSet(context->conf, hDC, TRUE, TRUE);
 	ReleaseDC(wgs.term_hwnd, hDC);
@@ -908,11 +918,11 @@ WffbpTimerFunction(
 
 void
 WffBgImgConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
-	dlgcontrol *			c;
-	struct controlset *		s_bgimg_settings, *s_bgimg_params, *s_slideshow;
+	dlgcontrol *		c;
+	struct controlset *	s_bgimg_settings, *s_bgimg_params, *s_slideshow;
 
 
 	/*
@@ -926,37 +936,33 @@ WffBgImgConfigPanel(
 	 */
 
 	s_bgimg_settings = ctrl_getset(b, "Frippery/Background", "frip_bgimg_settings", "Background image settings");
-	c = ctrl_filesel(s_bgimg_settings, "Image file/directory:", 'i',
-				 WFFBP_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
-				 WFP_HELP_CTX, conf_filesel_handler, I(CONF_frip_bgimg_filename));
+	c = ctrl_filesel(
+		s_bgimg_settings, "Image file/directory:", 'i',
+		 WFFBP_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
+		 WFP_HELP_CTX, conf_filesel_handler, I(CONF_frip_bgimg_filename));
 	c->fileselect.just_button = false;
-	ctrl_text(s_bgimg_settings, "In order to select an image directory for slideshows, select "
-								"an arbitrary file inside the directory in question.",
-								WFP_HELP_CTX);
-	ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, WFP_HELP_CTX,
-				  WffbpConfigPanelType, P(NULL));
-	ctrl_droplist(s_bgimg_settings, "Style:", 's', 45, WFP_HELP_CTX,
-				  WffbpConfigPanelStyle, P(NULL));
+	ctrl_text(
+		s_bgimg_settings,
+		"In order to select an image directory for slideshows, select an arbitrary file inside the directory in question.",
+		WFP_HELP_CTX);
+	ctrl_droplist(s_bgimg_settings, "Type:", 't', 45, WFP_HELP_CTX, WffbpConfigPanelType, P(NULL));
+	ctrl_droplist(s_bgimg_settings, "Style:", 's', 45, WFP_HELP_CTX, WffbpConfigPanelStyle, P(NULL));
 
 	/*
 	 * The Frippery: Background image parameters control box.
 	 */
 
 	s_bgimg_params = ctrl_getset(b, "Frippery/Background", "frip_bgimg_params", "Background image parameters");
-	ctrl_editbox(s_bgimg_params, "Opacity (0-100):", 'p', 15, WFP_HELP_CTX,
-				 conf_editbox_handler, I(CONF_frip_bgimg_opacity), ED_INT);
-	ctrl_editbox(s_bgimg_params, "Fit padding (0-100):", 'n', 15, WFP_HELP_CTX,
-				 conf_editbox_handler, I(CONF_frip_bgimg_padding), ED_INT);
+	ctrl_editbox(s_bgimg_params, "Opacity (0-100):", 'p', 15, WFP_HELP_CTX, conf_editbox_handler, I(CONF_frip_bgimg_opacity), ED_INT);
+	ctrl_editbox(s_bgimg_params, "Fit padding (0-100):", 'n', 15, WFP_HELP_CTX, conf_editbox_handler, I(CONF_frip_bgimg_padding), ED_INT);
 
 	/*
 	 * The Frippery: Slideshow settings control box.
 	 */
 
 	s_slideshow = ctrl_getset(b, "Frippery/Background", "frip_bgimg_slideshow", "Slideshow settings");
-	ctrl_droplist(s_slideshow, "Slideshow:", 'd', 45, WFP_HELP_CTX,
-				  WffbpConfigPanelSlideshow, P(NULL));
-	ctrl_editbox(s_slideshow, "Slideshow frequency (in seconds):", 'f', 20, WFP_HELP_CTX,
-				 conf_editbox_handler, I(CONF_frip_bgimg_slideshow_freq), ED_INT);
+	ctrl_droplist(s_slideshow, "Slideshow:", 'd', 45, WFP_HELP_CTX, WffbpConfigPanelSlideshow, P(NULL));
+	ctrl_editbox(s_slideshow, "Slideshow frequency (in seconds):", 'f', 20, WFP_HELP_CTX, conf_editbox_handler, I(CONF_frip_bgimg_slideshow_freq), ED_INT);
 }
 
 /*
@@ -968,19 +974,19 @@ WffBgImgOperation(
 	WffBgImgOp	op,
 	BOOL *		pbgfl,
 	Conf *		conf,
-	HDC			hdc_in,
+	HDC		hdc_in,
 	HWND		hwnd,
-	int			char_width,
-	int			font_height,
-	int			len,
-	int			nbg,
-	int			rc_width,
-	int			x,
-	int			y
+	int		char_width,
+	int		font_height,
+	int		len,
+	int		nbg,
+	int		rc_width,
+	int		x,
+	int		y
 	)
 {
 	Filename *	bg_fname_conf;
-	HDC			hdc;
+	HDC		hdc;
 	WfReturn	rc;
 
 
@@ -1009,11 +1015,13 @@ WffBgImgOperation(
 		if ((nbg == 258) || (nbg == 259)) {
 			if (WffbphDC || WffbpSet(conf, hdc, FALSE, TRUE)) {
 				if (rc_width > 0) {
-					rc = BitBlt(hdc, x, y, rc_width, font_height,
-								WffbphDC, x, y, SRCCOPY) > 0;
+					rc = BitBlt(
+						hdc, x, y, rc_width, font_height,
+						WffbphDC, x, y, SRCCOPY) > 0;
 				} else {
-					rc = BitBlt(hdc, x, y, char_width * len, font_height,
-								WffbphDC, x, y, SRCCOPY) > 0;
+					rc = BitBlt(
+						hdc, x, y, char_width * len,
+						font_height, WffbphDC, x, y, SRCCOPY) > 0;
 				}
 				if (rc) {
 					*pbgfl = TRUE;
@@ -1085,5 +1093,5 @@ out:
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

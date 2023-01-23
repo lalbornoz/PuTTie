@@ -11,27 +11,22 @@
  * winfrip_putty_config.c
  */
 
-void WffMouseConfigPanel(struct controlbox *b);
+void		WffMouseConfigPanel(struct controlbox *b);
 
 /*
- * Public type definitions used by/in:
+ * Public type definitions and subroutine prototypes used by/in:
  * windows/window.c:WndProc()
  */
 
 typedef enum WffMouseOp {
 	WFF_MOUSE_OP_MOUSE_EVENT	= 1,
-	WFF_MOUSE_OP_WHEEL			= 2,
+	WFF_MOUSE_OP_WHEEL		= 2,
 } WffMouseOp;
 
-/*
- * Public subroutine prototypes used by/in:
- * windows/window.c:WndProc()
- */
-
-WfReturn WffMouseOperation(WffMouseOp op, Conf *conf, UINT message, WPARAM wParam);
+WfReturn	WffMouseOperation(WffMouseOp op, Conf *conf, UINT message, WPARAM wParam);
 
 #endif // !PUTTY_WINFRIP_FEATURE_MOUSE_H
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

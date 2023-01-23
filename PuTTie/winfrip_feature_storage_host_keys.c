@@ -37,63 +37,64 @@ typedef struct WffspConfigContext {
 
 	dlgcontrol *	button_copy, *button_move;
 
-	size_t			itemc[WFFSP_CDIR_COUNT];
-	char **			itemv[WFFSP_CDIR_COUNT];
+	size_t		itemc[WFFSP_CDIR_COUNT];
+	char **		itemv[WFFSP_CDIR_COUNT];
 } WffspConfigContext;
-#define WFFSP_CONFIG_CONTEXT_EMPTY {										\
-		.droplist = {NULL, NULL},											\
-		.editbox = {NULL, NULL},											\
-		.listbox = {NULL, NULL},											\
-																			\
-		.button_clear = {NULL, NULL},										\
-		.button_delete = {NULL, NULL},										\
-		.button_rename = {NULL, NULL},										\
-																			\
-		.button_copy = NULL,												\
-		.button_move = NULL,												\
-																			\
-		.itemc = {0, 0},													\
-		.itemv = {NULL, NULL},												\
-	}
-#define WFFSP_CONFIG_CONTEXT_INIT(ctx)										\
-		(ctx) = (WffspConfigContext)WFFSP_CONFIG_CONTEXT_EMPTY
+#define WFFSP_CONFIG_CONTEXT_EMPTY {	\
+	.droplist = {NULL, NULL},	\
+	.editbox = {NULL, NULL},	\
+	.listbox = {NULL, NULL},	\
+					\
+	.button_clear = {NULL, NULL},	\
+	.button_delete = {NULL, NULL},	\
+	.button_rename = {NULL, NULL},	\
+					\
+	.button_copy = NULL,		\
+	.button_move = NULL,		\
+					\
+	.itemc = {0, 0},		\
+	.itemv = {NULL, NULL},		\
+}
+#define WFFSP_CONFIG_CONTEXT_INIT(ctx)	\
+	(ctx) = (WffspConfigContext)WFFSP_CONFIG_CONTEXT_EMPTY
 
 /*
  * Private macros
  */
 
-#define WFFSP_CONFIG_GET_BACKEND(ctx, dir, dlg)								\
-		(WfsBackend)dlg_listbox_getid(										\
-				(ctx)->droplist[dir], (dlg),								\
-				dlg_listbox_index((ctx)->droplist[dir], (dlg)));
+#define WFFSP_CONFIG_GET_BACKEND(ctx, dir, dlg)			\
+	(WfsBackend)dlg_listbox_getid(				\
+		(ctx)->droplist[dir], (dlg),			\
+		dlg_listbox_index((ctx)->droplist[dir], (dlg)));
 
-#define WFFSP_CONFIG_GET_NITEM(ctx, dir, dlg, nitem) ({						\
-			WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;				\
-																			\
-			nitem = dlg_listbox_getid(ctx->listbox[dir], dlg,				\
-							dlg_listbox_index(ctx->listbox[dir], dlg));		\
-			if ((nitem < 0)													\
-			||  ((size_t)nitem >= ctx->itemc[dir]))							\
-			{																\
-				status = WFR_STATUS_FROM_ERRNO1(ENOENT);					\
-			}																\
-																			\
-			status;															\
-		})
+#define WFFSP_CONFIG_GET_NITEM(ctx, dir, dlg, nitem) ({		\
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;	\
+								\
+	nitem = dlg_listbox_getid(				\
+		ctx->listbox[dir], dlg,				\
+		dlg_listbox_index(ctx->listbox[dir], dlg));	\
+	if ((nitem < 0)						\
+	||  ((size_t)nitem >= ctx->itemc[dir]))			\
+	{							\
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);	\
+	}							\
+								\
+	status;							\
+})
 
 /*
  * Private subroutine prototypes
  */
 
-static WfrStatus WffspClearHostKeys(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspDeleteHostKey(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspExportHostKey(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspRenameHostKey(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspRefreshHostKeys(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspSelectHostKey(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspClearHostKeys(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspDeleteHostKey(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspExportHostKey(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspRenameHostKey(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspRefreshHostKeys(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspSelectHostKey(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
 
-static void WffspConfigHostKeysHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static WfrStatus WffspConfigUpdateHostKeys(WffspConfigContext *ctx, WffspConfigDirection dir, dlgparam *dlg, bool update_listbox);
+static void		WffspConfigHostKeysHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static WfrStatus	WffspConfigUpdateHostKeys(WffspConfigContext *ctx, WffspConfigDirection dir, dlgparam *dlg, bool update_listbox);
 
 /*
  * Private subroutines
@@ -101,17 +102,17 @@ static WfrStatus WffspConfigUpdateHostKeys(WffspConfigContext *ctx, WffspConfigD
 
 static WfrStatus
 WffspClearHostKeys(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend				backend, backend_from, backend_to;
-	const char *			backend_name;
-	bool					confirmfl;
+	WfsBackend		backend, backend_from, backend_to;
+	const char *		backend_name;
+	bool			confirmfl;
 	WffspConfigDirection	dir;
-	LPSTR					lpText = NULL;
-	WfrStatus				status;
+	LPSTR			lpText = NULL;
+	WfrStatus		status;
 
 
 	dir = ((ctrl == ctx->button_clear[WFFSP_CDIR_FROM]) ? WFFSP_CDIR_FROM : WFFSP_CDIR_TO);
@@ -125,8 +126,9 @@ WffspClearHostKeys(
 				&lpText, NULL, "Clear all host keys in the %s backend?", backend_name)))
 	{
 		switch (MessageBox(
-					NULL, lpText, "PuTTY",
-					MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1)) {
+				NULL, lpText, "PuTTY",
+				MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1))
+		{
 		case IDYES:
 			confirmfl = true; break;
 		case IDNO: default:
@@ -157,16 +159,16 @@ WffspClearHostKeys(
 
 static WfrStatus
 WffspDeleteHostKey(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend				backend, backend_from, backend_to;
+	WfsBackend		backend, backend_from, backend_to;
 	WffspConfigDirection	dir;
-	char *					key_name = NULL;
-	int						nhost_key;
-	WfrStatus				status;
+	char *			key_name = NULL;
+	int			nhost_key;
+	WfrStatus		status;
 
 
 	dir = ((ctrl == ctx->button_delete[WFFSP_CDIR_FROM]) ? WFFSP_CDIR_FROM : WFFSP_CDIR_TO);
@@ -196,15 +198,15 @@ WffspDeleteHostKey(
 
 static WfrStatus
 WffspExportHostKey(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
 	WfsBackend	backend_from, backend_to;
 	char *		key_name;
 	bool		movefl;
-	int			nhost_key;
+	int		nhost_key;
 	WfrStatus	status;
 
 
@@ -247,16 +249,16 @@ WffspExportHostKey(
 
 static WfrStatus
 WffspRenameHostKey(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend				backend, backend_from, backend_to;
+	WfsBackend		backend, backend_from, backend_to;
 	WffspConfigDirection	dir;
-	char *					key_name = NULL, *key_name_new = NULL;
-	int						nhost_key;
-	WfrStatus				status;
+	char *			key_name = NULL, *key_name_new = NULL;
+	int			nhost_key;
+	WfrStatus		status;
 
 
 	dir = ((ctrl == ctx->button_rename[WFFSP_CDIR_FROM]) ? WFFSP_CDIR_FROM : WFFSP_CDIR_TO);
@@ -293,15 +295,15 @@ WffspRenameHostKey(
 
 static WfrStatus
 WffspRefreshHostKeys(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend				backend;
-	const char *			backend_name;
+	WfsBackend		backend;
+	const char *		backend_name;
 	WffspConfigDirection	dir;
-	WfrStatus				status;
+	WfrStatus		status;
 
 
 	if ((ctrl == ctx->droplist[WFFSP_CDIR_FROM])
@@ -342,14 +344,14 @@ WffspRefreshHostKeys(
 
 static WfrStatus
 WffspSelectHostKey(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
 	WffspConfigDirection	dir;
-	int						nhost_key;
-	WfrStatus				status;
+	int			nhost_key;
+	WfrStatus		status;
 
 
 	if (ctrl == ctx->droplist[WFFSP_CDIR_FROM]) {
@@ -382,9 +384,9 @@ WffspSelectHostKey(
 static void
 WffspConfigHostKeysHandler(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
 	WffspConfigContext *	ctx = (WffspConfigContext *)ctrl->context.p;
@@ -427,19 +429,19 @@ static WfrStatus
 WffspConfigUpdateHostKeys(
 	WffspConfigContext *	ctx,
 	WffspConfigDirection	dir,
-	dlgparam *				dlg,
-	bool					update_listbox
+	dlgparam *		dlg,
+	bool			update_listbox
 	)
 {
-	WfsBackend		backend;
+	WfsBackend	backend;
 	dlgcontrol *	ctrl;
-	bool			donefl;
-	void *			enum_state;
+	bool		donefl;
+	void *		enum_state;
 	const char *	key_name;
-	char *			key_name_;
-	size_t			key_namec_new = 0;
-	char **			key_namev_new = NULL;
-	WfrStatus		status;
+	char *		key_name_;
+	size_t		key_namec_new = 0;
+	char **		key_namev_new = NULL;
+	WfrStatus	status;
 
 
 	ctrl = ctx->listbox[dir];
@@ -451,14 +453,15 @@ WffspConfigUpdateHostKeys(
 	{
 		do {
 			status = WfsEnumerateHostKeys(
-					backend, false, false, &donefl, &key_name, enum_state);
+					backend, false, false,
+					&donefl, &key_name, enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && !donefl) {
 				if (!(key_name_ = snewn(strlen(key_name) + 1, char))) {
 					status = WFR_STATUS_FROM_ERRNO();
 				} else if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
-								key_namev_new, key_namec_new,
-								key_namec_new + 1, char *)))
+						key_namev_new, key_namec_new,
+						key_namec_new + 1, char *)))
 				{
 					sfree(key_name_);
 				} else {
@@ -510,11 +513,11 @@ WffspConfigUpdateHostKeys(
 
 void
 WffsHostKeysConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
 	WffspConfigContext *	ctx;
-	struct controlset *		s;
+	struct controlset *	s;
 
 
 	/*
@@ -580,5 +583,5 @@ WffsHostKeysConfigPanel(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

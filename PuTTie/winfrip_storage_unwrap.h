@@ -1,6 +1,6 @@
 /*
  * winfrip_storage_unwrap.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2021, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_STORAGE_UNWRAP_H
@@ -34,5 +34,5 @@
 #endif // !PUTTY_WINFRIP_STORAGE_UNWRAP_H
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

@@ -30,51 +30,51 @@ typedef struct WfspBackend {
 	const char *	name;
 	const char *	arg;
 
-	WfrStatus		(*ClearHostKeys)(WfsBackend);
-	WfrStatus		(*DeleteHostKey)(WfsBackend, const char *);
-	WfrStatus		(*EnumerateHostKeys)(WfsBackend, bool, bool *, const char **, void *);
-	WfrStatus		(*LoadHostKey)(WfsBackend, const char *, const char **);
-	WfrStatus		(*RenameHostKey)(WfsBackend, const char *, const char *);
-	WfrStatus		(*SaveHostKey)(WfsBackend, const char *, const char *);
+	WfrStatus	(*ClearHostKeys)(WfsBackend);
+	WfrStatus	(*DeleteHostKey)(WfsBackend, const char *);
+	WfrStatus	(*EnumerateHostKeys)(WfsBackend, bool, bool *, const char **, void *);
+	WfrStatus	(*LoadHostKey)(WfsBackend, const char *, const char **);
+	WfrStatus	(*RenameHostKey)(WfsBackend, const char *, const char *);
+	WfrStatus	(*SaveHostKey)(WfsBackend, const char *, const char *);
 
-	WfrStatus		(*ClearSessions)(WfsBackend);
-	WfrStatus		(*CloseSession)(WfsBackend, WfspSession *);
-	WfrStatus		(*DeleteSession)(WfsBackend, const char *);
-	WfrStatus		(*EnumerateSessions)(WfsBackend, bool, bool *, char **, void *);
-	WfrStatus		(*LoadSession)(WfsBackend, const char *, WfspSession **);
-	WfrStatus		(*RenameSession)(WfsBackend, const char *, const char *);
-	WfrStatus		(*SaveSession)(WfsBackend, WfspSession *);
+	WfrStatus	(*ClearSessions)(WfsBackend);
+	WfrStatus	(*CloseSession)(WfsBackend, WfspSession *);
+	WfrStatus	(*DeleteSession)(WfsBackend, const char *);
+	WfrStatus	(*EnumerateSessions)(WfsBackend, bool, bool *, char **, void *);
+	WfrStatus	(*LoadSession)(WfsBackend, const char *, WfspSession **);
+	WfrStatus	(*RenameSession)(WfsBackend, const char *, const char *);
+	WfrStatus	(*SaveSession)(WfsBackend, WfspSession *);
 
-	void			(*JumpListAdd)(const char *const);
-	WfrStatus		(*JumpListCleanup)(void);
-	void			(*JumpListClear)(void);
-	WfrStatus		(*JumpListGetEntries)(char **, size_t *);
-	void			(*JumpListRemove)(const char *const);
-	WfrStatus		(*JumpListSetEntries)(const char *, size_t);
+	void		(*JumpListAdd)(const char *const);
+	WfrStatus	(*JumpListCleanup)(void);
+	void		(*JumpListClear)(void);
+	WfrStatus	(*JumpListGetEntries)(char **, size_t *);
+	void		(*JumpListRemove)(const char *const);
+	WfrStatus	(*JumpListSetEntries)(const char *, size_t);
 
-	WfrStatus		(*Init)(void);
-	WfrStatus		(*SetBackend)(WfsBackend);
+	WfrStatus	(*Init)(void);
+	WfrStatus	(*SetBackend)(WfsBackend);
 
-	tree234 *		tree_host_key, *tree_session;
+	tree234 *	tree_host_key, *tree_session;
 } WfspBackend;
 
-#define WFSP_BACKEND_INIT(backend)						\
-		(backend).tree_host_key = NULL;					\
-		(backend).tree_session = NULL;
+#define WFSP_BACKEND_INIT(backend)				\
+	(backend).tree_host_key = NULL;				\
+	(backend).tree_session = NULL;
 
 #define WFSP_BACKEND_GET_IMPL(backend, pbackend) ({		\
-		WfrStatus	status;								\
-														\
-		if (((backend) < WFS_BACKEND_MIN)				\
-		||  ((backend) > WFS_BACKEND_MAX)) {			\
-			status = WFR_STATUS_FROM_ERRNO1(EINVAL);	\
-		} else {										\
-			*(pbackend) = &WfspBackends[(backend)];		\
-			status = WFR_STATUS_CONDITION_SUCCESS;		\
-		}												\
-														\
-		status;											\
-	})
+	WfrStatus	status;					\
+								\
+	if (((backend) < WFS_BACKEND_MIN)			\
+	||  ((backend) > WFS_BACKEND_MAX)) {			\
+		status = WFR_STATUS_FROM_ERRNO1(EINVAL);	\
+	} else {						\
+		*(pbackend) = &WfspBackends[(backend)];		\
+		status = WFR_STATUS_CONDITION_SUCCESS;		\
+	}							\
+								\
+	status;							\
+})
 
 /*
  * Private variables
@@ -92,7 +92,7 @@ static WfsBackend	WfspBackendCurrent = WFS_DEFAULT_STORAGE_BACKEND;
 
 static WfspBackend	WfspBackends[WFS_BACKEND_MAX + 1] = {
 	[WFS_BACKEND_EPHEMERAL]		= WFSP_EPHEMERAL_BACKEND,
-	[WFS_BACKEND_FILE]			= WFSP_FILE_BACKEND,
+	[WFS_BACKEND_FILE]		= WFSP_FILE_BACKEND,
 	[WFS_BACKEND_REGISTRY]		= WFSP_REGISTRY_BACKEND,
 };
 
@@ -101,7 +101,7 @@ static WfspBackend	WfspBackends[WFS_BACKEND_MAX + 1] = {
  */
 
 static WfsBackend	WfspLastBackend = WFS_DEFAULT_STORAGE_BACKEND,
-					WfspLastBackendFrom = WFS_DEFAULT_STORAGE_BACKEND;
+			WfspLastBackendFrom = WFS_DEFAULT_STORAGE_BACKEND;
 
 /*
  * Private subroutine prototypes
@@ -120,7 +120,7 @@ WfspInit(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -144,17 +144,17 @@ WfspInit(
 static WfrStatus
 WfspSetBackendFromArg(
 	const char *	arg,
-	bool *			psetfl,
+	bool *		psetfl,
 	WfsBackend *	pbackend,
 	WfsBackend *	pbackend_from
 	)
 {
 	const char *	arg_suffix = NULL;
-	size_t			arg_suffix_len;
-	WfsBackend		backend;
+	size_t		arg_suffix_len;
+	WfsBackend	backend;
 	const char *	backend_arg;
-	size_t			backend_arg_len;
-	WfrStatus		status;
+	size_t		backend_arg_len;
+	WfrStatus	status;
 
 
 	backend = WFS_BACKEND_MIN;
@@ -215,12 +215,12 @@ WfsGetBackend(
 
 WfrStatus
 WfsGetBackendArg(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char **	parg
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl)))
@@ -236,10 +236,10 @@ WfsGetBackendArgString(
 	char **		parg_string
 	)
 {
-	WfsBackend		backend;
+	WfsBackend	backend;
 	const char *	backend_name, *backend_from_name;
-	bool			fromfl;
-	WfrStatus		status;
+	bool		fromfl;
+	WfrStatus	status;
 
 
 	backend = WfsGetBackend();
@@ -253,10 +253,10 @@ WfsGetBackendArgString(
 	&&  WFR_STATUS_SUCCESS(status = WfsGetBackendArg(WfspLastBackendFrom, &backend_from_name)))
 	{
 		status = WfrSnDuprintf(
-					parg_string, NULL, "--%s%s%s",
-					backend_name,
-					fromfl ? "=" : "",
-					fromfl ? backend_from_name : "");
+			parg_string, NULL, "--%s%s%s",
+			backend_name,
+			fromfl ? "=" : "",
+			fromfl ? backend_from_name : "");
 	}
 
 	return status;
@@ -264,12 +264,12 @@ WfsGetBackendArgString(
 
 WfrStatus
 WfsGetBackendName(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char **	pname
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl)))
@@ -300,25 +300,23 @@ WfsSetBackend(
 	bool		reset
 	)
 {
-	void			(*error_fn_host_key)(const char *, WfrStatus) =
-		WFR_LAMBDA(void, (const char *key_name, WfrStatus status) {
-			(void)key_name;
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host key %s", key_name);
-		});
-	void			(*error_fn_session)(const char *, WfrStatus) =
-		WFR_LAMBDA(void, (const char *sessionname, WfrStatus status) {
-			(void)sessionname;
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting session %s", sessionname);
-		});
+	void		(*error_fn_host_key)(const char *, WfrStatus) =
+			WFR_LAMBDA(void, (const char *key_name, WfrStatus status) {
+				(void)key_name;
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host key %s", key_name);
+			});
+	void		(*error_fn_session)(const char *, WfrStatus) =
+			WFR_LAMBDA(void, (const char *sessionname, WfrStatus status) {
+				(void)sessionname;
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting session %s", sessionname);
+			});
 
 	WfspBackend *	new_backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (reset || (WfspBackendCurrent != new_backend)) {
-		if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(
-						new_backend, &new_backend_impl)))
-		{
+		if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(new_backend, &new_backend_impl))) {
 			status = new_backend_impl->SetBackend(new_backend);
 			if ((new_backend_from != new_backend)
 			&&  WFR_STATUS_SUCCESS(status))
@@ -348,10 +346,10 @@ WfsSetBackendFromArgV(
 	)
 {
 	char *		arg;
-	int			argc_new = 0;
+	int		argc_new = 0;
 	char **		argv_new, **argv_new_;
 	WfsBackend	backend = WFS_DEFAULT_STORAGE_BACKEND, backend_from = WFS_DEFAULT_STORAGE_BACKEND;
-	int			narg, narg_new;
+	int		narg, narg_new;
 	bool		setfl;
 	WfrStatus	status;
 
@@ -365,8 +363,7 @@ WfsSetBackendFromArgV(
 			 narg++, setfl = false)
 		{
 			arg = (*pargv)[narg];
-			status = WfspSetBackendFromArg(
-						arg, &setfl, &backend, &backend_from);
+			status = WfspSetBackendFromArg(arg, &setfl, &backend, &backend_from);
 
 			if (WFR_STATUS_SUCCESS(status)) {
 				if (!setfl) {
@@ -423,8 +420,7 @@ WfsSetBackendFromCmdLine(
 			status = WFR_STATUS_FROM_ERRNO(); break;
 		} else {
 			memcpy(arg_, arg, arg_len); arg_[arg_len] = '\0';
-			status = WfspSetBackendFromArg(
-						arg_, &setfl, &backend, &backend_from);
+			status = WfspSetBackendFromArg(arg_, &setfl, &backend, &backend_from);
 			sfree(arg_);
 		}
 
@@ -461,7 +457,7 @@ WfsClearHostKeys(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status = WFR_STATUS_CONDITION_SUCCESS;
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -479,13 +475,13 @@ WfsClearHostKeys(
 
 WfrStatus
 WfsDeleteHostKey(
-	WfsBackend		backend,
-	bool			delete_in_backend,
+	WfsBackend	backend,
+	bool		delete_in_backend,
 	const char *	key_name
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -495,8 +491,8 @@ WfsDeleteHostKey(
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			status = WfspTreeDelete(
-					backend_impl->tree_host_key, NULL,
-					key_name, WFSP_TREE_ITYPE_HOST_KEY);
+				backend_impl->tree_host_key, NULL,
+				key_name, WFSP_TREE_ITYPE_HOST_KEY);
 
 			if ((WFR_STATUS_CONDITION(status) == ENOENT)
 			&&  delete_in_backend)
@@ -511,25 +507,25 @@ WfsDeleteHostKey(
 
 WfrStatus
 WfsEnumerateHostKeys(
-	WfsBackend		backend,
-	bool			cached,
-	bool			initfl,
-	bool *			pdonefl,
+	WfsBackend	backend,
+	bool		cached,
+	bool		initfl,
+	bool *		pdonefl,
 	const char **	pkey_name,
-	void *			state
+	void *		state
 	)
 {
 	WfspBackend *	backend_impl = NULL;
 	WfspTreeItem *	item;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
 			status = WfspTreeEnumerate(
-						backend_impl->tree_host_key,
-						initfl, pdonefl, &item, state);
+				backend_impl->tree_host_key,
+				initfl, pdonefl, &item, state);
 			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
 				if (!(*pkey_name = strdup(item->key))) {
 					status = WFR_STATUS_FROM_ERRNO();
@@ -539,8 +535,8 @@ WfsEnumerateHostKeys(
 
 		case false:
 			status = backend_impl->EnumerateHostKeys(
-						backend, initfl, pdonefl,
-						pkey_name, state);
+				backend, initfl, pdonefl,
+				pkey_name, state);
 			break;
 		}
 	}
@@ -550,15 +546,15 @@ WfsEnumerateHostKeys(
 
 WfrStatus
 WfsExportHostKey(
-	WfsBackend		backend_from,
-	WfsBackend		backend_to,
-	bool			movefl,
+	WfsBackend	backend_from,
+	WfsBackend	backend_to,
+	bool		movefl,
 	const char *	key_name
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
 	const char *	key;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_FAILURE(status = WFSP_BACKEND_GET_IMPL(backend_from, &backend_from_impl))
@@ -589,10 +585,10 @@ WfsExportHostKeys(
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
-	bool			donefl = false;
-	void *			enum_state = NULL;
+	bool		donefl = false;
+	void *		enum_state = NULL;
 	const char *	key_name;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_FAILURE(status = WFSP_BACKEND_GET_IMPL(backend_from, &backend_from_impl))
@@ -601,8 +597,8 @@ WfsExportHostKeys(
 	}
 
 	status = WfsEnumerateHostKeys(
-			backend_from, false, true, &donefl,
-			&key_name, &enum_state);
+		backend_from, false, true, &donefl,
+		&key_name, &enum_state);
 
 	if (WFR_STATUS_SUCCESS(status) && clear_to) {
 		status = WfsClearHostKeys(backend_to, false);
@@ -612,13 +608,13 @@ WfsExportHostKeys(
 		do {
 			key_name = NULL;
 			status = WfsEnumerateHostKeys(
-					backend_from, false, false,
-					&donefl, &key_name, enum_state);
+				backend_from, false, false,
+				&donefl, &key_name, enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && key_name) {
 				status = WfsExportHostKey(
-							backend_from, backend_to,
-							false, key_name);
+					backend_from, backend_to,
+					false, key_name);
 			}
 
 			if (WFR_STATUS_FAILURE(status)) {
@@ -642,23 +638,23 @@ WfsExportHostKeys(
 
 WfrStatus
 WfsGetHostKey(
-	WfsBackend		backend,
-	bool			cached,
+	WfsBackend	backend,
+	bool		cached,
 	const char *	key_name,
 	const char **	pkey
 	)
 {
 	WfspBackend *	backend_impl;
 	WfspTreeItem *	item;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
 			status = WfspTreeGet(
-						backend_impl->tree_host_key,
-						key_name, WFSP_TREE_ITYPE_HOST_KEY, &item);
+				backend_impl->tree_host_key,
+				key_name, WFSP_TREE_ITYPE_HOST_KEY, &item);
 			if (WFR_STATUS_SUCCESS(status)) {
 				*pkey = item->value;
 			}
@@ -676,9 +672,9 @@ WfsGetHostKey(
 WfrStatus
 WfsPrintHostKeyName(
 	const char *	hostname,
-	int				port,
+	int		port,
 	const char *	keytype,
-	char **			pkey_name
+	char **		pkey_name
 	)
 {
 	char *		key_name;
@@ -686,8 +682,8 @@ WfsPrintHostKeyName(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfrSnDuprintf(
-					&key_name, NULL, "%s@%u:%s",
-					keytype, port, hostname)))
+			&key_name, NULL, "%s@%u:%s",
+			keytype, port, hostname)))
 	{
 		*pkey_name = key_name;
 	}
@@ -697,20 +693,20 @@ WfsPrintHostKeyName(
 
 WfrStatus
 WfsRenameHostKey(
-	WfsBackend		backend,
-	bool			rename_in_backend,
+	WfsBackend	backend,
+	bool		rename_in_backend,
 	const char *	key_name,
 	const char *	key_name_new
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		status = WfspTreeRename(
-					backend_impl->tree_host_key, NULL, key_name,
-					WFSP_TREE_ITYPE_HOST_KEY, key_name_new);
+			backend_impl->tree_host_key, NULL, key_name,
+			WFSP_TREE_ITYPE_HOST_KEY, key_name_new);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)
@@ -725,13 +721,13 @@ WfsRenameHostKey(
 
 WfrStatus
 WfsSaveHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name,
 	const char *	key
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -743,20 +739,20 @@ WfsSaveHostKey(
 
 WfrStatus
 WfsSetHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name,
 	const char *	key
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		status = WfspTreeSet(
-					backend_impl->tree_host_key, key_name,
-					WFSP_TREE_ITYPE_HOST_KEY, (void *)key,
-					strlen(key) + 1);
+			backend_impl->tree_host_key, key_name,
+			WFSP_TREE_ITYPE_HOST_KEY, (void *)key,
+			strlen(key) + 1);
 	}
 
 	return status;
@@ -768,7 +764,7 @@ WfsSetHostKey(
 
 WfrStatus
 WfsAddSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	sessionname,
 	WfspSession **	psession
 	)
@@ -776,7 +772,7 @@ WfsAddSession(
 	WfspBackend *	backend_impl;
 	WfspSession *	session_new = NULL;
 	const char *	sessionname_new;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -791,9 +787,9 @@ WfsAddSession(
 
 			if (WFR_STATUS_SUCCESS(status = WfspTreeInit(&session_new->tree))
 			&&  WFR_STATUS_SUCCESS(status = WfspTreeSet(
-							backend_impl->tree_session, sessionname,
-							WFSP_TREE_ITYPE_SESSION, session_new,
-							sizeof(*session_new))))
+					backend_impl->tree_session, sessionname,
+					WFSP_TREE_ITYPE_SESSION, session_new,
+					sizeof(*session_new))))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -812,13 +808,13 @@ WfsAddSession(
 
 WfrStatus
 WfsClearSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	WfspSession *	session,
 	const char *	sessionname
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -837,7 +833,7 @@ WfsClearSessions(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status = WFR_STATUS_CONDITION_SUCCESS;
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -855,12 +851,12 @@ WfsClearSessions(
 
 WfrStatus
 WfsCloseSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	WfspSession *	session
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -872,8 +868,8 @@ WfsCloseSession(
 
 WfrStatus
 WfsCopySession(
-	WfsBackend		backend_from,
-	WfsBackend		backend_to,
+	WfsBackend	backend_from,
+	WfsBackend	backend_to,
 	const char *	sessionname,
 	WfspSession *	session,
 	WfspSession **	psession
@@ -881,7 +877,7 @@ WfsCopySession(
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
 	WfspSession *	session_to;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend_from, &backend_from_impl))
@@ -906,13 +902,13 @@ WfsCopySession(
 
 WfrStatus
 WfsDeleteSession(
-	WfsBackend		backend,
-	bool			delete_in_backend,
+	WfsBackend	backend,
+	bool		delete_in_backend,
 	const char *	sessionname
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -922,9 +918,9 @@ WfsDeleteSession(
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			status = WfspTreeDelete(
-						backend_impl->tree_session,
-						NULL, sessionname,
-						WFSP_TREE_ITYPE_SESSION);
+				backend_impl->tree_session,
+				NULL, sessionname,
+				WFSP_TREE_ITYPE_SESSION);
 
 			if ((WFR_STATUS_CONDITION(status) == ENOENT)
 			&&  delete_in_backend)
@@ -949,15 +945,15 @@ WfsEnumerateSessions(
 {
 	WfspBackend *	backend_impl;
 	WfspTreeItem *	item;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
 			status = WfspTreeEnumerate(
-						backend_impl->tree_session, initfl,
-						pdonefl, &item, state);
+				backend_impl->tree_session, initfl,
+				pdonefl, &item, state);
 			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
 				if (!(*psessionname = strdup(item->key))) {
 					status = WFR_STATUS_FROM_ERRNO();
@@ -967,8 +963,8 @@ WfsEnumerateSessions(
 
 		case false:
 			status = backend_impl->EnumerateSessions(
-						backend, initfl, pdonefl,
-						psessionname, state);
+				backend, initfl, pdonefl,
+				psessionname, state);
 			break;
 		}
 	}
@@ -978,15 +974,15 @@ WfsEnumerateSessions(
 
 WfrStatus
 WfsExportSession(
-	WfsBackend		backend_from,
-	WfsBackend		backend_to,
-	bool			movefl,
-	char *			sessionname
+	WfsBackend	backend_from,
+	WfsBackend	backend_to,
+	bool		movefl,
+	char *		sessionname
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
 	WfspSession *	session;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_FAILURE(status = WFSP_BACKEND_GET_IMPL(backend_from, &backend_from_impl))
@@ -1017,10 +1013,10 @@ WfsExportSessions(
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
-	bool			donefl = false;
-	void *			enum_state = NULL;
-	char *			sessionname;
-	WfrStatus		status;
+	bool		donefl = false;
+	void *		enum_state = NULL;
+	char *		sessionname;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_FAILURE(status = WFSP_BACKEND_GET_IMPL(backend_from, &backend_from_impl))
@@ -1029,8 +1025,8 @@ WfsExportSessions(
 	}
 
 	status = WfsEnumerateSessions(
-			backend_from, false, true,
-			&donefl, &sessionname, &enum_state);
+		backend_from, false, true,
+		&donefl, &sessionname, &enum_state);
 	if (WFR_STATUS_SUCCESS(status) && clear_to) {
 		status = WfsClearSessions(backend_to, true);
 	}
@@ -1039,13 +1035,13 @@ WfsExportSessions(
 		do {
 			sessionname = NULL;
 			status = WfsEnumerateSessions(
-					backend_from, false, false,
-					&donefl, &sessionname, enum_state);
+				backend_from, false, false,
+				&donefl, &sessionname, enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && sessionname) {
 				status = WfsExportSession(
-							backend_from, backend_to,
-							false, sessionname);
+					backend_from, backend_to,
+					false, sessionname);
 			}
 
 			if (WFR_STATUS_FAILURE(status)) {
@@ -1069,23 +1065,23 @@ WfsExportSessions(
 
 WfrStatus
 WfsGetSession(
-	WfsBackend		backend,
-	bool			cached,
+	WfsBackend	backend,
+	bool		cached,
 	const char *	sessionname,
 	WfspSession **	psession
 	)
 {
 	WfspBackend *	backend_impl;
 	WfspTreeItem *	item;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
 			status = WfspTreeGet(
-						backend_impl->tree_session, sessionname,
-						WFSP_TREE_ITYPE_SESSION, &item);
+				backend_impl->tree_session, sessionname,
+				WFSP_TREE_ITYPE_SESSION, &item);
 			if (WFR_STATUS_SUCCESS(status)) {
 				*psession = item->value;
 			}
@@ -1105,12 +1101,12 @@ WfsGetSessionKey(
 	WfspSession *		session,
 	const char *		key,
 	WfspTreeItemType	item_type,
-	void **				pvalue,
-	size_t *			pvalue_size
+	void **			pvalue,
+	size_t *		pvalue_size
 	)
 {
 	WfspTreeItem *	item;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	status = WfspTreeGet(session->tree, key, item_type, &item);
@@ -1140,28 +1136,28 @@ WfsGetSessionKey(
 
 WfrStatus
 WfsRenameSession(
-	WfsBackend		backend,
-	bool			rename_in_backend,
+	WfsBackend	backend,
+	bool		rename_in_backend,
 	const char *	sessionname,
 	const char *	sessionname_new
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		status = WfspTreeRename(
-					backend_impl->tree_session, NULL,
-					sessionname, WFSP_TREE_ITYPE_SESSION,
-					sessionname_new);
+			backend_impl->tree_session, NULL,
+			sessionname, WFSP_TREE_ITYPE_SESSION,
+			sessionname_new);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)
 		||   (WFR_STATUS_CONDITION(status) == ENOENT)))
 		{
 			status = backend_impl->RenameSession(
-						backend, sessionname, sessionname_new);
+				backend, sessionname, sessionname_new);
 		}
 	}
 
@@ -1170,12 +1166,12 @@ WfsRenameSession(
 
 WfrStatus
 WfsSaveSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	WfspSession *	session
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -1189,8 +1185,8 @@ WfrStatus
 WfsSetSessionKey(
 	WfspSession *		session,
 	const char *		key,
-	void *				value,
-	size_t				value_size,
+	void *			value,
+	size_t			value_size,
 	WfspTreeItemType	item_type
 	)
 {
@@ -1203,12 +1199,12 @@ WfsSetSessionKey(
 
 void
 WfsJumpListAdd(
-	WfsBackend			backend,
+	WfsBackend		backend,
 	const char *const	sessionname
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	/* Do nothing on pre-Win7 systems. */
@@ -1229,7 +1225,7 @@ WfsJumpListClear(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -1245,9 +1241,9 @@ WfsJumpListExport(
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
-	char *			jump_list = NULL;
-	size_t			jump_list_size;
-	WfrStatus		status;
+	char *		jump_list = NULL;
+	size_t		jump_list_size;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_FAILURE(status = WFSP_BACKEND_GET_IMPL(backend_from, &backend_from_impl))
@@ -1276,8 +1272,8 @@ WfsJumpListGetEntries(
 	)
 {
 	WfspBackend *	backend_impl;
-	char *			jump_list = NULL;
-	size_t			jump_list_size;
+	char *		jump_list = NULL;
+	size_t		jump_list_size;
 
 
 	if (WFR_STATUS_SUCCESS(WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
@@ -1293,12 +1289,12 @@ WfsJumpListGetEntries(
 
 void
 WfsJumpListRemove(
-	WfsBackend			backend,
+	WfsBackend		backend,
 	const char *const	sessionname
 	)
 {
 	WfspBackend *	backend_impl;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	/* Do nothing on pre-Win7 systems. */
@@ -1339,5 +1335,5 @@ WfsInit(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

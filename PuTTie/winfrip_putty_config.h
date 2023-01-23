@@ -11,10 +11,10 @@
  * config.c:setup_config_box()
  */
 
-void WfConfigPanel(struct controlbox *b);
+void	WfConfigPanel(struct controlbox *b);
 
 #endif // !PUTTY_WINFRIP_PUTTY_CONFIG_H
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

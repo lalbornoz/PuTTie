@@ -1,6 +1,6 @@
 /*
  * winfrip_storage_putty_adapter.h - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2021, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #ifndef PUTTY_WINFRIP_STORAGE_PUTTY_ADAPTER_H
@@ -44,12 +44,12 @@
  * Public wrapped PuTTY windows/jump-list.c subroutine prototypes
  */
 
-void add_session_to_jumplist(const char *const sessionname);
-void clear_jumplist(void);
-void remove_session_from_jumplist(const char *const sessionname);
+void	add_session_to_jumplist(const char *const sessionname);
+void	clear_jumplist(void);
+void	remove_session_from_jumplist(const char *const sessionname);
 
 #endif // !PUTTY_WINFRIP_STORAGE_PUTTY_ADAPTER_H
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

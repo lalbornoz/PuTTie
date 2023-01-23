@@ -11,34 +11,28 @@
  * winfrip_putty_config.c
  */
 
-void WffUrlsConfigPanel(struct controlbox *b);
+void		WffUrlsConfigPanel(struct controlbox *b);
 
 /*
- * Public type definitions used by/in:
+ * Public type definitions and subroutine prototypes used by/in:
  * terminal/terminal.c:do_paint()
  * windows/window.c:WndProc()
  */
 
 typedef enum WffUrlsOp {
-	WFF_URLS_OP_INIT				= 1,
-	WFF_URLS_OP_DRAW				= 2,
-	WFF_URLS_OP_FOCUS_KILL			= 3,
+	WFF_URLS_OP_INIT		= 1,
+	WFF_URLS_OP_DRAW		= 2,
+	WFF_URLS_OP_FOCUS_KILL		= 3,
 	WFF_URLS_OP_MOUSE_BUTTON_EVENT	= 4,
 	WFF_URLS_OP_MOUSE_MOTION_EVENT	= 5,
 	WFF_URLS_OP_MOUSE_WHEEL_EVENT	= 6,
-	WFF_URLS_OP_RECONFIG			= 7
+	WFF_URLS_OP_RECONFIG		= 7
 } WffUrlsOp;
 
-/*
- * Public subroutine prototypes used by/in:
- * terminal/terminal.c:do_paint()
- * windows/window.c:WndProc()
- */
-
-WfReturn WffUrlsOperation(WffUrlsOp op, Conf *conf, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
+WfReturn	WffUrlsOperation(WffUrlsOp op, Conf *conf, HWND hwnd, UINT message, unsigned long *tattr, Terminal *term, WPARAM wParam, int x, int y);
 
 #endif // !PUTTY_WINFRIP_FEATURE_URLS_H
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

@@ -25,14 +25,14 @@
  */
 
 #ifdef WINFRIP_DEBUG
-static const char *		WfspIgnoreMissingIntSettings[] = {
+static const char *	WfspIgnoreMissingIntSettings[] = {
 	"BuggyMAC",
 	"BugDHGEx2",
 	"BugFilterKexinit",
 	"NoRemoteQTitle",
 };
 
-static const char *		WfspIgnoreMissingStrSettings[] = {
+static const char *	WfspIgnoreMissingStrSettings[] = {
 	"AuthPlugin",
 	"Wordness0",
 	"Wordness32",
@@ -49,7 +49,7 @@ static const char *		WfspIgnoreMissingStrSettings[] = {
  * Private subroutine prototypes
  */
 
-static WfrStatus		WfspExpandFontSpecKeys(const char *key, char **pkey_charset, char **pkey_height, char **pkey_isbold);
+static WfrStatus	WfspExpandFontSpecKeys(const char *key, char **pkey_charset, char **pkey_height, char **pkey_isbold);
 
 /*
  * Private subroutines
@@ -58,9 +58,9 @@ static WfrStatus		WfspExpandFontSpecKeys(const char *key, char **pkey_charset, c
 static WfrStatus
 WfspExpandFontSpecKeys(
 	const char *	key,
-	char **			pkey_charset,
-	char **			pkey_height,
-	char **			pkey_isbold
+	char **		pkey_charset,
+	char **		pkey_height,
+	char **		pkey_isbold
 	)
 {
 	size_t		key_size;
@@ -125,12 +125,12 @@ typedef struct settings_r {
 settings_w *
 open_settings_w(
 	const char *	sessionname,
-	char **			errmsg
+	char **		errmsg
 	)
 {
-	WfsBackend		backend;
+	WfsBackend	backend;
 	WfspSession *	session;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	(void)errmsg;
@@ -158,9 +158,9 @@ write_setting_s(
 	)
 {
 	WfspSession *	session;
-	WfrStatus		status;
-	char *			value_new;
-	size_t			value_new_size;
+	WfrStatus	status;
+	char *		value_new;
+	size_t		value_new_size;
 
 
 	session = (WfspSession *)handle;
@@ -183,12 +183,12 @@ void
 write_setting_i(
 	settings_w *	handle,
 	const char *	key,
-	int				value
+	int		value
 	)
 {
 	WfspSession *	session;
-	WfrStatus		status;
-	int *			value_new;
+	WfrStatus	status;
+	int *		value_new;
 
 
 	session = (WfspSession *)handle;
@@ -211,13 +211,13 @@ void
 write_setting_filename(
 	settings_w *	handle,
 	const char *	key,
-	Filename *		value
+	Filename *	value
 	)
 {
 	WfspSession *	session;
-	WfrStatus		status;
-	char *			value_new;
-	size_t			value_new_size;
+	WfrStatus	status;
+	char *		value_new;
+	size_t		value_new_size;
 
 
 	session = (WfspSession *)handle;
@@ -243,12 +243,12 @@ write_setting_fontspec(
 	FontSpec *		font
 	)
 {
-	char *			key_charset = NULL, *key_height = NULL, *key_isbold = NULL;
+	char *		key_charset = NULL, *key_height = NULL, *key_isbold = NULL;
 	WfspSession *	session;
-	WfrStatus		status;
-	int *			val_charset = NULL, *val_height = NULL, *val_isbold = NULL;
-	char *			val_name = NULL;
-	size_t			val_name_size;
+	WfrStatus	status;
+	int *		val_charset = NULL, *val_height = NULL, *val_isbold = NULL;
+	char *		val_name = NULL;
+	size_t		val_name_size;
 
 
 	session = (WfspSession *)handle;
@@ -308,7 +308,7 @@ close_settings_w(
 	)
 {
 	WfspSession *	session;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	session = (WfspSession *)handle;
@@ -339,7 +339,7 @@ open_settings_r(
 	)
 {
 	WfspSession *	session;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (!sessionname || !sessionname[0]
@@ -349,8 +349,8 @@ open_settings_r(
 	}
 
 	status = WfsGetSession(
-			WfsGetBackend(), false,
-			sessionname, &session);
+		WfsGetBackend(), false,
+		sessionname, &session);
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		return (settings_r *)session;
@@ -367,8 +367,8 @@ read_setting_s(
 	)
 {
 	WfspSession *	session;
-	WfrStatus		status;
-	void *			value;
+	WfrStatus	status;
+	void *		value;
 
 
 	session = (WfspSession *)handle;
@@ -384,8 +384,8 @@ read_setting_s(
 	} else {
 	#ifdef WINFRIP_DEBUG
 		for (size_t nkey = 0;
-			 nkey < (sizeof(WfspIgnoreMissingStrSettings) / sizeof(WfspIgnoreMissingStrSettings[0]));
-			 nkey++)
+		     nkey < (sizeof(WfspIgnoreMissingStrSettings) / sizeof(WfspIgnoreMissingStrSettings[0]));
+		     nkey++)
 		{
 			if (strcmp(key, WfspIgnoreMissingStrSettings[nkey]) == 0) {
 				return NULL;
@@ -401,12 +401,12 @@ int
 read_setting_i(
 	settings_r *	handle,
 	const char *	key,
-	int				defvalue
+	int		defvalue
 	)
 {
 	WfspSession *	session;
-	WfrStatus		status;
-	int				value;
+	WfrStatus	status;
+	int		value;
 
 
 	session = (WfspSession *)handle;
@@ -421,8 +421,8 @@ read_setting_i(
 	} else {
 	#ifdef WINFRIP_DEBUG
 		for (size_t nkey = 0;
-			 nkey < (sizeof(WfspIgnoreMissingIntSettings) / sizeof(WfspIgnoreMissingIntSettings[0]));
-			 nkey++)
+		     nkey < (sizeof(WfspIgnoreMissingIntSettings) / sizeof(WfspIgnoreMissingIntSettings[0]));
+		     nkey++)
 		{
 			if (strcmp(key, WfspIgnoreMissingIntSettings[nkey]) == 0) {
 				return defvalue;
@@ -441,8 +441,8 @@ read_setting_filename(
 	)
 {
 	WfspSession *	session;
-	WfrStatus		status;
-	Filename *		value = NULL;
+	WfrStatus	status;
+	Filename *	value = NULL;
 
 
 	session = (WfspSession *)handle;
@@ -454,8 +454,8 @@ read_setting_filename(
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		status = WfsGetSessionKey(
-					session, key, WFSP_TREE_ITYPE_STRING,
-					(void *)&value->path, NULL);
+			session, key, WFSP_TREE_ITYPE_STRING,
+			(void *)&value->path, NULL);
 	}
 
 	if (WFR_STATUS_SUCCESS(status)) {
@@ -479,10 +479,10 @@ read_setting_fontspec(
 	const char *	key
 	)
 {
-	char *			key_charset = NULL, *key_height = NULL, *key_isbold = NULL;
+	char *		key_charset = NULL, *key_height = NULL, *key_isbold = NULL;
 	WfspSession *	session;
-	WfrStatus		status;
-	FontSpec *		value;
+	WfrStatus	status;
+	FontSpec *	value;
 
 
 	session = (WfspSession *)handle;
@@ -495,19 +495,19 @@ read_setting_fontspec(
 	} else {
 		value->name = NULL;
 		if (WFR_STATUS_SUCCESS(status = WfspExpandFontSpecKeys(
-					key, &key_charset, &key_height, &key_isbold))
+				key, &key_charset, &key_height, &key_isbold))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-					session, key_charset, WFSP_TREE_ITYPE_INT,
-					(void **)&value->charset, NULL))
+				session, key_charset, WFSP_TREE_ITYPE_INT,
+				(void **)&value->charset, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-					session, key_height, WFSP_TREE_ITYPE_INT,
-					(void **)&value->height, NULL))
+				session, key_height, WFSP_TREE_ITYPE_INT,
+				(void **)&value->height, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-					session, key_isbold, WFSP_TREE_ITYPE_INT,
-					(void **)&value->isbold, NULL))
+				session, key_isbold, WFSP_TREE_ITYPE_INT,
+				(void **)&value->isbold, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-					session, key, WFSP_TREE_ITYPE_STRING,
-					(void **)&value->name, NULL)))
+				session, key, WFSP_TREE_ITYPE_STRING,
+				(void **)&value->name, NULL)))
 		{
 			if (!(value->name = strdup(value->name))) {
 				status = WFR_STATUS_FROM_ERRNO();
@@ -581,8 +581,8 @@ enum_settings_start(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsEnumerateSessions(
-					WfsGetBackend(), false, true,
-					NULL, NULL, (void **)&handle)))
+			WfsGetBackend(), false, true,
+			NULL, NULL, (void **)&handle)))
 	{
 		return handle;
 	} else {
@@ -594,18 +594,18 @@ enum_settings_start(
 bool
 enum_settings_next(
 	settings_e *	handle,
-	strbuf *		out
+	strbuf *	out
 	)
 {
-	bool			donefl;
-	char *			sessionname;
-	size_t			sessionname_len;
-	WfrStatus		status;
+	bool		donefl;
+	char *		sessionname;
+	size_t		sessionname_len;
+	WfrStatus	status;
 
 
 	status = WfsEnumerateSessions(
-			WfsGetBackend(), false, false,
-			&donefl, &sessionname, handle);
+		WfsGetBackend(), false, false,
+		&donefl, &sessionname, handle);
 
 	if (WFR_STATUS_FAILURE(status) || donefl) {
 		if (WFR_STATUS_FAILURE(status)) {
@@ -643,18 +643,18 @@ enum_settings_finish(
 int
 check_stored_host_key(
 	const char *	hostname,
-	int				port,
+	int		port,
 	const char *	keytype,
 	const char *	key
 	)
 {
 	const char *	key_;
-	char *			key_name;
-	WfrStatus		status;
+	char *		key_name;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsPrintHostKeyName(
-							hostname, port, keytype, &key_name)))
+			hostname, port, keytype, &key_name)))
 	{
 		status = WfsGetHostKey(WfsGetBackend(), false, key_name, &key_);
 		sfree(key_name);
@@ -681,9 +681,9 @@ check_stored_host_key(
 
 void
 store_host_key(
-	Seat *			seat,
+	Seat *		seat,
 	const char *	hostname,
-	int				port,
+	int		port,
 	const char *	keytype,
 	const char *	key
 	)
@@ -695,7 +695,7 @@ store_host_key(
 	(void)seat;
 
 	if (WFR_STATUS_SUCCESS(status = WfsPrintHostKeyName(
-							hostname, port, keytype, &key_name)))
+			hostname, port, keytype, &key_name)))
 	{
 		if (!(key_ = strdup(key))) {
 			status = WFR_STATUS_FROM_ERRNO();
@@ -765,5 +765,5 @@ remove_session_from_jumplist(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

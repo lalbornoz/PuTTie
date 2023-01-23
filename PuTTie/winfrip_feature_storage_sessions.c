@@ -37,63 +37,64 @@ typedef struct WffspConfigContext {
 
 	dlgcontrol *	button_copy, *button_move;
 
-	size_t			itemc[WFFSP_CDIR_COUNT];
-	char **			itemv[WFFSP_CDIR_COUNT];
+	size_t		itemc[WFFSP_CDIR_COUNT];
+	char **		itemv[WFFSP_CDIR_COUNT];
 } WffspConfigContext;
-#define WFFSP_CONFIG_CONTEXT_EMPTY {										\
-		.droplist = {NULL, NULL},											\
-		.editbox = {NULL, NULL},											\
-		.listbox = {NULL, NULL},											\
-																			\
-		.button_clear = {NULL, NULL},										\
-		.button_delete = {NULL, NULL},										\
-		.button_rename = {NULL, NULL},										\
-																			\
-		.button_copy = NULL,												\
-		.button_move = NULL,												\
-																			\
-		.itemc = {0, 0},													\
-		.itemv = {NULL, NULL},												\
-	}
-#define WFFSP_CONFIG_CONTEXT_INIT(ctx)										\
-		(ctx) = (WffspConfigContext)WFFSP_CONFIG_CONTEXT_EMPTY
+#define WFFSP_CONFIG_CONTEXT_EMPTY {	\
+	.droplist = {NULL, NULL},	\
+	.editbox = {NULL, NULL},	\
+	.listbox = {NULL, NULL},	\
+					\
+	.button_clear = {NULL, NULL},	\
+	.button_delete = {NULL, NULL},	\
+	.button_rename = {NULL, NULL},	\
+					\
+	.button_copy = NULL,		\
+	.button_move = NULL,		\
+					\
+	.itemc = {0, 0},		\
+	.itemv = {NULL, NULL},		\
+}
+#define WFFSP_CONFIG_CONTEXT_INIT(ctx)	\
+	(ctx) = (WffspConfigContext)WFFSP_CONFIG_CONTEXT_EMPTY
 
 /*
  * Private macros
  */
 
-#define WFFSP_CONFIG_GET_BACKEND(ctx, dir, dlg)								\
-		(WfsBackend)dlg_listbox_getid(										\
-				(ctx)->droplist[dir], (dlg),								\
-				dlg_listbox_index((ctx)->droplist[dir], (dlg)));
+#define WFFSP_CONFIG_GET_BACKEND(ctx, dir, dlg)			\
+	(WfsBackend)dlg_listbox_getid(				\
+		(ctx)->droplist[dir], (dlg),			\
+		dlg_listbox_index((ctx)->droplist[dir], (dlg)));
 
-#define WFFSP_CONFIG_GET_NSESSION(ctx, dir, dlg, nsession) ({				\
-			WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;				\
-																			\
-			nsession = dlg_listbox_getid(ctx->listbox[dir], dlg,			\
-							dlg_listbox_index(ctx->listbox[dir], dlg));		\
-			if ((nsession < 0)												\
-			||  ((size_t)nsession >= ctx->itemc[dir]))						\
-			{																\
-				status = WFR_STATUS_FROM_ERRNO1(ENOENT);					\
-			}																\
-																			\
-			status;															\
-		})
+#define WFFSP_CONFIG_GET_NSESSION(ctx, dir, dlg, nsession) ({	\
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;	\
+								\
+	nsession = dlg_listbox_getid(				\
+		ctx->listbox[dir], dlg,				\
+		dlg_listbox_index(ctx->listbox[dir], dlg));	\
+	if ((nsession < 0)					\
+	||  ((size_t)nsession >= ctx->itemc[dir]))		\
+	{							\
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);	\
+	}							\
+								\
+	status;							\
+})
 
 /*
  * Private subroutine prototypes
  */
 
-static WfrStatus WffspClearSessions(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspDeleteSession(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspExportSession(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspRenameSession(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspRefreshSessions(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
-static WfrStatus WffspSelectSession(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspClearSessions(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspDeleteSession(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspExportSession(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspRenameSession(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspRefreshSessions(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
+static WfrStatus	WffspSelectSession(dlgcontrol *ctrl, dlgparam *dlg, WffspConfigContext *ctx);
 
-static void WffspConfigSessionsHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static WfrStatus WffspConfigUpdateSessions(WffspConfigContext *ctx, WffspConfigDirection dir, dlgparam *dlg, bool update_listbox);
+static void		WffspConfigSessionsHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static WfrStatus	WffspConfigUpdateSessions(WffspConfigContext *ctx, WffspConfigDirection dir, dlgparam *dlg, bool update_listbox);
 
 /*
  * Private subroutines
@@ -101,17 +102,17 @@ static WfrStatus WffspConfigUpdateSessions(WffspConfigContext *ctx, WffspConfigD
 
 static WfrStatus
 WffspClearSessions(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend				backend, backend_from, backend_to;
-	const char *			backend_name;
-	bool					confirmfl;
+	WfsBackend		backend, backend_from, backend_to;
+	const char *		backend_name;
+	bool			confirmfl;
 	WffspConfigDirection	dir;
-	LPSTR					lpText;
-	WfrStatus				status;
+	LPSTR			lpText;
+	WfrStatus		status;
 
 
 	dir = ((ctrl == ctx->button_clear[WFFSP_CDIR_FROM]) ? WFFSP_CDIR_FROM : WFFSP_CDIR_TO);
@@ -125,8 +126,9 @@ WffspClearSessions(
 				&lpText, NULL, "Clear all sessions in the %s backend?", backend_name)))
 	{
 		switch (MessageBox(
-					NULL, lpText, "PuTTY",
-					MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1)) {
+				NULL, lpText, "PuTTY",
+				MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1))
+		{
 		case IDYES:
 			confirmfl = true; break;
 		case IDNO: default:
@@ -158,16 +160,16 @@ WffspClearSessions(
 
 static WfrStatus
 WffspDeleteSession(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend				backend, backend_from, backend_to;
+	WfsBackend		backend, backend_from, backend_to;
 	WffspConfigDirection	dir;
-	int						nsession = -1;
-	char *					sessionname = NULL;
-	WfrStatus				status;
+	int			nsession = -1;
+	char *			sessionname = NULL;
+	WfrStatus		status;
 
 
 	dir = ((ctrl == ctx->button_delete[WFFSP_CDIR_FROM]) ? WFFSP_CDIR_FROM : WFFSP_CDIR_TO);
@@ -197,14 +199,14 @@ WffspDeleteSession(
 
 static WfrStatus
 WffspExportSession(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
 	WfsBackend	backend_from, backend_to;
 	bool		movefl;
-	int			nsession;
+	int		nsession;
 	char *		sessionname;
 	WfrStatus	status;
 
@@ -248,16 +250,16 @@ WffspExportSession(
 
 static WfrStatus
 WffspRenameSession(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend				backend, backend_from, backend_to;
+	WfsBackend		backend, backend_from, backend_to;
 	WffspConfigDirection	dir;
-	int						nsession;
-	char *					sessionname = NULL, *sessionname_new;
-	WfrStatus				status;
+	int			nsession;
+	char *			sessionname = NULL, *sessionname_new;
+	WfrStatus		status;
 
 
 	dir = ((ctrl == ctx->button_rename[WFFSP_CDIR_FROM]) ? WFFSP_CDIR_FROM : WFFSP_CDIR_TO);
@@ -294,15 +296,15 @@ WffspRenameSession(
 
 static WfrStatus
 WffspRefreshSessions(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
-	WfsBackend				backend;
-	const char *			backend_name;
+	WfsBackend		backend;
+	const char *		backend_name;
 	WffspConfigDirection	dir;
-	WfrStatus				status;
+	WfrStatus		status;
 
 
 	if ((ctrl == ctx->droplist[WFFSP_CDIR_FROM])
@@ -343,14 +345,14 @@ WffspRefreshSessions(
 
 static WfrStatus
 WffspSelectSession(
-	dlgcontrol *			ctrl,
-	dlgparam *				dlg,
+	dlgcontrol *		ctrl,
+	dlgparam *		dlg,
 	WffspConfigContext *	ctx
 	)
 {
 	WffspConfigDirection	dir;
-	int						nsession;
-	WfrStatus				status;
+	int			nsession;
+	WfrStatus		status;
 
 
 	if (ctrl == ctx->droplist[WFFSP_CDIR_FROM]) {
@@ -383,9 +385,9 @@ WffspSelectSession(
 static void
 WffspConfigSessionsHandler(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
 	WffspConfigContext *	ctx = (WffspConfigContext *)ctrl->context.p;
@@ -428,18 +430,18 @@ static WfrStatus
 WffspConfigUpdateSessions(
 	WffspConfigContext *	ctx,
 	WffspConfigDirection	dir,
-	dlgparam *				dlg,
-	bool					update_listbox
+	dlgparam *		dlg,
+	bool			update_listbox
 	)
 {
-	WfsBackend		backend;
+	WfsBackend	backend;
 	dlgcontrol *	ctrl;
-	bool			donefl;
-	void *			enum_state;
-	size_t			itemc_new = 0;
-	char *			sessionname;
-	char **			itemv_new = NULL;
-	WfrStatus		status;
+	bool		donefl;
+	void *		enum_state;
+	size_t		itemc_new = 0;
+	char **		itemv_new = NULL;
+	char *		sessionname;
+	WfrStatus	status;
 
 
 	ctrl = ctx->listbox[dir];
@@ -451,12 +453,12 @@ WffspConfigUpdateSessions(
 	{
 		do {
 			status = WfsEnumerateSessions(
-					backend, false, false,
-					&donefl, &sessionname, enum_state);
+				backend, false, false,
+				&donefl, &sessionname, enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && !donefl) {
 				if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
-									itemv_new, itemc_new, itemc_new + 1, char *)))
+						itemv_new, itemc_new, itemc_new + 1, char *)))
 				{
 					itemv_new[itemc_new - 1] = sessionname;
 				}
@@ -505,11 +507,11 @@ WffspConfigUpdateSessions(
 
 void
 WffsSessionsConfigPanel(
-	struct controlbox *		b
+	struct controlbox *	b
 	)
 {
 	WffspConfigContext *	ctx;
-	struct controlset *		s;
+	struct controlset *	s;
 
 
 	/*
@@ -578,16 +580,16 @@ WffsSessionsConfigPanel(
 void
 WffsSessionsConfigPanelDroplistBackendHandler(
 	dlgcontrol *	ctrl,
-	dlgparam *		dlg,
-	void *			data,
-	int				event
+	dlgparam *	dlg,
+	void *		data,
+	int		event
 	)
 {
-	WfsBackend		backend;
+	WfsBackend	backend;
 	const char *	backend_name;
 	dlgcontrol *	ctrl_sessionsaver;
-	int				id;
-	WfrStatus		status;
+	int		id;
+	WfrStatus	status;
 
 
 	(void)data;
@@ -625,5 +627,5 @@ WffsSessionsConfigPanelDroplistBackendHandler(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

@@ -1,6 +1,6 @@
 /*
  * winfrip_rtl_debug.c - pointless frippery & tremendous amounts of bloat
- * Copyright (c) 2018, 2021, 2022 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
 #include <stdio.h>
@@ -40,8 +40,8 @@ WfrDebugF(
 	const char *	fmt,
 	const char *	file,
 	const char *	func,
-	int				line,
-					...
+	int		line,
+			...
 	)
 {
 	va_list		ap;
@@ -56,5 +56,5 @@ WfrDebugF(
 #endif
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */

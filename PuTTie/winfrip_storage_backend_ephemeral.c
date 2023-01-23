@@ -28,7 +28,7 @@ WfspEphemeralClearHostKeys(
 
 WfrStatus
 WfspEphemeralDeleteHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name
 	)
 {
@@ -37,11 +37,11 @@ WfspEphemeralDeleteHostKey(
 
 WfrStatus
 WfspEphemeralEnumerateHostKeys(
-	WfsBackend		backend,
-	bool			initfl,
-	bool *			pdonefl,
+	WfsBackend	backend,
+	bool		initfl,
+	bool *		pdonefl,
 	const char **	pkey_name,
-	void *			state
+	void *		state
 	)
 {
 	return WfsEnumerateHostKeys(backend, true, initfl, pdonefl, pkey_name, state);
@@ -49,18 +49,18 @@ WfspEphemeralEnumerateHostKeys(
 
 WfrStatus
 WfspEphemeralLoadHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name,
 	const char **	pkey
 	)
 {
 	const char *	key, *key_;
-	WfrStatus		status;
+	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetHostKey(
-					WFS_BACKEND_EPHEMERAL,
-					true, key_name, &key)))
+			WFS_BACKEND_EPHEMERAL,
+			true, key_name, &key)))
 	{
 		if (backend != WFS_BACKEND_EPHEMERAL) {
 			if (!(key_ = strdup(key))) {
@@ -83,7 +83,7 @@ WfspEphemeralLoadHostKey(
 
 WfrStatus
 WfspEphemeralRenameHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name,
 	const char *	key_name_new
 	)
@@ -93,7 +93,7 @@ WfspEphemeralRenameHostKey(
 
 WfrStatus
 WfspEphemeralSaveHostKey(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	key_name,
 	const char *	key
 	)
@@ -116,7 +116,7 @@ WfspEphemeralClearSessions(
 
 WfrStatus
 WfspEphemeralCloseSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	WfspSession *	session
 	)
 {
@@ -128,7 +128,7 @@ WfspEphemeralCloseSession(
 
 WfrStatus
 WfspEphemeralDeleteSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	sessionname
 	)
 {
@@ -149,7 +149,7 @@ WfspEphemeralEnumerateSessions(
 
 WfrStatus
 WfspEphemeralLoadSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	sessionname,
 	WfspSession **	psession
 	)
@@ -158,13 +158,13 @@ WfspEphemeralLoadSession(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetSession(
-					WFS_BACKEND_EPHEMERAL, true,
-					sessionname, psession)))
+			WFS_BACKEND_EPHEMERAL, true,
+			sessionname, psession)))
 	{
 		if (backend != WFS_BACKEND_EPHEMERAL) {
 			status = WfsCopySession(
-						WFS_BACKEND_EPHEMERAL, backend,
-						sessionname, *psession, psession);
+				WFS_BACKEND_EPHEMERAL, backend,
+				sessionname, *psession, psession);
 		}
 	}
 
@@ -173,7 +173,7 @@ WfspEphemeralLoadSession(
 
 WfrStatus
 WfspEphemeralRenameSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	const char *	sessionname,
 	const char *	sessionname_new
 	)
@@ -183,7 +183,7 @@ WfspEphemeralRenameSession(
 
 WfrStatus
 WfspEphemeralSaveSession(
-	WfsBackend		backend,
+	WfsBackend	backend,
 	WfspSession *	session
 	)
 {
@@ -250,7 +250,7 @@ WfspEphemeralJumpListRemove(
 WfrStatus
 WfspEphemeralJumpListSetEntries(
 	const char *	jump_list,
-	size_t			jump_list_size
+	size_t		jump_list_size
 	)
 {
 	(void)jump_list;
@@ -278,5 +278,5 @@ WfspEphemeralSetBackend(
 }
 
 /*
- * vim:noexpandtab sw=4 ts=4 tw=0
+ * vim:noexpandtab sw=8 ts=8 tw=0
  */
