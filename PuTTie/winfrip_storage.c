@@ -46,8 +46,11 @@ typedef struct WfspBackend {
 	WfrStatus		(*SaveSession)(WfsBackend, WfspSession *);
 
 	void			(*JumpListAdd)(const char *const);
+	WfrStatus		(*JumpListCleanup)(void);
 	void			(*JumpListClear)(void);
+	WfrStatus		(*JumpListGetEntries)(char **, size_t *);
 	void			(*JumpListRemove)(const char *const);
+	WfrStatus		(*JumpListSetEntries)(const char *, size_t);
 
 	WfrStatus		(*Init)(void);
 	WfrStatus		(*SetBackend)(WfsBackend);
@@ -1208,6 +1211,13 @@ WfsJumpListAdd(
 	WfrStatus		status;
 
 
+	/* Do nothing on pre-Win7 systems. */
+	if ((osMajorVersion < 6)
+	||  ((osMajorVersion == 6) && (osMinorVersion < 1)))
+	{
+		return;
+	}
+
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		backend_impl->JumpListAdd(sessionname);
 	}
@@ -1227,6 +1237,60 @@ WfsJumpListClear(
 	}
 }
 
+WfrStatus
+WfsJumpListExport(
+	WfsBackend	backend_from,
+	WfsBackend	backend_to,
+	bool		movefl
+	)
+{
+	WfspBackend *	backend_from_impl, *backend_to_impl;
+	char *			jump_list = NULL;
+	size_t			jump_list_size;
+	WfrStatus		status;
+
+
+	if (WFR_STATUS_FAILURE(status = WFSP_BACKEND_GET_IMPL(backend_from, &backend_from_impl))
+	||  WFR_STATUS_FAILURE(status = WFSP_BACKEND_GET_IMPL(backend_to, &backend_to_impl))) {
+		return status;
+	}
+
+	if (WFR_STATUS_SUCCESS(status = backend_from_impl->JumpListGetEntries(&jump_list, &jump_list_size))
+	&&  WFR_STATUS_SUCCESS(status = backend_to_impl->JumpListSetEntries(jump_list, jump_list_size)))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_STATUS_SUCCESS(status) && movefl) {
+		status = backend_from_impl->JumpListCleanup();
+	}
+
+	WFR_SFREE_IF_NOTNULL(jump_list);
+
+	return status;
+}
+
+char *
+WfsJumpListGetEntries(
+	WfsBackend	backend
+	)
+{
+	WfspBackend *	backend_impl;
+	char *			jump_list = NULL;
+	size_t			jump_list_size;
+
+
+	if (WFR_STATUS_SUCCESS(WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
+		(void)backend_impl->JumpListGetEntries(&jump_list, &jump_list_size);
+	}
+
+	if (!jump_list && (jump_list = snewn(2, char))) {
+		jump_list[0] = '\0'; jump_list[1] = '\0';
+	}
+
+	return jump_list;
+}
+
 void
 WfsJumpListRemove(
 	WfsBackend			backend,
@@ -1236,6 +1300,13 @@ WfsJumpListRemove(
 	WfspBackend *	backend_impl;
 	WfrStatus		status;
 
+
+	/* Do nothing on pre-Win7 systems. */
+	if ((osMajorVersion < 6)
+	||  ((osMajorVersion == 6) && (osMinorVersion < 1)))
+	{
+		return;
+	}
 
 	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
 		backend_impl->JumpListRemove(sessionname);

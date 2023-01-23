@@ -40,7 +40,9 @@ typedef struct WfspFileEnumerateState {
 		WfspFileEnumerateSessions, WfspFileLoadSession, WfspFileRenameSession,		\
 		WfspFileSaveSession,														\
 																					\
-		WfspFileJumpListAdd, WfspFileJumpListClear, WfspFileJumpListRemove,			\
+		WfspFileJumpListAdd, WfspFileJumpListCleanup, WfspFileJumpListClear,		\
+		WfspFileJumpListGetEntries, WfspFileJumpListRemove,							\
+		WfspFileJumpListSetEntries,													\
 																					\
 		WfspFileInit, WfspFileSetBackend,											\
 	}
@@ -61,8 +63,11 @@ WfrStatus WfspFileRenameSession(WfsBackend backend, const char *sessionname, con
 WfrStatus WfspFileSaveSession(WfsBackend backend, WfspSession *session);
 
 void WfspFileJumpListAdd(const char *const sessionname);
+WfrStatus WfspFileJumpListCleanup(void);
 void WfspFileJumpListClear(void);
+WfrStatus WfspFileJumpListGetEntries(char **pjump_list, size_t *pjump_list_size);
 void WfspFileJumpListRemove(const char *const sessionname);
+WfrStatus WfspFileJumpListSetEntries(const char *jump_list, size_t jump_list_size);
 
 WfrStatus WfspFileInit(void);
 WfrStatus WfspFileSetBackend(WfsBackend backend_new);

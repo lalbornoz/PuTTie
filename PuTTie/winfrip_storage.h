@@ -88,6 +88,8 @@ WfrStatus WfsSetSessionKey(WfspSession *session, const char *key, void *value, s
 
 void WfsJumpListAdd(WfsBackend backend, const char *const sessionname);
 void WfsJumpListClear(WfsBackend backend);
+WfrStatus WfsJumpListExport(WfsBackend backend_from, WfsBackend backend_to, bool movefl);
+char *WfsJumpListGetEntries(WfsBackend backend);
 void WfsJumpListRemove(WfsBackend backend, const char *const sessionname);
 
 /*

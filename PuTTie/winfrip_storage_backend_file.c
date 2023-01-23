@@ -50,6 +50,7 @@ typedef enum WfspFileReMatchesOffset {
  * WfsppFileDnameSessions: absolute pathname to the current user's directory of PuTTie session files
  * WfsppFileExtHostKeys: file name extension of PuTTie host key files
  * WfsppFileExtSessions: file name extension of PuTTie session files
+ * WfsppFileFnameJumpList: absolute pathname to the current user's PuTTie jump list file
  */
 
 static char *		WfsppFileAppData = NULL;
@@ -57,6 +58,7 @@ static char			WfsppFileDnameHostKeys[MAX_PATH + 1] = "";
 static char			WfsppFileDnameSessions[MAX_PATH + 1] = "";
 static char			WfsppFileExtHostKeys[] = ".hostkey";
 static char			WfsppFileExtSessions[] = ".ini";
+static char			WfsppFileFnameJumpList[MAX_PATH + 1] = "";
 
 static Wfp2Regex	WfsppFileRegex = {
 	.ovecsize = 16,
@@ -75,6 +77,9 @@ static WfrStatus	WfsppFileClear(const char *dname, const char *ext);
 static WfrStatus	WfsppFileEnumerateInit(const char *dname, WfspFileEnumerateState **enum_state);
 static WfrStatus	WfsppFileInitAppDataSubdir(void);
 static WfrStatus	WfsppFileInitRegex(void);
+static WfrStatus	WfsppFileJumpListGet(char **pjump_list, size_t *pjump_list_size);
+static WfrStatus	WfsppFileJumpListSet(const char *jump_list, size_t jump_list_size);
+static WfrStatus	WfsppFileJumpListTransform(bool addfl, bool delfl, const char *const trans_item);
 static WfrStatus	WfsppFileNameEscape(const char *dname, const char *ext, const char *name, bool tmpfl, char *fname, size_t fname_size);
 static WfrStatus	WfsppFileNameUnescape(char *fname, const char **pname);
 
@@ -177,6 +182,9 @@ WfsppFileInitAppDataSubdir(
 		WFR_SNPRINTF(
 				WfsppFileDnameSessions, sizeof(WfsppFileDnameSessions),
 				"%s/PuTTie/sessions", WfsppFileAppData);
+		WFR_SNPRINTF(
+				WfsppFileFnameJumpList, sizeof(WfsppFileFnameJumpList),
+				"%s/PuTTie/jump.list", WfsppFileAppData);
 
 		if ((mkdir(WfsppFileDnameHostKeys) < 0) && (errno != EEXIST)) {
 			status = WFR_STATUS_FROM_ERRNO();
@@ -216,6 +224,190 @@ WfsppFileInitRegex(
 		WfsppFileRegex.md = pcre2_match_data_create(WfsppFileRegex.ovecsize, NULL);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
+
+	return status;
+}
+
+static WfrStatus
+WfsppFileJumpListGet(
+	char **		pjump_list,
+	size_t *	pjump_list_size
+	)
+{
+	FILE *			file = NULL;
+	char *			jump_list = NULL;
+	size_t			jump_list_size = 0;
+	struct stat		statbuf;
+	WfrStatus		status;
+
+
+	if (stat(WfsppFileFnameJumpList, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if ((jump_list_size = statbuf.st_size) < 2) {
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
+	} else if (!(file = fopen(WfsppFileFnameJumpList, "rb"))
+		   ||  !(jump_list = snewn(jump_list_size = statbuf.st_size, char)))
+	{
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (fread(jump_list, statbuf.st_size, 1, file) != 1) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (feof(file)) {
+			status = WFR_STATUS_FROM_ERRNO1(ENODATA);
+		}
+	} else {
+		jump_list[jump_list_size - 2] = '\0';
+		jump_list[jump_list_size - 1] = '\0';
+
+		*pjump_list = jump_list;
+		if (pjump_list_size) {
+			*pjump_list_size = jump_list_size;
+		}
+
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (file != NULL) {
+		fclose(file);
+	}
+
+	if (WFR_STATUS_FAILURE(status)) {
+		WFR_SFREE_IF_NOTNULL(jump_list);
+	}
+
+	return status;
+}
+
+static WfrStatus
+WfsppFileJumpListSet(
+	const char *	jump_list,
+	size_t			jump_list_size
+	)
+{
+	char *		dname_tmp;
+	int			fd = -1;
+	FILE *		file = NULL;
+	char		fname_tmp[MAX_PATH + 1];
+	ssize_t		nwritten;
+	WfrStatus	status;
+
+
+	if (!(dname_tmp = getenv("TEMP"))
+	||  !(dname_tmp = getenv("TMP"))) {
+		dname_tmp = "./";
+	}
+	WFR_SNPRINTF(fname_tmp, sizeof(fname_tmp), "%s/jump.list.XXXXXX", dname_tmp);
+
+	if ((fd = mkstemp(fname_tmp)) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (!(file = fdopen(fd, "wb"))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (jump_list_size > 0) {
+		if ((nwritten = fwrite(jump_list, jump_list_size, 1, file)) != 1) {
+			if (ferror(file) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				status = WFR_STATUS_FROM_ERRNO1(EPIPE);
+			}
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (file) {
+		(void)fflush(file);
+		(void)fclose(file);
+	} else if ((fd >= 0)) {
+		(void)close(fd);
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		if (MoveFileEx(fname_tmp, WfsppFileFnameJumpList, MOVEFILE_REPLACE_EXISTING) < 0) {
+			status = WFR_STATUS_FROM_WINDOWS();
+			(void)unlink(fname_tmp);
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		(void)unlink(fname_tmp);
+	}
+
+	return status;
+}
+
+static WfrStatus
+WfsppFileJumpListTransform(
+	bool				addfl,
+	bool				delfl,
+	const char *const	trans_item
+	)
+{
+	size_t		item_len;
+	char *		jump_list = NULL;
+	char *		jump_list_new = NULL, *jump_list_new_last;
+	ptrdiff_t	jump_list_new_delta;
+	size_t		jump_list_size = 0;
+	size_t		jump_list_new_size = 0;
+	WfrStatus	status;
+	size_t		trans_item_len;
+
+
+	if (addfl || delfl) {
+		trans_item_len = strlen(trans_item);
+
+		status = WfsppFileJumpListGet(&jump_list, &jump_list_size);
+		if (WFR_STATUS_FAILURE(status) && (WFR_STATUS_CONDITION(status) == ENOENT)) {
+			if (!(jump_list = snewn(2, char))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				jump_list[0] = '\0'; jump_list[1] = '\0';
+				jump_list_size = 1;
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
+
+		jump_list_new_size = trans_item_len + 1 + jump_list_size;
+		if (!(jump_list_new = snewn(jump_list_new_size, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			memset(jump_list_new, '\0', jump_list_new_size);
+			jump_list_new_last = jump_list_new;
+
+			if (addfl) {
+				memcpy(jump_list_new_last, trans_item, trans_item_len + 1);
+				jump_list_new_last += trans_item_len + 1;
+			}
+
+			for (char *item = jump_list, *item_next = NULL;
+				 item && *item; item = item_next)
+			{
+				if ((item_next = strchr(item, '\0'))) {
+					item_len = item_next - item;
+					item_next++;
+
+					if ((trans_item_len != item_len)
+					||  (strncmp(trans_item, item, item_len) != 0))
+					{
+						memcpy(jump_list_new_last, item, item_len + 1);
+						jump_list_new_last += item_len + 1;
+					}
+				}
+			}
+
+			if (&jump_list_new_last[0] < &jump_list_new[jump_list_new_size - 1]) {
+				jump_list_new_delta = (&jump_list_new[jump_list_new_size - 1] - &jump_list_new_last[0]);
+				WFR_SRESIZE_IF_NEQ_SIZE(
+						jump_list_new, jump_list_new_size,
+						jump_list_new_size - jump_list_new_delta, char);
+			}
+
+			status = WfsppFileJumpListSet(jump_list_new, jump_list_new_size);
+		}
+	}
+
+	WFR_SFREE_IF_NOTNULL(jump_list);
+	WFR_SFREE_IF_NOTNULL(jump_list_new);
 
 	return status;
 }
@@ -1009,7 +1201,38 @@ WfspFileJumpListAdd(
 	const char *const	sessionname
 	)
 {
-	add_session_to_jumplist_PuTTY(sessionname);
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsppFileJumpListTransform(true, false, sessionname))) {
+		update_jumplist();
+	} else {
+		/* Make sure we don't leave the jumplist dangling. */
+		WfsJumpListClear(WfsGetBackend());
+	}
+}
+
+WfrStatus
+WfspFileJumpListCleanup(
+	void
+	)
+{
+	struct stat		statbuf;
+	WfrStatus		status;
+
+
+	if ((stat(WfsppFileFnameJumpList, &statbuf) < 0)) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else if (unlink(WfsppFileFnameJumpList) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
 }
 
 void
@@ -1020,12 +1243,38 @@ WfspFileJumpListClear(
 	clear_jumplist_PuTTY();
 }
 
+WfrStatus
+WfspFileJumpListGetEntries(
+	char **		pjump_list,
+	size_t *	pjump_list_size
+	)
+{
+	return WfsppFileJumpListGet(pjump_list, pjump_list_size);
+}
+
 void
 WfspFileJumpListRemove(
 	const char *const	sessionname
 	)
 {
-	remove_session_from_jumplist_PuTTY(sessionname);
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsppFileJumpListTransform(false, true, sessionname))) {
+		update_jumplist();
+	} else {
+		/* Make sure we don't leave the jumplist dangling. */
+		WfsJumpListClear(WfsGetBackend());
+	}
+}
+
+WfrStatus
+WfspFileJumpListSetEntries(
+	const char *	jump_list,
+	size_t			jump_list_size
+	)
+{
+	return WfsppFileJumpListSet(jump_list, jump_list_size);
 }
 
 

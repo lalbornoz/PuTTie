@@ -748,6 +748,14 @@ clear_jumplist(
 	WfsJumpListClear(WfsGetBackend());
 }
 
+char *
+get_jumplist_registry_entries(
+	void
+	)
+{
+	return WfsJumpListGetEntries(WfsGetBackend());
+}
+
 void
 remove_session_from_jumplist(
 	const char *const	sessionname

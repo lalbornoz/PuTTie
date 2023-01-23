@@ -38,7 +38,9 @@ typedef struct WfspRegistryEnumerateState {
 		WfspRegistryEnumerateSessions, WfspRegistryLoadSession, WfspRegistryRenameSession,		\
 		WfspRegistrySaveSession,																\
 																								\
-		WfspRegistryJumpListAdd, WfspRegistryJumpListClear, WfspRegistryJumpListRemove,			\
+		WfspRegistryJumpListAdd, WfspRegistryJumpListCleanup, WfspRegistryJumpListClear,		\
+		WfspRegistryJumpListGetEntries, WfspRegistryJumpListRemove,								\
+		WfspRegistryJumpListSetEntries,															\
 																								\
 		WfspRegistryInit, WfspRegistrySetBackend,												\
 	}
@@ -59,8 +61,11 @@ WfrStatus WfspRegistryRenameSession(WfsBackend backend, const char *sessionname,
 WfrStatus WfspRegistrySaveSession(WfsBackend backend, WfspSession *session);
 
 void WfspRegistryJumpListAdd(const char *const sessionname);
+WfrStatus WfspRegistryJumpListCleanup(void);
 void WfspRegistryJumpListClear(void);
+WfrStatus WfspRegistryJumpListGetEntries(char **pjump_list, size_t *pjump_list_size);
 void WfspRegistryJumpListRemove(const char *const sessionname);
+WfrStatus WfspRegistryJumpListSetEntries(const char *jump_list, size_t jump_list_size);
 
 WfrStatus WfspRegistryInit(void);
 WfrStatus WfspRegistrySetBackend(WfsBackend backend_new);

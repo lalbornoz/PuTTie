@@ -21,12 +21,16 @@
  */
 
 /*
- * Names of registry subkeys containing host keys and sessions, resp.
- * [see windows/storage.c]
+ * Names of registry subkeys/value containing host keys, the jump list,
+ * and sessions, and the jump list, resp. [see windows/storage.c]
  */
 
+static LPCSTR		WfspRegistryKey = PUTTY_REG_POS;
 static LPCSTR		WfspRegistrySubKeyHostKeys = PUTTY_REG_POS "\\SshHostKeys";
+static LPCSTR		WfspRegistrySubKeyJumpList = PUTTY_REG_POS "\\Jumplist";
+static LPCSTR		WfspRegistrySubKeyJumpListName = "Jumplist";
 static LPCSTR		WfspRegistrySubKeySessions = PUTTY_REG_POS "\\Sessions";
+static LPCSTR		WfspRegistryValueJumpList = "Recent sessions";
 
 /*
  * Private subroutine prototypes
@@ -36,6 +40,8 @@ static WfrStatus	WfsppRegistryEnumerateInit(LPCSTR lpSubKey, WfspRegistryEnumera
 static WfrStatus	WfsppRegistryEnumerateKeys(bool *pdonefl, char **pitem_name, void *state);
 static WfrStatus	WfsppRegistryEnumerateValues(bool *pdonefl, void **pitem_data, size_t *pitem_data_len, char **pitem_name, WfspTreeItemType *pitem_type, void *state);
 static void			WfsppRegistryEscapeKey(const char *key, char **pkey_escaped);
+static WfrStatus	WfsppRegistryJumpListGet(HKEY *phKey, char **pjump_list, DWORD *pjump_list_size);
+static WfrStatus	WfsppRegistryJumpListTransform(bool addfl, bool delfl, const char *const trans_item);
 
 /*
  * Private subroutines
@@ -228,6 +234,157 @@ WfsppRegistryEscapeKey(
 	*pkey_escaped = strbuf_to_str(key_sb);
 }
 
+static WfrStatus
+WfsppRegistryJumpListGet(
+	HKEY *		phKey,
+	char **		pjump_list,
+	DWORD *		pjump_list_size
+	)
+{
+	HKEY		hKey = NULL;
+	char *		jump_list = NULL;
+	DWORD		jump_list_size = 0;
+	WfrStatus	status;
+	LSTATUS		status_registry;
+
+
+	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyJumpList))) {
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
+	} else {
+		jump_list_size = 0;
+		if (!(status_registry = RegGetValue(
+					hKey, NULL, WfspRegistryValueJumpList,
+					RRF_RT_REG_MULTI_SZ, NULL, NULL,
+					&jump_list_size)) == ERROR_SUCCESS)
+		{
+			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+		} else if (jump_list_size < 2) {
+			status = WFR_STATUS_FROM_ERRNO1(ENOENT);
+		} else if (!(jump_list = snewn(jump_list_size, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else if (!(status_registry = RegGetValue(
+					hKey, NULL, WfspRegistryValueJumpList,
+					RRF_RT_REG_MULTI_SZ, NULL, jump_list,
+					&jump_list_size)) == ERROR_SUCCESS)
+		{
+			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+		} else {
+			jump_list[jump_list_size - 2] = '\0';
+			jump_list[jump_list_size - 1] = '\0';
+
+			*pjump_list = jump_list;
+			if (pjump_list_size) {
+				*pjump_list_size = jump_list_size;
+			}
+
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	}
+
+	if (WFR_STATUS_FAILURE(status)) {
+		WFR_SFREE_IF_NOTNULL(jump_list);
+	}
+
+	if (hKey) {
+		if (phKey) {
+			*phKey = hKey;
+		} else {
+			close_regkey(hKey);
+		}
+	}
+
+	return status;
+}
+
+static WfrStatus
+WfsppRegistryJumpListTransform(
+	bool				addfl,
+	bool				delfl,
+	const char *const	trans_item
+	)
+{
+	HKEY		hKey = NULL;
+	size_t		item_len;
+	char *		jump_list = NULL;
+	char *		jump_list_new = NULL, *jump_list_new_last;
+	ptrdiff_t	jump_list_new_delta;
+	DWORD		jump_list_size = 0;
+	size_t		jump_list_new_size = 0;
+	WfrStatus	status;
+	LSTATUS		status_registry;
+	size_t		trans_item_len;
+
+
+	if (addfl || delfl) {
+		trans_item_len = strlen(trans_item);
+
+		status = WfsppRegistryJumpListGet(&hKey, &jump_list, &jump_list_size);
+		if (WFR_STATUS_FAILURE(status)) {
+			if (!(jump_list = snewn(2, char))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				jump_list[0] = '\0'; jump_list[1] = '\0';
+				jump_list_size = 1;
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
+
+		jump_list_new_size = trans_item_len + 1 + jump_list_size;
+		if (!(jump_list_new = snewn(jump_list_new_size, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			memset(jump_list_new, '\0', jump_list_new_size);
+			jump_list_new_last = jump_list_new;
+
+			if (addfl) {
+				memcpy(jump_list_new_last, trans_item, trans_item_len + 1);
+				jump_list_new_last += trans_item_len + 1;
+			}
+
+			for (char *item = jump_list, *item_next = NULL;
+				 item && *item; item = item_next)
+			{
+				if ((item_next = strchr(item, '\0'))) {
+					item_len = item_next - item;
+					item_next++;
+
+					if ((trans_item_len != item_len)
+					||  (strncmp(trans_item, item, item_len) != 0))
+					{
+						memcpy(jump_list_new_last, item, item_len);
+						jump_list_new_last += item_len + 1;
+					}
+				}
+			}
+
+			if (&jump_list_new_last[0] < &jump_list_new[jump_list_new_size - 1]) {
+				jump_list_new_delta = (&jump_list_new[jump_list_new_size - 1] - &jump_list_new_last[0]);
+				WFR_SRESIZE_IF_NEQ_SIZE(
+						jump_list_new, jump_list_new_size,
+						jump_list_new_size - jump_list_new_delta, char);
+			}
+
+			status_registry = RegSetValueEx(
+					hKey, WfspRegistryValueJumpList, 0, REG_MULTI_SZ,
+					(const BYTE *)jump_list_new, jump_list_new_size);
+
+			if (status_registry == ERROR_SUCCESS) {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			} else {
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			}
+		}
+	}
+
+	if (hKey != NULL) {
+    	close_regkey(hKey);
+	}
+	WFR_SFREE_IF_NOTNULL(jump_list);
+	WFR_SFREE_IF_NOTNULL(jump_list_new);
+
+	return status;
+}
+
 /*
  * Public subroutines private to PuTTie/winfrip_storage*.c
  */
@@ -269,7 +426,7 @@ WfspRegistryClearHostKeys(
 		} while (WFR_STATUS_SUCCESS(status) && !donefl);
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			if (!(hKey = open_regkey_rw(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
+			if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
 				status = WFR_STATUS_FROM_WINDOWS();
 			} else {
 				for (size_t nitem = 0; nitem < itemc; nitem++) {
@@ -310,7 +467,7 @@ WfspRegistryDeleteHostKey(
 
 	WfsppRegistryEscapeKey(key_name, &key_name_escaped);
 
-	if (!(hKey = open_regkey_rw(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
+	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
 		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 	} else {
 		status_registry = RegDeleteValue(hKey, key_name_escaped);
@@ -438,7 +595,7 @@ WfspRegistryRenameHostKey(
 	{
 		WfsppRegistryEscapeKey(key_name, &key_name_escaped);
 		WfsppRegistryEscapeKey(key_name_new, &key_name_new_escaped);
-		if (!(hKey = open_regkey_rw(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
+		if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
 			status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 		} else {
 			status_registry = RegSetValueEx(
@@ -485,7 +642,7 @@ WfspRegistrySaveHostKey(
 
 	WfsppRegistryEscapeKey(key_name, &key_name_escaped);
 
-	if (!(hKey = open_regkey_rw(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
+	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
 		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 	} else {
 		status_registry = RegSetValueEx(
@@ -589,7 +746,7 @@ WfspRegistryDeleteSession(
 
 	WfsppRegistryEscapeKey(sessionname, &sessionname_escaped);
 
-	if (!(hKey = open_regkey_rw(HKEY_CURRENT_USER, WfspRegistrySubKeySessions))) {
+	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeySessions))) {
 		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 	} else {
 		status_registry = RegDeleteKey(hKey, sessionname_escaped);
@@ -735,7 +892,7 @@ WfspRegistryRenameSession(
 	WfsppRegistryEscapeKey(sessionname_new, &sessionname_new_escaped);
 
 	if (strcmp(sessionname, sessionname_new) != 0) {
-		if (!(hKey = open_regkey_rw(HKEY_CURRENT_USER, WfspRegistrySubKeySessions))) {
+		if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeySessions))) {
 			status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 		} else if (WFR_STATUS_SUCCESS(status = WfrToWcsDup(sessionname_escaped, strlen(sessionname_escaped) + 1, &sessionname_escaped_w))
 				&& WFR_STATUS_SUCCESS(status = WfrToWcsDup(sessionname_new_escaped, strlen(sessionname_new_escaped) + 1, &sessionname_new_escaped_w)))
@@ -831,7 +988,40 @@ WfspRegistryJumpListAdd(
 	const char *const	sessionname
 	)
 {
-	add_session_to_jumplist_PuTTY(sessionname);
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsppRegistryJumpListTransform(true, false, sessionname))) {
+		update_jumplist();
+	} else {
+		/* Make sure we don't leave the jumplist dangling. */
+		WfsJumpListClear(WfsGetBackend());
+	}
+}
+
+WfrStatus
+WfspRegistryJumpListCleanup(
+	void
+	)
+{
+	HKEY		hKey;
+	WfrStatus	status;
+	LSTATUS		status_registry;
+
+
+	if (!(hKey = open_regkey_rw(HKEY_CURRENT_USER, WfspRegistryKey))) {
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
+	} else {
+		status_registry = RegDeleteKey(hKey, WfspRegistrySubKeyJumpListName);
+		if (status_registry != ERROR_SUCCESS) {
+			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+		close_regkey(hKey);
+	}
+
+	return status;
 }
 
 void
@@ -842,12 +1032,59 @@ WfspRegistryJumpListClear(
 	clear_jumplist_PuTTY();
 }
 
+WfrStatus
+WfspRegistryJumpListGetEntries(
+	char **		pjump_list,
+	size_t *	pjump_list_size
+	)
+{
+	return WfsppRegistryJumpListGet(NULL, pjump_list, (DWORD *)pjump_list_size);
+}
+
 void
 WfspRegistryJumpListRemove(
 	const char *const	sessionname
 	)
 {
-	remove_session_from_jumplist_PuTTY(sessionname);
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsppRegistryJumpListTransform(false, true, sessionname))) {
+		update_jumplist();
+	} else {
+		/* Make sure we don't leave the jumplist dangling. */
+		WfsJumpListClear(WfsGetBackend());
+	}
+}
+
+WfrStatus
+WfspRegistryJumpListSetEntries(
+	const char *	jump_list,
+	size_t			jump_list_size
+	)
+{
+	HKEY		hKey;
+	WfrStatus	status;
+	LSTATUS		status_registry;
+
+
+	(void)jump_list_size;
+	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyJumpList))) {
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
+	} else {
+		status_registry = RegSetValueEx(
+				hKey, WfspRegistryValueJumpList, 0,
+				REG_MULTI_SZ, (const BYTE *)jump_list,
+				jump_list_size);
+
+		if (status_registry == ERROR_SUCCESS) {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		} else {
+			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+		}
+	}
+
+	return status;
 }
 
 
