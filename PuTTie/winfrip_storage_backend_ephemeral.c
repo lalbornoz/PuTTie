@@ -206,6 +206,14 @@ WfspEphemeralJumpListAdd(
 	 */
 }
 
+WfrStatus
+WfspEphemeralJumpListCleanup(
+	void
+	)
+{
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
 void
 WfspEphemeralJumpListClear(
 	void
@@ -214,6 +222,17 @@ WfspEphemeralJumpListClear(
 	/*
 	 * Inhibit jump list processing
 	 */
+}
+
+WfrStatus
+WfspEphemeralJumpListGetEntries(
+	char **		pjump_list,
+	size_t *	pjump_list_size
+	)
+{
+	*pjump_list = NULL;
+	*pjump_list_size = 0;
+	return WFR_STATUS_CONDITION_SUCCESS;
 }
 
 void
@@ -227,6 +246,18 @@ WfspEphemeralJumpListRemove(
 	 * Inhibit jump list processing
 	 */
 }
+
+WfrStatus
+WfspEphemeralJumpListSetEntries(
+	const char *	jump_list,
+	size_t			jump_list_size
+	)
+{
+	(void)jump_list;
+	(void)jump_list_size;
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
 
 
 WfrStatus

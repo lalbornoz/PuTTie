@@ -146,6 +146,7 @@ add_executable(plink
 # {{{ winfrip
 if (MINGW)
 set_property(TARGET plink APPEND PROPERTY SOURCES
+  PuTTie/no-jump-list.c
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c
@@ -175,6 +176,7 @@ add_executable(pscp
 # {{{ winfrip
 if (MINGW)
 set_property(TARGET pscp APPEND PROPERTY SOURCES
+  PuTTie/no-jump-list.c
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c
@@ -198,6 +200,7 @@ add_executable(psftp
 # {{{ winfrip
 if (MINGW)
 set_property(TARGET psftp APPEND PROPERTY SOURCES
+  PuTTie/no-jump-list.c
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_pcre2.c

@@ -690,6 +690,9 @@ extern const struct BackendVtable serial_backend;
  * Exports from jump-list.c.
  */
 #define JUMPLIST_SUPPORTED             /* suppress #defines in putty.h */
+/* {{{ winfrip */
+void update_jumplist(void);
+/* winfrip }}} */
 void add_session_to_jumplist(const char * const sessionname);
 void remove_session_from_jumplist(const char * const sessionname);
 void clear_jumplist(void);

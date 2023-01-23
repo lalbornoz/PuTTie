@@ -10,6 +10,7 @@
 #include "putty.h"
 /* {{{ winfrip */
 #include "PuTTie/winfrip_storage_wrap.h"
+#include "PuTTie/winfrip_storage_jumplist_storage_wrap.h"
 /* winfrip }}} */
 #include "storage.h"
 

@@ -481,7 +481,15 @@ static IShellLink *make_shell_link(const char *appname,
 }
 
 /* Updates jumplist from registry. */
+/* {{{ winfrip */
+#if 1
+void update_jumplist(void)
+#else
+/* winfrip }}} */
 static void update_jumplist_from_registry(void)
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 {
     const char *piterator;
     UINT num_items;
@@ -705,7 +713,15 @@ void add_session_to_jumplist(const char * const sessionname)
         return;                        /* do nothing on pre-Win7 systems */
 
     if (add_to_jumplist_registry(sessionname) == JUMPLISTREG_OK) {
+        /* {{{ winfrip */
+        #if 1
+        update_jumplist();
+        #else
+        /* winfrip }}} */
         update_jumplist_from_registry();
+        /* {{{ winfrip */
+        #endif
+        /* winfrip }}} */
     } else {
         /* Make sure we don't leave the jumplist dangling. */
         clear_jumplist();
@@ -719,7 +735,15 @@ void remove_session_from_jumplist(const char * const sessionname)
         return;                        /* do nothing on pre-Win7 systems */
 
     if (remove_from_jumplist_registry(sessionname) == JUMPLISTREG_OK) {
+        /* {{{ winfrip */
+        #if 1
+        update_jumplist();
+        #else
+        /* winfrip }}} */
         update_jumplist_from_registry();
+        /* {{{ winfrip */
+        #endif
+        /* winfrip }}} */
     } else {
         /* Make sure we don't leave the jumplist dangling. */
         clear_jumplist();

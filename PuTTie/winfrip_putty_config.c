@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_feature_bgimg.h"
 #include "PuTTie/winfrip_feature_general.h"
 #include "PuTTie/winfrip_feature_mouse.h"
+#include "PuTTie/winfrip_feature_storage_general.h"
 #include "PuTTie/winfrip_feature_storage_host_keys.h"
 #include "PuTTie/winfrip_feature_storage_sessions.h"
 #include "PuTTie/winfrip_feature_trans.h"
@@ -37,6 +38,7 @@ WfConfigPanel(
 	WffBgImgConfigPanel(b);
 	WffGeneralConfigPanel(b);
 	WffMouseConfigPanel(b);
+	WffsGeneralConfigPanel(b);
 	WffsHostKeysConfigPanel(b);
 	WffsSessionsConfigPanel(b);
 	WffTransConfigPanel(b);
