@@ -168,7 +168,7 @@ WffspDeleteHostKey(
 	WffspConfigDirection	dir;
 	char *			key_name = NULL;
 	int			nhost_key;
-	WfrStatus		status;
+	WfrStatus		status, status_;
 
 
 	dir = ((ctrl == ctx->button_delete[WFFSP_CDIR_FROM]) ? WFFSP_CDIR_FROM : WFFSP_CDIR_TO);
@@ -181,13 +181,15 @@ WffspDeleteHostKey(
 		status = WfsDeleteHostKey(backend, true, key_name);
 
 		if (backend_from == backend_to) {
-			if (WFR_STATUS_SUCCESS(status = WffspConfigUpdateHostKeys(ctx, WFFSP_CDIR_FROM, dlg, true))
-			&&  WFR_STATUS_SUCCESS(status = WffspConfigUpdateHostKeys(ctx, WFFSP_CDIR_TO, dlg, true)))
+			if (WFR_STATUS_SUCCESS(status_ = WffspConfigUpdateHostKeys(ctx, WFFSP_CDIR_FROM, dlg, true))
+			&&  WFR_STATUS_SUCCESS(status_ = WffspConfigUpdateHostKeys(ctx, WFFSP_CDIR_TO, dlg, true)))
 			{
-				status = WFR_STATUS_CONDITION_SUCCESS;
+				status_ = WFR_STATUS_CONDITION_SUCCESS;
 			}
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, "deleting host key %s", key_name);
 		} else {
-			status = WffspConfigUpdateHostKeys(ctx, dir, dlg, true);
+			status_ = WffspConfigUpdateHostKeys(ctx, dir, dlg, true);
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, "deleting host key %s", key_name);
 		}
 	}
 
