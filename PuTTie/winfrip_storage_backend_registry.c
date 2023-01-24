@@ -60,11 +60,16 @@ WfsppRegistryEnumerateInit(
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		WFSP_REGISTRY_ENUMERATE_STATE_INIT((**enum_state));
-		if (!((*enum_state)->hKey = open_regkey_ro(HKEY_CURRENT_USER, lpSubKey))) {
-			sfree((*enum_state)); *enum_state = NULL;
-			status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
+		if (WFR_STATUS_FAILURE(status = WfrOpenRegKeyRo(
+				HKEY_CURRENT_USER, &(*enum_state)->hKey, lpSubKey)))
+		{
+			if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+			||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
+			{
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			} else {
+				sfree((*enum_state)); *enum_state = NULL;
+			}
 		}
 	}
 
@@ -85,14 +90,27 @@ WfsppRegistryEnumerateKeys(
 
 
 	enum_state = (WfspRegistryEnumerateState *)state;
-	if (enum_state->donefl
-	||  !(item_name = enum_regkey(enum_state->hKey, enum_state->dwIndex)))
-	{
+	if (!enum_state->hKey) {
+		*pdonefl = enum_state->donefl = true;
+		*pitem_name = NULL;
+		return WFR_STATUS_CONDITION_SUCCESS;
+
+	}
+
+	if (enum_state->donefl) {
 		*pdonefl = enum_state->donefl = true;
 		*pitem_name = NULL;
 		status = WFR_STATUS_CONDITION_SUCCESS;
+	} else if (WFR_STATUS_FAILURE(status = WfrEnumRegKey(
+			enum_state->hKey, enum_state->dwIndex, &item_name)))
+	{
+		if (WFR_STATUS_CONDITION(status) == ERROR_NO_MORE_ITEMS) {
+			*pdonefl = enum_state->donefl = true;
+			*pitem_name = NULL;
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
 	} else if (!(item_name_sb = strbuf_new())) {
-		status = WFR_STATUS_FROM_WINDOWS();
+		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		unescape_registry_key(item_name, item_name_sb);
 		sfree(item_name);
@@ -136,6 +154,13 @@ WfsppRegistryEnumerateValues(
 		return status;
 	}
 
+	if (!enum_state->hKey) {
+		donefl = true; *pdonefl = true;
+		*pitem_name = NULL;
+		WFSP_REGISTRY_ENUMERATE_STATE_INIT(*enum_state);
+		return WFR_STATUS_CONDITION_SUCCESS;
+	}
+
 	if (!(item_data = snewn(1, char))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
@@ -166,7 +191,7 @@ WfsppRegistryEnumerateValues(
 				status = WFR_STATUS_CONDITION_SUCCESS;
 
 				*pitem_name = NULL;
-				close_regkey(enum_state->hKey);
+				(void)RegCloseKey(enum_state->hKey);
 				WFSP_REGISTRY_ENUMERATE_STATE_INIT(*enum_state);
 				break;
 
@@ -188,7 +213,7 @@ WfsppRegistryEnumerateValues(
 
 				if (!(item_name_sb = strbuf_new())) {
 					*pdonefl = false;
-					status = WFR_STATUS_FROM_WINDOWS();
+					status = WFR_STATUS_FROM_ERRNO();
 				} else {
 					*pdonefl = false;
 					status = WFR_STATUS_CONDITION_SUCCESS;
@@ -248,9 +273,7 @@ WfsppRegistryJumpListGet(
 	LSTATUS		status_registry;
 
 
-	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyJumpList))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
+	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyJumpList))) {
 		jump_list_size = 0;
 		if (!(status_registry = RegGetValue(
 				hKey, NULL, WfspRegistryValueJumpList,
@@ -289,7 +312,7 @@ WfsppRegistryJumpListGet(
 		if (phKey) {
 			*phKey = hKey;
 		} else {
-			close_regkey(hKey);
+			(void)RegCloseKey(hKey);
 		}
 	}
 
@@ -377,7 +400,7 @@ WfsppRegistryJumpListTransform(
 	}
 
 	if (hKey != NULL) {
-		close_regkey(hKey);
+		(void)RegCloseKey(hKey);
 	}
 	WFR_SFREE_IF_NOTNULL(jump_list);
 	WFR_SFREE_IF_NOTNULL(jump_list_new);
@@ -426,9 +449,7 @@ WfspRegistryClearHostKeys(
 		} while (WFR_STATUS_SUCCESS(status) && !donefl);
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
-				status = WFR_STATUS_FROM_WINDOWS();
-			} else {
+			if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyHostKeys))) {
 				for (size_t nitem = 0; nitem < itemc; nitem++) {
 					status_registry = RegDeleteValue(hKey, itemv[nitem]);
 					if (status_registry != ERROR_SUCCESS) {
@@ -436,7 +457,7 @@ WfspRegistryClearHostKeys(
 						break;
 					}
 				}
-				close_regkey(hKey);
+				(void)RegCloseKey(hKey);
 			}
 		}
 
@@ -467,16 +488,14 @@ WfspRegistryDeleteHostKey(
 
 	WfsppRegistryEscapeKey(key_name, &key_name_escaped);
 
-	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
+	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyHostKeys))) {
 		status_registry = RegDeleteValue(hKey, key_name_escaped);
 		if (status_registry != ERROR_SUCCESS) {
 			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
 		} else {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
-		close_regkey(hKey);
+		(void)RegCloseKey(hKey);
 	}
 
 	WFR_SFREE_IF_NOTNULL(key_name_escaped);
@@ -514,7 +533,7 @@ WfspRegistryEnumerateHostKeys(
 		*pkey_name = item_name;
 	} else {
 		*pkey_name = NULL;
-		close_regkey(enum_state->hKey);
+		(void)RegCloseKey(enum_state->hKey);
 		WFSP_REGISTRY_ENUMERATE_STATE_INIT(*enum_state);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -538,9 +557,7 @@ WfspRegistryLoadHostKey(
 
 
 	WfsppRegistryEscapeKey(key_name, &key_name_escaped);
-	if (!(hKey = open_regkey_ro(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
+	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyHostKeys))) {
 		key_size = 0;
 		if (!(status_registry = RegGetValue(
 				hKey, NULL, key_name_escaped,
@@ -562,7 +579,7 @@ WfspRegistryLoadHostKey(
 	}
 
 	if (hKey != NULL) {
-		close_regkey(hKey);
+		(void)RegCloseKey(hKey);
 	}
 	WFR_SFREE_IF_NOTNULL(key_name_escaped);
 
@@ -595,9 +612,7 @@ WfspRegistryRenameHostKey(
 	{
 		WfsppRegistryEscapeKey(key_name, &key_name_escaped);
 		WfsppRegistryEscapeKey(key_name_new, &key_name_new_escaped);
-		if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
-			status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-		} else {
+		if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyHostKeys))) {
 			status_registry = RegSetValueEx(
 				hKey, key_name_new_escaped, 0, REG_SZ,
 				(const BYTE *)key, strlen(key));
@@ -617,7 +632,7 @@ WfspRegistryRenameHostKey(
 	}
 
 	if (hKey != NULL) {
-		close_regkey(hKey);
+		(void)RegCloseKey(hKey);
 	}
 	WFR_SFREE_IF_NOTNULL(key_name_escaped);
 	WFR_SFREE_IF_NOTNULL(key_name_new_escaped);
@@ -642,9 +657,7 @@ WfspRegistrySaveHostKey(
 
 	WfsppRegistryEscapeKey(key_name, &key_name_escaped);
 
-	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyHostKeys))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
+	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyHostKeys))) {
 		status_registry = RegSetValueEx(
 			hKey, key_name_escaped, 0, REG_SZ,
 			(const BYTE *)key, strlen(key));
@@ -656,7 +669,7 @@ WfspRegistrySaveHostKey(
 	}
 
 	if (hKey != NULL) {
-		close_regkey(hKey);
+		(void)RegCloseKey(hKey);
 	}
 	WFR_SFREE_IF_NOTNULL(key_name_escaped);
 
@@ -680,10 +693,7 @@ WfspRegistryClearSessions(
 
 	(void)backend;
 	WFSP_REGISTRY_ENUMERATE_STATE_INIT(enum_state);
-	if (!(enum_state.hKey = open_regkey_ro(HKEY_CURRENT_USER, WfspRegistrySubKeySessions))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
+	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(HKEY_CURRENT_USER, &enum_state.hKey, WfspRegistrySubKeySessions))) {
 		do {
 			if (WFR_STATUS_SUCCESS(status = WfsppRegistryEnumerateKeys(
 					&donefl, &item_name, &enum_state)) && !donefl)
@@ -715,7 +725,7 @@ WfspRegistryClearSessions(
 		}
 		WFR_SFREE_IF_NOTNULL(itemv);
 
-		close_regkey(enum_state.hKey);
+		(void)RegCloseKey(enum_state.hKey);
 	}
 
 	return status;
@@ -746,16 +756,14 @@ WfspRegistryDeleteSession(
 
 	WfsppRegistryEscapeKey(sessionname, &sessionname_escaped);
 
-	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeySessions))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
+	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeySessions))) {
 		status_registry = RegDeleteKey(hKey, sessionname_escaped);
 		if (status_registry != ERROR_SUCCESS) {
 			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
 		} else {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
-		close_regkey(hKey);
+		(void)RegCloseKey(hKey);
 	}
 
 	WFR_SFREE_IF_NOTNULL(sessionname_escaped);
@@ -791,7 +799,7 @@ WfspRegistryEnumerateSessions(
 		*psessionname = item_name;
 	} else {
 		*psessionname = NULL;
-		close_regkey(enum_state->hKey);
+		(void)RegCloseKey(enum_state->hKey);
 		WFSP_REGISTRY_ENUMERATE_STATE_INIT(*enum_state);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -820,13 +828,10 @@ WfspRegistryLoadSession(
 	WFSP_REGISTRY_ENUMERATE_STATE_INIT(enum_state);
 	WfsppRegistryEscapeKey(sessionname, &sessionname_escaped);
 
-	if (!(enum_state.hKey = open_regkey_ro(
-			HKEY_CURRENT_USER, WfspRegistrySubKeySessions,
-			sessionname_escaped)))
+	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(
+			HKEY_CURRENT_USER, &enum_state.hKey,
+			WfspRegistrySubKeySessions, sessionname_escaped)))
 	{
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
 		status = WfsGetSession(backend, true, sessionname, &session);
 		if (WFR_STATUS_SUCCESS(status)) {
 			(void)WfsDeleteSession(backend, false, session->name);
@@ -855,7 +860,7 @@ WfspRegistryLoadSession(
 	}
 
 	if (enum_state.hKey != NULL) {
-		close_regkey(enum_state.hKey);
+		(void)RegCloseKey(enum_state.hKey);
 	}
 	WFR_SFREE_IF_NOTNULL(sessionname_escaped)
 
@@ -892,11 +897,10 @@ WfspRegistryRenameSession(
 	WfsppRegistryEscapeKey(sessionname_new, &sessionname_new_escaped);
 
 	if (strcmp(sessionname, sessionname_new) != 0) {
-		if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeySessions))) {
-			status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-		} else if (WFR_STATUS_SUCCESS(status = WfrToWcsDup(
+		if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeySessions))
+		&&  WFR_STATUS_SUCCESS(status = WfrToWcsDup(
 				sessionname_escaped, strlen(sessionname_escaped) + 1, &sessionname_escaped_w))
-			&& WFR_STATUS_SUCCESS(status = WfrToWcsDup(
+		&&  WFR_STATUS_SUCCESS(status = WfrToWcsDup(
 				sessionname_new_escaped, strlen(sessionname_new_escaped) + 1, &sessionname_new_escaped_w)))
 		{
 			status_registry = RegRenameKey(hKey, sessionname_escaped_w, sessionname_new_escaped_w);
@@ -911,7 +915,7 @@ WfspRegistryRenameSession(
 	}
 
 	if (hKey != NULL) {
-		close_regkey(hKey);
+		(void)RegCloseKey(hKey);
 	}
 	WFR_SFREE_IF_NOTNULL(sessionname_escaped);
 	WFR_SFREE_IF_NOTNULL(sessionname_new_escaped);
@@ -940,13 +944,10 @@ WfspRegistrySaveSession(
 	WfsppRegistryEscapeKey(sessionname, &sessionname_escaped);
 
 	(void)RegDeleteKey(hKey, sessionname_escaped);
-	if (!(hKey = create_regkey(
-			HKEY_CURRENT_USER, WfspRegistrySubKeySessions,
-			sessionname_escaped)))
+	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(
+			HKEY_CURRENT_USER, &hKey,
+			WfspRegistrySubKeySessions, sessionname_escaped)))
 	{
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
 		WFSP_TREE234_FOREACH(status, session->tree, idx, item) {
 			switch (item->type) {
 			default:
@@ -978,7 +979,7 @@ WfspRegistrySaveSession(
 		(void)RegDeleteKey(hKey, sessionname_escaped);
 	}
 
-	close_regkey(hKey);
+	(void)RegCloseKey(hKey);
 	WFR_SFREE_IF_NOTNULL(sessionname_escaped);
 
 	return status;
@@ -1011,16 +1012,14 @@ WfspRegistryJumpListCleanup(
 	LSTATUS		status_registry;
 
 
-	if (!(hKey = open_regkey_rw(HKEY_CURRENT_USER, WfspRegistryKey))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
+	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, WfspRegistryKey))) {
 		status_registry = RegDeleteKey(hKey, WfspRegistrySubKeyJumpListName);
 		if (status_registry != ERROR_SUCCESS) {
 			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
 		} else {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
-		close_regkey(hKey);
+		(void)RegCloseKey(hKey);
 	}
 
 	return status;
@@ -1071,9 +1070,7 @@ WfspRegistryJumpListSetEntries(
 
 
 	(void)jump_list_size;
-	if (!(hKey = create_regkey(HKEY_CURRENT_USER, WfspRegistrySubKeyJumpList))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
+	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyJumpList))) {
 		status_registry = RegSetValueEx(
 			hKey, WfspRegistryValueJumpList, 0,
 			REG_MULTI_SZ, (const BYTE *)jump_list,
