@@ -111,7 +111,11 @@ WfsppFileClear(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 
 		while ((dire = readdir(dirp))) {
-			if ((dire->d_name[0] == '.')
+			if (stat(dire->d_name, &statbuf) < 0) {
+				continue;
+			} else if (!(statbuf.st_mode & S_IFREG)) {
+				continue;
+			} else if ((dire->d_name[0] == '.')
 			&&  (dire->d_name[1] == '\0')) {
 				continue;
 			} else if ((dire->d_name[0] == '.')
@@ -594,6 +598,7 @@ WfspFileEnumerateHostKeys(
 {
 	WfspFileEnumerateState *	enum_state;
 	char *				fname, *fname_ext;
+	struct stat			statbuf;
 	WfrStatus			status;
 
 
@@ -607,7 +612,11 @@ WfspFileEnumerateHostKeys(
 
 	enum_state = (WfspFileEnumerateState *)state; errno = 0;
 	while ((enum_state->dire = readdir(enum_state->dirp))) {
-		if ((enum_state->dire->d_name[0] == '.')
+		if (stat(enum_state->dire->d_name, &statbuf) < 0) {
+			continue;
+		} else if (!(statbuf.st_mode & S_IFREG)) {
+			continue;
+		} else if ((enum_state->dire->d_name[0] == '.')
 		&&  (enum_state->dire->d_name[1] == '\0')) {
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
@@ -866,6 +875,7 @@ WfspFileEnumerateSessions(
 	char *				fname, *pext;
 	char *				sessionname;
 	size_t				sessionname_len;
+	struct stat			statbuf;
 	WfrStatus			status;
 
 
@@ -879,7 +889,11 @@ WfspFileEnumerateSessions(
 
 	enum_state = (WfspFileEnumerateState *)state; errno = 0;
 	while ((enum_state->dire = readdir(enum_state->dirp))) {
-		if ((enum_state->dire->d_name[0] == '.')
+		if (stat(enum_state->dire->d_name, &statbuf) < 0) {
+			continue;
+		} else if (!(statbuf.st_mode & S_IFREG)) {
+			continue;
+		} else if ((enum_state->dire->d_name[0] == '.')
 		&&  (enum_state->dire->d_name[1] == '\0')) {
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
