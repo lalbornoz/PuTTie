@@ -169,7 +169,7 @@ WffspDeleteSession(
 	WffspConfigDirection	dir;
 	int			nsession = -1;
 	char *			sessionname = NULL;
-	WfrStatus		status;
+	WfrStatus		status, status_;
 
 
 	dir = ((ctrl == ctx->button_delete[WFFSP_CDIR_FROM]) ? WFFSP_CDIR_FROM : WFFSP_CDIR_TO);
@@ -182,13 +182,15 @@ WffspDeleteSession(
 		status = WfsDeleteSession(backend, true, sessionname);
 
 		if (backend_from == backend_to) {
-			if (WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_FROM, dlg, true))
-			&&  WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_TO, dlg, true)))
+			if (WFR_STATUS_SUCCESS(status_ = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_FROM, dlg, true))
+			&&  WFR_STATUS_SUCCESS(status_ = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_TO, dlg, true)))
 			{
-				status = WFR_STATUS_CONDITION_SUCCESS;
+				status_ = WFR_STATUS_CONDITION_SUCCESS;
 			}
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, "deleting session %s", sessionname);
 		} else {
-			status = WffspConfigUpdateSessions(ctx, dir, dlg, true);
+			status_ = WffspConfigUpdateSessions(ctx, dir, dlg, true);
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, "deleting session %s", sessionname);
 		}
 	}
 
