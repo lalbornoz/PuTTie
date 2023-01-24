@@ -5,6 +5,8 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -66,6 +68,91 @@ WfrEnumRegKey(
 	} else {
 		WFR_SFREE_IF_NOTNULL(lpName);
 	}
+
+	return status;
+}
+
+WfrStatus
+WfrMakeDirectory(
+	char *	path,
+	bool	existsfl
+	)
+{
+	bool		lastfl;
+	char *		p, *path_sub, sep;
+	char *		path_absdrive;
+	char		path_cwd[MAX_PATH + 1];
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
+
+
+	if (!getcwd(path_cwd, sizeof(path_cwd))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	}
+
+	if ((((path[0] >= 'a') && (path[0] <= 'z'))
+	||   ((path[0] >= 'A') && (path[0] <= 'Z')))
+	&&    (path[1] == ':')
+	&&   ((path[2] == '/') || (path[2] == '\\')))
+	{
+		path_absdrive = path; path += 3;
+	} else {
+		path_absdrive = NULL;
+	}
+
+	for (p = path, path_sub = path;
+	     WFR_STATUS_SUCCESS(status) && *p; p++)
+	{
+		if ((p[0] == '/')
+		||  (p[0] == '\\')
+		||  (p[1] == '\0'))
+		{
+			if ((p[0] == '/') || (p[0] == '\\')) {
+				lastfl = false; sep = *p; *p = '\0';
+			} else {
+				lastfl = true;
+			}
+
+			while ((*path_sub == '/')
+			    || (*path_sub == '\\'))
+			{
+				path_sub++;
+			}
+			if (path_sub[0] == '\0') {
+				goto next;
+			} else if ((path_sub[0] == '.') && (path_sub[1] == '\0') && !path_absdrive) {
+				goto next;
+			} else if ((path_sub[0] == '.') && (path_sub[1] == '.') && (path_sub[2] == '\0')) {
+				goto change_dir;
+			}
+
+			if (mkdir(path_absdrive ? path_absdrive : path_sub) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+				if ((WFR_STATUS_CONDITION(status) == EEXIST)
+				&&  existsfl)
+				{
+					status = WFR_STATUS_CONDITION_SUCCESS;
+				}
+			}
+
+		change_dir:
+			if (!lastfl && WFR_STATUS_SUCCESS(status)) {
+				if (chdir(path_absdrive ? path_absdrive : path_sub) < 0) {
+					status = WFR_STATUS_FROM_ERRNO();
+				}
+			}
+
+		next:
+			if (path_absdrive) {
+				path_absdrive = NULL;
+			}
+
+			if (!lastfl) {
+				*p = sep; path_sub = ++p;
+			}
+		}
+	}
+
+	(void)chdir(path_cwd);
 
 	return status;
 }
