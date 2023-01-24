@@ -712,7 +712,7 @@ WfspRegistryClearSessions(
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			for (size_t nitem = 0; nitem < itemc; nitem++) {
-				status_registry = RegDeleteKey(enum_state.hKey, itemv[nitem]);
+				status_registry = RegDeleteTree(enum_state.hKey, itemv[nitem]);
 				if (status_registry != ERROR_SUCCESS) {
 					status = WFR_STATUS_FROM_WINDOWS1(status_registry);
 					break;
@@ -757,7 +757,7 @@ WfspRegistryDeleteSession(
 	WfsppRegistryEscapeKey(sessionname, &sessionname_escaped);
 
 	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeySessions))) {
-		status_registry = RegDeleteKey(hKey, sessionname_escaped);
+		status_registry = RegDeleteTree(hKey, sessionname_escaped);
 		if (status_registry != ERROR_SUCCESS) {
 			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
 		} else {
@@ -943,7 +943,7 @@ WfspRegistrySaveSession(
 	sessionname = (char *)session->name;
 	WfsppRegistryEscapeKey(sessionname, &sessionname_escaped);
 
-	(void)RegDeleteKey(hKey, sessionname_escaped);
+	(void)RegDeleteTree(hKey, sessionname_escaped);
 	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(
 			HKEY_CURRENT_USER, &hKey,
 			WfspRegistrySubKeySessions, sessionname_escaped)))
@@ -976,7 +976,7 @@ WfspRegistrySaveSession(
 	}
 
 	if (WFR_STATUS_FAILURE(status)) {
-		(void)RegDeleteKey(hKey, sessionname_escaped);
+		(void)RegDeleteTree(hKey, sessionname_escaped);
 	}
 
 	(void)RegCloseKey(hKey);
@@ -1013,7 +1013,7 @@ WfspRegistryJumpListCleanup(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, WfspRegistryKey))) {
-		status_registry = RegDeleteKey(hKey, WfspRegistrySubKeyJumpListName);
+		status_registry = RegDeleteTree(hKey, WfspRegistrySubKeyJumpListName);
 		if (status_registry != ERROR_SUCCESS) {
 			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
 		} else {
