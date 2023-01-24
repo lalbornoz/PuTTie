@@ -126,7 +126,7 @@ WffspClearSessions(
 				&lpText, NULL, "Clear all sessions in the %s backend?", backend_name)))
 	{
 		switch (MessageBox(
-				NULL, lpText, "PuTTY",
+				NULL, lpText, "PuTTie",
 				MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1))
 		{
 		case IDYES:
