@@ -97,6 +97,7 @@ WfsppFileClear(
 	DIR *			dirp = NULL;
 	size_t			ext_len;
 	char			fname[MAX_PATH + 1];
+	char			path_cwd[MAX_PATH + 1];
 	char *			pext;
 	struct stat		statbuf;
 	WfrStatus		status;
@@ -108,11 +109,22 @@ WfsppFileClear(
 	||  (!(dirp = opendir(dname)))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
+		if (!getcwd(path_cwd, sizeof(path_cwd))) {
+			return WFR_STATUS_FROM_ERRNO();
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
 
 		while ((dire = readdir(dirp))) {
-			if (stat(dire->d_name, &statbuf) < 0) {
-				continue;
+			if (chdir(dname) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+				break;
+			} else if (stat(dire->d_name, &statbuf) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+				(void)chdir(path_cwd);
+				break;
+			} else if (chdir(path_cwd) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
 			} else if (!(statbuf.st_mode & S_IFREG)) {
 				continue;
 			} else if ((dire->d_name[0] == '.')
@@ -601,6 +613,7 @@ WfspFileEnumerateHostKeys(
 {
 	WfspFileEnumerateState *	enum_state;
 	char *				fname, *fname_ext;
+	char				path_cwd[MAX_PATH + 1];
 	struct stat			statbuf;
 	WfrStatus			status;
 
@@ -623,10 +636,22 @@ WfspFileEnumerateHostKeys(
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 
+	if (!getcwd(path_cwd, sizeof(path_cwd))) {
+		return WFR_STATUS_FROM_ERRNO();
+	}
+
 	errno = 0;
 	while ((enum_state->dire = readdir(enum_state->dirp))) {
-		if (stat(enum_state->dire->d_name, &statbuf) < 0) {
-			continue;
+		if (chdir(WfsppFileDnameHostKeys) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+			break;
+		} else if (stat(enum_state->dire->d_name, &statbuf) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+			(void)chdir(path_cwd);
+			break;
+		} else if (chdir(path_cwd) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+			break;
 		} else if (!(statbuf.st_mode & S_IFREG)) {
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
@@ -886,6 +911,7 @@ WfspFileEnumerateSessions(
 {
 	WfspFileEnumerateState *	enum_state;
 	char *				fname, *pext;
+	char				path_cwd[MAX_PATH + 1];
 	char *				sessionname;
 	size_t				sessionname_len;
 	struct stat			statbuf;
@@ -910,10 +936,22 @@ WfspFileEnumerateSessions(
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 
+	if (!getcwd(path_cwd, sizeof(path_cwd))) {
+		return WFR_STATUS_FROM_ERRNO();
+	}
+
 	errno = 0;
 	while ((enum_state->dire = readdir(enum_state->dirp))) {
-		if (stat(enum_state->dire->d_name, &statbuf) < 0) {
-			continue;
+		if (chdir(WfsppFileDnameSessions) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+			break;
+		} else if (stat(enum_state->dire->d_name, &statbuf) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+			(void)chdir(path_cwd);
+			break;
+		} else if (chdir(path_cwd) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+			break;
 		} else if (!(statbuf.st_mode & S_IFREG)) {
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
