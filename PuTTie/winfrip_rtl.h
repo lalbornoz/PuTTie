@@ -77,13 +77,13 @@
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
 
-#define		WfrCreateRegKey(hKey, phKey, ...)		WfrOpenRegKey((hKey), true, true, (phKey), ## __VA_ARGS__)
+#define		WfrCreateRegKey(hKey, phKey, ...)		WfrOpenRegKey((hKey), true, true, (phKey), ## __VA_ARGS__, (const char *)NULL)
 WfrStatus	WfrEnumRegKey(HKEY hKey, DWORD dwIndex, char **plpName);
 WfrStatus	WfrMakeDirectory(char *path, bool existsfl);
 int		WfrMessageBoxF(const char *lpCaption, unsigned int uType, const char *format, ...);
 WfrStatus	WfrOpenRegKey(HKEY hKey, bool createfl, bool writefl, HKEY *phKey, const char *path, ...);
-#define		WfrOpenRegKeyRo(hKey, phKey, ...)		WfrOpenRegKey((hKey), false, false, (phKey), ## __VA_ARGS__)
-#define		WfrOpenRegKeyRw(hKey, phKey, ...)		WfrOpenRegKey((hKey), false, true, (phKey), ## __VA_ARGS__)
+#define		WfrOpenRegKeyRo(hKey, phKey, ...)		WfrOpenRegKey((hKey), false, false, (phKey), ## __VA_ARGS__, (const char *)NULL)
+#define		WfrOpenRegKeyRw(hKey, phKey, ...)		WfrOpenRegKey((hKey), false, true, (phKey), ## __VA_ARGS__, (const char *)NULL)
 WfrStatus	WfrSnDuprintf(char **restrict ps, size_t *pn, const char *restrict format, ...);
 const char *	WfrStatusToErrorMessage(WfrStatus status);
 WfrStatus	WfrToWcsDup(char *in, size_t in_size, wchar_t **pout_w);
