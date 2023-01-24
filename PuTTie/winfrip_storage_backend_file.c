@@ -195,11 +195,9 @@ WfsppFileInitAppDataSubdir(
 			WfsppFileFnameJumpList, sizeof(WfsppFileFnameJumpList),
 			"%s/PuTTie/jump.list", WfsppFileAppData);
 
-		if ((mkdir(WfsppFileDnameHostKeys) < 0) && (errno != EEXIST)) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if ((mkdir(WfsppFileDnameSessions) < 0) && (errno != EEXIST)) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else {
+		if (WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameHostKeys, true))
+		||  WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameSessions, true)))
+		{
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	}
