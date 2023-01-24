@@ -20,6 +20,56 @@
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
+WfrStatus
+WfrEnumRegKey(
+	HKEY		hKey,
+	DWORD		dwIndex,
+	char **		plpName
+	)
+{
+	bool		donefl;
+	char *		lpName = NULL;
+	DWORD		lpName_size;
+	WfrStatus	status;
+	LONG		status_registry;
+
+
+	if (!(lpName = snewn(MAX_PATH + 1, char))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		donefl = false;
+		while (!donefl) {
+			switch (status_registry = RegEnumKey(hKey, dwIndex, lpName, lpName_size)) {
+			case ERROR_SUCCESS:
+				donefl = true;
+				status = WFR_STATUS_CONDITION_SUCCESS;
+				break;
+
+			case ERROR_MORE_DATA:
+				if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
+						lpName, lpName_size, lpName_size + 64, char)))
+				{
+					donefl = true;
+				}
+				break;
+
+			default:
+				donefl = true;
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+				break;
+			}
+		}
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		*plpName = lpName;
+	} else {
+		WFR_SFREE_IF_NOTNULL(lpName);
+	}
+
+	return status;
+}
+
 int
 WfrMessageBoxF(
 	const char *	lpCaption,
@@ -38,6 +88,60 @@ WfrMessageBoxF(
 	msg_buf[sizeof(msg_buf) - 1] = '\0';
 
 	return MessageBox(NULL, msg_buf, lpCaption, uType);
+}
+
+WfrStatus
+WfrOpenRegKey(
+	HKEY		hKey,
+	bool		createfl,
+	bool		writefl,
+	HKEY *		phKey,
+	const char *	path,
+			...
+	)
+{
+	va_list		ap;
+	bool		closefl;
+	HKEY		hKey_new;
+	REGSAM		samDesired = KEY_READ | (writefl ? KEY_WRITE : 0);
+	WfrStatus	status;
+	LONG		status_registry;
+
+
+	va_start(ap, path);
+	for (closefl = false; path; path = va_arg(ap, const char *)) {
+		if (createfl) {
+			status_registry = RegCreateKeyEx(
+				hKey, path, 0, NULL,
+				REG_OPTION_NON_VOLATILE, samDesired,
+				NULL, &hKey_new, NULL);
+		} else {
+			status_registry = RegOpenKeyEx(
+				hKey, path, 0, samDesired, &hKey_new);
+		}
+
+		if (status_registry == ERROR_SUCCESS) {
+			if (closefl) {
+				(void)RegCloseKey(hKey);
+			}
+			hKey = hKey_new; closefl = true;
+		} else {
+			if (closefl) {
+				(void)RegCloseKey(hKey);
+			}
+			break;
+		}
+	}
+	va_end(ap);
+
+	if (status_registry == ERROR_SUCCESS) {
+		*phKey = hKey;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	} else {
+		status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+	}
+
+	return status;
 }
 
 WfrStatus

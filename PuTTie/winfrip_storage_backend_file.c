@@ -154,13 +154,18 @@ WfsppFileEnumerateInit(
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		WFSP_FILE_ENUMERATE_STATE_INIT((**enum_state));
-		if ((stat(dname, &statbuf) < 0)
-		|| (!((*enum_state)->dirp = opendir(dname))))
-		{
-			sfree((*enum_state)); *enum_state = NULL;
+		if (stat(dname, &statbuf) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
+			if (WFR_STATUS_CONDITION(status) == ENOENT) {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
 		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
+			if (!((*enum_state)->dirp = opendir(dname))) {
+				sfree((*enum_state)); *enum_state = NULL;
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
 		}
 	}
 
@@ -610,7 +615,17 @@ WfspFileEnumerateHostKeys(
 			(WfspFileEnumerateState **)state);
 	}
 
-	enum_state = (WfspFileEnumerateState *)state; errno = 0;
+	enum_state = (WfspFileEnumerateState *)state;
+
+	if (!enum_state->dirp) {
+		*pdonefl = true;
+		*pkey_name = NULL;
+		enum_state->donefl = true;
+		WFSP_FILE_ENUMERATE_STATE_INIT(*enum_state);
+		return WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	errno = 0;
 	while ((enum_state->dire = readdir(enum_state->dirp))) {
 		if (stat(enum_state->dire->d_name, &statbuf) < 0) {
 			continue;
@@ -887,7 +902,17 @@ WfspFileEnumerateSessions(
 			(WfspFileEnumerateState **)state);
 	}
 
-	enum_state = (WfspFileEnumerateState *)state; errno = 0;
+	enum_state = (WfspFileEnumerateState *)state;
+
+	if (!enum_state->dirp) {
+		*pdonefl = true;
+		*psessionname = NULL;
+		enum_state->donefl = true;
+		WFSP_FILE_ENUMERATE_STATE_INIT(*enum_state);
+		return WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	errno = 0;
 	while ((enum_state->dire = readdir(enum_state->dirp))) {
 		if (stat(enum_state->dire->d_name, &statbuf) < 0) {
 			continue;

@@ -20,13 +20,15 @@
 #include <assert.h>
 
 /* {{{ winfrip */
-#include <stdbool.h>
-#include "PuTTie/winfrip_rtl.h"
-#include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_jumplist_wrap.h"
 /* winfrip }}} */
 #include "putty.h"
 #include "storage.h"
+
+/* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_storage.h"
+/* winfrip }}} */
 
 #define MAX_JUMPLIST_ITEMS 30 /* PuTTY will never show more items in
                                * the jumplist than this, regardless of
