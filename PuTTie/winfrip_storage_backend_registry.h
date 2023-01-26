@@ -31,20 +31,22 @@ typedef struct WfspRegistryEnumerateState {
 	"Registry",										\
 	"registry",										\
 												\
-	WfspRegistryClearHostKeys, WfspRegistryDeleteHostKey, WfspRegistryEnumerateHostKeys,	\
-	WfspRegistryLoadHostKey, WfspRegistryRenameHostKey, WfspRegistrySaveHostKey,		\
+	WfspRegistryCleanupHostKeys, WfspRegistryClearHostKeys, WfspRegistryDeleteHostKey,	\
+	WfspRegistryEnumerateHostKeys, WfspRegistryLoadHostKey, WfspRegistryRenameHostKey,	\
+	WfspRegistrySaveHostKey,								\
 												\
-	WfspRegistryClearSessions, WfspRegistryCloseSession, WfspRegistryDeleteSession,		\
-	WfspRegistryEnumerateSessions, WfspRegistryLoadSession, WfspRegistryRenameSession,	\
-	WfspRegistrySaveSession,								\
+	WfspRegistryCleanupSessions, WfspRegistryClearSessions, WfspRegistryCloseSession,	\
+	WfspRegistryDeleteSession, WfspRegistryEnumerateSessions, WfspRegistryLoadSession,	\
+	WfspRegistryRenameSession, WfspRegistrySaveSession,					\
 												\
 	WfspRegistryJumpListAdd, WfspRegistryJumpListCleanup, WfspRegistryJumpListClear,	\
 	WfspRegistryJumpListGetEntries, WfspRegistryJumpListRemove,				\
 	WfspRegistryJumpListSetEntries,								\
 												\
-	WfspRegistryInit, WfspRegistrySetBackend,						\
-	}
+	WfspRegistryCleanupContainer, WfspRegistryInit, WfspRegistrySetBackend,			\
+}
 
+WfrStatus	WfspRegistryCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspRegistryClearHostKeys(WfsBackend backend);
 WfrStatus	WfspRegistryDeleteHostKey(WfsBackend backend, const char *key_name);
 WfrStatus	WfspRegistryEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, const char **pkey_name, void *state);
@@ -52,6 +54,7 @@ WfrStatus	WfspRegistryLoadHostKey(WfsBackend backend, const char *key_name, cons
 WfrStatus	WfspRegistryRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspRegistrySaveHostKey(WfsBackend backend, const char *key_name, const char *key);
 
+WfrStatus	WfspRegistryCleanupSessions(WfsBackend backend);
 WfrStatus	WfspRegistryClearSessions(WfsBackend backend);
 WfrStatus	WfspRegistryCloseSession(WfsBackend backend, WfspSession *session);
 WfrStatus	WfspRegistryDeleteSession(WfsBackend backend, const char *sessionname);
@@ -67,6 +70,7 @@ WfrStatus	WfspRegistryJumpListGetEntries(char **pjump_list, size_t *pjump_list_s
 void		WfspRegistryJumpListRemove(const char *const sessionname);
 WfrStatus	WfspRegistryJumpListSetEntries(const char *jump_list, size_t jump_list_size);
 
+WfrStatus	WfspRegistryCleanupContainer(WfsBackend backend);
 WfrStatus	WfspRegistryInit(void);
 WfrStatus	WfspRegistrySetBackend(WfsBackend backend_new);
 

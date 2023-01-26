@@ -21,15 +21,18 @@
  */
 
 /*
- * Names of registry subkeys/value containing host keys, the jump list,
- * and sessions, and the jump list, resp. [see windows/storage.c]
+ * Names of registry subkeys/value containing PuTTie/PuTTy's top-level keys,
+ * host keys, the jump list, and sessions, and the jump list, resp. [see windows/storage.c]
  */
 
-static LPCSTR	WfspRegistryKey = PUTTY_REG_POS;
-static LPCSTR	WfspRegistrySubKeyHostKeys = PUTTY_REG_POS "\\SshHostKeys";
-static LPCSTR	WfspRegistrySubKeyJumpList = PUTTY_REG_POS "\\Jumplist";
+static LPCSTR	WfspRegistryKey = "Software\\SimonTatham\\PuTTY";
+static LPCSTR	WfspRegistryKeyParent = "Software\\SimonTatham";
+static LPCSTR	WfspRegistrySubKeyHostKeys = "Software\\SimonTatham\\PuTTY\\SshHostKeys";
+static LPCSTR	WfspRegistrySubKeyHostKeysName = "SshHostKeys";
+static LPCSTR	WfspRegistrySubKeyJumpList = "Software\\SimonTatham\\PuTTY\\Jumplist";
 static LPCSTR	WfspRegistrySubKeyJumpListName = "Jumplist";
-static LPCSTR	WfspRegistrySubKeySessions = PUTTY_REG_POS "\\Sessions";
+static LPCSTR	WfspRegistrySubKeySessions = "Software\\SimonTatham\\PuTTY\\Sessions";
+static LPCSTR	WfspRegistrySubKeySessionsName = "Sessions";
 static LPCSTR	WfspRegistryValueJumpList = "Recent sessions";
 
 /*
@@ -152,6 +155,13 @@ WfsppRegistryEnumerateValues(
 	status = WFR_STATUS_CONDITION_SUCCESS;
 	if (*pdonefl) {
 		return status;
+	}
+
+	if (!enum_state->hKey) {
+		donefl = true; *pdonefl = true;
+		*pitem_name = NULL;
+		WFSP_REGISTRY_ENUMERATE_STATE_INIT(*enum_state);
+		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 
 	if (!enum_state->hKey) {
@@ -413,6 +423,36 @@ WfsppRegistryJumpListTransform(
  */
 
 WfrStatus
+WfspRegistryCleanupHostKeys(
+	WfsBackend	backend
+	)
+{
+	HKEY		hKey;
+	WfrStatus	status;
+	LSTATUS		status_registry;
+
+
+	(void)backend;
+	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, WfspRegistryKey))) {
+		status_registry = RegDeleteTree(hKey, WfspRegistrySubKeyHostKeysName);
+		if (status_registry != ERROR_SUCCESS) {
+			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+		(void)RegCloseKey(hKey);
+	}
+
+	if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+	||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
+}
+
+WfrStatus
 WfspRegistryClearHostKeys(
 	WfsBackend	backend
 	)
@@ -449,15 +489,22 @@ WfspRegistryClearHostKeys(
 		} while (WFR_STATUS_SUCCESS(status) && !donefl);
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyHostKeys))) {
+			if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(
+					HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyHostKeys)))
+			{
 				for (size_t nitem = 0; nitem < itemc; nitem++) {
 					status_registry = RegDeleteValue(hKey, itemv[nitem]);
 					if (status_registry != ERROR_SUCCESS) {
 						status = WFR_STATUS_FROM_WINDOWS1(status_registry);
-						break;
 					}
 				}
 				(void)RegCloseKey(hKey);
+			}
+
+			if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+			||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
+			{
+				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
 
@@ -678,6 +725,36 @@ WfspRegistrySaveHostKey(
 
 
 WfrStatus
+WfspRegistryCleanupSessions(
+	WfsBackend	backend
+	)
+{
+	HKEY		hKey;
+	WfrStatus	status;
+	LSTATUS		status_registry;
+
+
+	(void)backend;
+	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, WfspRegistryKey))) {
+		status_registry = RegDeleteTree(hKey, WfspRegistrySubKeySessionsName);
+		if (status_registry != ERROR_SUCCESS) {
+			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+		(void)RegCloseKey(hKey);
+	}
+
+	if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+	||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
+}
+
+WfrStatus
 WfspRegistryClearSessions(
 	WfsBackend	backend
 	)
@@ -693,7 +770,9 @@ WfspRegistryClearSessions(
 
 	(void)backend;
 	WFSP_REGISTRY_ENUMERATE_STATE_INIT(enum_state);
-	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(HKEY_CURRENT_USER, &enum_state.hKey, WfspRegistrySubKeySessions))) {
+	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(
+			HKEY_CURRENT_USER, &enum_state.hKey, WfspRegistrySubKeySessions)))
+	{
 		do {
 			if (WFR_STATUS_SUCCESS(status = WfsppRegistryEnumerateKeys(
 					&donefl, &item_name, &enum_state)) && !donefl)
@@ -726,6 +805,10 @@ WfspRegistryClearSessions(
 		WFR_SFREE_IF_NOTNULL(itemv);
 
 		(void)RegCloseKey(enum_state.hKey);
+	} else if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+		|| (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
 	return status;
@@ -1022,6 +1105,12 @@ WfspRegistryJumpListCleanup(
 		(void)RegCloseKey(hKey);
 	}
 
+	if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+	||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
 	return status;
 }
 
@@ -1085,6 +1174,45 @@ WfspRegistryJumpListSetEntries(
 	return status;
 }
 
+
+WfrStatus
+WfspRegistryCleanupContainer(
+	WfsBackend	backend
+	)
+{
+	WfrStatus	status;
+	LSTATUS		status_registry;
+
+
+	(void)backend;
+	status_registry = RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKey);
+	if (status_registry != ERROR_SUCCESS) {
+		status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+		if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+		||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
+		{
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		status_registry = RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKeyParent);
+		if (status_registry != ERROR_SUCCESS) {
+			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+			||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
+			{
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	}
+
+	return status;
+}
 
 WfrStatus
 WfspRegistryInit(

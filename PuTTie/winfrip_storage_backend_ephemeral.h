@@ -14,20 +14,22 @@
 	"Ephemeral",											\
 	"ephemeral",											\
 													\
-	WfspEphemeralClearHostKeys, WfspEphemeralDeleteHostKey, WfspEphemeralEnumerateHostKeys,		\
-	WfspEphemeralLoadHostKey, WfspEphemeralRenameHostKey, WfspEphemeralSaveHostKey,			\
+	WfspEphemeralCleanupHostKeys, WfspEphemeralClearHostKeys, WfspEphemeralDeleteHostKey,		\
+	WfspEphemeralEnumerateHostKeys, WfspEphemeralLoadHostKey, WfspEphemeralRenameHostKey,		\
+	WfspEphemeralSaveHostKey,									\
 													\
-	WfspEphemeralClearSessions, WfspEphemeralCloseSession, WfspEphemeralDeleteSession,		\
-	WfspEphemeralEnumerateSessions, WfspEphemeralLoadSession, WfspEphemeralRenameSession,		\
-	WfspEphemeralSaveSession,									\
+	WfspEphemeralCleanupSessions, WfspEphemeralClearSessions, WfspEphemeralCloseSession,		\
+	WfspEphemeralDeleteSession, WfspEphemeralEnumerateSessions, WfspEphemeralLoadSession,		\
+	WfspEphemeralRenameSession, WfspEphemeralSaveSession,						\
 													\
 	WfspEphemeralJumpListAdd, WfspEphemeralJumpListCleanup, WfspEphemeralJumpListClear,		\
 	WfspEphemeralJumpListGetEntries, WfspEphemeralJumpListRemove,					\
 	WfspEphemeralJumpListSetEntries,								\
 													\
-	WfspEphemeralInit, WfspEphemeralSetBackend,							\
+	WfspEphemeralCleanupContainer, WfspEphemeralInit, WfspEphemeralSetBackend,			\
 }
 
+WfrStatus	WfspEphemeralCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspEphemeralClearHostKeys(WfsBackend backend);
 WfrStatus	WfspEphemeralDeleteHostKey(WfsBackend backend, const char *key_name);
 WfrStatus	WfspEphemeralEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, const char **pkey_name, void *state);
@@ -35,6 +37,7 @@ WfrStatus	WfspEphemeralLoadHostKey(WfsBackend backend, const char *key_name, con
 WfrStatus	WfspEphemeralRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspEphemeralSaveHostKey(WfsBackend backend, const char *key_name, const char *key);
 
+WfrStatus	WfspEphemeralCleanupSessions(WfsBackend backend);
 WfrStatus	WfspEphemeralClearSessions(WfsBackend backend);
 WfrStatus	WfspEphemeralCloseSession(WfsBackend backend, WfspSession *session);
 WfrStatus	WfspEphemeralDeleteSession(WfsBackend backend, const char *sessionname);
@@ -50,6 +53,7 @@ WfrStatus	WfspEphemeralJumpListGetEntries(char **pjump_list, size_t *pjump_list_
 void		WfspEphemeralJumpListRemove(const char *const sessionname);
 WfrStatus	WfspEphemeralJumpListSetEntries(const char *jump_list, size_t jump_list_size);
 
+WfrStatus	WfspEphemeralCleanupContainer(WfsBackend backend);
 WfrStatus	WfspEphemeralInit(void);
 WfrStatus	WfspEphemeralSetBackend(WfsBackend backend_new);
 

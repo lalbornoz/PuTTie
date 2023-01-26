@@ -12,9 +12,9 @@ the quality of their implementation.
 This is additionally required as PuTTY's upstream is ~~an insecure, socially
 inept, belligerent, obstinate, covetous arsehole~~ particularly hostile to
 both users, change, reality, contributors, as well as maintainers of PuTTY
-forks. As PuTTie has, empirically speaking as well over the course of its
-existence since late June 2018, very low maintenance cost, it is much less
-likely to succumb to the inevitability of bit rot and loss of maintainers.
+forks. As PuTTie has shown to have, over the course of its existence since
+late June 2018, very low maintenance cost, it is much less likely to succumb
+to the inevitability of bit rot and loss of maintainers.
   
 Still not convinced? Here are seven (7) *extremely convincing* reasons why
 you should use PuTTie:  
@@ -65,14 +65,16 @@ you should use PuTTie:
    Selectable w/ command-line option ``--file`` in plink, pscp, psftp, pterm, putty & puttytel  
    Additionally, file storage may be initialised from the registry w/ the command-
    line option ``--file=registry``  
-   User interfaces are provided within putty & puttytel to clear, copy, delete, rename, and
-   move sessions and host keys from/to all storage backends (ephemeral, file, registry)
+   User interfaces are provided within putty & puttytel to clean up, clear, copy, delete, migrate,
+   rename, and move sessions, host keys, and the jump list from/to all storage backends (ephemeral,
+   file, registry)
 8. **Store configuration in ephemeral storage**  
    Selectable w/ command-line option ``--ephemeral`` in plink, pscp, psftp, pterm, putty & puttytel  
    Additionally, ephemeral storage may be initialised from disk files or the registry w/ the command-
    line options ``--ephemeral=file`` and ``--ephemeral=registry``, respectively  
-   User interfaces are provided within putty & puttytel to clear, copy, delete, rename, and
-   move sessions and host keys from/to all storage backends (ephemeral, file, registry)
+   User interfaces are provided within putty & puttytel to clean up, clear, copy, delete, migrate,
+   rename, and move sessions, host keys, and the jump list from/to all storage backends (ephemeral,
+   file, registry)
   
    N.B. The random seed file ``PUTTY.RND`` stored beneath ``%LOCALAPPDATA%`` is still read from,
    if present, on startup and written to on exit due to security concerns, even when ephemeral storage

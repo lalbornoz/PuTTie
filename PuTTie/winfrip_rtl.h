@@ -78,6 +78,7 @@
  */
 
 #define		WfrCreateRegKey(hKey, phKey, ...)		WfrOpenRegKey((hKey), true, true, (phKey), ## __VA_ARGS__, (const char *)NULL)
+WfrStatus	WfrDeleteDirectory(const char *path, bool noentfl, bool recursefl);
 WfrStatus	WfrEnumRegKey(HKEY hKey, DWORD dwIndex, char **plpName);
 WfrStatus	WfrMakeDirectory(char *path, bool existsfl);
 int		WfrMessageBoxF(const char *lpCaption, unsigned int uType, const char *format, ...);

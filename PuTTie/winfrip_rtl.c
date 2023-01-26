@@ -5,7 +5,9 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <fcntl.h>
 
 #pragma GCC diagnostic push
@@ -21,6 +23,72 @@
 /*
  * Public subroutines private to PuTTie/winfrip*.c
  */
+
+WfrStatus
+WfrDeleteDirectory(
+	const char *	path,
+	bool		noentfl,
+	bool		recursefl
+	)
+{
+	struct dirent *		dire;
+	DIR *			dirp = NULL;
+	char			path_cwd[MAX_PATH + 1];
+	struct stat		statbuf;
+	WfrStatus		status;
+
+
+	if (rmdir(path) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			if (noentfl) {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		} else if (((WFR_STATUS_CONDITION(status) == EEXIST)
+			||  (WFR_STATUS_CONDITION(status) == ENOTEMPTY))
+			&&  recursefl)
+		{
+			status = WFR_STATUS_CONDITION_SUCCESS;
+			if (!(dirp = opendir(path))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else if (!getcwd(path_cwd, sizeof(path_cwd))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else if (chdir(path) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				while (WFR_STATUS_SUCCESS(status) && (dire = readdir(dirp))) {
+					if ((dire->d_name[0] == '.')
+					&&  (dire->d_name[1] == '\0'))
+					{
+						continue;
+					} else if ((dire->d_name[0] == '.')
+						&& (dire->d_name[1] == '.')
+						&& (dire->d_name[2] == '\0'))
+					{
+						continue;
+					} else if (stat(dire->d_name, &statbuf) < 0) {
+						status = WFR_STATUS_FROM_ERRNO();
+					} else if (statbuf.st_mode & S_IFDIR) {
+						status = WfrDeleteDirectory(dire->d_name, noentfl, recursefl);
+					} else if (unlink(dire->d_name) < 0) {
+						status = WFR_STATUS_FROM_ERRNO();
+					}
+				}
+			}
+
+			(void)closedir(dirp);
+			if (chdir(path_cwd) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+			}
+
+			status = WfrDeleteDirectory(path, noentfl, false);
+		}
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
+}
 
 WfrStatus
 WfrEnumRegKey(
