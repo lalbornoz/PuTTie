@@ -52,6 +52,7 @@ WfrStatus	WfsSetBackendFromCmdLine(char *cmdline);
  * Public host key storage subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
+WfrStatus	WfsCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfsClearHostKeys(WfsBackend backend, bool delete_in_backend);
 WfrStatus	WfsDeleteHostKey(WfsBackend backend, bool delete_in_backend, const char *key_name);
 WfrStatus	WfsEnumerateHostKeys(WfsBackend backend, bool cached, bool initfl, bool *pdonefl, const char **pkey_name, void *state);
@@ -68,6 +69,7 @@ WfrStatus	WfsSetHostKey(WfsBackend backend, const char *key_name, const char *ke
  */
 
 WfrStatus	WfsAddSession(WfsBackend backend, const char *sessionname, WfspSession **psession);
+WfrStatus	WfsCleanupSessions(WfsBackend backend);
 WfrStatus	WfsClearSession(WfsBackend backend, WfspSession *session, const char *sessionname);
 WfrStatus	WfsClearSessions(WfsBackend backend, bool delete_in_backend);
 WfrStatus	WfsCloseSession(WfsBackend backend, WfspSession *session);
@@ -87,6 +89,7 @@ WfrStatus	WfsSetSessionKey(WfspSession *session, const char *key, void *value, s
  */
 
 void		WfsJumpListAdd(WfsBackend backend, const char *const sessionname);
+WfrStatus	WfsJumpListCleanup(WfsBackend backend);
 void		WfsJumpListClear(WfsBackend backend);
 WfrStatus	WfsJumpListExport(WfsBackend backend_from, WfsBackend backend_to, bool movefl);
 char *		WfsJumpListGetEntries(WfsBackend backend);
@@ -96,6 +99,7 @@ void		WfsJumpListRemove(WfsBackend backend, const char *const sessionname);
  * Public subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
+WfrStatus	WfsCleanupContainer(WfsBackend backend);
 WfrStatus	WfsInit(void);
 
 #endif // !PUTTY_WINFRIP_STORAGE_H

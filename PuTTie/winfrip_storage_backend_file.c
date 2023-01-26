@@ -46,6 +46,7 @@ typedef enum WfspFileReMatchesOffset {
 
 /*
  * WfsppFileAppData: absolute pathnamne to the current user's application data directory (%APPDATA%)
+ * WfsppFileDname: absolute pathname to the current user's PuTTie base directory
  * WfsppFileDnameHostKeys: absolute pathname to the current user's directory of PuTTie host key files
  * WfsppFileDnameSessions: absolute pathname to the current user's directory of PuTTie session files
  * WfsppFileExtHostKeys: file name extension of PuTTie host key files
@@ -54,6 +55,7 @@ typedef enum WfspFileReMatchesOffset {
  */
 
 static char *		WfsppFileAppData = NULL;
+static char		WfsppFileDname[MAX_PATH + 1] = "";
 static char		WfsppFileDnameHostKeys[MAX_PATH + 1] = "";
 static char		WfsppFileDnameSessions[MAX_PATH + 1] = "";
 static char		WfsppFileExtHostKeys[] = ".hostkey";
@@ -105,37 +107,42 @@ WfsppFileClear(
 
 	ext_len = strlen(ext);
 
-	if ((stat(dname, &statbuf) < 0)
-	||  (!(dirp = opendir(dname)))) {
+	if (stat(dname, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			return WFR_STATUS_CONDITION_SUCCESS;
+		} else {
+			return status;
+		}
+	}
+
+	if (!(dirp = opendir(dname))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (!getcwd(path_cwd, sizeof(path_cwd))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
-		if (!getcwd(path_cwd, sizeof(path_cwd))) {
-			return WFR_STATUS_FROM_ERRNO();
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-
-		while ((dire = readdir(dirp))) {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+		while (WFR_STATUS_SUCCESS(status) && (dire = readdir(dirp))) {
 			if (chdir(dname) < 0) {
 				status = WFR_STATUS_FROM_ERRNO();
-				break;
 			} else if (stat(dire->d_name, &statbuf) < 0) {
 				status = WFR_STATUS_FROM_ERRNO();
 				(void)chdir(path_cwd);
-				break;
 			} else if (chdir(path_cwd) < 0) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else if (!(statbuf.st_mode & S_IFREG)) {
 				continue;
 			} else if ((dire->d_name[0] == '.')
-			&&  (dire->d_name[1] == '\0')) {
+				&& (dire->d_name[1] == '\0'))
+			{
 				continue;
 			} else if ((dire->d_name[0] == '.')
-				   &&  (dire->d_name[1] == '.')
-				   &&  (dire->d_name[2] == '\0')) {
+				&& (dire->d_name[1] == '.')
+				&& (dire->d_name[2] == '\0'))
+			{
 				continue;
 			} else if ((pext = strstr(dire->d_name, ext))
-					&& (pext[ext_len] == '\0'))
+				&& (pext[ext_len] == '\0'))
 			{
 				WFR_SNPRINTF(fname, sizeof(fname), "%s/%s", dname, dire->d_name);
 				if (unlink(fname) < 0) {
@@ -198,17 +205,21 @@ WfsppFileInitAppDataSubdir(
 	} else {
 		WfsppFileAppData = appdata;
 		WFR_SNPRINTF(
+			WfsppFileDname, sizeof(WfsppFileDname),
+			"%s/PuTTie", WfsppFileAppData);
+		WFR_SNPRINTF(
 			WfsppFileDnameHostKeys, sizeof(WfsppFileDnameHostKeys),
-			"%s/PuTTie/hostkeys", WfsppFileAppData);
+			"%s/hostkeys", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileDnameSessions, sizeof(WfsppFileDnameSessions),
-			"%s/PuTTie/sessions", WfsppFileAppData);
+			"%s/sessions", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileFnameJumpList, sizeof(WfsppFileFnameJumpList),
-			"%s/PuTTie/jump.list", WfsppFileAppData);
+			"%s/jump.list", WfsppFileDname);
 
-		if (WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameHostKeys, true))
-		||  WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameSessions, true)))
+		if (WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDname, true))
+		&&  WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameHostKeys, true))
+		&&  WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameSessions, true)))
 		{
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
@@ -564,6 +575,21 @@ WfsppFileNameUnescape(
  */
 
 WfrStatus
+WfspFileCleanupHostKeys(
+	WfsBackend	backend
+	)
+{
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfspFileClearHostKeys(backend))) {
+		status = WfrDeleteDirectory(WfsppFileDnameHostKeys, true, true);
+	}
+
+	return status;
+}
+
+WfrStatus
 WfspFileClearHostKeys(
 	WfsBackend	backend
 	)
@@ -640,26 +666,27 @@ WfspFileEnumerateHostKeys(
 		return WFR_STATUS_FROM_ERRNO();
 	}
 
-	errno = 0;
-	while ((enum_state->dire = readdir(enum_state->dirp))) {
+	errno = 0; status = WFR_STATUS_CONDITION_SUCCESS;
+	while (WFR_STATUS_SUCCESS(status)
+	&&     (enum_state->dire = readdir(enum_state->dirp)))
+	{
 		if (chdir(WfsppFileDnameHostKeys) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
-			break;
 		} else if (stat(enum_state->dire->d_name, &statbuf) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
 			(void)chdir(path_cwd);
-			break;
 		} else if (chdir(path_cwd) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
-			break;
 		} else if (!(statbuf.st_mode & S_IFREG)) {
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
-		&&  (enum_state->dire->d_name[1] == '\0')) {
+			&& (enum_state->dire->d_name[1] == '\0'))
+		{
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
 			&& (enum_state->dire->d_name[1] == '.')
-			&& (enum_state->dire->d_name[2] == '\0')) {
+			&& (enum_state->dire->d_name[2] == '\0'))
+		{
 			continue;
 		} else {
 			*pdonefl = false;
@@ -848,6 +875,21 @@ WfspFileSaveHostKey(
 
 
 WfrStatus
+WfspFileCleanupSessions(
+	WfsBackend	backend
+	)
+{
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfspFileClearSessions(backend))) {
+		status = WfrDeleteDirectory(WfsppFileDnameSessions, true, true);
+	}
+
+	return status;
+}
+
+WfrStatus
 WfspFileClearSessions(
 	WfsBackend	backend
 	)
@@ -940,26 +982,27 @@ WfspFileEnumerateSessions(
 		return WFR_STATUS_FROM_ERRNO();
 	}
 
-	errno = 0;
-	while ((enum_state->dire = readdir(enum_state->dirp))) {
+	errno = 0; status = WFR_STATUS_CONDITION_SUCCESS;
+	while (WFR_STATUS_SUCCESS(status)
+	&&     (enum_state->dire = readdir(enum_state->dirp)))
+	{
 		if (chdir(WfsppFileDnameSessions) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
-			break;
 		} else if (stat(enum_state->dire->d_name, &statbuf) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
 			(void)chdir(path_cwd);
-			break;
 		} else if (chdir(path_cwd) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
-			break;
 		} else if (!(statbuf.st_mode & S_IFREG)) {
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
-		&&  (enum_state->dire->d_name[1] == '\0')) {
+			&& (enum_state->dire->d_name[1] == '\0'))
+		{
 			continue;
 		} else if ((enum_state->dire->d_name[0] == '.')
 			&& (enum_state->dire->d_name[1] == '.')
-			&& (enum_state->dire->d_name[2] == '\0')) {
+			&& (enum_state->dire->d_name[2] == '\0'))
+		{
 			continue;
 		} else {
 			fname = enum_state->dire->d_name;
@@ -1355,6 +1398,19 @@ WfspFileJumpListSetEntries(
 	return WfsppFileJumpListSet(jump_list, jump_list_size);
 }
 
+
+WfrStatus
+WfspFileCleanupContainer(
+	WfsBackend	backend
+	)
+{
+	WfrStatus	status;
+
+
+	(void)backend;
+	status = WfrDeleteDirectory(WfsppFileDname, true, true);
+	return status;
+}
 
 WfrStatus
 WfspFileInit(

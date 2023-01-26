@@ -30,6 +30,7 @@ typedef struct WfspBackend {
 	const char *	name;
 	const char *	arg;
 
+	WfrStatus	(*CleanupHostKeys)(WfsBackend);
 	WfrStatus	(*ClearHostKeys)(WfsBackend);
 	WfrStatus	(*DeleteHostKey)(WfsBackend, const char *);
 	WfrStatus	(*EnumerateHostKeys)(WfsBackend, bool, bool *, const char **, void *);
@@ -37,6 +38,7 @@ typedef struct WfspBackend {
 	WfrStatus	(*RenameHostKey)(WfsBackend, const char *, const char *);
 	WfrStatus	(*SaveHostKey)(WfsBackend, const char *, const char *);
 
+	WfrStatus	(*CleanupSessions)(WfsBackend);
 	WfrStatus	(*ClearSessions)(WfsBackend);
 	WfrStatus	(*CloseSession)(WfsBackend, WfspSession *);
 	WfrStatus	(*DeleteSession)(WfsBackend, const char *);
@@ -52,6 +54,7 @@ typedef struct WfspBackend {
 	void		(*JumpListRemove)(const char *const);
 	WfrStatus	(*JumpListSetEntries)(const char *, size_t);
 
+	WfrStatus	(*CleanupContainer)(WfsBackend);
 	WfrStatus	(*Init)(void);
 	WfrStatus	(*SetBackend)(WfsBackend);
 
@@ -302,12 +305,10 @@ WfsSetBackend(
 {
 	void		(*error_fn_host_key)(const char *, WfrStatus) =
 			WFR_LAMBDA(void, (const char *key_name, WfrStatus status) {
-				(void)key_name;
 				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host key %s", key_name);
 			});
 	void		(*error_fn_session)(const char *, WfrStatus) =
 			WFR_LAMBDA(void, (const char *sessionname, WfrStatus status) {
-				(void)sessionname;
 				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting session %s", sessionname);
 			});
 
@@ -322,7 +323,8 @@ WfsSetBackend(
 			&&  WFR_STATUS_SUCCESS(status))
 			{
 				if (WFR_STATUS_SUCCESS(status = WfsExportSessions(new_backend_from, new_backend, true, true, error_fn_session))
-				&&  WFR_STATUS_SUCCESS(status = WfsExportHostKeys(new_backend_from, new_backend, true, true, error_fn_host_key)))
+				&&  WFR_STATUS_SUCCESS(status = WfsExportHostKeys(new_backend_from, new_backend, true, true, error_fn_host_key))
+				&&  WFR_STATUS_SUCCESS(status = WfsJumpListExport(new_backend_from, new_backend, false)))
 				{
 					status = WFR_STATUS_CONDITION_SUCCESS;
 				}
@@ -449,6 +451,24 @@ WfsSetBackendFromCmdLine(
 /*
  * Public host key storage subroutines private to PuTTie/winfrip_storage*.c
  */
+
+WfrStatus
+WfsCleanupHostKeys(
+	WfsBackend	backend
+	)
+{
+	WfspBackend *	backend_impl;
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
+
+
+	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
+		if (WFR_STATUS_SUCCESS(status = backend_impl->ClearHostKeys(backend))) {
+			status = backend_impl->CleanupHostKeys(backend);
+		}
+	}
+
+	return status;
+}
 
 WfrStatus
 WfsClearHostKeys(
@@ -596,13 +616,15 @@ WfsExportHostKeys(
 		return status;
 	}
 
+	if (WFR_STATUS_SUCCESS(status) && clear_to) {
+		if (WFR_STATUS_FAILURE(status = WfsClearHostKeys(backend_to, false))) {
+			return status;
+		}
+	}
+
 	status = WfsEnumerateHostKeys(
 		backend_from, false, true, &donefl,
 		&key_name, &enum_state);
-
-	if (WFR_STATUS_SUCCESS(status) && clear_to) {
-		status = WfsClearHostKeys(backend_to, false);
-	}
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		do {
@@ -620,7 +642,7 @@ WfsExportHostKeys(
 			if (WFR_STATUS_FAILURE(status)) {
 				error_fn(key_name, status);
 			}
-		} while(!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
+		} while (!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
 	}
 
 	if (WFR_STATUS_FAILURE(status) && continue_on_error) {
@@ -800,6 +822,24 @@ WfsAddSession(
 				sfree(session_new);
 				sfree((void *)sessionname_new);
 			}
+		}
+	}
+
+	return status;
+}
+
+WfrStatus
+WfsCleanupSessions(
+	WfsBackend	backend
+	)
+{
+	WfspBackend *	backend_impl;
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
+
+
+	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
+		if (WFR_STATUS_SUCCESS(status = backend_impl->ClearSessions(backend))) {
+			status = backend_impl->CleanupSessions(backend);
 		}
 	}
 
@@ -1024,12 +1064,15 @@ WfsExportSessions(
 		return status;
 	}
 
+	if (WFR_STATUS_SUCCESS(status) && clear_to) {
+		if (WFR_STATUS_FAILURE(status = WfsClearSessions(backend_to, true))) {
+			return status;
+		}
+	}
+
 	status = WfsEnumerateSessions(
 		backend_from, false, true,
 		&donefl, &sessionname, &enum_state);
-	if (WFR_STATUS_SUCCESS(status) && clear_to) {
-		status = WfsClearSessions(backend_to, true);
-	}
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		do {
@@ -1047,7 +1090,7 @@ WfsExportSessions(
 			if (WFR_STATUS_FAILURE(status)) {
 				error_fn(sessionname, status);
 			}
-		} while(!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
+		} while (!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
 	}
 
 	if (WFR_STATUS_FAILURE(status) && continue_on_error) {
@@ -1219,6 +1262,22 @@ WfsJumpListAdd(
 	}
 }
 
+WfrStatus
+WfsJumpListCleanup(
+	WfsBackend	backend
+	)
+{
+	WfspBackend *	backend_impl;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
+		status = backend_impl->JumpListCleanup();
+	}
+
+	return status;
+}
+
 void
 WfsJumpListClear(
 	WfsBackend	backend
@@ -1312,6 +1371,22 @@ WfsJumpListRemove(
 /*
  * Public subroutines private to PuTTie/winfrip_storage*.c
  */
+
+WfrStatus
+WfsCleanupContainer(
+	WfsBackend	backend
+	)
+{
+	WfspBackend *	backend_impl;
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
+
+
+	if (WFR_STATUS_SUCCESS(status = WFSP_BACKEND_GET_IMPL(backend, &backend_impl))) {
+		status = backend_impl->CleanupContainer(backend);
+	}
+
+	return status;
+}
 
 WfrStatus
 WfsInit(

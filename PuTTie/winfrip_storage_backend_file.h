@@ -33,20 +33,22 @@ typedef struct WfspFileEnumerateState {
 	"File",										\
 	"file",										\
 											\
-	WfspFileClearHostKeys, WfspFileDeleteHostKey, WfspFileEnumerateHostKeys,	\
-	WfspFileLoadHostKey, WfspFileRenameHostKey, WfspFileSaveHostKey,		\
+	WfspFileCleanupHostKeys, WfspFileClearHostKeys, WfspFileDeleteHostKey,		\
+	WfspFileEnumerateHostKeys, WfspFileLoadHostKey, WfspFileRenameHostKey,		\
+	WfspFileSaveHostKey,								\
 											\
-	WfspFileClearSessions, WfspFileCloseSession, WfspFileDeleteSession,		\
-	WfspFileEnumerateSessions, WfspFileLoadSession, WfspFileRenameSession,		\
-	WfspFileSaveSession,								\
+	WfspFileCleanupSessions, WfspFileClearSessions, WfspFileCloseSession,		\
+	WfspFileDeleteSession, WfspFileEnumerateSessions, WfspFileLoadSession,		\
+	WfspFileRenameSession, WfspFileSaveSession,					\
 											\
 	WfspFileJumpListAdd, WfspFileJumpListCleanup, WfspFileJumpListClear,		\
 	WfspFileJumpListGetEntries, WfspFileJumpListRemove,				\
 	WfspFileJumpListSetEntries,							\
 											\
-	WfspFileInit, WfspFileSetBackend,						\
+	WfspFileCleanupContainer, WfspFileInit, WfspFileSetBackend,			\
 }
 
+WfrStatus	WfspFileCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspFileClearHostKeys(WfsBackend backend);
 WfrStatus	WfspFileDeleteHostKey(WfsBackend backend, const char *key_name);
 WfrStatus	WfspFileEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, const char **pkey_name, void *state);
@@ -54,6 +56,7 @@ WfrStatus	WfspFileLoadHostKey(WfsBackend backend, const char *key_name, const ch
 WfrStatus	WfspFileRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspFileSaveHostKey(WfsBackend backend, const char *key_name, const char *key);
 
+WfrStatus	WfspFileCleanupSessions(WfsBackend backend);
 WfrStatus	WfspFileClearSessions(WfsBackend backend);
 WfrStatus	WfspFileCloseSession(WfsBackend backend, WfspSession *session);
 WfrStatus	WfspFileDeleteSession(WfsBackend backend, const char *sessionname);
@@ -69,6 +72,7 @@ WfrStatus	WfspFileJumpListGetEntries(char **pjump_list, size_t *pjump_list_size)
 void		WfspFileJumpListRemove(const char *const sessionname);
 WfrStatus	WfspFileJumpListSetEntries(const char *jump_list, size_t jump_list_size);
 
+WfrStatus	WfspFileCleanupContainer(WfsBackend backend);
 WfrStatus	WfspFileInit(void);
 WfrStatus	WfspFileSetBackend(WfsBackend backend_new);
 

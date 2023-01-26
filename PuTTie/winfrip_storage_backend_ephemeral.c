@@ -19,6 +19,14 @@
  */
 
 WfrStatus
+WfspEphemeralCleanupHostKeys(
+	WfsBackend	backend
+	)
+{
+	return WfsClearHostKeys(backend, false);
+}
+
+WfrStatus
 WfspEphemeralClearHostKeys(
 	WfsBackend	backend
 	)
@@ -105,6 +113,14 @@ WfspEphemeralSaveHostKey(
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
 
+
+WfrStatus
+WfspEphemeralCleanupSessions(
+	WfsBackend	backend
+	)
+{
+	return WfsClearSessions(backend, false);
+}
 
 WfrStatus
 WfspEphemeralClearSessions(
@@ -259,6 +275,15 @@ WfspEphemeralJumpListSetEntries(
 }
 
 
+
+WfrStatus
+WfspEphemeralCleanupContainer(
+	WfsBackend	backend
+	)
+{
+	(void)backend;
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
 
 WfrStatus
 WfspEphemeralInit(
