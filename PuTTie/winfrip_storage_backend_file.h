@@ -41,9 +41,9 @@ typedef struct WfspFileEnumerateState {
 	WfspFileDeleteSession, WfspFileEnumerateSessions, WfspFileLoadSession,		\
 	WfspFileRenameSession, WfspFileSaveSession,					\
 											\
-	WfspFileJumpListAdd, WfspFileJumpListCleanup, WfspFileJumpListClear,		\
-	WfspFileJumpListGetEntries, WfspFileJumpListRemove,				\
-	WfspFileJumpListSetEntries,							\
+	WfspFileAddJumpList, WfspFileCleanupJumpList, WfspFileClearJumpList,		\
+	WfspFileGetEntriesJumpList, WfspFileRemoveJumpList,				\
+	WfspFileSetEntriesJumpList,							\
 											\
 	WfspFileCleanupContainer, WfspFileInit, WfspFileSetBackend,			\
 }
@@ -65,12 +65,12 @@ WfrStatus	WfspFileLoadSession(WfsBackend backend, const char *sessionname, WfspS
 WfrStatus	WfspFileRenameSession(WfsBackend backend, const char *sessionname, const char *sessionname_new);
 WfrStatus	WfspFileSaveSession(WfsBackend backend, WfspSession *session);
 
-void		WfspFileJumpListAdd(const char *const sessionname);
-WfrStatus	WfspFileJumpListCleanup(void);
-void		WfspFileJumpListClear(void);
-WfrStatus	WfspFileJumpListGetEntries(char **pjump_list, size_t *pjump_list_size);
-void		WfspFileJumpListRemove(const char *const sessionname);
-WfrStatus	WfspFileJumpListSetEntries(const char *jump_list, size_t jump_list_size);
+void		WfspFileAddJumpList(const char *const sessionname);
+WfrStatus	WfspFileCleanupJumpList(void);
+void		WfspFileClearJumpList(void);
+WfrStatus	WfspFileGetEntriesJumpList(char **pjump_list, size_t *pjump_list_size);
+void		WfspFileRemoveJumpList(const char *const sessionname);
+WfrStatus	WfspFileSetEntriesJumpList(const char *jump_list, size_t jump_list_size);
 
 WfrStatus	WfspFileCleanupContainer(WfsBackend backend);
 WfrStatus	WfspFileInit(void);

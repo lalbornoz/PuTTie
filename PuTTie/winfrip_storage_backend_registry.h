@@ -39,9 +39,9 @@ typedef struct WfspRegistryEnumerateState {
 	WfspRegistryDeleteSession, WfspRegistryEnumerateSessions, WfspRegistryLoadSession,	\
 	WfspRegistryRenameSession, WfspRegistrySaveSession,					\
 												\
-	WfspRegistryJumpListAdd, WfspRegistryJumpListCleanup, WfspRegistryJumpListClear,	\
-	WfspRegistryJumpListGetEntries, WfspRegistryJumpListRemove,				\
-	WfspRegistryJumpListSetEntries,								\
+	WfspRegistryAddJumpList, WfspRegistryCleanupJumpList, WfspRegistryClearJumpList,	\
+	WfspRegistryGetEntriesJumpList, WfspRegistryRemoveJumpList,				\
+	WfspRegistrySetEntriesJumpList,								\
 												\
 	WfspRegistryCleanupContainer, WfspRegistryInit, WfspRegistrySetBackend,			\
 }
@@ -63,12 +63,12 @@ WfrStatus	WfspRegistryLoadSession(WfsBackend backend, const char *sessionname, W
 WfrStatus	WfspRegistryRenameSession(WfsBackend backend, const char *sessionname, const char *sessionname_new);
 WfrStatus	WfspRegistrySaveSession(WfsBackend backend, WfspSession *session);
 
-void		WfspRegistryJumpListAdd(const char *const sessionname);
-WfrStatus	WfspRegistryJumpListCleanup(void);
-void		WfspRegistryJumpListClear(void);
-WfrStatus	WfspRegistryJumpListGetEntries(char **pjump_list, size_t *pjump_list_size);
-void		WfspRegistryJumpListRemove(const char *const sessionname);
-WfrStatus	WfspRegistryJumpListSetEntries(const char *jump_list, size_t jump_list_size);
+void		WfspRegistryAddJumpList(const char *const sessionname);
+WfrStatus	WfspRegistryCleanupJumpList(void);
+void		WfspRegistryClearJumpList(void);
+WfrStatus	WfspRegistryGetEntriesJumpList(char **pjump_list, size_t *pjump_list_size);
+void		WfspRegistryRemoveJumpList(const char *const sessionname);
+WfrStatus	WfspRegistrySetEntriesJumpList(const char *jump_list, size_t jump_list_size);
 
 WfrStatus	WfspRegistryCleanupContainer(WfsBackend backend);
 WfrStatus	WfspRegistryInit(void);

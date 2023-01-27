@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_storage_sessions.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_sessions.h"
 
 /*
  * Private types

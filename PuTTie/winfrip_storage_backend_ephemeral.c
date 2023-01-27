@@ -13,6 +13,8 @@
 #include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
+#include "PuTTie/winfrip_storage_host_keys.h"
+#include "PuTTie/winfrip_storage_sessions.h"
 
 /*
  * Public subroutines private to PuTTie/winfrip_storage*.c
@@ -211,7 +213,7 @@ WfspEphemeralSaveSession(
 
 
 void
-WfspEphemeralJumpListAdd(
+WfspEphemeralAddJumpList(
 	const char *const	sessionname
 	)
 {
@@ -223,7 +225,7 @@ WfspEphemeralJumpListAdd(
 }
 
 WfrStatus
-WfspEphemeralJumpListCleanup(
+WfspEphemeralCleanupJumpList(
 	void
 	)
 {
@@ -231,7 +233,7 @@ WfspEphemeralJumpListCleanup(
 }
 
 void
-WfspEphemeralJumpListClear(
+WfspEphemeralClearJumpList(
 	void
 	)
 {
@@ -241,7 +243,7 @@ WfspEphemeralJumpListClear(
 }
 
 WfrStatus
-WfspEphemeralJumpListGetEntries(
+WfspEphemeralGetEntriesJumpList(
 	char **		pjump_list,
 	size_t *	pjump_list_size
 	)
@@ -252,7 +254,7 @@ WfspEphemeralJumpListGetEntries(
 }
 
 void
-WfspEphemeralJumpListRemove(
+WfspEphemeralRemoveJumpList(
 	const char *const	sessionname
 	)
 {
@@ -264,7 +266,7 @@ WfspEphemeralJumpListRemove(
 }
 
 WfrStatus
-WfspEphemeralJumpListSetEntries(
+WfspEphemeralSetEntriesJumpList(
 	const char *	jump_list,
 	size_t		jump_list_size
 	)

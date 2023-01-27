@@ -14,6 +14,9 @@
 #include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_backend_file.h"
+#include "PuTTie/winfrip_storage_host_keys.h"
+#include "PuTTie/winfrip_storage_jump_list.h"
+#include "PuTTie/winfrip_storage_sessions.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -1318,7 +1321,7 @@ WfspFileSaveSession(
 
 
 void
-WfspFileJumpListAdd(
+WfspFileAddJumpList(
 	const char *const	sessionname
 	)
 {
@@ -1329,12 +1332,12 @@ WfspFileJumpListAdd(
 		update_jumplist();
 	} else {
 		/* Make sure we don't leave the jumplist dangling. */
-		WfsJumpListClear(WfsGetBackend());
+		WfsClearJumpList(WfsGetBackend());
 	}
 }
 
 WfrStatus
-WfspFileJumpListCleanup(
+WfspFileCleanupJumpList(
 	void
 	)
 {
@@ -1357,7 +1360,7 @@ WfspFileJumpListCleanup(
 }
 
 void
-WfspFileJumpListClear(
+WfspFileClearJumpList(
 	void
 	)
 {
@@ -1365,7 +1368,7 @@ WfspFileJumpListClear(
 }
 
 WfrStatus
-WfspFileJumpListGetEntries(
+WfspFileGetEntriesJumpList(
 	char **		pjump_list,
 	size_t *	pjump_list_size
 	)
@@ -1374,7 +1377,7 @@ WfspFileJumpListGetEntries(
 }
 
 void
-WfspFileJumpListRemove(
+WfspFileRemoveJumpList(
 	const char *const	sessionname
 	)
 {
@@ -1385,12 +1388,12 @@ WfspFileJumpListRemove(
 		update_jumplist();
 	} else {
 		/* Make sure we don't leave the jumplist dangling. */
-		WfsJumpListClear(WfsGetBackend());
+		WfsClearJumpList(WfsGetBackend());
 	}
 }
 
 WfrStatus
-WfspFileJumpListSetEntries(
+WfspFileSetEntriesJumpList(
 	const char *	jump_list,
 	size_t		jump_list_size
 	)

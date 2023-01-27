@@ -25,6 +25,7 @@
 /* {{{ winfrip */
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_sessions.h"
 /* winfrip }}} */
 
 #include <shellapi.h>
