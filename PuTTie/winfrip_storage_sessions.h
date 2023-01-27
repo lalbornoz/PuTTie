@@ -7,24 +7,46 @@
 #define PUTTY_WINFRIP_STORAGE_SESSIONS_H
 
 /*
+ * Public type definitions private to PuTTie/winfrip_storage*.c
+ */
+
+/*
+ * Storage session type definitions
+ * (encompasses session key tree, time of last modification, and session name)
+ */
+
+typedef struct WfsSession {
+	tree234 *	tree;
+	__time64_t	mtime;
+	const char *	name;
+} WfsSession;
+#define WFS_SESSION_EMPTY {		\
+	.tree = NULL,			\
+	.mtime = 0,			\
+	.name = NULL,			\
+}
+#define WFS_SESSION_INIT(session)	\
+	(session) = (WfsSession)WFS_SESSION_EMPTY
+
+/*
  * Public session storage subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
-WfrStatus	WfsAddSession(WfsBackend backend, const char *sessionname, WfspSession **psession);
+WfrStatus	WfsAddSession(WfsBackend backend, const char *sessionname, WfsSession **psession);
 WfrStatus	WfsCleanupSessions(WfsBackend backend);
-WfrStatus	WfsClearSession(WfsBackend backend, WfspSession *session, const char *sessionname);
+WfrStatus	WfsClearSession(WfsBackend backend, WfsSession *session, const char *sessionname);
 WfrStatus	WfsClearSessions(WfsBackend backend, bool delete_in_backend);
-WfrStatus	WfsCloseSession(WfsBackend backend, WfspSession *session);
-WfrStatus	WfsCopySession(WfsBackend backend_from, WfsBackend backend_to, const char *sessionname, WfspSession *session, WfspSession **psession);
+WfrStatus	WfsCloseSession(WfsBackend backend, WfsSession *session);
+WfrStatus	WfsCopySession(WfsBackend backend_from, WfsBackend backend_to, const char *sessionname, WfsSession *session, WfsSession **psession);
 WfrStatus	WfsDeleteSession(WfsBackend backend, bool delete_in_backend, const char *sessionname);
 WfrStatus	WfsEnumerateSessions(WfsBackend backend, bool cached, bool initfl, bool *pdonefl, char **psessionname, void *state);
 WfrStatus	WfsExportSession(WfsBackend backend_from, WfsBackend backend_to, bool movefl, char *sessionname);
 WfrStatus	WfsExportSessions(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, void (*error_fn)(const char *, WfrStatus));
-WfrStatus	WfsGetSession(WfsBackend backend, bool cached, const char *sessionname, WfspSession **psession);
-WfrStatus	WfsGetSessionKey(WfspSession *session, const char *key, WfspTreeItemType value_type, void **pvalue, size_t *pvalue_size);
+WfrStatus	WfsGetSession(WfsBackend backend, bool cached, const char *sessionname, WfsSession **psession);
+WfrStatus	WfsGetSessionKey(WfsSession *session, const char *key, WfsTreeItemType value_type, void **pvalue, size_t *pvalue_size);
 WfrStatus	WfsRenameSession(WfsBackend backend, bool rename_in_backend, const char *sessionname, const char *sessionname_new);
-WfrStatus	WfsSaveSession(WfsBackend backend, WfspSession *session);
-WfrStatus	WfsSetSessionKey(WfspSession *session, const char *key, void *value, size_t value_size, WfspTreeItemType value_type);
+WfrStatus	WfsSaveSession(WfsBackend backend, WfsSession *session);
+WfrStatus	WfsSetSessionKey(WfsSession *session, const char *key, void *value, size_t value_size, WfsTreeItemType value_type);
 
 #endif // !PUTTY_WINFRIP_STORAGE_SESSIONS_H
 

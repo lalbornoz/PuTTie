@@ -13,11 +13,11 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_storage.h"
-#include "PuTTie/winfrip_storage_backend_file.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
+#include "PuTTie/winfrip_storage_backend_file.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -610,7 +610,7 @@ WfspFileClearHostCAs(
 WfrStatus
 WfspFileCloseHostCA(
 	WfsBackend	backend,
-	WfspHostCA *	hca
+	WfsHostCA *	hca
 	)
 {
 	(void)backend;
@@ -754,7 +754,7 @@ WfrStatus
 WfspFileLoadHostCA(
 	WfsBackend	backend,
 	const char *	name,
-	WfspHostCA **	phca
+	WfsHostCA **	phca
 	)
 {
 	enum WfspFileLHCABits {
@@ -769,7 +769,7 @@ WfspFileLoadHostCA(
 	FILE *			file = NULL;
 	char			fname[MAX_PATH];
 	char *			fname_buf = NULL;
-	WfspTreeItemType	item_type;
+	WfsTreeItemType		item_type;
 	char *			item_type_string;
 	size_t			item_type_string_size;
 	char *			key;
@@ -779,7 +779,7 @@ WfspFileLoadHostCA(
 	wchar_t *		line_w = NULL;
 	int			nmatches;
 	char *			p;
-	WfspHostCA *		hca = NULL, hca_tmpl;
+	WfsHostCA *		hca = NULL, hca_tmpl;
 	struct stat		statbuf;
 	WfrStatus		status;
 	void *			value_new;
@@ -794,7 +794,7 @@ WfspFileLoadHostCA(
 		return status;
 	}
 
-	WFSP_HOST_CA_INIT(hca_tmpl);
+	WFS_HOST_CA_INIT(hca_tmpl);
 
 	if ((stat(fname, &statbuf) < 0)
 	||  (!(file = fopen(fname, "rb")))
@@ -854,13 +854,13 @@ WfspFileLoadHostCA(
 							&item_type_string_size)))
 					{
 						if (memcmp(item_type_string, "int", item_type_string_size) == 0) {
-							item_type = WFSP_TREE_ITYPE_INT;
+							item_type = WFS_TREE_ITYPE_INT;
 							status = Wfp2GetMatch(
 								&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
 								WFP2_RTYPE_INT, line_w,
 								&value_new, &value_new_size);
 						} else if (memcmp(item_type_string, "string", item_type_string_size) == 0) {
-							item_type = WFSP_TREE_ITYPE_STRING;
+							item_type = WFS_TREE_ITYPE_STRING;
 							status = Wfp2GetMatch(
 								&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
 								WFP2_RTYPE_STRING, line_w,
@@ -873,20 +873,20 @@ WfspFileLoadHostCA(
 
 						if (WFR_STATUS_SUCCESS(status)) {
 							if ((strcmp(key, "PublicKey") == 0)
-							&&  (item_type == WFSP_TREE_ITYPE_STRING))
+							&&  (item_type == WFS_TREE_ITYPE_STRING))
 							{
 								bits |= WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY;
 								hca_tmpl.public_key = value_new;
 							}
 							else if ((strcmp(key, "PermitRSASHA1") == 0)
-							      && (item_type == WFSP_TREE_ITYPE_INT))
+							      && (item_type == WFS_TREE_ITYPE_INT))
 							{
 								bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA1;
 								hca_tmpl.permit_rsa_sha1 = *(int *)value_new;
 								sfree(value_new);
 							}
 							else if ((strcmp(key, "PermitRSASHA256") == 0)
-							      && (item_type == WFSP_TREE_ITYPE_INT))
+							      && (item_type == WFS_TREE_ITYPE_INT))
 							{
 								bits |= WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY;
 								bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA256;
@@ -894,14 +894,14 @@ WfspFileLoadHostCA(
 								sfree(value_new);
 							}
 							else if ((strcmp(key, "PermitRSASHA512") == 0)
-							      && (item_type == WFSP_TREE_ITYPE_INT))
+							      && (item_type == WFS_TREE_ITYPE_INT))
 							{
 								bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA512;
 								hca_tmpl.permit_rsa_sha512 = *(int *)value_new;
 								sfree(value_new);
 							}
 							else if ((strcmp(key, "Validity") == 0)
-							      && (item_type == WFSP_TREE_ITYPE_STRING))
+							      && (item_type == WFS_TREE_ITYPE_STRING))
 							{
 								bits |= WFSP_FILE_LHCA_BIT_VALIDITY_EXPRESSION;
 								hca_tmpl.validity = value_new;
@@ -1011,7 +1011,7 @@ WfspFileRenameHostCA(
 WfrStatus
 WfspFileSaveHostCA(
 	WfsBackend	backend,
-	WfspHostCA *	hca
+	WfsHostCA *	hca
 	)
 {
 	char *		dname_tmp;
@@ -1442,7 +1442,7 @@ WfspFileClearSessions(
 WfrStatus
 WfspFileCloseSession(
 	WfsBackend	backend,
-	WfspSession *	session
+	WfsSession *	session
 	)
 {
 	(void)backend;
@@ -1586,14 +1586,14 @@ WfrStatus
 WfspFileLoadSession(
 	WfsBackend	backend,
 	const char *	sessionname,
-	WfspSession **	psession
+	WfsSession **	psession
 	)
 {
 	bool			addedfl = false;
 	FILE *			file = NULL;
 	char			fname[MAX_PATH];
 	char *			fname_buf = NULL;
-	WfspTreeItemType	item_type;
+	WfsTreeItemType		item_type;
 	char *			item_type_string;
 	size_t			item_type_string_size;
 	char *			key;
@@ -1603,7 +1603,7 @@ WfspFileLoadSession(
 	wchar_t *		line_w = NULL;
 	int			nmatches;
 	char *			p;
-	WfspSession *		session;
+	WfsSession *		session;
 	struct stat		statbuf;
 	WfrStatus		status;
 	void *			value_new;
@@ -1684,13 +1684,13 @@ WfspFileLoadSession(
 								&item_type_string_size)))
 						{
 							if (memcmp(item_type_string, "int", item_type_string_size) == 0) {
-								item_type = WFSP_TREE_ITYPE_INT;
+								item_type = WFS_TREE_ITYPE_INT;
 								status = Wfp2GetMatch(
 									&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
 									WFP2_RTYPE_INT, line_w,
 									&value_new, &value_new_size);
 							} else if (memcmp(item_type_string, "string", item_type_string_size) == 0) {
-								item_type = WFSP_TREE_ITYPE_STRING;
+								item_type = WFS_TREE_ITYPE_STRING;
 								status = Wfp2GetMatch(
 									&WfsppFileRegex, true, WFSP_FILE_RMO_VALUE,
 									WFP2_RTYPE_STRING, line_w,
@@ -1775,13 +1775,13 @@ WfspFileRenameSession(
 WfrStatus
 WfspFileSaveSession(
 	WfsBackend	backend,
-	WfspSession *	session
+	WfsSession *	session
 	)
 {
 	char *		dname_tmp;
 	int		fd = -1;
 	FILE *		file = NULL;
-	WfspTreeItem *	item;
+	WfsTreeItem *	item;
 	char		fname[MAX_PATH], fname_tmp[MAX_PATH];
 	int		rc;
 	WfrStatus	status;
@@ -1811,18 +1811,18 @@ WfspFileSaveSession(
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
-		WFSP_TREE234_FOREACH(status, session->tree, idx, item) {
+		WFS_TREE234_FOREACH(status, session->tree, idx, item) {
 			switch (item->type) {
 			default:
 				rc = 0; break;
 
-			case WFSP_TREE_ITYPE_INT:
+			case WFS_TREE_ITYPE_INT:
 				rc = fprintf(
 					file, "%s=int:%d\r\n",
 					(char *)item->key, *((int *)item->value));
 				break;
 
-			case WFSP_TREE_ITYPE_STRING:
+			case WFS_TREE_ITYPE_STRING:
 				rc = fprintf(
 					file, "%s=string:%s\r\n",
 					(char *)item->key, (char *)item->value);

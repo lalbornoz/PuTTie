@@ -35,12 +35,12 @@
 
 WfrStatus	WfspEphemeralCleanupHostCAs(WfsBackend backend);
 WfrStatus	WfspEphemeralClearHostCAs(WfsBackend backend);
-WfrStatus	WfspEphemeralCloseHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspEphemeralCloseHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspEphemeralDeleteHostCA(WfsBackend backend, const char *name);
 WfrStatus	WfspEphemeralEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void *state);
-WfrStatus	WfspEphemeralLoadHostCA(WfsBackend backend, const char *name, WfspHostCA **phca);
+WfrStatus	WfspEphemeralLoadHostCA(WfsBackend backend, const char *name, WfsHostCA **phca);
 WfrStatus	WfspEphemeralRenameHostCA(WfsBackend backend, const char *name, const char *name_new);
-WfrStatus	WfspEphemeralSaveHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspEphemeralSaveHostCA(WfsBackend backend, WfsHostCA *hca);
 
 WfrStatus	WfspEphemeralCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspEphemeralClearHostKeys(WfsBackend backend);
@@ -52,12 +52,12 @@ WfrStatus	WfspEphemeralSaveHostKey(WfsBackend backend, const char *key_name, con
 
 WfrStatus	WfspEphemeralCleanupSessions(WfsBackend backend);
 WfrStatus	WfspEphemeralClearSessions(WfsBackend backend);
-WfrStatus	WfspEphemeralCloseSession(WfsBackend backend, WfspSession *session);
+WfrStatus	WfspEphemeralCloseSession(WfsBackend backend, WfsSession *session);
 WfrStatus	WfspEphemeralDeleteSession(WfsBackend backend, const char *sessionname);
 WfrStatus	WfspEphemeralEnumerateSessions(WfsBackend backend, bool initfl, bool *pdonefl, char **psessionname, void *state);
-WfrStatus	WfspEphemeralLoadSession(WfsBackend backend, const char *sessionname, WfspSession **psession);
+WfrStatus	WfspEphemeralLoadSession(WfsBackend backend, const char *sessionname, WfsSession **psession);
 WfrStatus	WfspEphemeralRenameSession(WfsBackend backend, const char *sessionname, const char *sessionname_new);
-WfrStatus	WfspEphemeralSaveSession(WfsBackend backend, WfspSession *session);
+WfrStatus	WfspEphemeralSaveSession(WfsBackend backend, WfsSession *session);
 
 void		WfspEphemeralAddJumpList(const char *const sessionname);
 WfrStatus	WfspEphemeralCleanupJumpList(void);

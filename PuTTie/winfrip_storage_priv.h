@@ -20,12 +20,12 @@ typedef struct WfspBackend {
 
 	WfrStatus	(*CleanupHostCAs)(WfsBackend);
 	WfrStatus	(*ClearHostCAs)(WfsBackend);
-	WfrStatus	(*CloseHostCA)(WfsBackend, WfspHostCA *);
+	WfrStatus	(*CloseHostCA)(WfsBackend, WfsHostCA *);
 	WfrStatus	(*DeleteHostCA)(WfsBackend, const char *);
 	WfrStatus	(*EnumerateHostCAs)(WfsBackend, bool, bool *, char **, void *);
-	WfrStatus	(*LoadHostCA)(WfsBackend, const char *, WfspHostCA **);
+	WfrStatus	(*LoadHostCA)(WfsBackend, const char *, WfsHostCA **);
 	WfrStatus	(*RenameHostCA)(WfsBackend, const char *, const char *);
-	WfrStatus	(*SaveHostCA)(WfsBackend, WfspHostCA *);
+	WfrStatus	(*SaveHostCA)(WfsBackend, WfsHostCA *);
 
 	WfrStatus	(*CleanupHostKeys)(WfsBackend);
 	WfrStatus	(*ClearHostKeys)(WfsBackend);
@@ -37,12 +37,12 @@ typedef struct WfspBackend {
 
 	WfrStatus	(*CleanupSessions)(WfsBackend);
 	WfrStatus	(*ClearSessions)(WfsBackend);
-	WfrStatus	(*CloseSession)(WfsBackend, WfspSession *);
+	WfrStatus	(*CloseSession)(WfsBackend, WfsSession *);
 	WfrStatus	(*DeleteSession)(WfsBackend, const char *);
 	WfrStatus	(*EnumerateSessions)(WfsBackend, bool, bool *, char **, void *);
-	WfrStatus	(*LoadSession)(WfsBackend, const char *, WfspSession **);
+	WfrStatus	(*LoadSession)(WfsBackend, const char *, WfsSession **);
 	WfrStatus	(*RenameSession)(WfsBackend, const char *, const char *);
-	WfrStatus	(*SaveSession)(WfsBackend, WfspSession *);
+	WfrStatus	(*SaveSession)(WfsBackend, WfsSession *);
 
 	void		(*AddJumpList)(const char *const);
 	WfrStatus	(*CleanupJumpList)(void);
@@ -68,6 +68,8 @@ typedef struct WfspBackend {
  */
 
 WfrStatus	WfsGetBackendImpl(WfsBackend backend, void *pbackend);
+WfrStatus	WfsTreeCloneValue(WfsTreeItem *item, void **pvalue_new);
+void		WfsTreeFreeItem(WfsTreeItem *item);
 
 #endif // !PUTTY_WINFRIP_STORAGE_PRIV_H
 

@@ -54,12 +54,12 @@ typedef struct WfspFileEnumerateState {
 
 WfrStatus	WfspFileCleanupHostCAs(WfsBackend backend);
 WfrStatus	WfspFileClearHostCAs(WfsBackend backend);
-WfrStatus	WfspFileCloseHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspFileCloseHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspFileDeleteHostCA(WfsBackend backend, const char *name);
 WfrStatus	WfspFileEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void *state);
-WfrStatus	WfspFileLoadHostCA(WfsBackend backend, const char *name, WfspHostCA **phca);
+WfrStatus	WfspFileLoadHostCA(WfsBackend backend, const char *name, WfsHostCA **phca);
 WfrStatus	WfspFileRenameHostCA(WfsBackend backend, const char *name, const char *name_new);
-WfrStatus	WfspFileSaveHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspFileSaveHostCA(WfsBackend backend, WfsHostCA *hca);
 
 WfrStatus	WfspFileCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspFileClearHostKeys(WfsBackend backend);
@@ -71,12 +71,12 @@ WfrStatus	WfspFileSaveHostKey(WfsBackend backend, const char *key_name, const ch
 
 WfrStatus	WfspFileCleanupSessions(WfsBackend backend);
 WfrStatus	WfspFileClearSessions(WfsBackend backend);
-WfrStatus	WfspFileCloseSession(WfsBackend backend, WfspSession *session);
+WfrStatus	WfspFileCloseSession(WfsBackend backend, WfsSession *session);
 WfrStatus	WfspFileDeleteSession(WfsBackend backend, const char *sessionname);
 WfrStatus	WfspFileEnumerateSessions(WfsBackend backend, bool initfl, bool *pdonefl, char **psessionname, void *state);
-WfrStatus	WfspFileLoadSession(WfsBackend backend, const char *sessionname, WfspSession **psession);
+WfrStatus	WfspFileLoadSession(WfsBackend backend, const char *sessionname, WfsSession **psession);
 WfrStatus	WfspFileRenameSession(WfsBackend backend, const char *sessionname, const char *sessionname_new);
-WfrStatus	WfspFileSaveSession(WfsBackend backend, WfspSession *session);
+WfrStatus	WfspFileSaveSession(WfsBackend backend, WfsSession *session);
 
 void		WfspFileAddJumpList(const char *const sessionname);
 WfrStatus	WfspFileCleanupJumpList(void);

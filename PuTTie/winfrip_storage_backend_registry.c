@@ -12,11 +12,11 @@
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"
-#include "PuTTie/winfrip_storage_backend_registry.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
+#include "PuTTie/winfrip_storage_backend_registry.h"
 
 #include <errno.h>
 
@@ -47,7 +47,7 @@ static LPCSTR	WfspRegistryValueJumpList = "Recent sessions";
 
 static WfrStatus	WfsppRegistryEnumerateInit(LPCSTR lpSubKey, WfspRegistryEnumerateState **enum_state);
 static WfrStatus	WfsppRegistryEnumerateKeys(bool *pdonefl, char **pitem_name, void *state);
-static WfrStatus	WfsppRegistryEnumerateValues(bool *pdonefl, void **pitem_data, size_t *pitem_data_len, char **pitem_name, WfspTreeItemType *pitem_type, void *state);
+static WfrStatus	WfsppRegistryEnumerateValues(bool *pdonefl, void **pitem_data, size_t *pitem_data_len, char **pitem_name, WfsTreeItemType *pitem_type, void *state);
 static void		WfsppRegistryEscapeKey(const char *key, char **pkey_escaped);
 static WfrStatus	WfsppRegistryJumpListGet(HKEY *phKey, char **pjump_list, DWORD *pjump_list_size);
 static WfrStatus	WfsppRegistryJumpListTransform(bool addfl, bool delfl, const char *const trans_item);
@@ -139,7 +139,7 @@ WfsppRegistryEnumerateValues(
 	void **			pitem_data,
 	size_t *		pitem_data_len,
 	char **			pitem_name,
-	WfspTreeItemType *	pitem_type,
+	WfsTreeItemType *	pitem_type,
 	void *			state
 	)
 {
@@ -151,7 +151,7 @@ WfsppRegistryEnumerateValues(
 	static char			item_name[32767]; // [see https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regenumvaluea]
 	DWORD				item_name_len;
 	strbuf *			item_name_sb;
-	WfspTreeItemType		item_type;
+	WfsTreeItemType			item_type;
 	WfrStatus			status;
 	LSTATUS				status_registry;
 
@@ -221,9 +221,13 @@ WfsppRegistryEnumerateValues(
 					goto out;
 
 				case REG_DWORD:
-					item_type = WFSP_TREE_ITYPE_INT; item_data_len = sizeof(int); break;
+					item_type = WFS_TREE_ITYPE_INT;
+					item_data_len = sizeof(int);
+					break;
 				case REG_SZ:
-					item_type = WFSP_TREE_ITYPE_STRING; item_data_len++; break;
+					item_type = WFS_TREE_ITYPE_STRING;
+					item_data_len++;
+					break;
 				}
 				item_name[item_name_len] = '\0';
 
@@ -823,7 +827,7 @@ WfspRegistryClearHostCAs(
 WfrStatus
 WfspRegistryCloseHostCA(
 	WfsBackend	backend,
-	WfspHostCA *	hca
+	WfsHostCA *	hca
 	)
 {
 	return WfsDeleteHostCA(backend, false, hca->name);
@@ -896,28 +900,99 @@ WfspRegistryEnumerateHostCAs(
 	return status;
 }
 
-// FIXME TODO XXX
 WfrStatus
 WfspRegistryLoadHostCA(
 	WfsBackend	backend,
 	const char *	name,
-	WfspHostCA **	phca
+	WfsHostCA **	phca
 	)
 {
-	WfspHostCA *	hca, hca_tmpl;
+	WfsHostCA *	hca, hca_tmpl;
 	HKEY		hKey;
 	char *		name_escaped = NULL;
+	DWORD		public_key_size;
 	WfrStatus	status;
+	LSTATUS		status_registry;
+	DWORD		validity_size;
 
 
-	WFSP_HOST_CA_INIT(hca_tmpl);
+	WFS_HOST_CA_INIT(hca_tmpl);
 	WfsppRegistryEscapeKey(name, &name_escaped);
 
 	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(
 			HKEY_CURRENT_USER, &hKey,
 			WfspRegistrySubKeyHostCAs, name_escaped)))
 	{
+		if (WFR_STATUS_SUCCESS(status)) {
+			if (!(status_registry = RegGetValue(
+					hKey, NULL, "PublicKey",
+					RRF_RT_REG_SZ, NULL, NULL,
+					&public_key_size)) == ERROR_SUCCESS)
+			{
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else if (!(hca_tmpl.public_key = snewn(public_key_size, char))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else if (!(status_registry = RegGetValue(
+					hKey, NULL, "PublicKey", RRF_RT_REG_SZ,
+					NULL, &hca_tmpl.public_key, NULL)) == ERROR_SUCCESS)
+			{
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
 
+		if (WFR_STATUS_SUCCESS(status)) {
+			if (!(status_registry = RegGetValue(
+					hKey, NULL, "PermitRSASHA1", RRF_RT_REG_DWORD,
+					NULL, &hca_tmpl.permit_rsa_sha1, NULL)) == ERROR_SUCCESS)
+			{
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
+
+		if (WFR_STATUS_SUCCESS(status)) {
+			if (!(status_registry = RegGetValue(
+					hKey, NULL, "PermitRSASHA256", RRF_RT_REG_DWORD,
+					NULL, &hca_tmpl.permit_rsa_sha256, NULL)) == ERROR_SUCCESS)
+			{
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
+
+		if (WFR_STATUS_SUCCESS(status)) {
+			if (!(status_registry = RegGetValue(
+					hKey, NULL, "PermitRSASHA512", RRF_RT_REG_DWORD,
+					NULL, &hca_tmpl.permit_rsa_sha512, NULL)) == ERROR_SUCCESS)
+			{
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
+
+		if (WFR_STATUS_SUCCESS(status)) {
+			if (!(status_registry = RegGetValue(
+					hKey, NULL, "Validity",
+					RRF_RT_REG_SZ, NULL, NULL,
+					&validity_size)) == ERROR_SUCCESS)
+			{
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else if (!(hca_tmpl.validity = snewn(validity_size, char))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else if (!(status_registry = RegGetValue(
+					hKey, NULL, "Validity", RRF_RT_REG_SZ,
+					NULL, &hca_tmpl.validity, NULL)) == ERROR_SUCCESS)
+			{
+				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			status = WfsGetHostCA(backend, true, name, &hca);
@@ -1013,7 +1088,7 @@ WfspRegistryRenameHostCA(
 WfrStatus
 WfspRegistrySaveHostCA(
 	WfsBackend	backend,
-	WfspHostCA *	hca
+	WfsHostCA *	hca
 	)
 {
 	HKEY		hKey;
@@ -1039,6 +1114,8 @@ WfspRegistrySaveHostCA(
 				sizeof(hca->public_key) + 1);
 			if (status_registry != ERROR_SUCCESS) {
 				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
 
@@ -1049,6 +1126,8 @@ WfspRegistrySaveHostCA(
 				sizeof(hca->permit_rsa_sha1));
 			if (status_registry != ERROR_SUCCESS) {
 				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
 
@@ -1059,6 +1138,8 @@ WfspRegistrySaveHostCA(
 				sizeof(hca->permit_rsa_sha256));
 			if (status_registry != ERROR_SUCCESS) {
 				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
 
@@ -1069,6 +1150,8 @@ WfspRegistrySaveHostCA(
 				sizeof(hca->permit_rsa_sha512));
 			if (status_registry != ERROR_SUCCESS) {
 				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
 
@@ -1187,7 +1270,7 @@ WfspRegistryClearSessions(
 WfrStatus
 WfspRegistryCloseSession(
 	WfsBackend	backend,
-	WfspSession *	session
+	WfsSession *	session
 	)
 {
 	return WfsDeleteSession(backend, false, session->name);
@@ -1264,13 +1347,13 @@ WfrStatus
 WfspRegistryLoadSession(
 	WfsBackend	backend,
 	const char *	sessionname,
-	WfspSession **	psession
+	WfsSession **	psession
 	)
 {
 	bool				addedfl = false, donefl = false;
 	WfspRegistryEnumerateState	enum_state;
-	WfspTreeItemType		item_type;
-	WfspSession *			session;
+	WfsTreeItemType			item_type;
+	WfsSession *			session;
 	char *				sessionname_escaped = NULL;
 	void *				setting_data = NULL;
 	size_t				setting_data_len;
@@ -1381,11 +1464,11 @@ WfspRegistryRenameSession(
 WfrStatus
 WfspRegistrySaveSession(
 	WfsBackend	backend,
-	WfspSession *	session
+	WfsSession *	session
 	)
 {
 	HKEY		hKey;
-	WfspTreeItem *	item;
+	WfsTreeItem *	item;
 	char *		sessionname, *sessionname_escaped = NULL;
 	WfrStatus	status;
 	LSTATUS		status_registry;
@@ -1401,13 +1484,13 @@ WfspRegistrySaveSession(
 			HKEY_CURRENT_USER, &hKey,
 			WfspRegistrySubKeySessions, sessionname_escaped)))
 	{
-		WFSP_TREE234_FOREACH(status, session->tree, idx, item) {
+		WFS_TREE234_FOREACH(status, session->tree, idx, item) {
 			switch (item->type) {
 			default:
 				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 				break;
 
-			case WFSP_TREE_ITYPE_INT:
+			case WFS_TREE_ITYPE_INT:
 				status_registry = RegSetValueEx(
 					hKey, item->key, 0, REG_DWORD,
 					(const BYTE *)item->value, item->value_size);
@@ -1416,7 +1499,7 @@ WfspRegistrySaveSession(
 				}
 				break;
 
-			case WFSP_TREE_ITYPE_STRING:
+			case WFS_TREE_ITYPE_STRING:
 				status_registry = RegSetValueEx(
 					hKey, item->key, 0, REG_SZ,
 					(const BYTE *)item->value, item->value_size);
