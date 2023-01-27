@@ -13,11 +13,11 @@
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_storage_general.h"
 #include "PuTTie/winfrip_storage.h"
-#include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
+#include "PuTTie/winfrip_storage_priv.h"
 
 /*
  * Private types

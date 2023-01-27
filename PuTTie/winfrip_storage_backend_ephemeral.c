@@ -12,10 +12,10 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_storage.h"
-#include "PuTTie/winfrip_storage_backend_ephemeral.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_sessions.h"
+#include "PuTTie/winfrip_storage_backend_ephemeral.h"
 
 /*
  * Public subroutines private to PuTTie/winfrip_storage*.c
@@ -40,7 +40,7 @@ WfspEphemeralClearHostCAs(
 WfrStatus
 WfspEphemeralCloseHostCA(
 	WfsBackend	backend,
-	WfspHostCA *	hca
+	WfsHostCA *	hca
 	)
 {
 	(void)backend;
@@ -74,7 +74,7 @@ WfrStatus
 WfspEphemeralLoadHostCA(
 	WfsBackend	backend,
 	const char *	name,
-	WfspHostCA **	phca
+	WfsHostCA **	phca
 	)
 {
 	WfrStatus	status;
@@ -107,7 +107,7 @@ WfspEphemeralRenameHostCA(
 WfrStatus
 WfspEphemeralSaveHostCA(
 	WfsBackend	backend,
-	WfspHostCA *	hca
+	WfsHostCA *	hca
 	)
 {
 	(void)backend;
@@ -232,7 +232,7 @@ WfspEphemeralClearSessions(
 WfrStatus
 WfspEphemeralCloseSession(
 	WfsBackend	backend,
-	WfspSession *	session
+	WfsSession *	session
 	)
 {
 	(void)backend;
@@ -266,7 +266,7 @@ WfrStatus
 WfspEphemeralLoadSession(
 	WfsBackend	backend,
 	const char *	sessionname,
-	WfspSession **	psession
+	WfsSession **	psession
 	)
 {
 	WfrStatus	status;
@@ -299,7 +299,7 @@ WfspEphemeralRenameSession(
 WfrStatus
 WfspEphemeralSaveSession(
 	WfsBackend	backend,
-	WfspSession *	session
+	WfsSession *	session
 	)
 {
 	(void)backend;

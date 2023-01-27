@@ -14,11 +14,12 @@
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_host_ca.h"
+#include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
 #include "PuTTie/winfrip_storage_backend_file.h"
 #include "PuTTie/winfrip_storage_backend_registry.h"
-#include "PuTTie/winfrip_storage_jump_list.h"
 
 /*
  * Public jump list storage subroutines private to PuTTie/winfrip_storage*.c

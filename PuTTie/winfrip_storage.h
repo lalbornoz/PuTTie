@@ -22,16 +22,25 @@ typedef enum WfsBackend {
 	WFS_BACKEND_MAX		= WFS_BACKEND_REGISTRY,
 } WfsBackend;
 
+typedef enum WfsTreeItemType {
+	WFS_TREE_ITYPE_HOST_CA		= 1,
+	WFS_TREE_ITYPE_HOST_KEY		= 2,
+	WFS_TREE_ITYPE_INT		= 3,
+	WFS_TREE_ITYPE_SESSION		= 4,
+	WFS_TREE_ITYPE_STRING		= 5,
+	WFS_TREE_ITYPE_MAX		= WFS_TREE_ITYPE_STRING,
+} WfsTreeItemType;
+
 /*
  * Public macros private to PuTTie/winfrip_storage*.c
  */
 
-#define WFSP_SESSION_NAME_DEFAULT(name)			\
+#define WFS_SESSION_NAME_DEFAULT(name)			\
 	if(!(name) || !((name)[0])) {			\
 		(name) = "Default Settings";		\
 	}
 
-#define WFSP_TREE234_FOREACH(status, tree, idx, item)	\
+#define WFS_TREE234_FOREACH(status, tree, idx, item)	\
 	for (int (idx) = 0; WFR_STATUS_SUCCESS(status)	\
 	  && ((item) = index234((tree), (idx))); (idx)++)
 

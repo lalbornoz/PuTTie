@@ -14,11 +14,11 @@
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"
-#include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
+#include "PuTTie/winfrip_storage_priv.h"
 
 /*
  * Private variables
@@ -134,13 +134,13 @@ open_settings_w(
 	)
 {
 	WfsBackend	backend;
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 
 
 	(void)errmsg;
 
-	WFSP_SESSION_NAME_DEFAULT(sessionname);
+	WFS_SESSION_NAME_DEFAULT(sessionname);
 
 	backend = WfsGetBackend();
 	status = WfsAddSession(backend, sessionname, &session);
@@ -162,13 +162,13 @@ write_setting_s(
 	const char *	value
 	)
 {
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 	char *		value_new;
 	size_t		value_new_size;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 
 	if (!(value_new = strdup(value))) {
 		WFR_DEBUG_FAIL();
@@ -176,7 +176,7 @@ write_setting_s(
 		value_new_size = strlen(value_new) + 1;
 		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, value_new_size,
-				WFSP_TREE_ITYPE_STRING)))
+				WFS_TREE_ITYPE_STRING)))
 		{
 			sfree(value_new);
 			WFR_DEBUG_FAIL();
@@ -191,12 +191,12 @@ write_setting_i(
 	int		value
 	)
 {
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 	int *		value_new;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 
 	if (!(value_new = snew(int))) {
 		WFR_DEBUG_FAIL();
@@ -204,7 +204,7 @@ write_setting_i(
 		*value_new = value;
 		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, sizeof(*value_new),
-				WFSP_TREE_ITYPE_INT)))
+				WFS_TREE_ITYPE_INT)))
 		{
 			sfree(value_new);
 			WFR_DEBUG_FAIL();
@@ -219,13 +219,13 @@ write_setting_filename(
 	Filename *	value
 	)
 {
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 	char *		value_new;
 	size_t		value_new_size;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 
 	if (!(value_new = strdup(value->path))) {
 		WFR_DEBUG_FAIL();
@@ -233,7 +233,7 @@ write_setting_filename(
 		value_new_size = strlen(value_new) + 1;
 		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, value_new_size,
-				WFSP_TREE_ITYPE_STRING)))
+				WFS_TREE_ITYPE_STRING)))
 		{
 			sfree(value_new);
 			WFR_DEBUG_FAIL();
@@ -249,14 +249,14 @@ write_setting_fontspec(
 	)
 {
 	char *		key_charset = NULL, *key_height = NULL, *key_isbold = NULL;
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 	int *		val_charset = NULL, *val_height = NULL, *val_isbold = NULL;
 	char *		val_name = NULL;
 	size_t		val_name_size;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 
 	if (WFR_STATUS_SUCCESS(status = WfspExpandFontSpecKeys(
 			key, &key_charset, &key_height, &key_isbold)))
@@ -277,16 +277,16 @@ write_setting_fontspec(
 
 			if (WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
 					session, key_charset, val_charset,
-					sizeof(*val_charset), WFSP_TREE_ITYPE_INT))
+					sizeof(*val_charset), WFS_TREE_ITYPE_INT))
 			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
 					session, key_height, val_height,
-					sizeof(*val_height), WFSP_TREE_ITYPE_INT))
+					sizeof(*val_height), WFS_TREE_ITYPE_INT))
 			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
 					session, key_isbold, val_isbold,
-					sizeof(*val_isbold), WFSP_TREE_ITYPE_INT))
+					sizeof(*val_isbold), WFS_TREE_ITYPE_INT))
 			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
 					session, key, val_name, val_name_size,
-					WFSP_TREE_ITYPE_STRING)))
+					WFS_TREE_ITYPE_STRING)))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -312,11 +312,11 @@ close_settings_w(
 	settings_w *	handle
 	)
 {
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 	status = WfsSaveSession(WfsGetBackend(), session);
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session");
 }
@@ -343,7 +343,7 @@ open_settings_r(
 	const char *	sessionname
 	)
 {
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 
 
@@ -371,18 +371,18 @@ read_setting_s(
 	const char *	key
 	)
 {
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 	void *		value;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 	if (!session) {
 		return NULL;
 	}
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-			session, key, WFSP_TREE_ITYPE_STRING,
+			session, key, WFS_TREE_ITYPE_STRING,
 			&value, NULL)))
 	{
 		return strdup(value);
@@ -409,17 +409,17 @@ read_setting_i(
 	int		defvalue
 	)
 {
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 	int		value;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 	if (!session) {
 		return defvalue;
 	}
 	if (WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-			session, key, WFSP_TREE_ITYPE_INT,
+			session, key, WFS_TREE_ITYPE_INT,
 			(void *)&value, NULL)))
 	{
 		return value;
@@ -445,12 +445,12 @@ read_setting_filename(
 	const char *	key
 	)
 {
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 	Filename *	value = NULL;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 	if (!session) {
 		return NULL;
 	}
@@ -459,7 +459,7 @@ read_setting_filename(
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		status = WfsGetSessionKey(
-			session, key, WFSP_TREE_ITYPE_STRING,
+			session, key, WFS_TREE_ITYPE_STRING,
 			(void *)&value->path, NULL);
 	}
 
@@ -485,12 +485,12 @@ read_setting_fontspec(
 	)
 {
 	char *		key_charset = NULL, *key_height = NULL, *key_isbold = NULL;
-	WfspSession *	session;
+	WfsSession *	session;
 	WfrStatus	status;
 	FontSpec *	value;
 
 
-	session = (WfspSession *)handle;
+	session = (WfsSession *)handle;
 	if (!session) {
 		return NULL;
 	}
@@ -502,16 +502,16 @@ read_setting_fontspec(
 		if (WFR_STATUS_SUCCESS(status = WfspExpandFontSpecKeys(
 				key, &key_charset, &key_height, &key_isbold))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-				session, key_charset, WFSP_TREE_ITYPE_INT,
+				session, key_charset, WFS_TREE_ITYPE_INT,
 				(void **)&value->charset, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-				session, key_height, WFSP_TREE_ITYPE_INT,
+				session, key_height, WFS_TREE_ITYPE_INT,
 				(void **)&value->height, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-				session, key_isbold, WFSP_TREE_ITYPE_INT,
+				session, key_isbold, WFS_TREE_ITYPE_INT,
 				(void **)&value->isbold, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-				session, key, WFSP_TREE_ITYPE_STRING,
+				session, key, WFS_TREE_ITYPE_STRING,
 				(void **)&value->name, NULL)))
 		{
 			if (!(value->name = strdup(value->name))) {
@@ -548,7 +548,7 @@ close_settings_r(
 
 
 	if (handle) {
-		status = WfsCloseSession(WfsGetBackend(), (WfspSession *)handle);
+		status = WfsCloseSession(WfsGetBackend(), (WfsSession *)handle);
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -787,7 +787,7 @@ host_ca_load(
 	const char *	name
 	)
 {
-	WfspHostCA *	hca;
+	WfsHostCA *	hca;
 	host_ca *	hca_out;
 	WfrStatus	status;
 
@@ -833,11 +833,11 @@ host_ca_save(
 	host_ca *	hca
 	)
 {
-	WfspHostCA	hca_storage;
+	WfsHostCA	hca_storage;
 	WfrStatus	status;
 
 
-	WFSP_HOST_CA_INIT(hca_storage);
+	WFS_HOST_CA_INIT(hca_storage);
 	hca_storage.public_key = hca->ca_public_key->s;
 	hca_storage.name = hca->name;
 	hca_storage.permit_rsa_sha1 = hca->opts.permit_rsa_sha1;

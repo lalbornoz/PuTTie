@@ -13,94 +13,49 @@
  */
 
 /*
- * Storage host CA type definitions
- * (encompasses session key tree, time of last modification, and session name)
+ * Storage tree, tree item type, and tree descriptor definitions
  */
 
-typedef struct WfspHostCA {
-	const char *	public_key;
-	__time64_t	mtime;
-	const char *	name;
-	bool		permit_rsa_sha1;
-	bool		permit_rsa_sha256;
-	bool		permit_rsa_sha512;
-	const char *	validity;
-} WfspHostCA;
-#define WFSP_HOST_CA_EMPTY {		\
-	.public_key = NULL,		\
-	.mtime = 0,			\
-	.name = NULL,			\
-	.permit_rsa_sha1 = false,	\
-	.permit_rsa_sha256 = false,	\
-	.permit_rsa_sha512 = false,	\
-	.validity = NULL,		\
+typedef tree234			WfsTree;
+typedef int			WfsTreeItemTypeBase;
+#define WFS_TREE_ITYPE_ANY	-1
+#define WFS_TREE_ITYPE_NONE	0
+
+typedef struct WfsTreeItem {
+	char *			key;
+	WfsTreeItemTypeBase	type;
+	void *			value;
+	size_t			value_size;
+} WfsTreeItem;
+#define WFS_TREE_ITEM_EMPTY {		\
+	.key = NULL,			\
+	.type = 0,			\
+	.value = NULL,			\
+	.value_size = 0,		\
 }
-#define WFSP_HOST_CA_INIT(session)	\
-	(session) = (WfspHostCA)WFSP_HOST_CA_EMPTY
+#define WFS_TREE_ITEM_INIT(tree_item)	\
+	(tree_item) = (WfsTreeItem)WFS_TREE_ITEM_EMPTY
 
 /*
- * Storage session type definitions
- * (encompasses session key tree, time of last modification, and session name)
+ * Storage tree clone value and free item function pointer types
  */
 
-typedef struct WfspSession {
-	tree234 *	tree;
-	__time64_t	mtime;
-	const char *	name;
-} WfspSession;
-#define WFSP_SESSION_EMPTY {		\
-	.tree = NULL,			\
-	.mtime = 0,			\
-	.name = NULL,			\
-}
-#define WFSP_SESSION_INIT(session)	\
-	(session) = (WfspSession)WFSP_SESSION_EMPTY
-
-/*
- * Storage tree and tree item type and descriptor definitions
- */
-
-typedef tree234 WfspTree;
-
-typedef enum WfspTreeItemType {
-	WFSP_TREE_ITYPE_NONE		= 0,
-	WFSP_TREE_ITYPE_ANY		= 1,
-	WFSP_TREE_ITYPE_HOST_CA		= 2,
-	WFSP_TREE_ITYPE_HOST_KEY	= 3,
-	WFSP_TREE_ITYPE_INT		= 4,
-	WFSP_TREE_ITYPE_SESSION		= 5,
-	WFSP_TREE_ITYPE_STRING		= 6,
-	WFSP_TREE_ITYPE_MAX		= WFSP_TREE_ITYPE_STRING,
-} WfspTreeItemType;
-
-typedef struct WfspTreeItem {
-	char *				key;
-	WfspTreeItemType		type;
-	void *				value;
-	size_t				value_size;
-} WfspTreeItem;
-#define WFSP_TREE_ITEM_EMPTY {			\
-	.key = NULL,				\
-	.type = WFSP_TREE_ITYPE_NONE,		\
-	.value = NULL,				\
-	.value_size = 0,			\
-}
-#define WFSP_TREE_ITEM_INIT(tree_item)		\
-	(tree_item) = (WfspTreeItem)WFSP_TREE_ITEM_EMPTY
+typedef WfrStatus (*WfsTreeCloneValueFn)(WfsTreeItem *, void **);
+typedef void (*WfsTreeFreeItemFn)(WfsTreeItem *);
 
 /*
  * Public session storage tree subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
-WfrStatus	WfspTreeClear(WfspTree **tree);
-WfrStatus	WfspTreeCloneValue(WfspTreeItem *item, void **pvalue_new);
-WfrStatus	WfspTreeCopy(WfspTree *tree_from, WfspTree *tree_to);
-WfrStatus	WfspTreeDelete(WfspTree *tree, WfspTreeItem *item, const char *key, WfspTreeItemType type);
-WfrStatus	WfspTreeEnumerate(WfspTree *tree, bool initfl, bool *pdonefl, WfspTreeItem **pitem, void *state);
-WfrStatus	WfspTreeGet(WfspTree *tree, const char *key, WfspTreeItemType type, WfspTreeItem **pitem);
-WfrStatus	WfspTreeInit(WfspTree **tree);
-WfrStatus	WfspTreeRename(WfspTree *tree, WfspTreeItem *item, const char *key, WfspTreeItemType type, const char *key_new);
-WfrStatus	WfspTreeSet(WfspTree *tree, const char *key, WfspTreeItemType type, void *value, size_t value_size);
+WfrStatus	WfsTreeClear(WfsTree **tree, WfsTreeFreeItemFn free_item_fn);
+WfrStatus	WfsTreeCloneValue(WfsTreeItem *item, void **pvalue_new);
+WfrStatus	WfsTreeCopy(WfsTree *tree_from, WfsTree *tree_to, WfsTreeCloneValueFn clone_value_fn, WfsTreeFreeItemFn free_item_fn);
+WfrStatus	WfsTreeDelete(WfsTree *tree, WfsTreeItem *item, const char *key, WfsTreeItemTypeBase type, WfsTreeFreeItemFn free_item_fn);
+WfrStatus	WfsTreeEnumerate(WfsTree *tree, bool initfl, bool *pdonefl, WfsTreeItem **pitem, void *state);
+WfrStatus	WfsTreeGet(WfsTree *tree, const char *key, WfsTreeItemTypeBase type, WfsTreeItem **pitem);
+WfrStatus	WfsTreeInit(WfsTree **tree);
+WfrStatus	WfsTreeRename(WfsTree *tree, WfsTreeItem *item, const char *key, WfsTreeItemTypeBase type, const char *key_new, WfsTreeFreeItemFn free_item_fn);
+WfrStatus	WfsTreeSet(WfsTree *tree, const char *key, WfsTreeItemTypeBase type, void *value, size_t value_size, WfsTreeFreeItemFn free_item_fn);
 
 #endif // !PUTTY_WINFRIP_STORAGE_TREE_H
 

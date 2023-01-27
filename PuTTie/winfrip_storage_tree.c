@@ -22,75 +22,23 @@
  * Private subroutine prototypes
  */
 
-static int	WfsppTree234Cmp(void *e1, void *e2);
-static void	WfsppTreeFreeItem(WfspTreeItem *item);
+static int	WfspTree234Cmp(void *e1, void *e2);
 
 /*
  * Private subroutines
  */
 
 static int
-WfsppTree234Cmp(
+WfspTree234Cmp(
 	void *	e1,
 	void *	e2
 	)
 {
-	int		cmp;
-	WfspTreeItem *	item1, *item2;
+	WfsTreeItem *	item1, *item2;
 
 
 	item1 = e1; item2 = e2;
-	switch (item1->type) {
-	default:
-		WFR_DEBUG_FAIL();
-		return -1;
-
-	case WFSP_TREE_ITYPE_ANY:
-	case WFSP_TREE_ITYPE_HOST_KEY:
-	case WFSP_TREE_ITYPE_INT:
-	case WFSP_TREE_ITYPE_SESSION:
-	case WFSP_TREE_ITYPE_STRING:
-		cmp = strcmp((char *)item1->key, (char *)item2->key);
-		break;
-	}
-
-	return cmp;
-}
-
-static void
-WfsppTreeFreeItem(
-	WfspTreeItem *	item
-	)
-{
-	WfspSession *	session;
-
-
-	switch (item->type) {
-	default:
-		WFR_DEBUG_FAIL(); break;
-
-	case WFSP_TREE_ITYPE_HOST_KEY:
-	case WFSP_TREE_ITYPE_INT:
-	case WFSP_TREE_ITYPE_STRING:
-		WFR_SFREE_IF_NOTNULL(item->value);
-		item->value = NULL;
-		break;
-
-	case WFSP_TREE_ITYPE_SESSION:
-		session = (WfspSession *)item->value;
-		if (WFR_STATUS_FAILURE(WfspTreeClear(&session->tree))) {
-			WFR_DEBUG_FAIL();
-		}
-		WFR_SFREE_IF_NOTNULL((void *)session->name);
-		WFR_SFREE_IF_NOTNULL(session->tree);
-
-		WFR_SFREE_IF_NOTNULL(item->value);
-		item->value = NULL;
-		break;
-	}
-
-	WFR_SFREE_IF_NOTNULL(item->key);
-	item->key = NULL;
+	return strcmp((char *)item1->key, (char *)item2->key);
 }
 
 /*
@@ -98,81 +46,45 @@ WfsppTreeFreeItem(
  */
 
 WfrStatus
-WfspTreeClear(
-	WfspTree **	tree
+WfsTreeClear(
+	WfsTree **		tree,
+	WfsTreeFreeItemFn	free_item_fn
 	)
 {
-	WfspTreeItem *	item;
+	WfsTreeItem *	item;
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
 	while ((item = delpos234(*tree, 0)) != NULL) {
-		WfsppTreeFreeItem(item);
+		free_item_fn(item);
 		sfree(item);
 	}
 	freetree234(*tree);
-	*tree = newtree234(WfsppTree234Cmp);
+	*tree = newtree234(WfspTree234Cmp);
 
 	return status;
 }
 
 WfrStatus
-WfspTreeCloneValue(
-	WfspTreeItem *	item,
-	void **		pvalue_new
+WfsTreeCopy(
+	WfsTree *		tree_from,
+	WfsTree *		tree_to,
+	WfsTreeCloneValueFn	clone_value_fn,
+	WfsTreeFreeItemFn	free_item_fn
 	)
 {
+	WfsTreeItem *	item;
 	WfrStatus	status;
 	void *		value_new;
 
 
-	switch (item->type) {
-	default:
-		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-		break;
-
-	case WFSP_TREE_ITYPE_INT:
-		if ((value_new = snewn(item->value_size, uint8_t))) {
-			*(int *)value_new = *(int *)item->value;
-			*pvalue_new = value_new;
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		} else {
-			status = WFR_STATUS_FROM_ERRNO();
-		}
-		break;
-
-	case WFSP_TREE_ITYPE_HOST_KEY:
-	case WFSP_TREE_ITYPE_STRING:
-		if ((value_new = snewn(item->value_size, char))) {
-			memcpy(value_new, item->value, item->value_size);
-			*(char **)pvalue_new = (char *)value_new;
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		} else {
-			status = WFR_STATUS_FROM_ERRNO();
-		}
-		break;
-	}
-
-	return status;
-}
-
-WfrStatus
-WfspTreeCopy(
-	WfspTree *	tree_from,
-	WfspTree *	tree_to
-	)
-{
-	WfspTreeItem *	item;
-	WfrStatus	status;
-	void *		value_new;
-
-
-	WFSP_TREE234_FOREACH(status, tree_from, idx, item) {
-		if (WFR_STATUS_SUCCESS(status = WfspTreeCloneValue(item, &value_new)))
+	WFS_TREE234_FOREACH(status, tree_from, idx, item) {
+		if (WFR_STATUS_SUCCESS(status = clone_value_fn(item, &value_new)))
 		{
-			status = WfspTreeSet(
+			status = WfsTreeSet(
 				tree_to, item->key, item->type,
-				value_new, item->value_size);
+				value_new, item->value_size,
+				free_item_fn);
 			if (WFR_STATUS_FAILURE(status)) {
 				sfree(value_new);
 			}
@@ -183,25 +95,26 @@ WfspTreeCopy(
 }
 
 WfrStatus
-WfspTreeDelete(
-	WfspTree *		tree,
-	WfspTreeItem *		item,
+WfsTreeDelete(
+	WfsTree *		tree,
+	WfsTreeItem *		item,
 	const char *		key,
-	WfspTreeItemType	type
+	WfsTreeItemTypeBase	type,
+	WfsTreeFreeItemFn	free_item_fn
 	)
 {
 	WfrStatus	status;
 
 
 	if (!item) {
-		status = WfspTreeGet(tree, key, type, &item);
+		status = WfsTreeGet(tree, key, type, &item);
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		del234(tree, item);
-		WfsppTreeFreeItem(item);
+		free_item_fn(item);
 		sfree(item);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -210,15 +123,15 @@ WfspTreeDelete(
 }
 
 WfrStatus
-WfspTreeEnumerate(
-	WfspTree *		tree,
+WfsTreeEnumerate(
+	WfsTree *		tree,
 	bool			initfl,
 	bool *			pdonefl,
-	WfspTreeItem **		pitem,
+	WfsTreeItem **		pitem,
 	void *			state
 	)
 {
-	WfspTreeItem *	item;
+	WfsTreeItem *	item;
 	WfrStatus	status;
 
 
@@ -248,22 +161,22 @@ WfspTreeEnumerate(
 }
 
 WfrStatus
-WfspTreeGet(
-	WfspTree *		tree,
+WfsTreeGet(
+	WfsTree *		tree,
 	const char *		key,
-	WfspTreeItemType	type,
-	WfspTreeItem **		pitem
+	WfsTreeItemTypeBase	type,
+	WfsTreeItem **		pitem
 	)
 {
-	WfspTreeItem *	item, item_find;
+	WfsTreeItem *	item, item_find;
 	WfrStatus	status;
 
 
-	WFSP_TREE_ITEM_INIT(item_find);
+	WFS_TREE_ITEM_INIT(item_find);
 	item_find.key = (char *)key;
 	item_find.type = type;
 
-	if (!(item = find234(tree, &item_find, WfsppTree234Cmp))) {
+	if (!(item = find234(tree, &item_find, WfspTree234Cmp))) {
 		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 	} else {
 		*pitem = item;
@@ -274,35 +187,36 @@ WfspTreeGet(
 }
 
 WfrStatus
-WfspTreeInit(
-	WfspTree **	tree
+WfsTreeInit(
+	WfsTree **	tree
 	)
 {
-	*tree = newtree234(WfsppTree234Cmp);
+	*tree = newtree234(WfspTree234Cmp);
 
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
 
 WfrStatus
-WfspTreeRename(
-	WfspTree *		tree,
-	WfspTreeItem *		item,
+WfsTreeRename(
+	WfsTree *		tree,
+	WfsTreeItem *		item,
 	const char *		key,
-	WfspTreeItemType	type,
-	const char *		key_new
+	WfsTreeItemTypeBase	type,
+	const char *		key_new,
+	WfsTreeFreeItemFn	free_item_fn
 	)
 {
-	WfspTreeItem *	item_old;
+	WfsTreeItem *	item_old;
 	char *		key_new_ = NULL;
 	size_t		key_new__size;
 	WfrStatus	status;
 
 
-	if (type == WFSP_TREE_ITYPE_ANY) {
+	if (type == WFS_TREE_ITYPE_ANY) {
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 	} else {
 		if (!item) {
-			status = WfspTreeGet(tree, key, type, &item);
+			status = WfsTreeGet(tree, key, type, &item);
 		} else {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
@@ -313,9 +227,9 @@ WfspTreeRename(
 		if (!(key_new_ = snewn(key_new__size, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
-			status = WfspTreeGet(tree, key_new, WFSP_TREE_ITYPE_ANY, &item_old);
+			status = WfsTreeGet(tree, key_new, -1, &item_old);
 			if (WFR_STATUS_SUCCESS(status)) {
-				status = WfspTreeDelete(tree, item_old, NULL, item_old->type);
+				status = WfsTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
 			} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -335,36 +249,37 @@ WfspTreeRename(
 }
 
 WfrStatus
-WfspTreeSet(
-	WfspTree *		tree,
+WfsTreeSet(
+	WfsTree *		tree,
 	const char *		key,
-	WfspTreeItemType	type,
+	WfsTreeItemTypeBase	type,
 	void *			value,
-	size_t			value_size
+	size_t			value_size,
+	WfsTreeFreeItemFn	free_item_fn
 	)
 {
-	WfspTreeItem *	item = NULL, *item_old;
+	WfsTreeItem *	item = NULL, *item_old;
 	char *		key_new = NULL;
 	WfrStatus	status;
 
 
-	if (type == WFSP_TREE_ITYPE_ANY) {
+	if (type == WFS_TREE_ITYPE_ANY) {
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
 	}
 
-	if ((item = snew(WfspTreeItem))
+	if ((item = snew(WfsTreeItem))
 	&&  (key_new = snewn(strlen(key) + 1, char)))
 	{
-		WFSP_TREE_ITEM_INIT(*item);
+		WFS_TREE_ITEM_INIT(*item);
 		strcpy(key_new, key);
 		item->key = key_new;
 		item->type = type;
 		item->value = value;
 		item->value_size = value_size;
 
-		status = WfspTreeGet(tree, key, WFSP_TREE_ITYPE_ANY, &item_old);
+		status = WfsTreeGet(tree, key, -1, &item_old);
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfspTreeDelete(tree, item_old, NULL, item_old->type);
+			status = WfsTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
 		} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
@@ -372,7 +287,7 @@ WfspTreeSet(
 		if (WFR_STATUS_SUCCESS(status)) {
 			(void)add234(tree, item);
 		} else {
-			WfsppTreeFreeItem(item);
+			free_item_fn(item);
 			sfree(item);
 		}
 	} else {

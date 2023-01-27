@@ -52,12 +52,12 @@ typedef struct WfspRegistryEnumerateState {
 
 WfrStatus	WfspRegistryCleanupHostCAs(WfsBackend backend);
 WfrStatus	WfspRegistryClearHostCAs(WfsBackend backend);
-WfrStatus	WfspRegistryCloseHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspRegistryCloseHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspRegistryDeleteHostCA(WfsBackend backend, const char *name);
 WfrStatus	WfspRegistryEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void *state);
-WfrStatus	WfspRegistryLoadHostCA(WfsBackend backend, const char *name, WfspHostCA **phca);
+WfrStatus	WfspRegistryLoadHostCA(WfsBackend backend, const char *name, WfsHostCA **phca);
 WfrStatus	WfspRegistryRenameHostCA(WfsBackend backend, const char *name, const char *name_new);
-WfrStatus	WfspRegistrySaveHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspRegistrySaveHostCA(WfsBackend backend, WfsHostCA *hca);
 
 WfrStatus	WfspRegistryCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspRegistryClearHostKeys(WfsBackend backend);
@@ -69,12 +69,12 @@ WfrStatus	WfspRegistrySaveHostKey(WfsBackend backend, const char *key_name, cons
 
 WfrStatus	WfspRegistryCleanupSessions(WfsBackend backend);
 WfrStatus	WfspRegistryClearSessions(WfsBackend backend);
-WfrStatus	WfspRegistryCloseSession(WfsBackend backend, WfspSession *session);
+WfrStatus	WfspRegistryCloseSession(WfsBackend backend, WfsSession *session);
 WfrStatus	WfspRegistryDeleteSession(WfsBackend backend, const char *sessionname);
 WfrStatus	WfspRegistryEnumerateSessions(WfsBackend backend, bool initfl, bool *pdonefl, char **psessionname, void *state);
-WfrStatus	WfspRegistryLoadSession(WfsBackend backend, const char *sessionname, WfspSession **psession);
+WfrStatus	WfspRegistryLoadSession(WfsBackend backend, const char *sessionname, WfsSession **psession);
 WfrStatus	WfspRegistryRenameSession(WfsBackend backend, const char *sessionname, const char *sessionname_new);
-WfrStatus	WfspRegistrySaveSession(WfsBackend backend, WfspSession *session);
+WfrStatus	WfspRegistrySaveSession(WfsBackend backend, WfsSession *session);
 
 void		WfspRegistryAddJumpList(const char *const sessionname);
 WfrStatus	WfspRegistryCleanupJumpList(void);
