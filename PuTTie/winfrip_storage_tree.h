@@ -13,6 +13,32 @@
  */
 
 /*
+ * Storage host CA type definitions
+ * (encompasses session key tree, time of last modification, and session name)
+ */
+
+typedef struct WfspHostCA {
+	const char *	public_key;
+	__time64_t	mtime;
+	const char *	name;
+	bool		permit_rsa_sha1;
+	bool		permit_rsa_sha256;
+	bool		permit_rsa_sha512;
+	const char *	validity;
+} WfspHostCA;
+#define WFSP_HOST_CA_EMPTY {		\
+	.public_key = NULL,		\
+	.mtime = 0,			\
+	.name = NULL,			\
+	.permit_rsa_sha1 = false,	\
+	.permit_rsa_sha256 = false,	\
+	.permit_rsa_sha512 = false,	\
+	.validity = NULL,		\
+}
+#define WFSP_HOST_CA_INIT(session)	\
+	(session) = (WfspHostCA)WFSP_HOST_CA_EMPTY
+
+/*
  * Storage session type definitions
  * (encompasses session key tree, time of last modification, and session name)
  */
@@ -39,10 +65,11 @@ typedef tree234 WfspTree;
 typedef enum WfspTreeItemType {
 	WFSP_TREE_ITYPE_NONE		= 0,
 	WFSP_TREE_ITYPE_ANY		= 1,
-	WFSP_TREE_ITYPE_HOST_KEY	= 2,
-	WFSP_TREE_ITYPE_INT		= 3,
-	WFSP_TREE_ITYPE_SESSION		= 4,
-	WFSP_TREE_ITYPE_STRING		= 5,
+	WFSP_TREE_ITYPE_HOST_CA		= 2,
+	WFSP_TREE_ITYPE_HOST_KEY	= 3,
+	WFSP_TREE_ITYPE_INT		= 4,
+	WFSP_TREE_ITYPE_SESSION		= 5,
+	WFSP_TREE_ITYPE_STRING		= 6,
 	WFSP_TREE_ITYPE_MAX		= WFSP_TREE_ITYPE_STRING,
 } WfspTreeItemType;
 

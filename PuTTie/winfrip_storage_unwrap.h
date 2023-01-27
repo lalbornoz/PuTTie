@@ -29,6 +29,14 @@
 #undef check_stored_host_key
 #undef store_host_key
 
+#undef enum_host_ca_start
+#undef enum_host_ca_next
+#undef enum_host_ca_finish
+
+#undef host_ca_load
+#undef host_ca_save
+#undef host_ca_delete
+
 #undef cleanup_all
 
 #endif // !PUTTY_WINFRIP_STORAGE_UNWRAP_H

@@ -18,6 +18,7 @@
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
 #include "PuTTie/winfrip_storage_backend_file.h"
 #include "PuTTie/winfrip_storage_backend_registry.h"
+#include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
@@ -236,6 +237,10 @@ WfsSetBackend(
 	bool		reset
 	)
 {
+	void		(*error_fn_host_ca)(const char *, WfrStatus) =
+			WFR_LAMBDA(void, (const char *name, WfrStatus status) {
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host CA %s", name);
+			});
 	void		(*error_fn_host_key)(const char *, WfrStatus) =
 			WFR_LAMBDA(void, (const char *key_name, WfrStatus status) {
 				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host key %s", key_name);
@@ -256,6 +261,7 @@ WfsSetBackend(
 			&&  WFR_STATUS_SUCCESS(status))
 			{
 				if (WFR_STATUS_SUCCESS(status = WfsExportSessions(new_backend_from, new_backend, true, true, error_fn_session))
+				&&  WFR_STATUS_SUCCESS(status = WfsExportHostCAs(new_backend_from, new_backend, true, true, error_fn_host_ca))
 				&&  WFR_STATUS_SUCCESS(status = WfsExportHostKeys(new_backend_from, new_backend, true, true, error_fn_host_key))
 				&&  WFR_STATUS_SUCCESS(status = WfsExportJumpList(new_backend_from, new_backend, false)))
 				{

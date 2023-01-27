@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_feature_storage_general.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_priv.h"
+#include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
@@ -24,13 +25,15 @@
 
 typedef enum WffspConfigItem {
 	WFFSP_ITEM_CONTAINER	= 0,
-	WFFSP_ITEM_HOST_KEYS	= 1,
-	WFFSP_ITEM_SESSIONS	= 2,
-	WFFSP_ITEM_JUMP_LIST	= 3,
+	WFFSP_ITEM_HOST_CAS	= 1,
+	WFFSP_ITEM_HOST_KEYS	= 2,
+	WFFSP_ITEM_SESSIONS	= 3,
+	WFFSP_ITEM_JUMP_LIST	= 4,
 
 	WFFSP_ITEM_MAX		= WFFSP_ITEM_JUMP_LIST,
 } WffspConfigItem;
 #define WFFSP_ITEM_CONTAINER_NAME	"(Container)"
+#define WFFSP_ITEM_HOST_CAS_NAME	"Host CAs"
 #define WFFSP_ITEM_HOST_KEYS_NAME	"Host keys"
 #define WFFSP_ITEM_SESSIONS_NAME	"Sessions"
 #define WFFSP_ITEM_JUMP_LIST_NAME	"Jump list"
@@ -151,6 +154,7 @@ WffspConfigGeneralHandler(
 			dlg_listbox_clear(ctrl, dlg);
 
 			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_CONTAINER_NAME, WFFSP_ITEM_CONTAINER);
+			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_HOST_CAS_NAME, WFFSP_ITEM_HOST_CAS);
 			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_HOST_KEYS_NAME, WFFSP_ITEM_HOST_KEYS);
 			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_SESSIONS_NAME, WFFSP_ITEM_SESSIONS);
 			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_JUMP_LIST_NAME, WFFSP_ITEM_JUMP_LIST);
@@ -185,11 +189,13 @@ WffspConfigGeneralCleanupHandler(
 	(void)event;
 	backend_from = WFFSP_CONFIG_GET_BACKEND_FROM(ctx, dlg);
 	selectv[WFFSP_ITEM_CONTAINER] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_CONTAINER);
+	selectv[WFFSP_ITEM_HOST_CAS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_HOST_CAS);
 	selectv[WFFSP_ITEM_HOST_KEYS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_HOST_KEYS);
 	selectv[WFFSP_ITEM_SESSIONS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_SESSIONS);
 	selectv[WFFSP_ITEM_JUMP_LIST] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_JUMP_LIST);
 
 	if (!selectv[WFFSP_ITEM_CONTAINER]
+	&&  !selectv[WFFSP_ITEM_HOST_CAS]
 	&&  !selectv[WFFSP_ITEM_HOST_KEYS]
 	&&  !selectv[WFFSP_ITEM_SESSIONS]
 	&&  !selectv[WFFSP_ITEM_JUMP_LIST])
@@ -206,6 +212,7 @@ WffspConfigGeneralCleanupHandler(
 			"%s%s%s%s",
 			backend_from_name,
 			selectv[WFFSP_ITEM_CONTAINER] ? "(container)\n" : "",
+			selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
 			selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
 			selectv[WFFSP_ITEM_SESSIONS] ? "sessions\n" : "",
 			selectv[WFFSP_ITEM_JUMP_LIST] ? "jump list\n" : ""))
@@ -218,6 +225,11 @@ WffspConfigGeneralCleanupHandler(
 
 	if (confirmfl) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
+
+		if (selectv[WFFSP_ITEM_HOST_CAS]) {
+			status = WfsCleanupHostCAs(backend_from);
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up host CAs");
+		}
 
 		if (selectv[WFFSP_ITEM_HOST_KEYS]) {
 			status = WfsCleanupHostKeys(backend_from);
@@ -246,6 +258,7 @@ WffspConfigGeneralCleanupHandler(
 				"%s%s%s%s",
 				backend_from_name,
 				selectv[WFFSP_ITEM_CONTAINER] ? "(container)\n" : "",
+				selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
 				selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
 				selectv[WFFSP_ITEM_SESSIONS] ? "sessions\n" : "",
 				selectv[WFFSP_ITEM_JUMP_LIST] ? "jump list\n" : "");
@@ -265,6 +278,10 @@ WffspConfigGeneralMigrateHandler(
 	const char *		backend_from_name, *backend_to_name;
 	bool			confirmfl;
 	WffspConfigContext *	ctx = (WffspConfigContext *)ctrl->context.p;
+	void			(*error_fn_host_ca)(const char *, WfrStatus) =
+				WFR_LAMBDA(void, (const char *name, WfrStatus status) {
+					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating host CA %s", name);
+				});
 	void			(*error_fn_host_key)(const char *, WfrStatus) =
 				WFR_LAMBDA(void, (const char *key_name, WfrStatus status) {
 					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating host key %s", key_name);
@@ -284,6 +301,7 @@ WffspConfigGeneralMigrateHandler(
 	backend_to = WFFSP_CONFIG_GET_BACKEND_TO(ctx, dlg);
 	movefl = ((ctrl == ctx->button_copy_all) ? false : true);
 	selectv[WFFSP_ITEM_CONTAINER] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_CONTAINER);
+	selectv[WFFSP_ITEM_HOST_CAS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_HOST_CAS);
 	selectv[WFFSP_ITEM_HOST_KEYS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_HOST_KEYS);
 	selectv[WFFSP_ITEM_SESSIONS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_SESSIONS);
 	selectv[WFFSP_ITEM_JUMP_LIST] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_JUMP_LIST);
@@ -291,6 +309,7 @@ WffspConfigGeneralMigrateHandler(
 	if (backend_from == backend_to) {
 		return;
 	} else if (!selectv[WFFSP_ITEM_HOST_KEYS]
+		&& !selectv[WFFSP_ITEM_HOST_CAS]
 		&& !selectv[WFFSP_ITEM_SESSIONS]
 		&& !selectv[WFFSP_ITEM_JUMP_LIST])
 	{
@@ -309,6 +328,7 @@ WffspConfigGeneralMigrateHandler(
 			movefl ? "Move" : "Copy",
 			backend_from_name, backend_to_name,
 			selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
+			selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
 			selectv[WFFSP_ITEM_SESSIONS] ? "sessions\n" : "",
 			selectv[WFFSP_ITEM_JUMP_LIST] ? "jump list\n" : ""))
 	{
@@ -320,6 +340,15 @@ WffspConfigGeneralMigrateHandler(
 
 	if (confirmfl) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
+
+		if (selectv[WFFSP_ITEM_HOST_CAS]) {
+			if (WFR_STATUS_SUCCESS(status = WfsExportHostCAs(backend_from, backend_to, true, true, error_fn_host_ca))) {
+				if (movefl) {
+					status = WfsCleanupHostCAs(backend_from);
+				}
+			}
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating host CAs");
+		}
 
 		if (selectv[WFFSP_ITEM_HOST_KEYS]) {
 			if (WFR_STATUS_SUCCESS(status = WfsExportHostKeys(backend_from, backend_to, true, true, error_fn_host_key))) {
@@ -361,6 +390,7 @@ WffspConfigGeneralMigrateHandler(
 				movefl ? "moved" : "copied",
 				backend_from_name, backend_to_name,
 				selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
+				selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
 				selectv[WFFSP_ITEM_SESSIONS] ? "sessions\n" : "",
 				selectv[WFFSP_ITEM_JUMP_LIST] ? "jump list\n" : "");
 		}
@@ -393,7 +423,7 @@ WffsGeneralConfigPanel(
 	s = ctrl_getset(b, "Frippery/Storage", "frip_storage_migrate_cleanup", "Clean up / migrate");
 	ctx->droplist_from = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WFP_HELP_CTX, WffspConfigGeneralHandler, P(ctx));
 	ctx->listbox = ctrl_listbox(s, NULL, NO_SHORTCUT, WFP_HELP_CTX, WffspConfigGeneralHandler, P(ctx));
-	ctx->listbox->listbox.height = 4;
+	ctx->listbox->listbox.height = 5;
 	ctx->listbox->listbox.multisel = 1;
 	ctx->button_cleanup = ctrl_pushbutton(s, "Clean up...", 'e', WFP_HELP_CTX, WffspConfigGeneralHandler, P(ctx));
 	ctrl_columns(s, 2, 50, 50);

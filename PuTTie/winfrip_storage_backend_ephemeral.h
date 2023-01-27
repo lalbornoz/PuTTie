@@ -14,6 +14,10 @@
 	"Ephemeral",											\
 	"ephemeral",											\
 													\
+	WfspEphemeralCleanupHostCAs, WfspEphemeralClearHostCAs, WfspEphemeralCloseHostCA,		\
+	WfspEphemeralDeleteHostCA, WfspEphemeralEnumerateHostCAs, WfspEphemeralLoadHostCA,		\
+	WfspEphemeralRenameHostCA, WfspEphemeralSaveHostCA,						\
+													\
 	WfspEphemeralCleanupHostKeys, WfspEphemeralClearHostKeys, WfspEphemeralDeleteHostKey,		\
 	WfspEphemeralEnumerateHostKeys, WfspEphemeralLoadHostKey, WfspEphemeralRenameHostKey,		\
 	WfspEphemeralSaveHostKey,									\
@@ -28,6 +32,15 @@
 													\
 	WfspEphemeralCleanupContainer, WfspEphemeralInit, WfspEphemeralSetBackend,			\
 }
+
+WfrStatus	WfspEphemeralCleanupHostCAs(WfsBackend backend);
+WfrStatus	WfspEphemeralClearHostCAs(WfsBackend backend);
+WfrStatus	WfspEphemeralCloseHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspEphemeralDeleteHostCA(WfsBackend backend, const char *name);
+WfrStatus	WfspEphemeralEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void *state);
+WfrStatus	WfspEphemeralLoadHostCA(WfsBackend backend, const char *name, WfspHostCA **phca);
+WfrStatus	WfspEphemeralRenameHostCA(WfsBackend backend, const char *name, const char *name_new);
+WfrStatus	WfspEphemeralSaveHostCA(WfsBackend backend, WfspHostCA *hca);
 
 WfrStatus	WfspEphemeralCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspEphemeralClearHostKeys(WfsBackend backend);
