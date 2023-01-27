@@ -13,6 +13,10 @@
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_storage_general.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_priv.h"
+#include "PuTTie/winfrip_storage_host_keys.h"
+#include "PuTTie/winfrip_storage_jump_list.h"
+#include "PuTTie/winfrip_storage_sessions.h"
 
 /*
  * Private types
@@ -226,7 +230,7 @@ WffspConfigGeneralCleanupHandler(
 		}
 
 		if (selectv[WFFSP_ITEM_JUMP_LIST]) {
-			status = WfsJumpListCleanup(backend_from);
+			status = WfsCleanupJumpList(backend_from);
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up jump list");
 		}
 
@@ -336,9 +340,9 @@ WffspConfigGeneralMigrateHandler(
 		}
 
 		if (selectv[WFFSP_ITEM_JUMP_LIST]) {
-			if (WFR_STATUS_SUCCESS(status = WfsJumpListExport(backend_from, backend_to, movefl))) {
+			if (WFR_STATUS_SUCCESS(status = WfsExportJumpList(backend_from, backend_to, movefl))) {
 				if (movefl) {
-					status = WfsJumpListCleanup(backend_from);
+					status = WfsCleanupJumpList(backend_from);
 				}
 			}
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating jump list");

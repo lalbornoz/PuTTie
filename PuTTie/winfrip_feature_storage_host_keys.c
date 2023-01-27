@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_storage_host_keys.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_host_keys.h"
 
 /*
  * Private types

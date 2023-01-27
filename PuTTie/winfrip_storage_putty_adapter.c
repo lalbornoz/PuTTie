@@ -14,6 +14,10 @@
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_priv.h"
+#include "PuTTie/winfrip_storage_host_keys.h"
+#include "PuTTie/winfrip_storage_jump_list.h"
+#include "PuTTie/winfrip_storage_sessions.h"
 
 /*
  * Private variables
@@ -737,7 +741,7 @@ add_session_to_jumplist(
 	const char *const	sessionname
 	)
 {
-	WfsJumpListAdd(WfsGetBackend(), sessionname);
+	WfsAddJumpList(WfsGetBackend(), sessionname);
 }
 
 void
@@ -745,7 +749,7 @@ clear_jumplist(
 	void
 	)
 {
-	WfsJumpListClear(WfsGetBackend());
+	WfsClearJumpList(WfsGetBackend());
 }
 
 char *
@@ -753,7 +757,7 @@ get_jumplist_registry_entries(
 	void
 	)
 {
-	return WfsJumpListGetEntries(WfsGetBackend());
+	return WfsGetEntriesJumpList(WfsGetBackend());
 }
 
 void
@@ -761,7 +765,7 @@ remove_session_from_jumplist(
 	const char *const	sessionname
 	)
 {
-	WfsJumpListRemove(WfsGetBackend(), sessionname);
+	WfsRemoveJumpList(WfsGetBackend(), sessionname);
 }
 
 /*
