@@ -8,7 +8,8 @@
 
 /*
  * Public subroutine prototypes used by/in:
- * winfrip_putty_config.c
+ * PuTTie/winfrip_putty_config.c
+ * config.c
  */
 
 void	WffsSessionsConfigPanel(struct controlbox *b);

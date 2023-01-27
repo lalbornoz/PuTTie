@@ -18,6 +18,15 @@ typedef struct WfspBackend {
 	const char *	name;
 	const char *	arg;
 
+	WfrStatus	(*CleanupHostCAs)(WfsBackend);
+	WfrStatus	(*ClearHostCAs)(WfsBackend);
+	WfrStatus	(*CloseHostCA)(WfsBackend, WfspHostCA *);
+	WfrStatus	(*DeleteHostCA)(WfsBackend, const char *);
+	WfrStatus	(*EnumerateHostCAs)(WfsBackend, bool, bool *, char **, void *);
+	WfrStatus	(*LoadHostCA)(WfsBackend, const char *, WfspHostCA **);
+	WfrStatus	(*RenameHostCA)(WfsBackend, const char *, const char *);
+	WfrStatus	(*SaveHostCA)(WfsBackend, WfspHostCA *);
+
 	WfrStatus	(*CleanupHostKeys)(WfsBackend);
 	WfrStatus	(*ClearHostKeys)(WfsBackend);
 	WfrStatus	(*DeleteHostKey)(WfsBackend, const char *);
@@ -46,10 +55,11 @@ typedef struct WfspBackend {
 	WfrStatus	(*Init)(void);
 	WfrStatus	(*SetBackend)(WfsBackend);
 
-	tree234 *	tree_host_key, *tree_session;
+	tree234 *	tree_host_ca, *tree_host_key, *tree_session;
 } WfspBackend;
 
 #define WFSP_BACKEND_INIT(backend)		\
+	(backend).tree_host_ca = NULL;		\
 	(backend).tree_host_key = NULL;		\
 	(backend).tree_session = NULL;
 

@@ -31,6 +31,10 @@ typedef struct WfspRegistryEnumerateState {
 	"Registry",										\
 	"registry",										\
 												\
+	WfspRegistryCleanupHostCAs, WfspRegistryClearHostCAs, WfspRegistryCloseHostCA,		\
+	WfspRegistryDeleteHostCA, WfspRegistryEnumerateHostCAs, WfspRegistryLoadHostCA,		\
+	WfspRegistryRenameHostCA, WfspRegistrySaveHostCA,					\
+												\
 	WfspRegistryCleanupHostKeys, WfspRegistryClearHostKeys, WfspRegistryDeleteHostKey,	\
 	WfspRegistryEnumerateHostKeys, WfspRegistryLoadHostKey, WfspRegistryRenameHostKey,	\
 	WfspRegistrySaveHostKey,								\
@@ -45,6 +49,15 @@ typedef struct WfspRegistryEnumerateState {
 												\
 	WfspRegistryCleanupContainer, WfspRegistryInit, WfspRegistrySetBackend,			\
 }
+
+WfrStatus	WfspRegistryCleanupHostCAs(WfsBackend backend);
+WfrStatus	WfspRegistryClearHostCAs(WfsBackend backend);
+WfrStatus	WfspRegistryCloseHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspRegistryDeleteHostCA(WfsBackend backend, const char *name);
+WfrStatus	WfspRegistryEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void *state);
+WfrStatus	WfspRegistryLoadHostCA(WfsBackend backend, const char *name, WfspHostCA **phca);
+WfrStatus	WfspRegistryRenameHostCA(WfsBackend backend, const char *name, const char *name_new);
+WfrStatus	WfspRegistrySaveHostCA(WfsBackend backend, WfspHostCA *hca);
 
 WfrStatus	WfspRegistryCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspRegistryClearHostKeys(WfsBackend backend);

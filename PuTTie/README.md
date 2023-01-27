@@ -66,15 +66,15 @@ you should use PuTTie:
    Additionally, file storage may be initialised from the registry w/ the command-
    line option ``--file=registry``  
    User interfaces are provided within putty & puttytel to clean up, clear, copy, delete, migrate,
-   rename, and move sessions, host keys, and the jump list from/to all storage backends (ephemeral,
-   file, registry)
+   rename, and move sessions, host CAs, host keys, and the jump list from/to all storage backends
+   (ephemeral, file, registry)
 8. **Store configuration in ephemeral storage**  
    Selectable w/ command-line option ``--ephemeral`` in plink, pscp, psftp, pterm, putty & puttytel  
    Additionally, ephemeral storage may be initialised from disk files or the registry w/ the command-
    line options ``--ephemeral=file`` and ``--ephemeral=registry``, respectively  
    User interfaces are provided within putty & puttytel to clean up, clear, copy, delete, migrate,
-   rename, and move sessions, host keys, and the jump list from/to all storage backends (ephemeral,
-   file, registry)
+   rename, and move sessions, host CAs, host keys, and the jump list from/to all storage backends
+   (ephemeral, file, registry)
   
    N.B. The random seed file ``PUTTY.RND`` stored beneath ``%LOCALAPPDATA%`` is still read from,
    if present, on startup and written to on exit due to security concerns, even when ephemeral storage

@@ -13,12 +13,109 @@
 #include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
+#include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 
 /*
  * Public subroutines private to PuTTie/winfrip_storage*.c
  */
+
+WfrStatus
+WfspEphemeralCleanupHostCAs(
+	WfsBackend	backend
+	)
+{
+	return WfsClearHostCAs(backend, false);
+}
+
+WfrStatus
+WfspEphemeralClearHostCAs(
+	WfsBackend	backend
+	)
+{
+	return WfsClearHostCAs(backend, false);
+}
+
+WfrStatus
+WfspEphemeralCloseHostCA(
+	WfsBackend	backend,
+	WfspHostCA *	hca
+	)
+{
+	(void)backend;
+	(void)hca;
+
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
+WfrStatus
+WfspEphemeralDeleteHostCA(
+	WfsBackend	backend,
+	const char *	name
+	)
+{
+	return WfsDeleteHostCA(backend, false, name);
+}
+
+WfrStatus
+WfspEphemeralEnumerateHostCAs(
+	WfsBackend	backend,
+	bool		initfl,
+	bool *		pdonefl,
+	char **		pname,
+	void *		state
+	)
+{
+	return WfsEnumerateHostCAs(backend, true, initfl, pdonefl, pname, state);
+}
+
+WfrStatus
+WfspEphemeralLoadHostCA(
+	WfsBackend	backend,
+	const char *	name,
+	WfspHostCA **	phca
+	)
+{
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsGetHostCA(
+			WFS_BACKEND_EPHEMERAL, true,
+			name, phca)))
+	{
+		if (backend != WFS_BACKEND_EPHEMERAL) {
+			status = WfsCopyHostCA(
+				WFS_BACKEND_EPHEMERAL, backend,
+				name, *phca, phca);
+		}
+	}
+
+	return status;
+}
+
+WfrStatus
+WfspEphemeralRenameHostCA(
+	WfsBackend	backend,
+	const char *	name,
+	const char *	name_new
+	)
+{
+	return WfsRenameHostCA(backend, false, name, name_new);
+}
+
+WfrStatus
+WfspEphemeralSaveHostCA(
+	WfsBackend	backend,
+	WfspHostCA *	hca
+	)
+{
+	(void)backend;
+	(void)hca;
+
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
 
 WfrStatus
 WfspEphemeralCleanupHostKeys(

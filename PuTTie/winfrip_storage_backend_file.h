@@ -33,6 +33,10 @@ typedef struct WfspFileEnumerateState {
 	"File",										\
 	"file",										\
 											\
+	WfspFileCleanupHostCAs, WfspFileClearHostCAs, WfspFileCloseHostCA,		\
+	WfspFileDeleteHostCA, WfspFileEnumerateHostCAs, WfspFileLoadHostCA,		\
+	WfspFileRenameHostCA, WfspFileSaveHostCA,					\
+											\
 	WfspFileCleanupHostKeys, WfspFileClearHostKeys, WfspFileDeleteHostKey,		\
 	WfspFileEnumerateHostKeys, WfspFileLoadHostKey, WfspFileRenameHostKey,		\
 	WfspFileSaveHostKey,								\
@@ -47,6 +51,15 @@ typedef struct WfspFileEnumerateState {
 											\
 	WfspFileCleanupContainer, WfspFileInit, WfspFileSetBackend,			\
 }
+
+WfrStatus	WfspFileCleanupHostCAs(WfsBackend backend);
+WfrStatus	WfspFileClearHostCAs(WfsBackend backend);
+WfrStatus	WfspFileCloseHostCA(WfsBackend backend, WfspHostCA *hca);
+WfrStatus	WfspFileDeleteHostCA(WfsBackend backend, const char *name);
+WfrStatus	WfspFileEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void *state);
+WfrStatus	WfspFileLoadHostCA(WfsBackend backend, const char *name, WfspHostCA **phca);
+WfrStatus	WfspFileRenameHostCA(WfsBackend backend, const char *name, const char *name_new);
+WfrStatus	WfspFileSaveHostCA(WfsBackend backend, WfspHostCA *hca);
 
 WfrStatus	WfspFileCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspFileClearHostKeys(WfsBackend backend);

@@ -29,6 +29,14 @@
 #define check_stored_host_key	check_stored_host_key_PuTTY
 #define store_host_key		store_host_key_PuTTY
 
+#define enum_host_ca_start	enum_host_ca_start_PuTTY
+#define enum_host_ca_next	enum_host_ca_next_PuTTY
+#define enum_host_ca_finish	enum_host_ca_finish_PuTTY
+
+#define host_ca_load		host_ca_load_PuTTY
+#define host_ca_save		host_ca_save_PuTTY
+#define host_ca_delete		host_ca_delete_PuTTY
+
 #define cleanup_all		cleanup_all_PuTTY
 
 #endif // !PUTTY_WINFRIP_STORAGE_WRAP_H

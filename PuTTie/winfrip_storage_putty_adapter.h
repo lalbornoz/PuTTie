@@ -34,6 +34,14 @@
 // int check_stored_host_key(const char *hostname, int port, const char *keytype, const char *key);
 // void store_host_key(Seat *seat, const char *hostname, int port, const char *keytype, const char *key);
 
+// host_ca_enum *enum_host_ca_start(void);
+// bool enum_host_ca_next(host_ca_enum *handle, strbuf *out);
+// void enum_host_ca_finish(host_ca_enum *handle);
+
+// host_ca *host_ca_load(const char *name);
+// char *host_ca_save(host_ca *);
+// char *host_ca_delete(const char *name);
+
 // typedef void (*noise_consumer_t) (void *data, int len);
 // void read_random_seed(noise_consumer_t consumer);
 // void write_random_seed(void *data, int len);
