@@ -63,7 +63,8 @@ WfspInit(
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		WFSP_BACKEND_INIT(*backend_impl);
 
-		if (WFR_STATUS_SUCCESS(status = WfsTreeInit(&backend_impl->tree_host_key))
+		if (WFR_STATUS_SUCCESS(status = WfsTreeInit(&backend_impl->tree_host_ca))
+		&&  WFR_STATUS_SUCCESS(status = WfsTreeInit(&backend_impl->tree_host_key))
 		&&  WFR_STATUS_SUCCESS(status = WfsTreeInit(&backend_impl->tree_session))
 		&&  WFR_STATUS_SUCCESS(status = backend_impl->Init()))
 		{
