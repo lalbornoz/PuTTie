@@ -209,7 +209,7 @@ WffspConfigGeneralCleanupHandler(
 	switch (WfrMessageBoxF(
 			"PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
 			"Clean up the following items in %s backend?\n"
-			"%s%s%s%s",
+			"%s%s%s%s%s",
 			backend_from_name,
 			selectv[WFFSP_ITEM_CONTAINER] ? "(container)\n" : "",
 			selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
@@ -255,7 +255,7 @@ WffspConfigGeneralCleanupHandler(
 			WfrMessageBoxF(
 				"PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
 				"Successfully cleaned up items in %s backend:\n"
-				"%s%s%s%s",
+				"%s%s%s%s%s",
 				backend_from_name,
 				selectv[WFFSP_ITEM_CONTAINER] ? "(container)\n" : "",
 				selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
@@ -324,7 +324,7 @@ WffspConfigGeneralMigrateHandler(
 	switch (WfrMessageBoxF(
 			"PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
 			"%s the following items from %s to %s backend?\n"
-			"%s%s%s",
+			"%s%s%s%s",
 			movefl ? "Move" : "Copy",
 			backend_from_name, backend_to_name,
 			selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
@@ -386,7 +386,7 @@ WffspConfigGeneralMigrateHandler(
 			WfrMessageBoxF(
 				"PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
 				"Successfully %s the following items from %s to %s backend:\n"
-				"%s%s%s",
+				"%s%s%s%s",
 				movefl ? "moved" : "copied",
 				backend_from_name, backend_to_name,
 				selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
