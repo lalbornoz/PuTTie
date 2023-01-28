@@ -1,5 +1,5 @@
 /*
- * winfrip_pcre2.c - pointless frippery & tremendous amounts of bloat
+ * winfrip_rtl_pcre2.c - pointless frippery & tremendous amounts of bloat
  * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
