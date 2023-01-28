@@ -276,7 +276,7 @@ WffspRenameHostCA(
 
 		status = WfsRenameHostCA(backend, true, name, name_new);
 		if (WFR_STATUS_FAILURE(status)) {
-			sfree(name_new);
+			WFR_FREE(name_new);
 		} else {
 			if (backend_from == backend_to) {
 				if (WFR_STATUS_SUCCESS(status = WffspConfigUpdateHostCAs(ctx, WFFSP_CDIR_FROM, dlg, true))
@@ -289,7 +289,7 @@ WffspRenameHostCA(
 			}
 		}
 	} else {
-		sfree(name_new);
+		WFR_FREE(name_new);
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "renaming host CA %s", name);
@@ -460,7 +460,7 @@ WffspConfigUpdateHostCAs(
 				&donefl, &name, enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && !donefl) {
-				if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
+				if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
 						itemv_new, itemc_new, itemc_new + 1, char *)))
 				{
 					itemv_new[itemc_new - 1] = name;
@@ -470,9 +470,9 @@ WffspConfigUpdateHostCAs(
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			for (size_t nhca = 0; nhca < ctx->itemc[dir]; nhca++) {
-				WFR_SFREE_IF_NOTNULL(ctx->itemv[dir][nhca]);
+				WFR_FREE_IF_NOTNULL(ctx->itemv[dir][nhca]);
 			}
-			WFR_SFREE_IF_NOTNULL(ctx->itemv[dir]);
+			WFR_FREE_IF_NOTNULL(ctx->itemv[dir]);
 
 			ctx->itemc[dir] = itemc_new;
 			ctx->itemv[dir] = itemv_new;
@@ -490,13 +490,13 @@ WffspConfigUpdateHostCAs(
 		} else {
 			if (itemv_new) {
 				for (size_t nhca = 0; nhca < itemc_new; nhca++) {
-					WFR_SFREE_IF_NOTNULL(itemv_new[nhca]);
+					WFR_FREE_IF_NOTNULL(itemv_new[nhca]);
 				}
-				sfree(itemv_new);
+				WFR_FREE(itemv_new);
 			}
 		}
 
-		sfree(enum_state);
+		WFR_FREE(enum_state);
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "updating host CA list");
@@ -524,7 +524,7 @@ WffsHostCAConfigPanel(
 	ctrl_settitle(b, "Frippery/Host CAs", "Configure pointless frippery: host CAs");
 
 
-	ctx = snew(WffspConfigContext);
+	ctx = WFR_NEW(WffspConfigContext);
 	WFFSP_CONFIG_CONTEXT_INIT(*ctx);
 
 	s = ctrl_getset(b, "Frippery/Host CAs", "frip_hcas_from", "From:");

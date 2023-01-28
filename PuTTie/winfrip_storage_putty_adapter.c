@@ -73,18 +73,18 @@ WfspExpandFontSpecKeys(
 
 	key_size = strlen(key) + 1;
 	*pkey_charset = *pkey_height = *pkey_isbold = NULL;
-	if (((*pkey_charset) = snewn(key_size + (sizeof("CharSet") - 1), char))
-	&&  ((*pkey_height) = snewn(key_size + (sizeof("Height") - 1), char))
-	&&  ((*pkey_isbold) = snewn(key_size + (sizeof("IsBold") - 1), char)))
+	if (((*pkey_charset) = WFR_NEWN(key_size + (sizeof("CharSet") - 1), char))
+	&&  ((*pkey_height) = WFR_NEWN(key_size + (sizeof("Height") - 1), char))
+	&&  ((*pkey_isbold) = WFR_NEWN(key_size + (sizeof("IsBold") - 1), char)))
 	{
 		WFR_SNPRINTF(*pkey_charset, key_size + (sizeof("CharSet") - 1), "%sCharSet", key);
 		WFR_SNPRINTF(*pkey_height, key_size + (sizeof("Height") - 1), "%sHeight", key);
 		WFR_SNPRINTF(*pkey_isbold, key_size + (sizeof("IsBold") - 1), "%sIsBold", key);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	} else {
-		WFR_SFREE_IF_NOTNULL(*pkey_charset);
-		WFR_SFREE_IF_NOTNULL(*pkey_height);
-		WFR_SFREE_IF_NOTNULL(*pkey_isbold);
+		WFR_FREE_IF_NOTNULL(*pkey_charset);
+		WFR_FREE_IF_NOTNULL(*pkey_height);
+		WFR_FREE_IF_NOTNULL(*pkey_isbold);
 		status = WFR_STATUS_FROM_ERRNO();
 	}
 
@@ -178,7 +178,7 @@ write_setting_s(
 				session, key, value_new, value_new_size,
 				WFS_TREE_ITYPE_STRING)))
 		{
-			sfree(value_new);
+			WFR_FREE(value_new);
 			WFR_DEBUG_FAIL();
 		}
 	}
@@ -198,7 +198,7 @@ write_setting_i(
 
 	session = (WfsSession *)handle;
 
-	if (!(value_new = snew(int))) {
+	if (!(value_new = WFR_NEW(int))) {
 		WFR_DEBUG_FAIL();
 	} else {
 		*value_new = value;
@@ -206,7 +206,7 @@ write_setting_i(
 				session, key, value_new, sizeof(*value_new),
 				WFS_TREE_ITYPE_INT)))
 		{
-			sfree(value_new);
+			WFR_FREE(value_new);
 			WFR_DEBUG_FAIL();
 		}
 	}
@@ -235,7 +235,7 @@ write_setting_filename(
 				session, key, value_new, value_new_size,
 				WFS_TREE_ITYPE_STRING)))
 		{
-			sfree(value_new);
+			WFR_FREE(value_new);
 			WFR_DEBUG_FAIL();
 		}
 	}
@@ -263,10 +263,10 @@ write_setting_fontspec(
 	{
 		val_name_size = strlen(font->name) + 1;
 
-		if (!(val_charset = snew(int))
-		||  !(val_height = snew(int))
-		||  !(val_isbold = snew(int))
-		||  !(val_name = snewn(val_name_size, char)))
+		if (!(val_charset = WFR_NEW(int))
+		||  !(val_height = WFR_NEW(int))
+		||  !(val_isbold = WFR_NEW(int))
+		||  !(val_name = WFR_NEWN(val_name_size, char)))
 		{
 			WFR_DEBUG_FAIL();
 		} else {
@@ -292,15 +292,15 @@ write_setting_fontspec(
 			}
 		}
 
-		WFR_SFREE_IF_NOTNULL(key_charset);
-		WFR_SFREE_IF_NOTNULL(key_height);
-		WFR_SFREE_IF_NOTNULL(key_isbold);
+		WFR_FREE_IF_NOTNULL(key_charset);
+		WFR_FREE_IF_NOTNULL(key_height);
+		WFR_FREE_IF_NOTNULL(key_isbold);
 
 		if (WFR_STATUS_FAILURE(status)) {
-			WFR_SFREE_IF_NOTNULL(val_charset);
-			WFR_SFREE_IF_NOTNULL(val_height);
-			WFR_SFREE_IF_NOTNULL(val_isbold);
-			WFR_SFREE_IF_NOTNULL(val_name);
+			WFR_FREE_IF_NOTNULL(val_charset);
+			WFR_FREE_IF_NOTNULL(val_height);
+			WFR_FREE_IF_NOTNULL(val_isbold);
+			WFR_FREE_IF_NOTNULL(val_name);
 		}
 	} else {
 		WFR_DEBUG_FAIL();
@@ -455,7 +455,7 @@ read_setting_filename(
 		return NULL;
 	}
 
-	if (!(value = snew(Filename))) {
+	if (!(value = WFR_NEW(Filename))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		status = WfsGetSessionKey(
@@ -466,14 +466,14 @@ read_setting_filename(
 	if (WFR_STATUS_SUCCESS(status)) {
 		if (!(value->path = strdup(value->path))) {
 			WFR_DEBUG_FAIL();
-			sfree(value);
+			WFR_FREE(value);
 			return NULL;
 		} else {
 			return value;
 		}
 	} else {
 		WFR_DEBUG_FAIL();
-		WFR_SFREE_IF_NOTNULL(value);
+		WFR_FREE_IF_NOTNULL(value);
 		return NULL;
 	}
 }
@@ -495,7 +495,7 @@ read_setting_fontspec(
 		return NULL;
 	}
 
-	if (!(value = snew(FontSpec))) {
+	if (!(value = WFR_NEW(FontSpec))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		value->name = NULL;
@@ -522,17 +522,17 @@ read_setting_fontspec(
 		}
 	}
 
-	WFR_SFREE_IF_NOTNULL(key_charset);
-	WFR_SFREE_IF_NOTNULL(key_height);
-	WFR_SFREE_IF_NOTNULL(key_isbold);
+	WFR_FREE_IF_NOTNULL(key_charset);
+	WFR_FREE_IF_NOTNULL(key_height);
+	WFR_FREE_IF_NOTNULL(key_isbold);
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		return value;
 	} else {
 		if (value) {
-			WFR_SFREE_IF_NOTNULL(value->name);
+			WFR_FREE_IF_NOTNULL(value->name);
 		}
-		WFR_SFREE_IF_NOTNULL(value);
+		WFR_FREE_IF_NOTNULL(value);
 
 		WFR_DEBUG_FAIL();
 		return NULL;
@@ -622,7 +622,7 @@ enum_settings_next(
 		for (size_t nchar = 0; nchar < sessionname_len; nchar++) {
 			put_byte(out, sessionname[nchar]);
 		}
-		sfree(sessionname);
+		WFR_FREE(sessionname);
 		return true;
 	}
 }
@@ -632,7 +632,7 @@ enum_settings_finish(
 	settings_e *	handle
 	)
 {
-	WFR_SFREE_IF_NOTNULL(handle);
+	WFR_FREE_IF_NOTNULL(handle);
 }
 
 /* ----------------------------------------------------------------------
@@ -662,7 +662,7 @@ check_stored_host_key(
 			hostname, port, keytype, &key_name)))
 	{
 		status = WfsGetHostKey(WfsGetBackend(), false, key_name, &key_);
-		sfree(key_name);
+		WFR_FREE(key_name);
 		if (WFR_STATUS_SUCCESS(status)) {
 			if (strcmp(key, key_) == 0) {
 				return 0;
@@ -706,9 +706,9 @@ store_host_key(
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			status = WfsSetHostKey(WfsGetBackend(), key_name, key_);
-			sfree(key_name);
+			WFR_FREE(key_name);
 			if (WFR_STATUS_FAILURE(status)) {
-				sfree(key_);
+				WFR_FREE(key_);
 			}
 		}
 	}
@@ -769,7 +769,7 @@ enum_host_ca_next(
 		for (size_t nchar = 0; nchar < name_len; nchar++) {
 			put_byte(out, name[nchar]);
 		}
-		sfree(name);
+		WFR_FREE(name);
 		return true;
 	}
 }
@@ -779,7 +779,7 @@ enum_host_ca_finish(
 	host_ca_enum *	handle
 	)
 {
-	WFR_SFREE_IF_NOTNULL(handle);
+	WFR_FREE_IF_NOTNULL(handle);
 }
 
 host_ca *
@@ -795,7 +795,7 @@ host_ca_load(
 	status = WfsGetHostCA(WfsGetBackend(), false, name, &hca);
 
 	if (WFR_STATUS_SUCCESS(status)) {
-		if (!(hca_out = snew(host_ca))) {
+		if (!(hca_out = WFR_NEW(host_ca))) {
 			status = WFR_STATUS_FROM_ERRNO();
 			return NULL;
 		} else {
@@ -808,12 +808,12 @@ host_ca_load(
 			||  !(hca_out->validity_expression = strdup(hca->validity)))
 			{
 				status = WFR_STATUS_FROM_ERRNO();
-				WFR_SFREE_IF_NOTNULL(hca_out->name);
+				WFR_FREE_IF_NOTNULL(hca_out->name);
 				if (hca_out->ca_public_key) {
 					strbuf_free(hca_out->ca_public_key);
 				}
-				WFR_SFREE_IF_NOTNULL(hca_out->validity_expression);
-				sfree(hca_out);
+				WFR_FREE_IF_NOTNULL(hca_out->validity_expression);
+				WFR_FREE(hca_out);
 				return NULL;
 			} else {
 				hca_out->opts.permit_rsa_sha1 = hca->permit_rsa_sha1 ? 1 : 0;

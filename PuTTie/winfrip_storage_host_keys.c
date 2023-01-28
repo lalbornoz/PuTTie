@@ -227,7 +227,7 @@ WfsExportHostKeys(
 		(void)WfsClearHostKeys(backend_to, false);
 	}
 
-	WFR_SFREE_IF_NOTNULL(enum_state);
+	WFR_FREE_IF_NOTNULL(enum_state);
 
 	return status;
 }

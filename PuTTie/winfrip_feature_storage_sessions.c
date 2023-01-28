@@ -276,7 +276,7 @@ WffspRenameSession(
 
 		status = WfsRenameSession(backend, true, sessionname, sessionname_new);
 		if (WFR_STATUS_FAILURE(status)) {
-			sfree(sessionname_new);
+			WFR_FREE(sessionname_new);
 		} else {
 			if (backend_from == backend_to) {
 				if (WFR_STATUS_SUCCESS(status = WffspConfigUpdateSessions(ctx, WFFSP_CDIR_FROM, dlg, true))
@@ -289,7 +289,7 @@ WffspRenameSession(
 			}
 		}
 	} else {
-		sfree(sessionname_new);
+		WFR_FREE(sessionname_new);
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "renaming session %s", sessionname);
@@ -460,7 +460,7 @@ WffspConfigUpdateSessions(
 				&donefl, &sessionname, enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && !donefl) {
-				if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
+				if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
 						itemv_new, itemc_new, itemc_new + 1, char *)))
 				{
 					itemv_new[itemc_new - 1] = sessionname;
@@ -470,9 +470,9 @@ WffspConfigUpdateSessions(
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			for (size_t nsession = 0; nsession < ctx->itemc[dir]; nsession++) {
-				WFR_SFREE_IF_NOTNULL(ctx->itemv[dir][nsession]);
+				WFR_FREE_IF_NOTNULL(ctx->itemv[dir][nsession]);
 			}
-			WFR_SFREE_IF_NOTNULL(ctx->itemv[dir]);
+			WFR_FREE_IF_NOTNULL(ctx->itemv[dir]);
 
 			ctx->itemc[dir] = itemc_new;
 			ctx->itemv[dir] = itemv_new;
@@ -490,13 +490,13 @@ WffspConfigUpdateSessions(
 		} else {
 			if (itemv_new) {
 				for (size_t nsession = 0; nsession < itemc_new; nsession++) {
-					WFR_SFREE_IF_NOTNULL(itemv_new[nsession]);
+					WFR_FREE_IF_NOTNULL(itemv_new[nsession]);
 				}
-				sfree(itemv_new);
+				WFR_FREE(itemv_new);
 			}
 		}
 
-		sfree(enum_state);
+		WFR_FREE(enum_state);
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "updating session list");
@@ -524,7 +524,7 @@ WffsSessionsConfigPanel(
 	ctrl_settitle(b, "Frippery/Sessions", "Configure pointless frippery: sessions");
 
 
-	ctx = snew(WffspConfigContext);
+	ctx = WFR_NEW(WffspConfigContext);
 	WFFSP_CONFIG_CONTEXT_INIT(*ctx);
 
 	s = ctrl_getset(b, "Frippery/Sessions", "frip_sessions_from", "From:");

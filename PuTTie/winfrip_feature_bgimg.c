@@ -306,7 +306,7 @@ WffbpSetGetFname(
 				switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
 				case WFFBP_SLIDESHOW_SHUFFLE:
 					if (bg_fname && (bg_fname != WffbpFname)) {
-						sfree(bg_fname);
+						WFR_FREE(bg_fname);
 					}
 					break;
 				}
@@ -319,7 +319,7 @@ WffbpSetGetFname(
 	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
 	case WFFBP_SLIDESHOW_SHUFFLE:
 		if (bg_fname && (bg_fname != WffbpFname)) {
-			sfree(bg_fname);
+			WFR_FREE(bg_fname);
 		}
 		break;
 	}
@@ -667,7 +667,7 @@ WffbpSet(
 			rc = WffbpSetLoadNonBmp(&bg_hdc, &bg_hdc_old, &bg_height, &bg_width, &bmp_src, bg_bmp_fname_w, hdc);
 			break;
 		}
-		sfree(bg_bmp_fname_w);
+		WFR_FREE(bg_bmp_fname_w);
 	}
 
 	if (rc) {
@@ -716,7 +716,7 @@ WffbpSlideshowReconf(
 	WIN32_FIND_DATA		dname_new_ffd;
 	HANDLE			dname_new_hFind = INVALID_HANDLE_VALUE;
 
-	char *			p, **pp;
+	char *			p;
 
 	WffbpContext *		timer_ctx_new = NULL;
 
@@ -726,14 +726,14 @@ WffbpSlideshowReconf(
 		WFR_DEBUG_FAIL(); break;
 
 	case WFFBP_SLIDESHOW_SINGLE_IMAGE:
-		WFR_SFREE_IF_NOTNULL(WffbpDname);
+		WFR_FREE_IF_NOTNULL(WffbpDname);
 		if (WffbpDnameFileV) {
 			for (size_t nfile = 0; nfile < WffbpDnameFileC; nfile++) {
-				WFR_SFREE_IF_NOTNULL(WffbpDnameFileV[nfile]);
+				WFR_FREE_IF_NOTNULL(WffbpDnameFileV[nfile]);
 			}
 
-			sfree(WffbpDnameFileV);
-			WFR_SFREE_IF_NOTNULL(WffbpFname); WffbpFname = NULL;
+			WFR_FREE(WffbpDnameFileV);
+			WFR_FREE_IF_NOTNULL(WffbpFname);
 		}
 
 		WffbpDname = NULL;
@@ -743,7 +743,7 @@ WffbpSlideshowReconf(
 
 		if (WffbpTimerContext) {
 			expire_timer_context(WffbpTimerContext);
-			sfree(WffbpTimerContext);
+			WFR_FREE(WffbpTimerContext);
 			WffbpTimerContext = NULL;
 		}
 		break;
@@ -763,8 +763,8 @@ WffbpSlideshowReconf(
 			}
 		}
 
-		if (!(dname_filev_new = snewn(1, char *))
-		||  !(dname_new = snewn(bg_dname_len + (sizeof("\\*") - 1) + 1, char))) {
+		if (!(dname_filev_new = WFR_NEWN(1, char *))
+		||  !(dname_new = WFR_NEWN(bg_dname_len + (sizeof("\\*") - 1) + 1, char))) {
 			goto fail;
 		} else {
 			strncpy(dname_new, bg_dname, bg_dname_len); dname_new[bg_dname_len] = '\0'; strcat(dname_new, "\\*");
@@ -772,29 +772,30 @@ WffbpSlideshowReconf(
 			if (dname_new_hFind != INVALID_HANDLE_VALUE) {
 				do {
 					if (((dname_new_ffd.dwFileAttributes & (FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_DIRECTORY)) == FILE_ATTRIBUTE_ARCHIVE)
-					&&  (!((dname_new_ffd.cFileName[0] == '.') && (dname_new_ffd.cFileName[1] == '\0')))) {
+					&&  (!((dname_new_ffd.cFileName[0] == '.') && (dname_new_ffd.cFileName[1] == '\0'))))
+					{
 						bg_fname_len = strlen(dname_new_ffd.cFileName);
-						if (!(pp = sresize(dname_filev_new, dname_filec_new + 1 + 1, char *))) {
+						if (WFR_STATUS_FAILURE(WFR_RESIZE_VECTOR_WITHNULL(
+								dname_filev_new, dname_filec_new,
+								dname_filec_new + 1, char *)))
+						{
+							goto fail;
+						} else if (!(p = WFR_NEWN(bg_fname_len + 1, char))) {
 							goto fail;
 						} else {
-							dname_filec_new += 1, dname_filev_new = pp;
-							if (!(p = snewn(bg_fname_len + 1, char))) {
-								goto fail;
-							} else {
-								strncpy(p, dname_new_ffd.cFileName, bg_fname_len + 1); p[bg_fname_len] = '\0';
-								dname_filev_new[dname_filec_new - 1] = p;
-								dname_filev_new[dname_filec_new] = NULL;
-							}
+							strncpy(p, dname_new_ffd.cFileName, bg_fname_len + 1); p[bg_fname_len] = '\0';
+							dname_filev_new[dname_filec_new - 1] = p;
+							dname_filev_new[dname_filec_new] = NULL;
 						}
 					}
 				} while (FindNextFile(dname_new_hFind, &dname_new_ffd) != 0);
 
-				WFR_SFREE_IF_NOTNULL(WffbpDname);
+				WFR_FREE_IF_NOTNULL(WffbpDname);
 				if (WffbpDnameFileV) {
 					for (size_t nfile = 0; nfile < WffbpDnameFileC; nfile++) {
-						WFR_SFREE_IF_NOTNULL(WffbpDnameFileV[nfile]);
+						WFR_FREE_IF_NOTNULL(WffbpDnameFileV[nfile]);
 					}
-					sfree(WffbpDnameFileV);
+					WFR_FREE(WffbpDnameFileV);
 				}
 
 				WffbpDname = dname_new;
@@ -802,11 +803,11 @@ WffbpSlideshowReconf(
 				WffbpDnameFileC = dname_filec_new;
 				WffbpDnameFileV = dname_filev_new;
 
-				if (!(timer_ctx_new = snew(WffbpContext))) {
+				if (!(timer_ctx_new = WFR_NEW(WffbpContext))) {
 					goto fail;
 				} else if (WffbpTimerContext) {
 					expire_timer_context(WffbpTimerContext);
-					sfree(WffbpTimerContext);
+					WFR_FREE(WffbpTimerContext);
 				}
 				WffbpTimerContext = timer_ctx_new;
 				WffbpTimerContext->conf = conf;
@@ -826,13 +827,13 @@ WffbpSlideshowReconf(
 fail:
 	if (dname_filev_new) {
 		for (size_t nfile = 0; nfile < dname_filec_new; nfile++) {
-			WFR_SFREE_IF_NOTNULL(dname_filev_new[nfile]);
+			WFR_FREE_IF_NOTNULL(dname_filev_new[nfile]);
 		}
 
-		sfree(dname_filev_new);
+		WFR_FREE(dname_filev_new);
 	}
-	WFR_SFREE_IF_NOTNULL(dname_new);
-	WFR_SFREE_IF_NOTNULL(timer_ctx_new);
+	WFR_FREE_IF_NOTNULL(dname_new);
+	WFR_FREE_IF_NOTNULL(timer_ctx_new);
 
 	WFR_DEBUG_FAIL();
 }
@@ -871,7 +872,7 @@ WffbpSlideshowShuffle(
 		if ((WffbpDnameLen == 0) || (WffbpDnameFileV[bg_fname_idx] == NULL) || (bg_fname_len == 0)) {
 			WFR_DEBUG_FAIL();
 			return FALSE;
-		} else if (!(bg_fname = snewn(WffbpDnameLen + 1 + bg_fname_len + 1, char))) {
+		} else if (!(bg_fname = WFR_NEWN(WffbpDnameLen + 1 + bg_fname_len + 1, char))) {
 			WFR_DEBUG_FAIL();
 			return FALSE;
 		} else {
@@ -880,7 +881,7 @@ WffbpSlideshowShuffle(
 				(int)WffbpDnameLen, (int)WffbpDnameLen, WffbpDname,
 				WffbpDnameFileV[bg_fname_idx]);
 
-			WFR_SFREE_IF_NOTNULL(WffbpFname);
+			WFR_FREE_IF_NOTNULL(WffbpFname);
 			WffbpFname = dupstr(bg_fname);
 			return TRUE;
 		}

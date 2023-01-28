@@ -175,7 +175,7 @@ WfsppFileEnumerateInit(
 	WfrStatus	status;
 
 
-	if (!(((*enum_state) = snew(WfspFileEnumerateState)))) {
+	if (!(((*enum_state) = WFR_NEW(WfspFileEnumerateState)))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		WFSP_FILE_ENUMERATE_STATE_INIT((**enum_state));
@@ -186,7 +186,7 @@ WfsppFileEnumerateInit(
 			}
 		} else {
 			if (!((*enum_state)->dirp = opendir(dname))) {
-				sfree((*enum_state)); *enum_state = NULL;
+				WFR_FREE((*enum_state));
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
 				status = WFR_STATUS_CONDITION_SUCCESS;
@@ -285,7 +285,7 @@ WfsppFileJumpListGet(
 	} else if ((jump_list_size = statbuf.st_size) < 2) {
 		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 	} else if (!(file = fopen(WfsppFileFnameJumpList, "rb"))
-		|| !(jump_list = snewn(jump_list_size = statbuf.st_size, char)))
+		|| !(jump_list = WFR_NEWN(jump_list_size = statbuf.st_size, char)))
 	{
 		status = WFR_STATUS_FROM_ERRNO();
 	} else if (fread(jump_list, statbuf.st_size, 1, file) != 1) {
@@ -310,7 +310,7 @@ WfsppFileJumpListGet(
 	}
 
 	if (WFR_STATUS_FAILURE(status)) {
-		WFR_SFREE_IF_NOTNULL(jump_list);
+		WFR_FREE_IF_NOTNULL(jump_list);
 	}
 
 	return status;
@@ -397,7 +397,7 @@ WfsppFileJumpListTransform(
 
 		status = WfsppFileJumpListGet(&jump_list, &jump_list_size);
 		if (WFR_STATUS_FAILURE(status) && (WFR_STATUS_CONDITION(status) == ENOENT)) {
-			if (!(jump_list = snewn(2, char))) {
+			if (!(jump_list = WFR_NEWN(2, char))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
 				jump_list[0] = '\0'; jump_list[1] = '\0';
@@ -407,7 +407,7 @@ WfsppFileJumpListTransform(
 		}
 
 		jump_list_new_size = trans_item_len + 1 + jump_list_size;
-		if (!(jump_list_new = snewn(jump_list_new_size, char))) {
+		if (!(jump_list_new = WFR_NEWN(jump_list_new_size, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			memset(jump_list_new, '\0', jump_list_new_size);
@@ -436,7 +436,7 @@ WfsppFileJumpListTransform(
 
 			if (&jump_list_new_last[0] < &jump_list_new[jump_list_new_size - 1]) {
 				jump_list_new_delta = (&jump_list_new[jump_list_new_size - 1] - &jump_list_new_last[0]);
-				WFR_SRESIZE_IF_NEQ_SIZE(
+				WFR_RESIZE(
 					jump_list_new, jump_list_new_size,
 					jump_list_new_size - jump_list_new_delta, char);
 			}
@@ -445,8 +445,8 @@ WfsppFileJumpListTransform(
 		}
 	}
 
-	WFR_SFREE_IF_NOTNULL(jump_list);
-	WFR_SFREE_IF_NOTNULL(jump_list_new);
+	WFR_FREE_IF_NOTNULL(jump_list);
+	WFR_FREE_IF_NOTNULL(jump_list_new);
 
 	return status;
 }
@@ -469,7 +469,7 @@ WfsppFileNameEscape(
 
 
 	name_escaped_size = strlen(name) + 1;
-	if (!(name_escaped = snewn(name_escaped_size, char))) {
+	if (!(name_escaped = WFR_NEWN(name_escaped_size, char))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
@@ -481,7 +481,7 @@ WfsppFileNameEscape(
 				||  (*p == '<') || (*p == '>') || (*p == '?')
 				||  (*p == '|') || (*p == '/') || (*p == '\\'))
 				{
-					if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
+					if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
 							name_escaped, name_escaped_size,
 							name_escaped_size + (sizeof("%00") - 1),
 							char)))
@@ -512,7 +512,7 @@ WfsppFileNameEscape(
 		}
 	}
 
-	WFR_SFREE_IF_NOTNULL(name_escaped);
+	WFR_FREE_IF_NOTNULL(name_escaped);
 
 	return status;
 }
@@ -533,7 +533,7 @@ WfsppFileNameUnescape(
 
 
 	name_size = strlen(fname) + 1;
-	if (!(name = snewn(name_size, char))) {
+	if (!(name = WFR_NEWN(name_size, char))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
@@ -548,7 +548,7 @@ WfsppFileNameUnescape(
 					seq[0] = p[1]; seq[1] = p[2]; seq[2] = '\0';
 					ch = (char)strtoul(seq, NULL, 16);
 
-					if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
+					if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
 							name, name_size, name_size + 1, char)))
 					{
 						strncat(name, fname, p - fname);
@@ -572,7 +572,7 @@ WfsppFileNameUnescape(
 		if (WFR_STATUS_SUCCESS(status)) {
 			*pname = name;
 		} else {
-			sfree(name);
+			WFR_FREE(name);
 		}
 	}
 
@@ -726,7 +726,7 @@ WfspFileEnumerateHostCAs(
 			} else {
 				name[name_len] = '\0';
 				status = WfsppFileNameUnescape(name, (const char **)pname);
-				sfree(name);
+				WFR_FREE(name);
 				if (WFR_STATUS_SUCCESS(status)) {
 					*pdonefl = false;
 				}
@@ -798,7 +798,7 @@ WfspFileLoadHostCA(
 
 	if ((stat(fname, &statbuf) < 0)
 	||  (!(file = fopen(fname, "rb")))
-	||  (!(fname_buf = snewn(statbuf.st_size + 1, char))))
+	||  (!(fname_buf = WFR_NEWN(statbuf.st_size + 1, char))))
 	{
 		status = WFR_STATUS_FROM_ERRNO();
 	} else if (fread(fname_buf, statbuf.st_size, 1, file) != 1) {
@@ -869,7 +869,7 @@ WfspFileLoadHostCA(
 							status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 						}
 
-						sfree(item_type_string);
+						WFR_FREE(item_type_string);
 
 						if (WFR_STATUS_SUCCESS(status)) {
 							if ((strcmp(key, "PublicKey") == 0)
@@ -883,7 +883,7 @@ WfspFileLoadHostCA(
 							{
 								bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA1;
 								hca_tmpl.permit_rsa_sha1 = *(int *)value_new;
-								sfree(value_new);
+								WFR_FREE(value_new);
 							}
 							else if ((strcmp(key, "PermitRSASHA256") == 0)
 							      && (item_type == WFS_TREE_ITYPE_INT))
@@ -891,14 +891,14 @@ WfspFileLoadHostCA(
 								bits |= WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY;
 								bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA256;
 								hca_tmpl.permit_rsa_sha256 = *(int *)value_new;
-								sfree(value_new);
+								WFR_FREE(value_new);
 							}
 							else if ((strcmp(key, "PermitRSASHA512") == 0)
 							      && (item_type == WFS_TREE_ITYPE_INT))
 							{
 								bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA512;
 								hca_tmpl.permit_rsa_sha512 = *(int *)value_new;
-								sfree(value_new);
+								WFR_FREE(value_new);
 							}
 							else if ((strcmp(key, "Validity") == 0)
 							      && (item_type == WFS_TREE_ITYPE_STRING))
@@ -907,18 +907,18 @@ WfspFileLoadHostCA(
 								hca_tmpl.validity = value_new;
 							}
 							else {
-								sfree(value_new);
+								WFR_FREE(value_new);
 								status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 							}
 						} else {
-							sfree(value_new);
+							WFR_FREE(value_new);
 						}
 
-						WFR_SFREE_IF_NOTNULL(key);
+						WFR_FREE_IF_NOTNULL(key);
 					}
 				}
 
-				WFR_SFREE_IF_NOTNULL(line_w); line_w = NULL;
+				WFR_FREE_IF_NOTNULL(line_w);
 			}
 		} while (WFR_STATUS_SUCCESS(status) && line_sep && (p < &fname_buf[statbuf.st_size]));
 
@@ -933,7 +933,7 @@ WfspFileLoadHostCA(
 				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 			} else if (hca) {
 				if (hca->public_key) {
-					sfree((void *)hca_tmpl.public_key);
+					WFR_FREE(hca_tmpl.public_key);
 				}
 				hca->public_key = hca_tmpl.public_key;
 				hca->mtime = statbuf.st_mtime;
@@ -941,7 +941,7 @@ WfspFileLoadHostCA(
 				hca->permit_rsa_sha256 = hca_tmpl.permit_rsa_sha256;
 				hca->permit_rsa_sha512 = hca_tmpl.permit_rsa_sha512;
 				if (hca->validity) {
-					sfree((void *)hca->validity);
+					WFR_FREE(hca->validity);
 				}
 				hca->validity = hca_tmpl.validity;
 			} else if (!hca) {
@@ -957,7 +957,7 @@ WfspFileLoadHostCA(
 	}
 
 out:
-	WFR_SFREE_IF_NOTNULL(fname_buf);
+	WFR_FREE_IF_NOTNULL(fname_buf);
 	if (file) {
 		(void)fclose(file);
 	}
@@ -967,8 +967,8 @@ out:
 			*phca = hca;
 		}
 	} else {
-		WFR_SFREE_IF_NOTNULL((void *)hca_tmpl.public_key);
-		WFR_SFREE_IF_NOTNULL((void *)hca_tmpl.validity);
+		WFR_FREE_IF_NOTNULL(hca_tmpl.public_key);
+		WFR_FREE_IF_NOTNULL(hca_tmpl.validity);
 	}
 
 	return status;
@@ -1279,7 +1279,7 @@ WfspFileLoadHostKey(
 	{
 		if ((stat(fname, &statbuf) < 0)
 		||  (!(file = fopen(fname, "rb")))
-		||  (!(key = snewn(statbuf.st_size + 1, char)))) {
+		||  (!(key = WFR_NEWN(statbuf.st_size + 1, char)))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (fread(key, statbuf.st_size, 1, file) != 1) {
 			if (statbuf.st_size == 0) {
@@ -1303,7 +1303,7 @@ WfspFileLoadHostKey(
 	if (WFR_STATUS_SUCCESS(status)) {
 		*pkey = key;
 	} else {
-		sfree(key);
+		WFR_FREE(key);
 	}
 
 	return status;
@@ -1558,7 +1558,7 @@ WfspFileEnumerateSessions(
 			} else {
 				sessionname[sessionname_len] = '\0';
 				status = WfsppFileNameUnescape(sessionname, (const char **)psessionname);
-				sfree(sessionname);
+				WFR_FREE(sessionname);
 				if (WFR_STATUS_SUCCESS(status)) {
 					*pdonefl = false;
 				}
@@ -1620,7 +1620,7 @@ WfspFileLoadSession(
 
 	if ((stat(fname, &statbuf) < 0)
 	||  (!(file = fopen(fname, "rb")))
-	||  (!(fname_buf = snewn(statbuf.st_size + 1, char))))
+	||  (!(fname_buf = WFR_NEWN(statbuf.st_size + 1, char))))
 	{
 		status = WFR_STATUS_FROM_ERRNO();
 	} else if (fread(fname_buf, statbuf.st_size, 1, file) != 1) {
@@ -1699,28 +1699,28 @@ WfspFileLoadSession(
 								status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 							}
 
-							sfree(item_type_string);
+							WFR_FREE(item_type_string);
 
 							if (WFR_STATUS_SUCCESS(status)) {
 								status = WfsSetSessionKey(
 									session, key, value_new,
 									value_new_size, item_type);
 							} else {
-								sfree(value_new);
+								WFR_FREE(value_new);
 							}
 
-							WFR_SFREE_IF_NOTNULL(key);
+							WFR_FREE_IF_NOTNULL(key);
 						}
 					}
 
-					WFR_SFREE_IF_NOTNULL(line_w); line_w = NULL;
+					WFR_FREE_IF_NOTNULL(line_w);
 				}
 			} while (WFR_STATUS_SUCCESS(status) && line_sep && (p < &fname_buf[statbuf.st_size]));
 		}
 	}
 
 out:
-	WFR_SFREE_IF_NOTNULL(fname_buf);
+	WFR_FREE_IF_NOTNULL(fname_buf);
 	if (file) {
 		(void)fclose(file);
 	}

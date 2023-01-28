@@ -39,10 +39,10 @@ WfsAddSession(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		if (!(session_new = snew(WfsSession))
+		if (!(session_new = WFR_NEW(WfsSession))
 		||  !(sessionname_new = strdup(sessionname)))
 		{
-			WFR_SFREE_IF_NOTNULL(session_new);
+			WFR_FREE_IF_NOTNULL(session_new);
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			WFS_SESSION_INIT(*session_new);
@@ -60,8 +60,8 @@ WfsAddSession(
 			if (WFR_STATUS_SUCCESS(status)) {
 				*psession = session_new;
 			} else {
-				sfree(session_new);
-				sfree((void *)sessionname_new);
+				WFR_FREE(session_new);
+				WFR_FREE(sessionname_new);
 			}
 		}
 	}
@@ -342,7 +342,7 @@ WfsExportSessions(
 		(void)WfsClearSessions(backend_to, true);
 	}
 
-	WFR_SFREE_IF_NOTNULL(enum_state);
+	WFR_FREE_IF_NOTNULL(enum_state);
 
 	return status;
 }

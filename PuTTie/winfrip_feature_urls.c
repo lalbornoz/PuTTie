@@ -306,12 +306,12 @@ WffupGet(
 					term, &line_new_w, &line_new_w_len, y)))
 			{
 				break;
-			} else if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
+			} else if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
 					line_w, line_w_size,
 					line_w_size ? (line_w_size + line_new_w_len) : (line_new_w_len + 1),
 					wchar_t)))
 			{
-				sfree(line_new_w);
+				WFR_FREE(line_new_w);
 				break;
 			} else {
 				if (line_w_initfl) {
@@ -320,7 +320,7 @@ WffupGet(
 				} else {
 					wcscat(line_w, line_new_w);
 				}
-				sfree(line_new_w);
+				WFR_FREE(line_new_w);
 			}
 		}
 
@@ -329,7 +329,7 @@ WffupGet(
 				&pcre2_state, WffupReCode,
 				wcslen(line_w), WffupReMd, line_w);
 		} else {
-			WFR_SFREE_IF_NOTNULL(line_w);
+			WFR_FREE_IF_NOTNULL(line_w);
 			WFR_DEBUG_FAIL();
 			return FALSE;
 		}
@@ -373,7 +373,7 @@ WffupGet(
 				if (match_len > 0) {
 					WFR_DEBUGF("URL `%*.*S' matches regular expression", match_len, match_len, &line_w[match_begin]);
 					if (!(*phover_url_w = WfrWcsNDup(&line_w[match_begin], match_len))) {
-						sfree(line_w); return FALSE;
+						WFR_FREE(line_w); return FALSE;
 					} else {
 						pbegin->x = match_begin;
 						if (pbegin->x > term->cols) {
@@ -392,7 +392,7 @@ WffupGet(
 						}
 
 						*phover_url_w_size = match_len + 1; breakfl = true;
-						sfree(line_w);
+						WFR_FREE(line_w);
 						return TRUE;
 					}
 				} else {
@@ -407,7 +407,7 @@ WffupGet(
 	 * Free line_w and implictly return failure.
 	 */
 
-	WFR_SFREE_IF_NOTNULL(line_w);
+	WFR_FREE_IF_NOTNULL(line_w);
 	return FALSE;
 }
 
@@ -421,10 +421,11 @@ WffupGetTermLine(
 {
 	size_t		idx_in, idx_out;
 	termline *	line = NULL;
-	wchar_t *	line_w;
+	wchar_t *	line_w = NULL;
 	size_t		line_w_len;
 	size_t		rtl_idx, rtl_len;
 	int		rtl_start;
+	WfrStatus	status;
 	wchar_t		wch;
 
 
@@ -439,9 +440,11 @@ WffupGetTermLine(
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
 	} else {
 		line_w_len = term->cols;
-		if (!(line_w = sresize(NULL, line_w_len + 1, wchar_t))) {
+		if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
+				line_w, line_w_len, line_w_len + 1, wchar_t)))
+		{
 			WFR_DEBUG_FAIL();
-			return WFR_STATUS_FROM_ERRNO1(EINVAL);
+			return status;
 		} else {
 			line = term->disptext[y];
 		}
@@ -576,7 +579,7 @@ WffupReconfig(
 			0, &re_errorcode, &re_erroroffset, NULL);
 
 		if (WffupReCode) {
-			sfree(spec_w);
+			WFR_FREE(spec_w);
 			WffupReMd = pcre2_match_data_create(1, NULL);
 			return WF_RETURN_CONTINUE;
 		} else {
@@ -614,13 +617,13 @@ fail:
 	switch (MessageBoxA(NULL, dlg_caption, dlg_text, MB_CANCELTRYCONTINUE | MB_ICONERROR)) {
 	default:
 	case IDCANCEL:
-		sfree(spec_w);
+		WFR_FREE(spec_w);
 		return WF_RETURN_CANCEL;
 	case IDCONTINUE:
-		sfree(spec_w);
+		WFR_FREE(spec_w);
 		return WF_RETURN_CONTINUE;
 	case IDTRYAGAIN:
-		sfree(spec_w);
+		WFR_FREE(spec_w);
 		return WF_RETURN_RETRY;
 	}
 }
@@ -706,7 +709,7 @@ WffupStateReset(
 	WffupMatchBegin.x = WffupMatchBegin.y = 0;
 	WffupMatchEnd.x = WffupMatchEnd.y = 0;
 	if (WffupBufW) {
-		sfree(WffupBufW);
+		WFR_FREE(WffupBufW);
 		WffupBufW = NULL, WffupBufW_size = 0;
 	}
 	WffupStateCurrent = WFFUP_STATE_NONE;
@@ -956,7 +959,7 @@ WffUrlsOperation(
 						WffupSelectBegin, WffupSelectEnd))
 				{
 					if (WffupBufW) {
-						sfree(WffupBufW);
+						WFR_FREE(WffupBufW);
 					}
 					WffupBufW = buf_w_new;
 					term_update(term);

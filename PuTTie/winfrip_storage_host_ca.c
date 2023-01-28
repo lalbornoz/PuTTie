@@ -47,14 +47,14 @@ WfsAddHostCA(
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (!(public_key_new = strdup(public_key))
-		||  !(hca_new = snew(WfsHostCA))
+		||  !(hca_new = WFR_NEW(WfsHostCA))
 		||  !(name_new = strdup(name))
 		||  !(validity_new = strdup(validity)))
 		{
-			WFR_SFREE_IF_NOTNULL((void *)public_key_new);
-			WFR_SFREE_IF_NOTNULL(hca_new);
-			WFR_SFREE_IF_NOTNULL((void *)name_new);
-			WFR_SFREE_IF_NOTNULL((void *)validity_new);
+			WFR_FREE_IF_NOTNULL(public_key_new);
+			WFR_FREE_IF_NOTNULL(hca_new);
+			WFR_FREE_IF_NOTNULL(name_new);
+			WFR_FREE_IF_NOTNULL(validity_new);
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			WFS_HOST_CA_INIT(*hca_new);
@@ -76,10 +76,10 @@ WfsAddHostCA(
 			if (WFR_STATUS_SUCCESS(status)) {
 				*phca = hca_new;
 			} else {
-				sfree(hca_new);
-				sfree((void *)public_key_new);
-				sfree((void *)name_new);
-				sfree((void *)validity_new);
+				WFR_FREE(hca_new);
+				WFR_FREE(public_key_new);
+				WFR_FREE(name_new);
+				WFR_FREE(validity_new);
 			}
 		}
 	}
@@ -343,7 +343,7 @@ WfsExportHostCAs(
 		(void)WfsClearHostCAs(backend_to, true);
 	}
 
-	WFR_SFREE_IF_NOTNULL(enum_state);
+	WFR_FREE_IF_NOTNULL(enum_state);
 
 	return status;
 }
