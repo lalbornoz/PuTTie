@@ -104,7 +104,7 @@ WfrEnumRegKey(
 	LONG		status_registry;
 
 
-	if (!(lpName = snewn(MAX_PATH + 1, char))) {
+	if (!(lpName = WFR_NEWN(MAX_PATH + 1, char))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		donefl = false;
@@ -116,7 +116,7 @@ WfrEnumRegKey(
 				break;
 
 			case ERROR_MORE_DATA:
-				if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
+				if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
 						lpName, lpName_size, lpName_size + 64, char)))
 				{
 					donefl = true;
@@ -134,7 +134,7 @@ WfrEnumRegKey(
 	if (WFR_STATUS_SUCCESS(status)) {
 		*plpName = lpName;
 	} else {
-		WFR_SFREE_IF_NOTNULL(lpName);
+		WFR_FREE_IF_NOTNULL(lpName);
 	}
 
 	return status;
@@ -314,7 +314,7 @@ WfrSnDuprintf(
 	size_t		s_size;
 
 
-	if (!(s = snewn(1, char))) {
+	if (!(s = WFR_NEWN(1, char))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		s_size = 1;
@@ -326,7 +326,7 @@ WfrSnDuprintf(
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (s_len == 0) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
-		} else if (WFR_STATUS_SUCCESS(status = WFR_SRESIZE_IF_NEQ_SIZE(
+		} else if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
 				s, s_size, (size_t)s_len + 1, char)))
 		{
 			va_start(ap, format);
@@ -344,7 +344,7 @@ WfrSnDuprintf(
 			*pn = s_size;
 		}
 	} else {
-		WFR_SFREE_IF_NOTNULL(s);
+		WFR_FREE_IF_NOTNULL(s);
 	}
 
 	return status;
@@ -416,7 +416,7 @@ WfrToWcsDup(
 	out_w_len = MultiByteToWideChar(CP_ACP, 0, in, in_size, NULL, 0);
 	if (out_w_len > 0) {
 		out_w_size = out_w_len * sizeof(*out_w);
-		out_w = snewn(out_w_size, wchar_t);
+		out_w = WFR_NEWN(out_w_size, wchar_t);
 		ZeroMemory(out_w, out_w_size);
 		if (MultiByteToWideChar(CP_ACP, 0, in, in_size, out_w, out_w_size) == out_w_len) {
 			*pout_w = out_w;
@@ -442,7 +442,7 @@ WfrWcsNDup(
 
 
 	out_w_size = (in_w_len + 1) * sizeof(*out_w);
-	out_w = snewn(out_w_size, wchar_t);
+	out_w = WFR_NEWN(out_w_size, wchar_t);
 	ZeroMemory(out_w, out_w_size);
 	wcsncpy(out_w, in_w, in_w_len);
 	return out_w;

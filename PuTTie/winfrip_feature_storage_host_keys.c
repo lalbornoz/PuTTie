@@ -275,7 +275,7 @@ WffspRenameHostKey(
 
 		status = WfsRenameHostKey(backend, true, key_name, key_name_new);
 		if (WFR_STATUS_FAILURE(status)) {
-			sfree(key_name_new);
+			WFR_FREE(key_name_new);
 		} else {
 			if (backend_from == backend_to) {
 				if (WFR_STATUS_SUCCESS(status = WffspConfigUpdateHostKeys(ctx, WFFSP_CDIR_FROM, dlg, true))
@@ -288,7 +288,7 @@ WffspRenameHostKey(
 			}
 		}
 	} else {
-		sfree(key_name_new);
+		WFR_FREE(key_name_new);
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "renaming host key %s", key_name);
@@ -460,13 +460,13 @@ WffspConfigUpdateHostKeys(
 					&donefl, &key_name, enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && !donefl) {
-				if (!(key_name_ = snewn(strlen(key_name) + 1, char))) {
+				if (!(key_name_ = WFR_NEWN(strlen(key_name) + 1, char))) {
 					status = WFR_STATUS_FROM_ERRNO();
-				} else if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
+				} else if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
 						key_namev_new, key_namec_new,
 						key_namec_new + 1, char *)))
 				{
-					sfree(key_name_);
+					WFR_FREE(key_name_);
 				} else {
 					strcpy(key_name_, key_name);
 					key_namev_new[key_namec_new - 1] = key_name_;
@@ -476,9 +476,9 @@ WffspConfigUpdateHostKeys(
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			for (size_t nhost_key = 0; nhost_key < ctx->itemc[dir]; nhost_key++) {
-				WFR_SFREE_IF_NOTNULL(ctx->itemv[dir][nhost_key]);
+				WFR_FREE_IF_NOTNULL(ctx->itemv[dir][nhost_key]);
 			}
-			WFR_SFREE_IF_NOTNULL(ctx->itemv[dir]);
+			WFR_FREE_IF_NOTNULL(ctx->itemv[dir]);
 
 			ctx->itemc[dir] = key_namec_new;
 			ctx->itemv[dir] = key_namev_new;
@@ -496,13 +496,13 @@ WffspConfigUpdateHostKeys(
 		} else {
 			if (key_namev_new) {
 				for (size_t nhost_key = 0; nhost_key < key_namec_new; nhost_key++) {
-					WFR_SFREE_IF_NOTNULL(key_namev_new[nhost_key]);
+					WFR_FREE_IF_NOTNULL(key_namev_new[nhost_key]);
 				}
-				sfree(key_namev_new);
+				WFR_FREE(key_namev_new);
 			}
 		}
 
-		sfree(enum_state);
+		WFR_FREE(enum_state);
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "updating host key list");
@@ -529,7 +529,7 @@ WffsHostKeysConfigPanel(
 
 	ctrl_settitle(b, "Frippery/Host keys", "Configure pointless frippery: host keys");
 
-	ctx = snew(WffspConfigContext);
+	ctx = WFR_NEW(WffspConfigContext);
 	WFFSP_CONFIG_CONTEXT_INIT(*ctx);
 
 	s = ctrl_getset(b, "Frippery/Host keys", "frip_host_keys_from", "From:");

@@ -57,7 +57,7 @@ WfsTreeClear(
 
 	while ((item = delpos234(*tree, 0)) != NULL) {
 		free_item_fn(item);
-		sfree(item);
+		WFR_FREE(item);
 	}
 	freetree234(*tree);
 	*tree = newtree234(WfspTree234Cmp);
@@ -86,7 +86,7 @@ WfsTreeCopy(
 				value_new, item->value_size,
 				free_item_fn);
 			if (WFR_STATUS_FAILURE(status)) {
-				sfree(value_new);
+				WFR_FREE(value_new);
 			}
 		}
 	}
@@ -115,7 +115,7 @@ WfsTreeDelete(
 	if (WFR_STATUS_SUCCESS(status)) {
 		del234(tree, item);
 		free_item_fn(item);
-		sfree(item);
+		WFR_FREE(item);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -136,7 +136,7 @@ WfsTreeEnumerate(
 
 
 	if (initfl) {
-		if (!((*(int **)state) = snew(int))) {
+		if (!((*(int **)state) = WFR_NEW(int))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			**(int **)state = 0;
@@ -224,7 +224,7 @@ WfsTreeRename(
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		key_new__size = strlen(key_new) + 1;
-		if (!(key_new_ = snewn(key_new__size, char))) {
+		if (!(key_new_ = WFR_NEWN(key_new__size, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			status = WfsTreeGet(tree, key_new, -1, &item_old);
@@ -236,11 +236,11 @@ WfsTreeRename(
 
 			if (WFR_STATUS_SUCCESS(status)) {
 				(void)del234(tree, item);
-				sfree(item->key); item->key = key_new_;
+				WFR_FREE(item->key); item->key = key_new_;
 				(void)add234(tree, item);
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			} else {
-				sfree(key_new_);
+				WFR_FREE(key_new_);
 			}
 		}
 	}
@@ -267,8 +267,8 @@ WfsTreeSet(
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
 	}
 
-	if ((item = snew(WfsTreeItem))
-	&&  (key_new = snewn(strlen(key) + 1, char)))
+	if ((item = WFR_NEW(WfsTreeItem))
+	&&  (key_new = WFR_NEWN(strlen(key) + 1, char)))
 	{
 		WFS_TREE_ITEM_INIT(*item);
 		strcpy(key_new, key);
@@ -288,11 +288,11 @@ WfsTreeSet(
 			(void)add234(tree, item);
 		} else {
 			free_item_fn(item);
-			sfree(item);
+			WFR_FREE(item);
 		}
 	} else {
-		WFR_SFREE_IF_NOTNULL(item);
-		WFR_SFREE_IF_NOTNULL(key_new);
+		WFR_FREE_IF_NOTNULL(item);
+		WFR_FREE_IF_NOTNULL(key_new);
 		status = WFR_STATUS_FROM_ERRNO();
 	}
 

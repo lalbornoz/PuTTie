@@ -15,6 +15,15 @@
  * Public macros private to PuTTie/winfrip*.c
  */
 
+#define WFR_FREE(p) ({									\
+	free((void *)(p)); (p) = NULL;							\
+})
+
+#define WFR_FREE_IF_NOTNULL(p)								\
+	if ((p)) {									\
+		WFR_FREE((p));								\
+	}
+
 #define WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, fmt, ...)				\
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("PuTTie", (status), fmt, ## __VA_ARGS__)
 #define WFR_IF_STATUS_FAILURE_MESSAGEBOX1(caption, status, fmt, ...)			\
@@ -45,23 +54,33 @@
 	_a < _b ? _a : _b;								\
 })
 
-#define WFR_SFREE_IF_NOTNULL(p)								\
-	if ((p) != NULL) {								\
-		sfree((p));								\
-	}
+#define WFR_NEW(type)									\
+	malloc(sizeof(type))
 
-#define WFR_SNPRINTF(s, n, fmt, ...) ({							\
-	int		c = snprintf((s), (n), (fmt), ## __VA_ARGS__);			\
-	((char *)(s))[(n) - 1] = '\0';							\
-	c;										\
+#define WFR_NEWN(n, type)								\
+	malloc((n) * sizeof(type))
+
+#define WFR_RESIZE(p, size, size_new, type) ({						\
+	typeof (p)	_p;								\
+	WfrStatus	status;								\
+											\
+	if (!(_p = realloc((p), (size_new) * sizeof(type)))) {				\
+		status = WFR_STATUS_FROM_ERRNO();					\
+	} else {									\
+		(p) = _p;								\
+		(size) = (size_new);							\
+		(status) = WFR_STATUS_CONDITION_SUCCESS;				\
+	}										\
+											\
+	status;										\
 })
 
-#define WFR_SRESIZE_IF_NEQ_SIZE(p, size, size_new, type) ({				\
+#define WFR_RESIZE_IF_NEQ_SIZE(p, size, size_new, type) ({				\
 	typeof (p)	_p;								\
 	WfrStatus	status;								\
 											\
 	if ((size) != (size_new)) {							\
-		if (!(_p = sresize((p), (size_new), type))) {				\
+		if (!(_p = realloc((p), (size_new) * sizeof(type)))) {			\
 			status = WFR_STATUS_FROM_ERRNO();				\
 		} else {								\
 			(p) = _p;							\
@@ -71,6 +90,27 @@
 	}										\
 											\
 	status;										\
+})
+
+#define WFR_RESIZE_VECTOR_WITHNULL(p, count, count_new, type) ({			\
+	typeof (p)	_p;								\
+	WfrStatus	status;								\
+											\
+	if (!(_p = realloc((p), ((count_new) + 1) * sizeof(type)))) {			\
+		status = WFR_STATUS_FROM_ERRNO();					\
+	} else {									\
+		(p) = _p;								\
+		(count) = (count_new);							\
+		(status) = WFR_STATUS_CONDITION_SUCCESS;				\
+	}										\
+											\
+	status;										\
+})
+
+#define WFR_SNPRINTF(s, n, fmt, ...) ({							\
+	int		c = snprintf((s), (n), (fmt), ## __VA_ARGS__);			\
+	((char *)(s))[(n) - 1] = '\0';							\
+	c;										\
 })
 
 /*

@@ -69,8 +69,8 @@ WfspInit(
 		{
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		} else {
-			WFR_SFREE_IF_NOTNULL(backend_impl->tree_host_key);
-			WFR_SFREE_IF_NOTNULL(backend_impl->tree_session);
+			WFR_FREE_IF_NOTNULL(backend_impl->tree_host_key);
+			WFR_FREE_IF_NOTNULL(backend_impl->tree_session);
 			WFSP_BACKEND_INIT(*backend_impl);
 		}
 	}
@@ -287,16 +287,17 @@ WfsSetBackendFromArgV(
 	)
 {
 	char *		arg;
-	int		argc_new = 0;
-	char **		argv_new, **argv_new_;
+	int		argc_new = 0, argc_new_;
+	char **		argv_new;
 	WfsBackend	backend = WFS_DEFAULT_STORAGE_BACKEND, backend_from = WFS_DEFAULT_STORAGE_BACKEND;
 	int		narg, narg_new;
 	bool		setfl;
 	WfrStatus	status;
 
 
-	if ((argv_new = snewn(*pargc, char *))) {
-		memset(argv_new, 0, argc_new * sizeof(*argv_new));
+	argc_new_ = *pargc;
+	if ((argv_new = WFR_NEWN(argc_new_, char *))) {
+		memset(argv_new, 0, argc_new_ * sizeof(*argv_new));
 
 		status = WFR_STATUS_CONDITION_SUCCESS;
 		for (narg = 0, narg_new = 0, setfl = false;
@@ -315,14 +316,14 @@ WfsSetBackendFromArgV(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			if (!(argv_new_ = sresize(argv_new, argc_new, char *))) {
-				status = WFR_STATUS_FROM_ERRNO();
-				sfree(argv_new);
+			if (WFR_STATUS_FAILURE(status = WFR_RESIZE_IF_NEQ_SIZE(
+					argv_new, argc_new_, argc_new, char *)))
+			{
+				WFR_FREE(argv_new);
 			} else if (WFR_STATUS_FAILURE(status = WfsSetBackend(backend, backend_from, true))) {
-				sfree(argv_new);
+				WFR_FREE(argv_new);
 			} else {
-				argv_new = argv_new_;
-				*pargc = argc_new; *pargv = argv_new;
+				*pargc = argc_new_; *pargv = argv_new;
 				WfspLastBackend = backend; WfspLastBackendFrom = backend_from;
 			}
 		}
@@ -357,12 +358,12 @@ WfsSetBackendFromCmdLine(
 		arg_next = strchr(arg, ' ');
 		arg_len = (arg_next ? (size_t)(arg_next - arg) : strlen(arg));
 
-		if (!(arg_ = snewn(arg_len + 1, char))) {
+		if (!(arg_ = WFR_NEWN(arg_len + 1, char))) {
 			status = WFR_STATUS_FROM_ERRNO(); break;
 		} else {
 			memcpy(arg_, arg, arg_len); arg_[arg_len] = '\0';
 			status = WfspSetBackendFromArg(arg_, &setfl, &backend, &backend_from);
-			sfree(arg_);
+			WFR_FREE(arg_);
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {

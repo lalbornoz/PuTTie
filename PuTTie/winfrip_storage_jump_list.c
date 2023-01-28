@@ -105,7 +105,7 @@ WfsExportJumpList(
 		status = backend_from_impl->CleanupJumpList();
 	}
 
-	WFR_SFREE_IF_NOTNULL(jump_list);
+	WFR_FREE_IF_NOTNULL(jump_list);
 
 	return status;
 }
@@ -124,7 +124,7 @@ WfsGetEntriesJumpList(
 		(void)backend_impl->GetEntriesJumpList(&jump_list, &jump_list_size);
 	}
 
-	if (!jump_list && (jump_list = snewn(2, char))) {
+	if (!jump_list && (jump_list = WFR_NEWN(2, char))) {
 		jump_list[0] = '\0'; jump_list[1] = '\0';
 	}
 

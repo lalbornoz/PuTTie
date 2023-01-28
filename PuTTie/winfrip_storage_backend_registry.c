@@ -48,9 +48,10 @@ static LPCSTR	WfspRegistryValueJumpList = "Recent sessions";
 static WfrStatus	WfsppRegistryEnumerateInit(LPCSTR lpSubKey, WfspRegistryEnumerateState **enum_state);
 static WfrStatus	WfsppRegistryEnumerateKeys(bool *pdonefl, char **pitem_name, void *state);
 static WfrStatus	WfsppRegistryEnumerateValues(bool *pdonefl, void **pitem_data, size_t *pitem_data_len, char **pitem_name, WfsTreeItemType *pitem_type, void *state);
-static void		WfsppRegistryEscapeKey(const char *key, char **pkey_escaped);
+static WfrStatus	WfsppRegistryEscapeKey(const char *key, char **pkey_escaped);
 static WfrStatus	WfsppRegistryJumpListGet(HKEY *phKey, char **pjump_list, DWORD *pjump_list_size);
 static WfrStatus	WfsppRegistryJumpListTransform(bool addfl, bool delfl, const char *const trans_item);
+static WfrStatus	WfsppRegistryUnescapeKey(const char *key_escaped, char **pkey);
 
 /*
  * Private subroutines
@@ -65,7 +66,7 @@ WfsppRegistryEnumerateInit(
 	WfrStatus	status;
 
 
-	if (!(((*enum_state) = snew(WfspRegistryEnumerateState)))) {
+	if (!(((*enum_state) = WFR_NEW(WfspRegistryEnumerateState)))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		WFSP_REGISTRY_ENUMERATE_STATE_INIT((**enum_state));
@@ -77,7 +78,7 @@ WfsppRegistryEnumerateInit(
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			} else {
-				sfree((*enum_state)); *enum_state = NULL;
+				WFR_FREE((*enum_state));
 			}
 		}
 	}
@@ -93,8 +94,7 @@ WfsppRegistryEnumerateKeys(
 	)
 {
 	WfspRegistryEnumerateState *	enum_state;
-	char *				item_name = NULL;
-	strbuf *			item_name_sb;
+	char *				item_name = NULL, *item_name_escaped;
 	WfrStatus			status;
 
 
@@ -118,17 +118,16 @@ WfsppRegistryEnumerateKeys(
 			*pitem_name = NULL;
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
-	} else if (!(item_name_sb = strbuf_new())) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		unescape_registry_key(item_name, item_name_sb);
-		sfree(item_name);
-
+	} else if (WFR_STATUS_SUCCESS(status = WfsppRegistryUnescapeKey(
+			item_name, &item_name_escaped)))
+	{
 		*pdonefl = false;
-		*pitem_name = strbuf_to_str(item_name_sb);
+		*pitem_name = item_name_escaped;
 		enum_state->dwIndex++;
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
+
+	WFR_FREE_IF_NOTNULL(item_name);
 
 	return status;
 }
@@ -149,8 +148,8 @@ WfsppRegistryEnumerateValues(
 	void *				item_data = NULL;
 	DWORD				item_data_len, item_data_size = 0;
 	static char			item_name[32767]; // [see https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regenumvaluea]
+	char *				item_name_unescaped;
 	DWORD				item_name_len;
-	strbuf *			item_name_sb;
 	WfsTreeItemType			item_type;
 	WfrStatus			status;
 	LSTATUS				status_registry;
@@ -177,7 +176,7 @@ WfsppRegistryEnumerateValues(
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (!(item_data = snewn(1, char))) {
+	if (!(item_data = WFR_NEWN(1, char))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		item_data_size = 1;
@@ -196,13 +195,13 @@ WfsppRegistryEnumerateValues(
 
 			case ERROR_MORE_DATA:
 				item_data_len++;
-				status = WFR_SRESIZE_IF_NEQ_SIZE(
+				status = WFR_RESIZE_IF_NEQ_SIZE(
 					item_data, item_data_size,
 					item_data_len, char);
 				break;
 
 			case ERROR_NO_MORE_ITEMS:
-				sfree(item_data);
+				WFR_FREE(item_data);
 				donefl = true; *pdonefl = true;
 				status = WFR_STATUS_CONDITION_SUCCESS;
 
@@ -231,21 +230,18 @@ WfsppRegistryEnumerateValues(
 				}
 				item_name[item_name_len] = '\0';
 
-				if (!(item_name_sb = strbuf_new())) {
-					*pdonefl = false;
-					status = WFR_STATUS_FROM_ERRNO();
-				} else {
-					*pdonefl = false;
-					status = WFR_STATUS_CONDITION_SUCCESS;
+				*pdonefl = false;
 
-					unescape_registry_key(item_name, item_name_sb);
+				if (WFR_STATUS_SUCCESS(status = WfsppRegistryUnescapeKey(
+						item_name, &item_name_unescaped)))
+				{
 					if (pitem_data) {
 						*pitem_data = item_data;
 					}
 					if (pitem_data_len) {
 						*pitem_data_len = item_data_len;
 					}
-					*pitem_name = strbuf_to_str(item_name_sb);
+					*pitem_name = item_name_unescaped;
 					if (pitem_type) {
 						*pitem_type = item_type;
 					}
@@ -259,24 +255,66 @@ WfsppRegistryEnumerateValues(
 	}
 
 	if (WFR_STATUS_FAILURE(status)) {
-		WFR_SFREE_IF_NOTNULL(item_data);
+		WFR_FREE_IF_NOTNULL(item_data);
 	}
 
 	return status;
 }
 
-static void
+static WfrStatus
 WfsppRegistryEscapeKey(
 	const char *	key,
 	char **		pkey_escaped
 	)
 {
-	strbuf *	key_sb;
+	char *			key_escaped = NULL;
+	size_t			key_escaped_size;
+	size_t			key_len;
+	bool			dotfl = false;
+	size_t			npos;
+	static const char	hex_digits[16] = "0123456789ABCDEF";
+	WfrStatus		status;
 
 
-	key_sb = strbuf_new();
-	escape_registry_key(key, key_sb);
-	*pkey_escaped = strbuf_to_str(key_sb);
+	key_len = strlen(key);
+	key_escaped_size = key_len + 1;
+	if (!(key_escaped = WFR_NEWN(key_escaped_size, char))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		npos = 0;
+
+		while (*key) {
+			if ((*key == ' ') || (*key == '\\') || (*key == '*')
+			||  (*key == '?') || (*key == '%') || (*key < ' ')
+			||  (*key > '~') || ((*key == '.') && !dotfl))
+			{
+				if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
+						key_escaped, key_escaped_size,
+						key_escaped_size + 2, char)))
+				{
+					key_escaped[npos++] = '%';
+					key_escaped[npos++] = hex_digits[((unsigned char)*key) >> 4];
+					key_escaped[npos++] = hex_digits[((unsigned char)*key)  & 15];
+				} else {
+					break;
+				}
+			} else {
+				key_escaped[npos++] = *key;
+			}
+
+			dotfl = true;
+			key++;
+		}
+
+		if (WFR_STATUS_SUCCESS(status)) {
+			key_escaped[npos] = '\0';
+			*pkey_escaped = key_escaped;
+		} else {
+			WFR_FREE(key_escaped);
+		}
+	}
+
+	return status;
 }
 
 static WfrStatus
@@ -303,7 +341,7 @@ WfsppRegistryJumpListGet(
 			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
 		} else if (jump_list_size < 2) {
 			status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-		} else if (!(jump_list = snewn(jump_list_size, char))) {
+		} else if (!(jump_list = WFR_NEWN(jump_list_size, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (!(status_registry = RegGetValue(
 				hKey, NULL, WfspRegistryValueJumpList,
@@ -325,7 +363,7 @@ WfsppRegistryJumpListGet(
 	}
 
 	if (WFR_STATUS_FAILURE(status)) {
-		WFR_SFREE_IF_NOTNULL(jump_list);
+		WFR_FREE_IF_NOTNULL(jump_list);
 	}
 
 	if (hKey) {
@@ -363,7 +401,7 @@ WfsppRegistryJumpListTransform(
 
 		status = WfsppRegistryJumpListGet(&hKey, &jump_list, &jump_list_size);
 		if (WFR_STATUS_FAILURE(status)) {
-			if (!(jump_list = snewn(2, char))) {
+			if (!(jump_list = WFR_NEWN(2, char))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
 				jump_list[0] = '\0'; jump_list[1] = '\0';
@@ -373,7 +411,7 @@ WfsppRegistryJumpListTransform(
 		}
 
 		jump_list_new_size = trans_item_len + 1 + jump_list_size;
-		if (!(jump_list_new = snewn(jump_list_new_size, char))) {
+		if (!(jump_list_new = WFR_NEWN(jump_list_new_size, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			memset(jump_list_new, '\0', jump_list_new_size);
@@ -402,7 +440,7 @@ WfsppRegistryJumpListTransform(
 
 			if (&jump_list_new_last[0] < &jump_list_new[jump_list_new_size - 1]) {
 				jump_list_new_delta = (&jump_list_new[jump_list_new_size - 1] - &jump_list_new_last[0]);
-				WFR_SRESIZE_IF_NEQ_SIZE(
+				WFR_RESIZE(
 					jump_list_new, jump_list_new_size,
 					jump_list_new_size - jump_list_new_delta, char);
 			}
@@ -422,8 +460,56 @@ WfsppRegistryJumpListTransform(
 	if (hKey != NULL) {
 		(void)RegCloseKey(hKey);
 	}
-	WFR_SFREE_IF_NOTNULL(jump_list);
-	WFR_SFREE_IF_NOTNULL(jump_list_new);
+	WFR_FREE_IF_NOTNULL(jump_list);
+	WFR_FREE_IF_NOTNULL(jump_list_new);
+
+	return status;
+}
+
+static WfrStatus
+WfsppRegistryUnescapeKey(
+	const char *	key_escaped,
+	char **		pkey
+	)
+{
+	unsigned	digits[2];
+	char *		key = NULL;
+	size_t		key_escaped_len;
+	size_t		npos;
+	WfrStatus	status;
+
+
+	key_escaped_len = strlen(key_escaped);
+	if (!(key = WFR_NEWN(key_escaped_len + 1, char))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		npos = 0;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+
+		while (*key_escaped) {
+			if ((key_escaped[0] == '%')
+			&&  (((key_escaped[1] >= '0') && (key_escaped[1] <= '9'))
+			||   ((key_escaped[1] >= 'a') && (key_escaped[1] <= 'f'))
+			||   ((key_escaped[1] >= 'A') && (key_escaped[1] <= 'F')))
+			&&  (((key_escaped[2] >= '0') && (key_escaped[2] <= '9'))
+			||   ((key_escaped[2] >= 'a') && (key_escaped[2] <= 'f'))
+			||   ((key_escaped[2] >= 'A') && (key_escaped[2] <= 'F'))))
+			{
+				digits[0] = key_escaped[1] - '0';
+				digits[0] -= ((digits[0] > 9) ? 7 : 0);
+				digits[1] = key_escaped[2] - '0';
+				digits[1] -= ((digits[1] > 9) ? 7 : 0);
+				key[npos++] = (digits[0] << 4) + digits[1];
+				key_escaped += 3;
+			} else {
+				key[npos++] = *key_escaped;
+				key_escaped += 1;
+			}
+		}
+
+		key[npos] = '\0';
+		*pkey = key;
+	}
 
 	return status;
 }
@@ -486,13 +572,13 @@ WfspRegistryClearHostKeys(
 					backend, false, &donefl,
 					&key_name, enum_state)) && !donefl)
 			{
-				if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
+				if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
 						itemv, itemc, itemc + 1, char *)))
 				{
-					sfree((void *)key_name);
+					WFR_FREE(key_name);
 				} else {
 					WfsppRegistryEscapeKey((char *)key_name, &key_name_escaped);
-					sfree((void *)key_name);
+					WFR_FREE(key_name);
 					itemv[itemc - 1] = key_name_escaped;
 				}
 			}
@@ -519,12 +605,12 @@ WfspRegistryClearHostKeys(
 		}
 
 		for (size_t nitem = 0; nitem < itemc; nitem++) {
-			WFR_SFREE_IF_NOTNULL(itemv[nitem]);
+			WFR_FREE_IF_NOTNULL(itemv[nitem]);
 		}
-		WFR_SFREE_IF_NOTNULL(itemv);
+		WFR_FREE_IF_NOTNULL(itemv);
 	}
 
-	WFR_SFREE_IF_NOTNULL(enum_state);
+	WFR_FREE_IF_NOTNULL(enum_state);
 
 	return status;
 }
@@ -555,7 +641,7 @@ WfspRegistryDeleteHostKey(
 		(void)RegCloseKey(hKey);
 	}
 
-	WFR_SFREE_IF_NOTNULL(key_name_escaped);
+	WFR_FREE_IF_NOTNULL(key_name_escaped);
 
 	return status;
 }
@@ -622,7 +708,7 @@ WfspRegistryLoadHostKey(
 				&key_size)) == ERROR_SUCCESS)
 		{
 			status = WFR_STATUS_FROM_WINDOWS1(status_registry);
-		} else if (!(key = snewn(key_size, char))) {
+		} else if (!(key = WFR_NEWN(key_size, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (!(status_registry = RegGetValue(
 				hKey, NULL, key_name_escaped,
@@ -638,12 +724,12 @@ WfspRegistryLoadHostKey(
 	if (hKey != NULL) {
 		(void)RegCloseKey(hKey);
 	}
-	WFR_SFREE_IF_NOTNULL(key_name_escaped);
+	WFR_FREE_IF_NOTNULL(key_name_escaped);
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		*pkey = key;
 	} else {
-		WFR_SFREE_IF_NOTNULL(key);
+		WFR_FREE_IF_NOTNULL(key);
 	}
 
 	return status;
@@ -691,8 +777,8 @@ WfspRegistryRenameHostKey(
 	if (hKey != NULL) {
 		(void)RegCloseKey(hKey);
 	}
-	WFR_SFREE_IF_NOTNULL(key_name_escaped);
-	WFR_SFREE_IF_NOTNULL(key_name_new_escaped);
+	WFR_FREE_IF_NOTNULL(key_name_escaped);
+	WFR_FREE_IF_NOTNULL(key_name_new_escaped);
 
 	return status;
 }
@@ -728,7 +814,7 @@ WfspRegistrySaveHostKey(
 	if (hKey != NULL) {
 		(void)RegCloseKey(hKey);
 	}
-	WFR_SFREE_IF_NOTNULL(key_name_escaped);
+	WFR_FREE_IF_NOTNULL(key_name_escaped);
 
 	return status;
 }
@@ -788,11 +874,11 @@ WfspRegistryClearHostCAs(
 					&donefl, &item_name, &enum_state)) && !donefl)
 			{
 				WfsppRegistryEscapeKey(item_name, &item_name_escaped);
-				sfree(item_name);
-				if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
+				WFR_FREE(item_name);
+				if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
 						itemv, itemc, itemc + 1, char *)))
 				{
-					sfree(item_name_escaped);
+					WFR_FREE(item_name_escaped);
 				} else {
 					itemv[itemc - 1] = item_name_escaped;
 				}
@@ -810,9 +896,9 @@ WfspRegistryClearHostCAs(
 		}
 
 		for (size_t nitem = 0; nitem < itemc; nitem++) {
-			WFR_SFREE_IF_NOTNULL(itemv[nitem]);
+			WFR_FREE_IF_NOTNULL(itemv[nitem]);
 		}
-		WFR_SFREE_IF_NOTNULL(itemv);
+		WFR_FREE_IF_NOTNULL(itemv);
 
 		(void)RegCloseKey(enum_state.hKey);
 	} else if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
@@ -859,7 +945,7 @@ WfspRegistryDeleteHostCA(
 		(void)RegCloseKey(hKey);
 	}
 
-	WFR_SFREE_IF_NOTNULL(name_escaped);
+	WFR_FREE_IF_NOTNULL(name_escaped);
 
 	return status;
 }
@@ -930,7 +1016,7 @@ WfspRegistryLoadHostCA(
 					&public_key_size)) == ERROR_SUCCESS)
 			{
 				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
-			} else if (!(hca_tmpl.public_key = snewn(public_key_size, char))) {
+			} else if (!(hca_tmpl.public_key = WFR_NEWN(public_key_size, char))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else if (!(status_registry = RegGetValue(
 					hKey, NULL, "PublicKey", RRF_RT_REG_SZ,
@@ -982,7 +1068,7 @@ WfspRegistryLoadHostCA(
 					&validity_size)) == ERROR_SUCCESS)
 			{
 				status = WFR_STATUS_FROM_WINDOWS1(status_registry);
-			} else if (!(hca_tmpl.validity = snewn(validity_size, char))) {
+			} else if (!(hca_tmpl.validity = WFR_NEWN(validity_size, char))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else if (!(status_registry = RegGetValue(
 					hKey, NULL, "Validity", RRF_RT_REG_SZ,
@@ -998,14 +1084,14 @@ WfspRegistryLoadHostCA(
 			status = WfsGetHostCA(backend, true, name, &hca);
 			if (WFR_STATUS_SUCCESS(status)) {
 				if (hca->public_key) {
-					sfree((void *)hca_tmpl.public_key);
+					WFR_FREE(hca_tmpl.public_key);
 				}
 				hca->public_key = hca_tmpl.public_key;
 				hca->permit_rsa_sha1 = hca_tmpl.permit_rsa_sha1;
 				hca->permit_rsa_sha256 = hca_tmpl.permit_rsa_sha256;
 				hca->permit_rsa_sha512 = hca_tmpl.permit_rsa_sha512;
 				if (hca->validity) {
-					sfree((void *)hca->validity);
+					WFR_FREE(hca->validity);
 				}
 				hca->validity = hca_tmpl.validity;
 			} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
@@ -1023,15 +1109,15 @@ WfspRegistryLoadHostCA(
 	if (hKey != NULL) {
 		(void)RegCloseKey(hKey);
 	}
-	WFR_SFREE_IF_NOTNULL(name_escaped)
+	WFR_FREE_IF_NOTNULL(name_escaped)
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		if (phca) {
 			*phca = hca;
 		}
 	} else {
-		WFR_SFREE_IF_NOTNULL((void *)hca_tmpl.public_key);
-		WFR_SFREE_IF_NOTNULL((void *)hca_tmpl.validity);
+		WFR_FREE_IF_NOTNULL(hca_tmpl.public_key);
+		WFR_FREE_IF_NOTNULL(hca_tmpl.validity);
 	}
 
 	return status;
@@ -1077,10 +1163,10 @@ WfspRegistryRenameHostCA(
 	if (hKey != NULL) {
 		(void)RegCloseKey(hKey);
 	}
-	WFR_SFREE_IF_NOTNULL(name_escaped);
-	WFR_SFREE_IF_NOTNULL(name_new_escaped);
-	WFR_SFREE_IF_NOTNULL(name_escaped_w);
-	WFR_SFREE_IF_NOTNULL(name_new_escaped_w);
+	WFR_FREE_IF_NOTNULL(name_escaped);
+	WFR_FREE_IF_NOTNULL(name_new_escaped);
+	WFR_FREE_IF_NOTNULL(name_escaped_w);
+	WFR_FREE_IF_NOTNULL(name_new_escaped_w);
 
 	return status;
 }
@@ -1171,7 +1257,7 @@ WfspRegistrySaveHostCA(
 	}
 
 	(void)RegCloseKey(hKey);
-	WFR_SFREE_IF_NOTNULL(name_escaped);
+	WFR_FREE_IF_NOTNULL(name_escaped);
 
 	return status;
 }
@@ -1231,11 +1317,11 @@ WfspRegistryClearSessions(
 					&donefl, &item_name, &enum_state)) && !donefl)
 			{
 				WfsppRegistryEscapeKey(item_name, &item_name_escaped);
-				sfree(item_name);
-				if (WFR_STATUS_FAILURE(status = WFR_SRESIZE_IF_NEQ_SIZE(
+				WFR_FREE(item_name);
+				if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
 						itemv, itemc, itemc + 1, char *)))
 				{
-					sfree(item_name_escaped);
+					WFR_FREE(item_name_escaped);
 				} else {
 					itemv[itemc - 1] = item_name_escaped;
 				}
@@ -1253,9 +1339,9 @@ WfspRegistryClearSessions(
 		}
 
 		for (size_t nitem = 0; nitem < itemc; nitem++) {
-			WFR_SFREE_IF_NOTNULL(itemv[nitem]);
+			WFR_FREE_IF_NOTNULL(itemv[nitem]);
 		}
-		WFR_SFREE_IF_NOTNULL(itemv);
+		WFR_FREE_IF_NOTNULL(itemv);
 
 		(void)RegCloseKey(enum_state.hKey);
 	} else if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
@@ -1302,7 +1388,7 @@ WfspRegistryDeleteSession(
 		(void)RegCloseKey(hKey);
 	}
 
-	WFR_SFREE_IF_NOTNULL(sessionname_escaped);
+	WFR_FREE_IF_NOTNULL(sessionname_escaped);
 
 	return status;
 }
@@ -1386,10 +1472,10 @@ WfspRegistryLoadSession(
 				status = WfsSetSessionKey(
 					session, setting_name, setting_data,
 					setting_data_len, item_type);
-				sfree(setting_name);
+				WFR_FREE(setting_name);
 
 				if (WFR_STATUS_FAILURE(status)) {
-					sfree(setting_data);
+					WFR_FREE(setting_data);
 				}
 			}
 		}
@@ -1398,7 +1484,7 @@ WfspRegistryLoadSession(
 	if (enum_state.hKey != NULL) {
 		(void)RegCloseKey(enum_state.hKey);
 	}
-	WFR_SFREE_IF_NOTNULL(sessionname_escaped)
+	WFR_FREE_IF_NOTNULL(sessionname_escaped)
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		if (psession) {
@@ -1453,10 +1539,10 @@ WfspRegistryRenameSession(
 	if (hKey != NULL) {
 		(void)RegCloseKey(hKey);
 	}
-	WFR_SFREE_IF_NOTNULL(sessionname_escaped);
-	WFR_SFREE_IF_NOTNULL(sessionname_new_escaped);
-	WFR_SFREE_IF_NOTNULL(sessionname_escaped_w);
-	WFR_SFREE_IF_NOTNULL(sessionname_new_escaped_w);
+	WFR_FREE_IF_NOTNULL(sessionname_escaped);
+	WFR_FREE_IF_NOTNULL(sessionname_new_escaped);
+	WFR_FREE_IF_NOTNULL(sessionname_escaped_w);
+	WFR_FREE_IF_NOTNULL(sessionname_new_escaped_w);
 
 	return status;
 }
@@ -1516,7 +1602,7 @@ WfspRegistrySaveSession(
 	}
 
 	(void)RegCloseKey(hKey);
-	WFR_SFREE_IF_NOTNULL(sessionname_escaped);
+	WFR_FREE_IF_NOTNULL(sessionname_escaped);
 
 	return status;
 }

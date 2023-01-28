@@ -177,7 +177,7 @@ WfspEphemeralLoadHostKey(
 				if (WFR_STATUS_SUCCESS(status)) {
 					*pkey = key_;
 				} else {
-					sfree((void *)key_);
+					WFR_FREE(key_);
 				}
 			}
 		} else {

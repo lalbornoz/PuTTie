@@ -66,7 +66,7 @@ Wfp2GetMatch(
 
 				case WFP2_RTYPE_BOOL:
 					if (alloc_value) {
-						if ((value_new = snew(bool))) {
+						if ((value_new = WFR_NEW(bool))) {
 							*(bool *)value_new = wcstol(int_string_buf, NULL, 10);
 							*(bool **)pvalue = value_new;
 							status = WFR_STATUS_CONDITION_SUCCESS;
@@ -86,7 +86,7 @@ Wfp2GetMatch(
 
 				case WFP2_RTYPE_SINT:
 					if (alloc_value) {
-						if ((value_new = snew(signed int))) {
+						if ((value_new = WFR_NEW(signed int))) {
 							*(signed int *)value_new = wcstol(int_string_buf, NULL, 10);
 							*(signed int **)pvalue = value_new;
 							status = WFR_STATUS_CONDITION_SUCCESS;
@@ -107,7 +107,7 @@ Wfp2GetMatch(
 
 				case WFP2_RTYPE_UINT:
 					if (alloc_value) {
-						if ((value_new = snew(unsigned int))) {
+						if ((value_new = WFR_NEW(unsigned int))) {
 							*(unsigned int *)value_new = wcstoul(int_string_buf, NULL, 10);
 							*(unsigned int **)pvalue = value_new;
 							status = WFR_STATUS_CONDITION_SUCCESS;
@@ -134,7 +134,7 @@ Wfp2GetMatch(
 		case WFP2_RTYPE_STRING:
 			if (alloc_value) {
 				value_new_size = match_size + 1;
-				if ((value_new = snewn(value_new_size + 1, char))) {
+				if ((value_new = WFR_NEWN(value_new_size + 1, char))) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
 					snprintf(

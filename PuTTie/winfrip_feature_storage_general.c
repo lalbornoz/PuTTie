@@ -417,7 +417,7 @@ WffsGeneralConfigPanel(
 	ctrl_settitle(b, "Frippery/Storage", "Configure pointless frippery: storage");
 
 
-	ctx = snew(WffspConfigContext);
+	ctx = WFR_NEW(WffspConfigContext);
 	WFFSP_CONFIG_CONTEXT_INIT(*ctx);
 
 	s = ctrl_getset(b, "Frippery/Storage", "frip_storage_migrate_cleanup", "Clean up / migrate");
