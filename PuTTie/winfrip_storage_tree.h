@@ -27,14 +27,16 @@ typedef struct WfsTreeItem {
 	void *			value;
 	size_t			value_size;
 } WfsTreeItem;
-#define WFS_TREE_ITEM_EMPTY {		\
-	.key = NULL,			\
-	.type = 0,			\
-	.value = NULL,			\
-	.value_size = 0,		\
+#define WFS_TREE_ITEM_EMPTY {					\
+	.key = NULL,						\
+	.type = 0,						\
+	.value = NULL,						\
+	.value_size = 0,					\
 }
-#define WFS_TREE_ITEM_INIT(tree_item)	\
-	(tree_item) = (WfsTreeItem)WFS_TREE_ITEM_EMPTY
+#define WFS_TREE_ITEM_INIT(tree_item) ({			\
+	(tree_item) = (WfsTreeItem)WFS_TREE_ITEM_EMPTY;		\
+	WFR_STATUS_CONDITION_SUCCESS;				\
+})
 
 /*
  * Storage tree clone value and free item function pointer types

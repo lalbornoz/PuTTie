@@ -3,7 +3,6 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#include "PuTTie/winfrip_rtl_status.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
@@ -13,6 +12,7 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
@@ -632,7 +632,7 @@ enum_settings_finish(
 	settings_e *	handle
 	)
 {
-	WFR_FREE_IF_NOTNULL(handle);
+	(void)handle;
 }
 
 /* ----------------------------------------------------------------------
@@ -779,7 +779,7 @@ enum_host_ca_finish(
 	host_ca_enum *	handle
 	)
 {
-	WFR_FREE_IF_NOTNULL(handle);
+	(void)handle;
 }
 
 host_ca *

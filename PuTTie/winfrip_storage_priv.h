@@ -30,7 +30,7 @@ typedef struct WfspBackend {
 	WfrStatus	(*CleanupHostKeys)(WfsBackend);
 	WfrStatus	(*ClearHostKeys)(WfsBackend);
 	WfrStatus	(*DeleteHostKey)(WfsBackend, const char *);
-	WfrStatus	(*EnumerateHostKeys)(WfsBackend, bool, bool *, const char **, void *);
+	WfrStatus	(*EnumerateHostKeys)(WfsBackend, bool, bool *, char **, void *);
 	WfrStatus	(*LoadHostKey)(WfsBackend, const char *, const char **);
 	WfrStatus	(*RenameHostKey)(WfsBackend, const char *, const char *);
 	WfrStatus	(*SaveHostKey)(WfsBackend, const char *, const char *);
@@ -58,16 +58,19 @@ typedef struct WfspBackend {
 	tree234 *	tree_host_ca, *tree_host_key, *tree_session;
 } WfspBackend;
 
-#define WFSP_BACKEND_INIT(backend)		\
+#define WFSP_BACKEND_INIT(backend) ({		\
 	(backend).tree_host_ca = NULL;		\
 	(backend).tree_host_key = NULL;		\
-	(backend).tree_session = NULL;
+	(backend).tree_session = NULL;		\
+	WFR_STATUS_CONDITION_SUCCESS;		\
+})
 
 /*
- * Public storage backend subroutine prototypes private to PuTTie/winfrip_storage*.c
+ * Public subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
 WfrStatus	WfsGetBackendImpl(WfsBackend backend, void *pbackend);
+WfrStatus	WfsTransformJumpList(bool addfl, bool delfl, char **pjump_list, size_t *pjump_list_size, const char *const trans_item);
 WfrStatus	WfsTreeCloneValue(WfsTreeItem *item, void **pvalue_new);
 void		WfsTreeFreeItem(WfsTreeItem *item);
 

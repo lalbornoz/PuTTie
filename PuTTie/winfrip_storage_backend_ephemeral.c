@@ -3,7 +3,6 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#include "PuTTie/winfrip_rtl_status.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
@@ -147,7 +146,7 @@ WfspEphemeralEnumerateHostKeys(
 	WfsBackend	backend,
 	bool		initfl,
 	bool *		pdonefl,
-	const char **	pkey_name,
+	char **		pkey_name,
 	void *		state
 	)
 {
@@ -345,9 +344,19 @@ WfspEphemeralGetEntriesJumpList(
 	size_t *	pjump_list_size
 	)
 {
-	*pjump_list = NULL;
-	*pjump_list_size = 0;
-	return WFR_STATUS_CONDITION_SUCCESS;
+	WfrStatus	status;
+
+
+	if (!((*pjump_list = WFR_NEWN(2, char)))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		(*pjump_list)[0] = '\0';
+		(*pjump_list)[1] = '\0';
+		*pjump_list_size = 2;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
 }
 
 void

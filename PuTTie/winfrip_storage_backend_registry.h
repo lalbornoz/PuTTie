@@ -7,23 +7,6 @@
 #define PUTTY_WINFRIP_STORAGE_BACKEND_REGISTRY_H
 
 /*
- * Public type definitions private to PuTTie/winfrip_storage*.c
- */
-
-typedef struct WfspRegistryEnumerateState {
-	bool	donefl;
-	DWORD	dwIndex;
-	HKEY	hKey;
-} WfspRegistryEnumerateState;
-#define WFSP_REGISTRY_ENUMERATE_STATE_EMPTY {							\
-	.donefl = false,									\
-	.dwIndex = 0,										\
-	.hKey = 0,										\
-}
-#define WFSP_REGISTRY_ENUMERATE_STATE_INIT(state)						\
-	(state) = (WfspRegistryEnumerateState)WFSP_REGISTRY_ENUMERATE_STATE_EMPTY
-
-/*
  * Public subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
@@ -62,7 +45,7 @@ WfrStatus	WfspRegistrySaveHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspRegistryCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspRegistryClearHostKeys(WfsBackend backend);
 WfrStatus	WfspRegistryDeleteHostKey(WfsBackend backend, const char *key_name);
-WfrStatus	WfspRegistryEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, const char **pkey_name, void *state);
+WfrStatus	WfspRegistryEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, char **pkey_name, void *state);
 WfrStatus	WfspRegistryLoadHostKey(WfsBackend backend, const char *key_name, const char **pkey);
 WfrStatus	WfspRegistryRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspRegistrySaveHostKey(WfsBackend backend, const char *key_name, const char *key);

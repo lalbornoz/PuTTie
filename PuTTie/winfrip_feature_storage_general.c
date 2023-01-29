@@ -13,6 +13,7 @@
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_storage_general.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_feature_storage_priv.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
@@ -75,49 +76,13 @@ typedef struct WffspConfigContext {
  * Private subroutine prototypes
  */
 
-static WfrStatus	WffspRefreshBackends(dlgcontrol *ctrl, dlgparam *dlg, bool fromfl);
-static void		WffspConfigGeneralHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static void		WffspConfigGeneralCleanupHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-static void		WffspConfigGeneralMigrateHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void	WffspConfigGeneralHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void	WffspConfigGeneralCleanupHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
+static void	WffspConfigGeneralMigrateHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 /*
  * Private subroutines
  */
-
-static WfrStatus
-WffspRefreshBackends(
-	dlgcontrol *	ctrl,
-	dlgparam *	dlg,
-	bool		fromfl
-	)
-{
-	WfsBackend	backend;
-	const char *	backend_name;
-	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
-
-
-	dlg_update_start(ctrl, dlg);
-	dlg_listbox_clear(ctrl, dlg);
-
-	backend = WFS_BACKEND_MIN;
-	do {
-		if (WFR_STATUS_SUCCESS(status = WfsGetBackendName(backend, &backend_name))) {
-			dlg_listbox_addwithid(ctrl, dlg, backend_name, backend);
-		}
-	} while (WfsGetBackendNext(&backend));
-
-	if (fromfl) {
-		dlg_listbox_select(ctrl, dlg, WFS_BACKEND_REGISTRY);
-	} else {
-		dlg_listbox_select(ctrl, dlg, WFS_BACKEND_FILE);
-	}
-
-	dlg_update_done(ctrl, dlg);
-
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "refreshing backends");
-
-	return status;
-}
 
 static void
 WffspConfigGeneralHandler(
@@ -146,9 +111,11 @@ WffspConfigGeneralHandler(
 
 	case EVENT_REFRESH:
 		if ((ctrl == ctx->droplist_from)
-			|| (ctrl == ctx->droplist_to))
+		||  (ctrl == ctx->droplist_to))
 		{
-			(void)WffspRefreshBackends(ctrl, dlg, (ctrl == ctx->droplist_from));
+			dlg_update_start(ctrl, dlg);
+			(void)WffsRefreshBackends(ctrl, dlg, (ctrl == ctx->droplist_from));
+			dlg_update_done(ctrl, dlg);
 		} else if (ctrl == ctx->listbox) {
 			dlg_update_start(ctrl, dlg);
 			dlg_listbox_clear(ctrl, dlg);
@@ -377,14 +344,14 @@ WffspConfigGeneralMigrateHandler(
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating jump list");
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (movefl && WFR_STATUS_SUCCESS(status)) {
 			status = WfsCleanupContainer(backend_from);
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up container");
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			WfrMessageBoxF(
-				"PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
+				"PuTTie", MB_ICONQUESTION | MB_OK | MB_DEFBUTTON1,
 				"Successfully %s the following items from %s to %s backend:\n"
 				"%s%s%s%s",
 				movefl ? "moved" : "copied",

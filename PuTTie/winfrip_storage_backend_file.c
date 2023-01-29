@@ -3,7 +3,6 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#include "PuTTie/winfrip_rtl_status.h"
 #include "PuTTie/winfrip_storage_jumplist_wrap.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -11,12 +10,14 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_file.h"
 #include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
+#include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_file.h"
 
 #include <dirent.h>
@@ -81,117 +82,60 @@ static Wfp2Regex	WfsppFileRegex = {
  * Private subroutine prototypes
  */
 
-static WfrStatus	WfsppFileClear(const char *dname, const char *ext);
-static WfrStatus	WfsppFileEnumerateInit(const char *dname, WfspFileEnumerateState **enum_state);
+static WfrStatus	WfsppFileGetJumpList(char **pjump_list, size_t *pjump_list_size);
 static WfrStatus	WfsppFileInitAppDataSubdir(void);
 static WfrStatus	WfsppFileInitRegex(void);
-static WfrStatus	WfsppFileJumpListGet(char **pjump_list, size_t *pjump_list_size);
-static WfrStatus	WfsppFileJumpListSet(const char *jump_list, size_t jump_list_size);
-static WfrStatus	WfsppFileJumpListTransform(bool addfl, bool delfl, const char *const trans_item);
-static WfrStatus	WfsppFileNameEscape(const char *dname, const char *ext, const char *name, bool tmpfl, char *fname, size_t fname_size);
-static WfrStatus	WfsppFileNameUnescape(char *fname, const char **pname);
+static WfrStatus	WfsppFileSetJumpList(const char *jump_list, size_t jump_list_size);
+static WfrStatus	WfsppFileTransformJumpList(bool addfl, bool delfl, const char *const trans_item);
 
 /*
  * Private subroutines
  */
 
 static WfrStatus
-WfsppFileClear(
-	const char *	dname,
-	const char *	ext
+WfsppFileGetJumpList(
+	char **		pjump_list,
+	size_t *	pjump_list_size
 	)
 {
-	struct dirent *		dire;
-	DIR *			dirp = NULL;
-	size_t			ext_len;
-	char			fname[MAX_PATH + 1];
-	char			path_cwd[MAX_PATH + 1];
-	char *			pext;
-	struct stat		statbuf;
-	WfrStatus		status;
-
-
-	ext_len = strlen(ext);
-
-	if (stat(dname, &statbuf) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
-			return WFR_STATUS_CONDITION_SUCCESS;
-		} else {
-			return status;
-		}
-	}
-
-	if (!(dirp = opendir(dname))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (!getcwd(path_cwd, sizeof(path_cwd))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
-		while (WFR_STATUS_SUCCESS(status) && (dire = readdir(dirp))) {
-			if (chdir(dname) < 0) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else if (stat(dire->d_name, &statbuf) < 0) {
-				status = WFR_STATUS_FROM_ERRNO();
-				(void)chdir(path_cwd);
-			} else if (chdir(path_cwd) < 0) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else if (!(statbuf.st_mode & S_IFREG)) {
-				continue;
-			} else if ((dire->d_name[0] == '.')
-				&& (dire->d_name[1] == '\0'))
-			{
-				continue;
-			} else if ((dire->d_name[0] == '.')
-				&& (dire->d_name[1] == '.')
-				&& (dire->d_name[2] == '\0'))
-			{
-				continue;
-			} else if ((pext = strstr(dire->d_name, ext))
-				&& (pext[ext_len] == '\0'))
-			{
-				WFR_SNPRINTF(fname, sizeof(fname), "%s/%s", dname, dire->d_name);
-				if (unlink(fname) < 0) {
-					status = WFR_STATUS_FROM_ERRNO();
-				}
-			}
-		}
-	}
-
-	if (dirp) {
-		(void)closedir(dirp);
-	}
-
-	return status;
-}
-
-static WfrStatus
-WfsppFileEnumerateInit(
-	const char *			dname,
-	WfspFileEnumerateState **	enum_state
-	)
-{
+	FILE *		file = NULL;
+	char *		jump_list = NULL;
+	size_t		jump_list_size = 0;
 	struct stat	statbuf;
 	WfrStatus	status;
 
 
-	if (!(((*enum_state) = WFR_NEW(WfspFileEnumerateState)))) {
+	if (stat(WfsppFileFnameJumpList, &statbuf) < 0) {
 		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		WFSP_FILE_ENUMERATE_STATE_INIT((**enum_state));
-		if (stat(dname, &statbuf) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-			if (WFR_STATUS_CONDITION(status) == ENOENT) {
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
-		} else {
-			if (!((*enum_state)->dirp = opendir(dname))) {
-				WFR_FREE((*enum_state));
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
+	} else if ((jump_list_size = statbuf.st_size) < 2) {
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
+	} else if (!(file = fopen(WfsppFileFnameJumpList, "rb"))
+		|| !(jump_list = WFR_NEWN(jump_list_size = statbuf.st_size, char)))
+	{
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (fread(jump_list, statbuf.st_size, 1, file) != 1) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (feof(file)) {
+			status = WFR_STATUS_FROM_ERRNO1(ENODATA);
 		}
+	} else {
+		jump_list[jump_list_size - 2] = '\0';
+		jump_list[jump_list_size - 1] = '\0';
+
+		*pjump_list = jump_list;
+		if (pjump_list_size) {
+			*pjump_list_size = jump_list_size;
+		}
+
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (file != NULL) {
+		fclose(file);
+	}
+
+	if (WFR_STATUS_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(jump_list);
 	}
 
 	return status;
@@ -268,56 +212,7 @@ WfsppFileInitRegex(
 }
 
 static WfrStatus
-WfsppFileJumpListGet(
-	char **		pjump_list,
-	size_t *	pjump_list_size
-	)
-{
-	FILE *		file = NULL;
-	char *		jump_list = NULL;
-	size_t		jump_list_size = 0;
-	struct stat	statbuf;
-	WfrStatus	status;
-
-
-	if (stat(WfsppFileFnameJumpList, &statbuf) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if ((jump_list_size = statbuf.st_size) < 2) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else if (!(file = fopen(WfsppFileFnameJumpList, "rb"))
-		|| !(jump_list = WFR_NEWN(jump_list_size = statbuf.st_size, char)))
-	{
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (fread(jump_list, statbuf.st_size, 1, file) != 1) {
-		status = WFR_STATUS_FROM_ERRNO();
-		if (feof(file)) {
-			status = WFR_STATUS_FROM_ERRNO1(ENODATA);
-		}
-	} else {
-		jump_list[jump_list_size - 2] = '\0';
-		jump_list[jump_list_size - 1] = '\0';
-
-		*pjump_list = jump_list;
-		if (pjump_list_size) {
-			*pjump_list_size = jump_list_size;
-		}
-
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	if (file != NULL) {
-		fclose(file);
-	}
-
-	if (WFR_STATUS_FAILURE(status)) {
-		WFR_FREE_IF_NOTNULL(jump_list);
-	}
-
-	return status;
-}
-
-static WfrStatus
-WfsppFileJumpListSet(
+WfsppFileSetJumpList(
 	const char *	jump_list,
 	size_t		jump_list_size
 	)
@@ -376,205 +271,34 @@ WfsppFileJumpListSet(
 }
 
 static WfrStatus
-WfsppFileJumpListTransform(
+WfsppFileTransformJumpList(
 	bool			addfl,
 	bool			delfl,
 	const char *const	trans_item
 	)
 {
-	size_t		item_len;
 	char *		jump_list = NULL;
-	char *		jump_list_new = NULL, *jump_list_new_last;
-	ptrdiff_t	jump_list_new_delta;
-	size_t		jump_list_size = 0;
-	size_t		jump_list_new_size = 0;
+	size_t		jump_list_size;
 	WfrStatus	status;
-	size_t		trans_item_len;
 
 
 	if (addfl || delfl) {
-		trans_item_len = strlen(trans_item);
-
-		status = WfsppFileJumpListGet(&jump_list, &jump_list_size);
-		if (WFR_STATUS_FAILURE(status) && (WFR_STATUS_CONDITION(status) == ENOENT)) {
-			if (!(jump_list = WFR_NEWN(2, char))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				jump_list[0] = '\0'; jump_list[1] = '\0';
-				jump_list_size = 1;
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
+		if (WFR_STATUS_FAILURE(status = WfsppFileGetJumpList(
+				&jump_list, &jump_list_size)))
+		{
+			jump_list = NULL;
+			jump_list_size = 0;
 		}
 
-		jump_list_new_size = trans_item_len + 1 + jump_list_size;
-		if (!(jump_list_new = WFR_NEWN(jump_list_new_size, char))) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else {
-			memset(jump_list_new, '\0', jump_list_new_size);
-			jump_list_new_last = jump_list_new;
-
-			if (addfl) {
-				memcpy(jump_list_new_last, trans_item, trans_item_len + 1);
-				jump_list_new_last += trans_item_len + 1;
-			}
-
-			for (char *item = jump_list, *item_next = NULL;
-				 item && *item; item = item_next)
-			{
-				if ((item_next = strchr(item, '\0'))) {
-					item_len = item_next - item;
-					item_next++;
-
-					if ((trans_item_len != item_len)
-					||  (strncmp(trans_item, item, item_len) != 0))
-					{
-						memcpy(jump_list_new_last, item, item_len + 1);
-						jump_list_new_last += item_len + 1;
-					}
-				}
-			}
-
-			if (&jump_list_new_last[0] < &jump_list_new[jump_list_new_size - 1]) {
-				jump_list_new_delta = (&jump_list_new[jump_list_new_size - 1] - &jump_list_new_last[0]);
-				WFR_RESIZE(
-					jump_list_new, jump_list_new_size,
-					jump_list_new_size - jump_list_new_delta, char);
-			}
-
-			status = WfsppFileJumpListSet(jump_list_new, jump_list_new_size);
+		if (WFR_STATUS_SUCCESS(status = WfsTransformJumpList(
+				addfl, delfl, &jump_list,
+				&jump_list_size, trans_item)))
+		{
+			status = WfsppFileSetJumpList(jump_list, jump_list_size);
 		}
 	}
 
 	WFR_FREE_IF_NOTNULL(jump_list);
-	WFR_FREE_IF_NOTNULL(jump_list_new);
-
-	return status;
-}
-
-static WfrStatus
-WfsppFileNameEscape(
-	const char *	dname,
-	const char *	ext,
-	const char *	name,
-	bool		tmpfl,
-	char *		fname,
-	size_t		fname_size
-	)
-{
-	bool		catfl;
-	char *		name_escaped = NULL;
-	size_t		name_escaped_len, name_escaped_size;
-	char		*p;
-	WfrStatus	status;
-
-
-	name_escaped_size = strlen(name) + 1;
-	if (!(name_escaped = WFR_NEWN(name_escaped_size, char))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
-		memset(name_escaped, 0, name_escaped_size);
-
-		do {
-			for (catfl = false, p = (char *)name; *p; p++) {
-				if ((*p == '"') || (*p == '*') || (*p == ':')
-				||  (*p == '<') || (*p == '>') || (*p == '?')
-				||  (*p == '|') || (*p == '/') || (*p == '\\'))
-				{
-					if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
-							name_escaped, name_escaped_size,
-							name_escaped_size + (sizeof("%00") - 1),
-							char)))
-					{
-						strncat(name_escaped, name, p - name);
-						name_escaped_len = strlen(name_escaped);
-						WFR_SNPRINTF(
-							&name_escaped[name_escaped_len],
-							name_escaped_size - name_escaped_len,
-							"%%%02x", (int)*p);
-						name = ++p; catfl = true;
-						break;
-					}
-				}
-			}
-
-			if (!catfl) {
-				strcat(name_escaped, name);
-				break;
-			}
-		} while (WFR_STATUS_SUCCESS(status));
-
-		if (WFR_STATUS_SUCCESS(status)) {
-			WFR_SNPRINTF(
-				fname, fname_size, "%s/%s%s%s",
-				dname, name_escaped, ext,
-				(tmpfl ? ".XXXXXX" : ""));
-		}
-	}
-
-	WFR_FREE_IF_NOTNULL(name_escaped);
-
-	return status;
-}
-
-static WfrStatus
-WfsppFileNameUnescape(
-	char *		fname,
-	const char **	pname
-	)
-{
-	bool		catfl;
-	char		ch;
-	char *		name = NULL;
-	size_t		name_len, name_size;
-	char		*p;
-	char		seq[3];
-	WfrStatus	status;
-
-
-	name_size = strlen(fname) + 1;
-	if (!(name = WFR_NEWN(name_size, char))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
-		memset(name, 0, name_size);
-
-		do {
-			for (catfl = false, p = fname; *p; p++) {
-				if ( (p[0] == '%')
-				&& (((p[1] >= '0') && (p[1] <= '9')) || ((p[1] >= 'a') && (p[1] <= 'f')))
-				&& (((p[2] >= '0') && (p[2] <= '9')) || ((p[2] >= 'a') && (p[2] <= 'f'))))
-				{
-					seq[0] = p[1]; seq[1] = p[2]; seq[2] = '\0';
-					ch = (char)strtoul(seq, NULL, 16);
-
-					if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
-							name, name_size, name_size + 1, char)))
-					{
-						strncat(name, fname, p - fname);
-						name_len = strlen(name);
-						WFR_SNPRINTF(
-								&name[name_len],
-								name_size - name_len,
-								"%c", ch);
-						fname = (p += 3); catfl = true;
-						break;
-					}
-				}
-			}
-
-			if (!catfl) {
-				strcat(name, fname);
-				break;
-			}
-		} while (WFR_STATUS_SUCCESS(status));
-
-		if (WFR_STATUS_SUCCESS(status)) {
-			*pname = name;
-		} else {
-			WFR_FREE(name);
-		}
-	}
 
 	return status;
 }
@@ -604,7 +328,7 @@ WfspFileClearHostCAs(
 	)
 {
 	(void)backend;
-	return WfsppFileClear(WfsppFileDnameHostCAs, WfsppFileExtHostCAs);
+	return WfrDeleteFiles(WfsppFileDnameHostCAs, WfsppFileExtHostCAs);
 }
 
 WfrStatus
@@ -632,7 +356,7 @@ WfspFileDeleteHostCA(
 
 	(void)backend;
 
-	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
 			WfsppFileExtHostCAs, name,
 			false, fname, sizeof(fname))))
@@ -660,93 +384,28 @@ WfspFileEnumerateHostCAs(
 	void *		state
 	)
 {
-	WfspFileEnumerateState *	enum_state;
-	char *				fname, *pext;
-	char				path_cwd[MAX_PATH + 1];
-	char *				name;
-	size_t				name_len;
-	struct stat			statbuf;
+	WfrEnumerateFilesState *	enum_state;
+	const char *			name;
 	WfrStatus			status;
 
 
 	(void)backend;
 
 	if (initfl) {
-		return WfsppFileEnumerateInit(
+		return WfrEnumerateFilesInit(
 			WfsppFileDnameHostCAs,
-			(WfspFileEnumerateState **)state);
+			(WfrEnumerateFilesState **)state);
 	}
 
-	enum_state = (WfspFileEnumerateState *)state;
-
-	if (!enum_state->dirp) {
-		*pdonefl = true;
-		*pname = NULL;
-		enum_state->donefl = true;
-		WFSP_FILE_ENUMERATE_STATE_INIT(*enum_state);
-		return WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	if (!getcwd(path_cwd, sizeof(path_cwd))) {
-		return WFR_STATUS_FROM_ERRNO();
-	}
-
-	errno = 0; status = WFR_STATUS_CONDITION_SUCCESS;
-	while (WFR_STATUS_SUCCESS(status)
-	&&     (enum_state->dire = readdir(enum_state->dirp)))
+	enum_state = (WfrEnumerateFilesState *)state;
+	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
+			WfsppFileExtHostCAs, pdonefl, &name, enum_state)))
 	{
-		if (chdir(WfsppFileDnameHostCAs) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (stat(enum_state->dire->d_name, &statbuf) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-			(void)chdir(path_cwd);
-		} else if (chdir(path_cwd) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (!(statbuf.st_mode & S_IFREG)) {
-			continue;
-		} else if ((enum_state->dire->d_name[0] == '.')
-			&& (enum_state->dire->d_name[1] == '\0'))
-		{
-			continue;
-		} else if ((enum_state->dire->d_name[0] == '.')
-			&& (enum_state->dire->d_name[1] == '.')
-			&& (enum_state->dire->d_name[2] == '\0'))
-		{
-			continue;
-		} else {
-			fname = enum_state->dire->d_name;
-			if ((pext = strstr(fname, WfsppFileExtHostCAs))) {
-				name_len = pext - fname;
-			} else {
-				name_len = strlen(fname);
-			}
-
-			if (!(name = strdup(fname))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				name[name_len] = '\0';
-				status = WfsppFileNameUnescape(name, (const char **)pname);
-				WFR_FREE(name);
-				if (WFR_STATUS_SUCCESS(status)) {
-					*pdonefl = false;
-				}
-			}
-			goto out;
+		if (!(*pdonefl)) {
+			status = WfrUnescapeFileName((char *)name, (const char **)pname);
 		}
 	}
 
-	if (errno == 0) {
-		*pdonefl = true;
-		*pname = NULL;
-		enum_state->donefl = true;
-		(void)closedir(enum_state->dirp);
-		WFSP_FILE_ENUMERATE_STATE_INIT(*enum_state);
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	} else {
-		status = WFR_STATUS_FROM_ERRNO();
-	}
-
-out:
 	return status;
 }
 
@@ -786,7 +445,7 @@ WfspFileLoadHostCA(
 	size_t			value_new_size;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
 			WfsppFileExtHostCAs, name,
 			false, fname, sizeof(fname))))
@@ -987,11 +646,11 @@ WfspFileRenameHostCA(
 
 	(void)backend;
 
-	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
 			WfsppFileExtHostCAs, name,
 			false, fname, sizeof(fname)))
-	||  WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
 			WfsppFileExtHostCAs, name_new,
 			false, fname_new, sizeof(fname_new))))
@@ -1029,11 +688,11 @@ WfspFileSaveHostCA(
 		dname_tmp = "./";
 	}
 
-	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
 			WfsppFileExtHostCAs, hca->name,
 			false, fname, sizeof(fname)))
-	||  WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			dname_tmp, WfsppFileExtHostCAs, hca->name,
 			true, fname_tmp, sizeof(fname_tmp))))
 	{
@@ -1136,7 +795,7 @@ WfspFileClearHostKeys(
 	)
 {
 	(void)backend;
-	return WfsppFileClear(WfsppFileDnameHostKeys, WfsppFileExtHostKeys);
+	return WfrDeleteFiles(WfsppFileDnameHostKeys, WfsppFileExtHostKeys);
 }
 
 WfrStatus
@@ -1152,7 +811,7 @@ WfspFileDeleteHostKey(
 
 	(void)backend;
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameHostKeys,
 			WfsppFileExtHostKeys, key_name,
 			false, fname, sizeof(fname))))
@@ -1174,87 +833,32 @@ WfspFileEnumerateHostKeys(
 	WfsBackend	backend,
 	bool		initfl,
 	bool *		pdonefl,
-	const char **	pkey_name,
+	char **		pkey_name,
 	void *		state
 	)
 {
-	WfspFileEnumerateState *	enum_state;
-	char *				fname, *fname_ext;
-	char				path_cwd[MAX_PATH + 1];
-	struct stat			statbuf;
+	WfrEnumerateFilesState *	enum_state;
+	const char *			name;
 	WfrStatus			status;
 
 
 	(void)backend;
 
 	if (initfl) {
-		return WfsppFileEnumerateInit(
+		return WfrEnumerateFilesInit(
 			WfsppFileDnameHostKeys,
-			(WfspFileEnumerateState **)state);
+			(WfrEnumerateFilesState **)state);
 	}
 
-	enum_state = (WfspFileEnumerateState *)state;
-
-	if (!enum_state->dirp) {
-		*pdonefl = true;
-		*pkey_name = NULL;
-		enum_state->donefl = true;
-		WFSP_FILE_ENUMERATE_STATE_INIT(*enum_state);
-		return WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	if (!getcwd(path_cwd, sizeof(path_cwd))) {
-		return WFR_STATUS_FROM_ERRNO();
-	}
-
-	errno = 0; status = WFR_STATUS_CONDITION_SUCCESS;
-	while (WFR_STATUS_SUCCESS(status)
-	&&     (enum_state->dire = readdir(enum_state->dirp)))
+	enum_state = (WfrEnumerateFilesState *)state;
+	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
+			WfsppFileExtHostKeys, pdonefl, &name, enum_state)))
 	{
-		if (chdir(WfsppFileDnameHostKeys) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (stat(enum_state->dire->d_name, &statbuf) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-			(void)chdir(path_cwd);
-		} else if (chdir(path_cwd) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (!(statbuf.st_mode & S_IFREG)) {
-			continue;
-		} else if ((enum_state->dire->d_name[0] == '.')
-			&& (enum_state->dire->d_name[1] == '\0'))
-		{
-			continue;
-		} else if ((enum_state->dire->d_name[0] == '.')
-			&& (enum_state->dire->d_name[1] == '.')
-			&& (enum_state->dire->d_name[2] == '\0'))
-		{
-			continue;
-		} else {
-			*pdonefl = false;
-			fname = enum_state->dire->d_name;
-
-			if ((fname_ext = strstr(fname, WfsppFileExtHostKeys))
-			&&  (fname_ext[sizeof(WfsppFileExtHostKeys) - 1] == '\0'))
-			{
-				*fname_ext = '\0';
-				status = WfsppFileNameUnescape(fname, pkey_name);
-				goto out;
-			}
+		if (!(*pdonefl)) {
+			status = WfrUnescapeFileName((char *)name, (const char **)pkey_name);
 		}
 	}
 
-	if (errno == 0) {
-		*pdonefl = true;
-		*pkey_name = NULL;
-		enum_state->donefl = true;
-		(void)closedir(enum_state->dirp);
-		WFSP_FILE_ENUMERATE_STATE_INIT(*enum_state);
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	} else {
-		status = WFR_STATUS_FROM_ERRNO();
-	}
-
-out:
 	return status;
 }
 
@@ -1272,7 +876,7 @@ WfspFileLoadHostKey(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameHostKeys,
 			WfsppFileExtHostKeys, key_name,
 			false, fname, sizeof(fname))))
@@ -1322,11 +926,11 @@ WfspFileRenameHostKey(
 
 	(void)backend;
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameHostKeys,
 			WfsppFileExtHostKeys, key_name,
 			false, fname, sizeof(fname)))
-	&&  WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
+	&&  WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameHostKeys,
 			WfsppFileExtHostKeys, key_name_new,
 			false, fname_new, sizeof(fname_new))))
@@ -1364,11 +968,11 @@ WfspFileSaveHostKey(
 		dname_tmp = "./";
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameHostKeys,
 			WfsppFileExtHostKeys, key_name,
 			false, fname, sizeof(fname)))
-	&&  WFR_STATUS_SUCCESS(status = WfsppFileNameEscape(
+	&&  WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			dname_tmp, WfsppFileExtHostKeys, key_name,
 			true, fname_tmp, sizeof(fname_tmp))))
 	{
@@ -1436,7 +1040,7 @@ WfspFileClearSessions(
 	)
 {
 	(void)backend;
-	return WfsppFileClear(WfsppFileDnameSessions, WfsppFileExtSessions);
+	return WfrDeleteFiles(WfsppFileDnameSessions, WfsppFileExtSessions);
 }
 
 WfrStatus
@@ -1464,7 +1068,7 @@ WfspFileDeleteSession(
 
 	(void)backend;
 
-	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameSessions,
 			WfsppFileExtSessions, sessionname,
 			false, fname, sizeof(fname))))
@@ -1492,93 +1096,28 @@ WfspFileEnumerateSessions(
 	void *		state
 	)
 {
-	WfspFileEnumerateState *	enum_state;
-	char *				fname, *pext;
-	char				path_cwd[MAX_PATH + 1];
-	char *				sessionname;
-	size_t				sessionname_len;
-	struct stat			statbuf;
+	WfrEnumerateFilesState *	enum_state;
+	const char *			name;
 	WfrStatus			status;
 
 
 	(void)backend;
 
 	if (initfl) {
-		return WfsppFileEnumerateInit(
+		return WfrEnumerateFilesInit(
 			WfsppFileDnameSessions,
-			(WfspFileEnumerateState **)state);
+			(WfrEnumerateFilesState **)state);
 	}
 
-	enum_state = (WfspFileEnumerateState *)state;
-
-	if (!enum_state->dirp) {
-		*pdonefl = true;
-		*psessionname = NULL;
-		enum_state->donefl = true;
-		WFSP_FILE_ENUMERATE_STATE_INIT(*enum_state);
-		return WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	if (!getcwd(path_cwd, sizeof(path_cwd))) {
-		return WFR_STATUS_FROM_ERRNO();
-	}
-
-	errno = 0; status = WFR_STATUS_CONDITION_SUCCESS;
-	while (WFR_STATUS_SUCCESS(status)
-	&&     (enum_state->dire = readdir(enum_state->dirp)))
+	enum_state = (WfrEnumerateFilesState *)state;
+	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
+			WfsppFileExtSessions, pdonefl, &name, enum_state)))
 	{
-		if (chdir(WfsppFileDnameSessions) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (stat(enum_state->dire->d_name, &statbuf) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-			(void)chdir(path_cwd);
-		} else if (chdir(path_cwd) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (!(statbuf.st_mode & S_IFREG)) {
-			continue;
-		} else if ((enum_state->dire->d_name[0] == '.')
-			&& (enum_state->dire->d_name[1] == '\0'))
-		{
-			continue;
-		} else if ((enum_state->dire->d_name[0] == '.')
-			&& (enum_state->dire->d_name[1] == '.')
-			&& (enum_state->dire->d_name[2] == '\0'))
-		{
-			continue;
-		} else {
-			fname = enum_state->dire->d_name;
-			if ((pext = strstr(fname, WfsppFileExtSessions))) {
-				sessionname_len = pext - fname;
-			} else {
-				sessionname_len = strlen(fname);
-			}
-
-			if (!(sessionname = strdup(fname))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				sessionname[sessionname_len] = '\0';
-				status = WfsppFileNameUnescape(sessionname, (const char **)psessionname);
-				WFR_FREE(sessionname);
-				if (WFR_STATUS_SUCCESS(status)) {
-					*pdonefl = false;
-				}
-			}
-			goto out;
+		if (!(*pdonefl)) {
+			status = WfrUnescapeFileName((char *)name, (const char **)psessionname);
 		}
 	}
 
-	if (errno == 0) {
-		*pdonefl = true;
-		*psessionname = NULL;
-		enum_state->donefl = true;
-		(void)closedir(enum_state->dirp);
-		WFSP_FILE_ENUMERATE_STATE_INIT(*enum_state);
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	} else {
-		status = WFR_STATUS_FROM_ERRNO();
-	}
-
-out:
 	return status;
 }
 
@@ -1610,7 +1149,7 @@ WfspFileLoadSession(
 	size_t			value_new_size;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameSessions,
 			WfsppFileExtSessions, sessionname,
 			false, fname, sizeof(fname))))
@@ -1751,11 +1290,11 @@ WfspFileRenameSession(
 
 	(void)backend;
 
-	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameSessions,
 			WfsppFileExtSessions, sessionname,
 			false, fname, sizeof(fname)))
-	||  WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameSessions,
 			WfsppFileExtSessions, sessionname_new,
 			false, fname_new, sizeof(fname_new))))
@@ -1794,11 +1333,11 @@ WfspFileSaveSession(
 		dname_tmp = "./";
 	}
 
-	if (WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameSessions,
 			WfsppFileExtSessions, session->name,
 			false, fname, sizeof(fname)))
-	||  WFR_STATUS_FAILURE(status = WfsppFileNameEscape(
+	||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			dname_tmp, WfsppFileExtSessions, session->name,
 			true, fname_tmp, sizeof(fname_tmp))))
 	{
@@ -1866,7 +1405,7 @@ WfspFileAddJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileJumpListTransform(true, false, sessionname))) {
+	if (WFR_STATUS_SUCCESS(status = WfsppFileTransformJumpList(true, false, sessionname))) {
 		update_jumplist();
 	} else {
 		/* Make sure we don't leave the jumplist dangling. */
@@ -1911,7 +1450,23 @@ WfspFileGetEntriesJumpList(
 	size_t *	pjump_list_size
 	)
 {
-	return WfsppFileJumpListGet(pjump_list, pjump_list_size);
+	WfrStatus	status;
+
+
+	status = WfsppFileGetJumpList(pjump_list, pjump_list_size);
+	if (WFR_STATUS_FAILURE(status)) {
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			if (!((*pjump_list = WFR_NEWN(2, char)))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				(*pjump_list)[0] = '\0';
+				(*pjump_list)[1] = '\0';
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
+	}
+
+	return status;
 }
 
 void
@@ -1922,7 +1477,7 @@ WfspFileRemoveJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileJumpListTransform(false, true, sessionname))) {
+	if (WFR_STATUS_SUCCESS(status = WfsppFileTransformJumpList(false, true, sessionname))) {
 		update_jumplist();
 	} else {
 		/* Make sure we don't leave the jumplist dangling. */
@@ -1936,7 +1491,7 @@ WfspFileSetEntriesJumpList(
 	size_t		jump_list_size
 	)
 {
-	return WfsppFileJumpListSet(jump_list, jump_list_size);
+	return WfsppFileSetJumpList(jump_list, jump_list_size);
 }
 
 
