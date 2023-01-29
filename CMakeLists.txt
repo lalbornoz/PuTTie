@@ -262,4 +262,10 @@ foreach(subdir ${platform} ${extra_dirs})
   add_subdirectory(${subdir})
 endforeach()
 
+# {{{ winfrip
+if (MINGW)
+  add_subdirectory(PuTTie)
+endif()
+# winfrip }}}
+
 configure_file(cmake/cmake.h.in ${GENERATED_SOURCES_DIR}/cmake.h)
