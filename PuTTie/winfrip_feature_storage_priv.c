@@ -133,6 +133,8 @@ WffsDeleteItem(
 				update_fn, true);
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, "deleting item %s", name);
 		}
+	} else if (nitem == -1) {
+		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting item %s", name);
@@ -326,6 +328,9 @@ WffsRenameItem(
 			}
 		}
 	} else {
+		if (nitem == -1) {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
 		WFR_FREE(name_new);
 	}
 
@@ -438,7 +443,7 @@ WffsSelectItem(
 			&ctx->itemc[WFFS_DIR_FROM], &ctx->itemv[WFFS_DIR_FROM],
 			update_fn, true);
 	} else if (ctrl == ctx->droplist[WFFS_DIR_TO]) {
-		backend_to = WFFS_GET_BACKEND(ctx, WFFS_DIR_FROM, dlg);
+		backend_to = WFFS_GET_BACKEND(ctx, WFFS_DIR_TO, dlg);
 		status = WffsUpdateItemList(
 			backend_to, ctx->listbox[WFFS_DIR_TO], dlg,
 			&ctx->itemc[WFFS_DIR_TO], &ctx->itemv[WFFS_DIR_TO],
