@@ -4,15 +4,14 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include "putty.h"
-#pragma GCC diagnostic pop
+#include <windows.h>
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_file.h"
@@ -30,7 +29,7 @@ WfrDeleteDirectory(
 {
 	struct dirent *		dire;
 	DIR *			dirp = NULL;
-	char			path_cwd[MAX_PATH + 1];
+	char			path_cwd[PATH_MAX + 1];
 	struct stat		statbuf;
 	WfrStatus		status;
 
@@ -96,8 +95,8 @@ WfrDeleteFiles(
 	struct dirent *		dire;
 	DIR *			dirp = NULL;
 	size_t			ext_len;
-	char			fname[MAX_PATH + 1];
-	char			path_cwd[MAX_PATH + 1];
+	char			fname[PATH_MAX + 1];
+	char			path_cwd[PATH_MAX + 1];
 	char *			pext;
 	struct stat		statbuf;
 	WfrStatus		status;
@@ -167,7 +166,7 @@ WfrEnumerateFiles(
 {
 	size_t		ext_len;
 	char *		fname, *fname_ext;
-	char		path_cwd[MAX_PATH + 1];
+	char		path_cwd[PATH_MAX + 1];
 	struct stat	statbuf;
 	WfrStatus	status;
 
@@ -354,7 +353,7 @@ WfrMakeDirectory(
 	bool		lastfl;
 	char *		p, *path_sub, sep;
 	char *		path_absdrive;
-	char		path_cwd[MAX_PATH + 1];
+	char		path_cwd[PATH_MAX + 1];
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
@@ -426,6 +425,65 @@ WfrMakeDirectory(
 	}
 
 	(void)chdir(path_cwd);
+
+	return status;
+}
+
+WfrStatus
+WfrPathNameToAbsoluteW(
+	wchar_t **	pname
+	)
+{
+	LPWSTR	path_abs;
+	DWORD	path_abs_size;
+
+
+	if (WFR_IS_ABSOLUTE_PATHW(*pname)) {
+		return WFR_STATUS_CONDITION_SUCCESS;
+	} else if ((path_abs_size = GetFullPathNameW(*pname, 0, NULL, NULL)) == 0) {
+		return WFR_STATUS_FROM_WINDOWS();
+	} else if (!(path_abs = (LPWSTR)malloc(path_abs_size * sizeof(path_abs[0])))) {
+		return WFR_STATUS_FROM_ERRNO();
+	} else if (GetFullPathNameW(*pname, path_abs_size, path_abs, NULL) == 0) {
+		return WFR_STATUS_FROM_WINDOWS();
+	} else {
+		free(*pname);
+		*pname = path_abs;
+		path_abs = NULL;
+		return WFR_STATUS_CONDITION_SUCCESS;
+	}
+}
+
+WfrStatus
+WfrPathNameToDirectoryW(
+	wchar_t *	pname,
+	wchar_t **	pdname
+	)
+{
+	wchar_t *	dname;
+	size_t		dname_len;
+	wchar_t *	dname_end;
+	size_t		pname_len;
+	WfrStatus	status;
+
+
+	if ((pname_len = wcslen(pname))) {
+		for (dname_end = &pname[pname_len - 1];
+		     (dname_end > pname) && (*dname_end != L'/') && (*dname_end != L'\\');
+		     dname_end--);
+
+		dname_len = (dname_end > pname) ? (dname_end - pname) : 1;
+		if (!(dname = (wchar_t *)malloc((dname_len + 1) * sizeof(dname[0])))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			memcpy(dname, pname, dname_len * sizeof(dname[0]));
+			dname[dname_len] = L'\0';
+			*pdname = dname;
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+	}
 
 	return status;
 }

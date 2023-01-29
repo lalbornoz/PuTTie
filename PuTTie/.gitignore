@@ -1,4 +1,5 @@
 *.sw[op]
+create_shortcut.exe
 PuTTie-Debug-*.zip
 PuTTie-Debug-*/
 PuTTie-Release-*.zip

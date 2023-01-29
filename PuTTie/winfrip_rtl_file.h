@@ -42,6 +42,8 @@ WfrStatus	WfrEnumerateFiles(const char *ext, bool *pdonefl, const char **pfname,
 WfrStatus	WfrEnumerateFilesInit(const char *dname, WfrEnumerateFilesState **state);
 WfrStatus	WfrEscapeFileName(const char *dname, const char *ext, const char *name, bool tmpfl, char *fname, size_t fname_size);
 WfrStatus	WfrMakeDirectory(char *path, bool existsfl);
+WfrStatus	WfrPathNameToAbsoluteW(wchar_t **pname);
+WfrStatus	WfrPathNameToDirectoryW(wchar_t *pname, wchar_t **pdname);
 WfrStatus	WfrUnescapeFileName(char *fname, const char **pname);
 
 #endif // !PUTTY_WINFRIP_RTL_FILE_H
