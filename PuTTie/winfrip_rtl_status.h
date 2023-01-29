@@ -47,21 +47,47 @@ typedef struct WfrStatus {
 #define WFR_STATUS1(file, line, facility, severity, condition)	\
 	(WfrStatus){(file), (line), (facility), (condition), (severity)}
 
-#define WFR_STATUS_CONDITION_ERROR				\
+#define WFR_STATUS_CONDITION_ERROR	\
 	WFR_STATUS(WFR_STATUS_FACILITY_NONE, WFR_STATUS_SEVERITY_ERROR, WFR_STATUS_SEVERITY_SUCCESS)
-#define WFR_STATUS_CONDITION_SUCCESS				\
+#define WFR_STATUS_CONDITION_SUCCESS	\
 	WFR_STATUS1(NULL, 0, WFR_STATUS_FACILITY_NONE, WFR_STATUS_SEVERITY_SUCCESS, WFR_STATUS_SEVERITY_SUCCESS)
-#define WFR_STATUS_FROM_ERRNO()					\
+
+#define WFR_STATUS_BIND_LSTATUS(...) ({										\
+	LSTATUS		lstatus;										\
+	WfrStatus	status;											\
+														\
+	lstatus = __VA_ARGS__;											\
+	if (lstatus == ERROR_SUCCESS) {										\
+		status = WFR_STATUS_CONDITION_SUCCESS;								\
+	} else {												\
+		status = WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, lstatus);		\
+	}													\
+														\
+	status;													\
+})
+#define WFR_STATUS_BIND_WINDOWS_BOOL(...) ({									\
+	bool	result = __VA_ARGS__;										\
+														\
+	if (result == TRUE) {											\
+		status = WFR_STATUS_CONDITION_SUCCESS;								\
+	} else {												\
+		status = WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, GetLastError());	\
+	}													\
+														\
+	status;													\
+})
+
+#define WFR_STATUS_FROM_ERRNO()				\
 	WFR_STATUS(WFR_STATUS_FACILITY_POSIX, WFR_STATUS_SEVERITY_ERROR, errno)
-#define WFR_STATUS_FROM_ERRNO1(errno_)				\
+#define WFR_STATUS_FROM_ERRNO1(errno_)			\
 	WFR_STATUS(WFR_STATUS_FACILITY_POSIX, WFR_STATUS_SEVERITY_ERROR, (errno_))
-#define WFR_STATUS_FROM_WINDOWS()				\
+#define WFR_STATUS_FROM_WINDOWS()			\
 	WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, GetLastError())
-#define WFR_STATUS_FROM_WINDOWS1(dwResult)			\
+#define WFR_STATUS_FROM_WINDOWS1(dwResult)		\
 	WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, (dwResult))
-#define WFR_STATUS_FROM_WINDOWS_HRESULT(hres)			\
+#define WFR_STATUS_FROM_WINDOWS_HRESULT(hres)		\
 	WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, (WfrStatusCondition)(hres))
-#define WFR_STATUS_FROM_PCRE2(condition, severity)		\
+#define WFR_STATUS_FROM_PCRE2(condition, severity)	\
 	WFR_STATUS(WFR_STATUS_FACILITY_PCRE2, (severity), (condition))
 
 /*

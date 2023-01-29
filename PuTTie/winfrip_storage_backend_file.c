@@ -261,14 +261,12 @@ WfsppFileSetJumpList(
 		(void)close(fd);
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		if (MoveFileEx(fname_tmp, WfsppFileFnameJumpList, MOVEFILE_REPLACE_EXISTING) < 0) {
-			status = WFR_STATUS_FROM_WINDOWS();
-			(void)unlink(fname_tmp);
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-	} else {
+	if (WFR_STATUS_SUCCESS(status)
+	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			fname_tmp, WfsppFileFnameJumpList, MOVEFILE_REPLACE_EXISTING))))
+	{
+		(void)unlink(fname_tmp);
+	} else if (WFR_STATUS_FAILURE(status)) {
 		(void)unlink(fname_tmp);
 	}
 
@@ -660,13 +658,8 @@ WfspFileRenameHostCA(
 			WfsppFileExtHostCAs, name_new,
 			false, fname_new, sizeof(fname_new))))
 	{
-		return status;
-	}
-
-	if (MoveFileEx(fname, fname_new, MOVEFILE_REPLACE_EXISTING) < 0) {
-		status = WFR_STATUS_FROM_WINDOWS();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
+		status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			fname, fname_new, MOVEFILE_REPLACE_EXISTING));
 	}
 
 	return status;
@@ -764,14 +757,12 @@ WfspFileSaveHostCA(
 		(void)close(fd);
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		if (MoveFileEx(fname_tmp, fname, MOVEFILE_REPLACE_EXISTING) < 0) {
-			status = WFR_STATUS_FROM_WINDOWS();
-			(void)unlink(fname_tmp);
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-	} else {
+	if (WFR_STATUS_SUCCESS(status)
+	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			fname_tmp, fname, MOVEFILE_REPLACE_EXISTING))))
+	{
+		(void)unlink(fname_tmp);
+	} else if (WFR_STATUS_FAILURE(status)) {
 		(void)unlink(fname_tmp);
 	}
 
@@ -940,11 +931,8 @@ WfspFileRenameHostKey(
 			WfsppFileExtHostKeys, key_name_new,
 			false, fname_new, sizeof(fname_new))))
 	{
-		if (MoveFileEx(fname, fname_new, MOVEFILE_REPLACE_EXISTING) < 0) {
-			status = WFR_STATUS_FROM_WINDOWS();
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
+		status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			fname, fname_new, MOVEFILE_REPLACE_EXISTING));
 	}
 
 	return status;
@@ -1009,14 +997,12 @@ WfspFileSaveHostKey(
 		}
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		if (MoveFileEx(fname_tmp, fname, MOVEFILE_REPLACE_EXISTING) < 0) {
-			status = WFR_STATUS_FROM_WINDOWS();
-			(void)unlink(fname_tmp);
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-	} else {
+	if (WFR_STATUS_SUCCESS(status)
+	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			fname_tmp, fname, MOVEFILE_REPLACE_EXISTING))))
+	{
+		(void)unlink(fname_tmp);
+	} else if (WFR_STATUS_FAILURE(status)) {
 		(void)unlink(fname_tmp);
 	}
 
@@ -1304,13 +1290,8 @@ WfspFileRenameSession(
 			WfsppFileExtSessions, sessionname_new,
 			false, fname_new, sizeof(fname_new))))
 	{
-		return status;
-	}
-
-	if (MoveFileEx(fname, fname_new, MOVEFILE_REPLACE_EXISTING) < 0) {
-		status = WFR_STATUS_FROM_WINDOWS();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
+		status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			fname, fname_new, MOVEFILE_REPLACE_EXISTING));
 	}
 
 	return status;
@@ -1387,14 +1368,12 @@ WfspFileSaveSession(
 		(void)close(fd);
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		if (MoveFileEx(fname_tmp, fname, MOVEFILE_REPLACE_EXISTING) < 0) {
-			status = WFR_STATUS_FROM_WINDOWS();
-			(void)unlink(fname_tmp);
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-	} else {
+	if (WFR_STATUS_SUCCESS(status)
+	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			fname_tmp, fname, MOVEFILE_REPLACE_EXISTING))))
+	{
+		(void)unlink(fname_tmp);
+	} else if (WFR_STATUS_FAILURE(status)) {
 		(void)unlink(fname_tmp);
 	}
 
