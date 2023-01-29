@@ -7,7 +7,6 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
 #include "dialog.h"
-#include "terminal.h"
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_feature.h"

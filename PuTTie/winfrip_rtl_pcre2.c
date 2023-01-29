@@ -3,10 +3,8 @@
  * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include "putty.h"
-#pragma GCC diagnostic pop
+#include <stdio.h>
+#include <string.h>
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_pcre2.h"
@@ -292,7 +290,7 @@ Wfp2Init(
 	state->startoffset = 0;
 	state->subject = subject;
 
-	ZeroMemory(state->ovector, pcre2_get_ovector_count(state->md) * 2 * sizeof(*state->ovector));
+	memset(state->ovector, 0, pcre2_get_ovector_count(state->md) * 2 * sizeof(*state->ovector));
 
 	(void)pcre2_pattern_info(state->code, PCRE2_INFO_NEWLINE, &newline);
 	state->crlf_is_newline =
