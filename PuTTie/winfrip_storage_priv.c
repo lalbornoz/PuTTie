@@ -3,7 +3,6 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#include "PuTTie/winfrip_rtl_status.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
@@ -13,6 +12,7 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_sessions.h"
@@ -36,7 +36,7 @@ static WfspBackend	WfspBackends[WFS_BACKEND_MAX + 1] = {
 };
 
 /*
- * Public storage backend subroutines private to PuTTie/winfrip_storage*.c
+ * Public subroutines private to PuTTie/winfrip_storage*.c
  */
 
 WfrStatus
@@ -58,6 +58,89 @@ WfsGetBackendImpl(
 
 	return status;
 }
+
+WfrStatus
+WfsTransformJumpList(
+	bool			addfl,
+	bool			delfl,
+	char **			pjump_list,
+	size_t *		pjump_list_size,
+	const char *const	trans_item
+	)
+{
+	size_t		item_len;
+	char *		jump_list_new = NULL, *jump_list_new_last;
+	ptrdiff_t	jump_list_new_delta;
+	size_t		jump_list_new_size = 0;
+	WfrStatus	status;
+	size_t		trans_item_len;
+
+
+	if (addfl || delfl) {
+		trans_item_len = strlen(trans_item);
+
+		if (*pjump_list == NULL) {
+			if (!(*pjump_list = WFR_NEWN(2, char))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				(*pjump_list)[0] = '\0'; (*pjump_list)[1] = '\0';
+				*pjump_list_size = 1;
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
+
+		jump_list_new_size = trans_item_len + 1 + *pjump_list_size;
+		if (!(jump_list_new = WFR_NEWN(jump_list_new_size, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			memset(jump_list_new, '\0', jump_list_new_size);
+			jump_list_new_last = jump_list_new;
+
+			if (addfl) {
+				memcpy(jump_list_new_last, trans_item, trans_item_len + 1);
+				jump_list_new_last += trans_item_len + 1;
+			}
+
+			for (char *item = *pjump_list, *item_next = NULL;
+			     item && *item; item = item_next)
+			{
+				if ((item_next = strchr(item, '\0'))) {
+					item_len = item_next - item;
+					item_next++;
+
+					if ((trans_item_len != item_len)
+					||  (strncmp(trans_item, item, item_len) != 0))
+					{
+						memcpy(jump_list_new_last, item, item_len);
+						jump_list_new_last += item_len + 1;
+					}
+				}
+			}
+
+			if (&jump_list_new_last[0] < &jump_list_new[jump_list_new_size - 1]) {
+				jump_list_new_delta = (&jump_list_new[jump_list_new_size - 1] - &jump_list_new_last[0]);
+				status = WFR_RESIZE(
+					jump_list_new, jump_list_new_size,
+					jump_list_new_size - jump_list_new_delta, char);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+
+			if (WFR_STATUS_SUCCESS(status)) {
+				WFR_FREE(*pjump_list);
+				*pjump_list = jump_list_new;
+				*pjump_list_size = jump_list_new_size;
+			}
+		}
+	}
+
+	if (WFR_STATUS_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(jump_list_new);
+	}
+
+	return status;
+}
+
 
 WfrStatus
 WfsTreeCloneValue(

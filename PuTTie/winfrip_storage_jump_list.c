@@ -3,7 +3,6 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#include "PuTTie/winfrip_rtl_status.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
@@ -122,10 +121,6 @@ WfsGetEntriesJumpList(
 
 	if (WFR_STATUS_SUCCESS(WfsGetBackendImpl(backend, &backend_impl))) {
 		(void)backend_impl->GetEntriesJumpList(&jump_list, &jump_list_size);
-	}
-
-	if (!jump_list && (jump_list = WFR_NEWN(2, char))) {
-		jump_list[0] = '\0'; jump_list[1] = '\0';
 	}
 
 	return jump_list;

@@ -16,6 +16,7 @@
 
 /* {{{ winfrip */
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
 /* winfrip }}} */
 

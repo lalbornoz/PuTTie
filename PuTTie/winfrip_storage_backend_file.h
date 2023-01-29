@@ -6,25 +6,6 @@
 #ifndef PUTTY_WINFRIP_STORAGE_BACKEND_FILE_H
 #define PUTTY_WINFRIP_STORAGE_BACKEND_FILE_H
 
-#include <dirent.h>
-
-/*
- * Public type definitions private to PuTTie/winfrip_storage*.c
- */
-
-typedef struct WfspFileEnumerateState {
-	bool			donefl;
-	struct dirent *		dire;
-	DIR *			dirp;
-} WfspFileEnumerateState;
-#define WFSP_FILE_ENUMERATE_STATE_EMPTY {						\
-	.donefl = false,								\
-	.dire = NULL,									\
-	.dirp = NULL,									\
-}
-#define WFSP_FILE_ENUMERATE_STATE_INIT(state)						\
-	(state) = (WfspFileEnumerateState)WFSP_FILE_ENUMERATE_STATE_EMPTY
-
 /*
  * Public subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
@@ -64,7 +45,7 @@ WfrStatus	WfspFileSaveHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspFileCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspFileClearHostKeys(WfsBackend backend);
 WfrStatus	WfspFileDeleteHostKey(WfsBackend backend, const char *key_name);
-WfrStatus	WfspFileEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, const char **pkey_name, void *state);
+WfrStatus	WfspFileEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, char **pkey_name, void *state);
 WfrStatus	WfspFileLoadHostKey(WfsBackend backend, const char *key_name, const char **pkey);
 WfrStatus	WfspFileRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspFileSaveHostKey(WfsBackend backend, const char *key_name, const char *key);

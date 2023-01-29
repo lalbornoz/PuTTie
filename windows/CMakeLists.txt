@@ -81,13 +81,16 @@ set_source_files_properties(../PuTTie/winfrip_feature_mouse.c PROPERTIES COMPILE
 set_source_files_properties(../PuTTie/winfrip_feature_storage_general.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_feature_storage_host_ca.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_feature_storage_host_keys.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_feature_storage_priv.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_feature_storage_sessions.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_feature_trans.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_feature_urls.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_putty_config.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage_backend_ephemeral.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage_backend_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -127,7 +130,9 @@ set_property(TARGET pageant APPEND PROPERTY SOURCES
   ../PuTTie/no-jump-list-pageant.c
   ../PuTTie/winfrip_rtl.c
   ../PuTTie/winfrip_rtl_debug.c
+  ../PuTTie/winfrip_rtl_file.c
   ../PuTTie/winfrip_rtl_pcre2.c
+  ../PuTTie/winfrip_rtl_registry.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_backend_ephemeral.c
   ../PuTTie/winfrip_storage_backend_file.c
@@ -177,13 +182,16 @@ set_property(TARGET putty APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_feature_storage_general.c
   ../PuTTie/winfrip_feature_storage_host_ca.c
   ../PuTTie/winfrip_feature_storage_host_keys.c
+  ../PuTTie/winfrip_feature_storage_priv.c
   ../PuTTie/winfrip_feature_storage_sessions.c
   ../PuTTie/winfrip_feature_trans.c
   ../PuTTie/winfrip_feature_urls.c
   ../PuTTie/winfrip_putty_config.c
   ../PuTTie/winfrip_rtl.c
   ../PuTTie/winfrip_rtl_debug.c
+  ../PuTTie/winfrip_rtl_file.c
   ../PuTTie/winfrip_rtl_pcre2.c
+  ../PuTTie/winfrip_rtl_registry.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_backend_ephemeral.c
   ../PuTTie/winfrip_storage_backend_file.c
@@ -235,13 +243,16 @@ set_property(TARGET puttytel APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_feature_storage_general.c
   ../PuTTie/winfrip_feature_storage_host_ca.c
   ../PuTTie/winfrip_feature_storage_host_keys.c
+  ../PuTTie/winfrip_feature_storage_priv.c
   ../PuTTie/winfrip_feature_storage_sessions.c
   ../PuTTie/winfrip_feature_trans.c
   ../PuTTie/winfrip_feature_urls.c
   ../PuTTie/winfrip_putty_config.c
   ../PuTTie/winfrip_rtl.c
   ../PuTTie/winfrip_rtl_debug.c
+  ../PuTTie/winfrip_rtl_file.c
   ../PuTTie/winfrip_rtl_pcre2.c
+  ../PuTTie/winfrip_rtl_registry.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_backend_ephemeral.c
   ../PuTTie/winfrip_storage_backend_file.c

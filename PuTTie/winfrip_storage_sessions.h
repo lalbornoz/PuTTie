@@ -20,13 +20,15 @@ typedef struct WfsSession {
 	__time64_t	mtime;
 	const char *	name;
 } WfsSession;
-#define WFS_SESSION_EMPTY {		\
-	.tree = NULL,			\
-	.mtime = 0,			\
-	.name = NULL,			\
+#define WFS_SESSION_EMPTY {				\
+	.tree = NULL,					\
+	.mtime = 0,					\
+	.name = NULL,					\
 }
-#define WFS_SESSION_INIT(session)	\
-	(session) = (WfsSession)WFS_SESSION_EMPTY
+#define WFS_SESSION_INIT(session) ({			\
+	(session) = (WfsSession)WFS_SESSION_EMPTY;	\
+	WFR_STATUS_CONDITION_SUCCESS;			\
+})
 
 /*
  * Public session storage subroutine prototypes private to PuTTie/winfrip_storage*.c

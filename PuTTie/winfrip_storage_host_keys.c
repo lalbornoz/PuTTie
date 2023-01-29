@@ -3,7 +3,6 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#include "PuTTie/winfrip_rtl_status.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
@@ -15,6 +14,7 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
+#include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
@@ -35,7 +35,7 @@ WfsCleanupHostKeys(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		if (WFR_STATUS_SUCCESS(status = backend_impl->ClearHostKeys(backend))) {
+		if (WFR_STATUS_SUCCESS(status = WfsClearHostKeys(backend, false))) {
 			status = backend_impl->CleanupHostKeys(backend);
 		}
 	}
@@ -105,7 +105,7 @@ WfsEnumerateHostKeys(
 	bool		cached,
 	bool		initfl,
 	bool *		pdonefl,
-	const char **	pkey_name,
+	char **		pkey_name,
 	void *		state
 	)
 {
@@ -143,7 +143,7 @@ WfsExportHostKey(
 	WfsBackend	backend_from,
 	WfsBackend	backend_to,
 	bool		movefl,
-	const char *	key_name
+	char *		key_name
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
@@ -198,19 +198,19 @@ WfsExportHostKeys(
 
 	status = WfsEnumerateHostKeys(
 		backend_from, false, true, &donefl,
-		&key_name, &enum_state);
+		(char **)&key_name, &enum_state);
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		do {
 			key_name = NULL;
 			status = WfsEnumerateHostKeys(
 				backend_from, false, false,
-				&donefl, &key_name, enum_state);
+				&donefl, (char **)&key_name, enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && key_name) {
 				status = WfsExportHostKey(
 					backend_from, backend_to,
-					false, key_name);
+					false, (char *)key_name);
 			}
 
 			if (WFR_STATUS_FAILURE(status)) {
@@ -226,8 +226,6 @@ WfsExportHostKeys(
 	if (WFR_STATUS_FAILURE(status)) {
 		(void)WfsClearHostKeys(backend_to, false);
 	}
-
-	WFR_FREE_IF_NOTNULL(enum_state);
 
 	return status;
 }

@@ -3,7 +3,6 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#include "PuTTie/winfrip_rtl_status.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
@@ -97,7 +96,7 @@ WfsCleanupHostCAs(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		if (WFR_STATUS_SUCCESS(status = backend_impl->ClearHostCAs(backend))) {
+		if (WFR_STATUS_SUCCESS(status = WfsClearHostCAs(backend, false))) {
 			status = backend_impl->CleanupHostCAs(backend);
 		}
 	}
@@ -342,8 +341,6 @@ WfsExportHostCAs(
 	if (WFR_STATUS_FAILURE(status)) {
 		(void)WfsClearHostCAs(backend_to, true);
 	}
-
-	WFR_FREE_IF_NOTNULL(enum_state);
 
 	return status;
 }

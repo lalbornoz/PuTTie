@@ -24,17 +24,19 @@ typedef struct WfsHostCA {
 	bool		permit_rsa_sha512;
 	const char *	validity;
 } WfsHostCA;
-#define WFS_HOST_CA_EMPTY {		\
-	.public_key = NULL,		\
-	.mtime = 0,			\
-	.name = NULL,			\
-	.permit_rsa_sha1 = false,	\
-	.permit_rsa_sha256 = false,	\
-	.permit_rsa_sha512 = false,	\
-	.validity = NULL,		\
+#define WFS_HOST_CA_EMPTY {				\
+	.public_key = NULL,				\
+	.mtime = 0,					\
+	.name = NULL,					\
+	.permit_rsa_sha1 = false,			\
+	.permit_rsa_sha256 = false,			\
+	.permit_rsa_sha512 = false,			\
+	.validity = NULL,				\
 }
-#define WFS_HOST_CA_INIT(session)	\
-	(session) = (WfsHostCA)WFS_HOST_CA_EMPTY
+#define WFS_HOST_CA_INIT(session) ({			\
+	(session) = (WfsHostCA)WFS_HOST_CA_EMPTY;	\
+	WFR_STATUS_CONDITION_SUCCESS;			\
+})
 
 /*
  * Public host CAs storage subroutine prototypes private to PuTTie/winfrip_storage*.c

@@ -12,6 +12,7 @@
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_mouse.h"
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_debug.h"
 
 /*
  * Public subroutines private to PuTTie/winfrip*.c

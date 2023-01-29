@@ -13,8 +13,8 @@
 WfrStatus	WfsCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfsClearHostKeys(WfsBackend backend, bool delete_in_backend);
 WfrStatus	WfsDeleteHostKey(WfsBackend backend, bool delete_in_backend, const char *key_name);
-WfrStatus	WfsEnumerateHostKeys(WfsBackend backend, bool cached, bool initfl, bool *pdonefl, const char **pkey_name, void *state);
-WfrStatus	WfsExportHostKey(WfsBackend backend_from, WfsBackend backend_to, bool movefl, const char *key_name);
+WfrStatus	WfsEnumerateHostKeys(WfsBackend backend, bool cached, bool initfl, bool *pdonefl, char **pkey_name, void *state);
+WfrStatus	WfsExportHostKey(WfsBackend backend_from, WfsBackend backend_to, bool movefl, char *key_name);
 WfrStatus	WfsExportHostKeys(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, void (*error_fn)(const char *, WfrStatus));
 WfrStatus	WfsGetHostKey(WfsBackend backend, bool cached, const char *key_name, const char **pkey);
 WfrStatus	WfsPrintHostKeyName(const char *hostname, int port, const char *keytype, char **pkey_name);

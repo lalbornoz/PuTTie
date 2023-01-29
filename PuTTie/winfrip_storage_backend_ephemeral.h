@@ -45,7 +45,7 @@ WfrStatus	WfspEphemeralSaveHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspEphemeralCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspEphemeralClearHostKeys(WfsBackend backend);
 WfrStatus	WfspEphemeralDeleteHostKey(WfsBackend backend, const char *key_name);
-WfrStatus	WfspEphemeralEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, const char **pkey_name, void *state);
+WfrStatus	WfspEphemeralEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, char **pkey_name, void *state);
 WfrStatus	WfspEphemeralLoadHostKey(WfsBackend backend, const char *key_name, const char **pkey);
 WfrStatus	WfspEphemeralRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspEphemeralSaveHostKey(WfsBackend backend, const char *key_name, const char *key);
