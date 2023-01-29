@@ -14,8 +14,65 @@
 #endif /* WINFRIP_RTL_NO_PCRE2 */
 
 /*
+ * Private variables
+ */
+
+static bool		WfrpVersionInit = false;
+static unsigned int	WfrpVersionMajor = UINT_MAX;
+static unsigned int	WfrpVersionMinor = UINT_MAX;
+
+/*
+ * Private subroutine prototypes
+ */
+
+static void WfrpInitVersion(void);
+
+/*
+ * Private subroutines
+ */
+
+static void
+WfrpInitVersion(
+	void
+	)
+{
+	OSVERSIONINFO	VersionInformation;
+
+
+	ZeroMemory(&VersionInformation, sizeof(VersionInformation));
+	VersionInformation.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	if (GetVersionExA(&VersionInformation)) {
+		WfrpVersionMajor = VersionInformation.dwMajorVersion;
+		WfrpVersionMinor = VersionInformation.dwMinorVersion;
+	}
+}
+
+
+/*
  * Public subroutines private to PuTTie/winfrip*.c
  */
+
+unsigned int
+WfrGetOsVersionMajor(
+	void
+	)
+{
+	if (!WfrpVersionInit) {
+		WfrpInitVersion();
+	}
+	return WfrpVersionMajor;
+}
+
+unsigned int
+WfrGetOsVersionMinor(
+	void
+	)
+{
+	if (!WfrpVersionInit) {
+		WfrpInitVersion();
+	}
+	return WfrpVersionMinor;
+}
 
 int
 WfrMessageBoxF(

@@ -127,6 +127,8 @@
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
 
+unsigned int		WfrGetOsVersionMajor(void);
+unsigned int		WfrGetOsVersionMinor(void);
 int			WfrMessageBoxF(const char *lpCaption, unsigned int uType, const char *format, ...);
 int			WfrMessageBoxFW(const wchar_t *lpCaption, unsigned int uType, const wchar_t *format, ...);
 WfrStatus		WfrSnDuprintf(char **ps, size_t *pn, const char *format, ...);

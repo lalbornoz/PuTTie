@@ -3,11 +3,15 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#include "PuTTie/winfrip_storage_jumplist_wrap.h"
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include "putty.h"
-#pragma GCC diagnostic pop
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
+
+#include <windows.h>
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_file.h"
@@ -19,13 +23,6 @@
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_file.h"
-
-#include <dirent.h>
-#include <errno.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <time.h>
-#include <unistd.h>
 
 /*
  * Private types
@@ -77,6 +74,14 @@ static Wfp2Regex	WfsppFileRegex = {
 	.md = NULL,
 	.ovec = NULL,
 };
+
+/*
+ * External subroutine prototypes
+ */
+
+/* [see windows/jump-list.c] */
+void			update_jumplist(void);
+void			clear_jumplist_PuTTY(void);
 
 /*
  * Private subroutine prototypes

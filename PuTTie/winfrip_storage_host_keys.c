@@ -3,13 +3,8 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include "putty.h"
-#include "PuTTie/winfrip_storage_wrap.h"
-#include "storage.h"
-#include "PuTTie/winfrip_storage_unwrap.h"
-#pragma GCC diagnostic pop
+#include <errno.h>
+#include <string.h>
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"

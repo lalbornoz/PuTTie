@@ -3,11 +3,6 @@
  * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#include "putty.h"
-#pragma GCC diagnostic pop
-
 #include <stdarg.h>
 
 #include <windows.h>
