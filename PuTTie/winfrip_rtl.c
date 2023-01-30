@@ -109,7 +109,7 @@ WfrMessageBoxFW(
 	va_start(ap, format);
 	(void)vsnwprintf(msg_buf, sizeof(msg_buf), format, ap);
 	va_end(ap);
-	msg_buf[sizeof(msg_buf) - 1] = L'\0';
+	msg_buf[(sizeof(msg_buf) / sizeof(msg_buf[0])) - 1] = L'\0';
 
 	return MessageBoxW(NULL, msg_buf, lpCaption, uType);
 }
