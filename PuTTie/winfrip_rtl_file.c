@@ -351,7 +351,7 @@ WfrMakeDirectory(
 	)
 {
 	bool		lastfl;
-	char *		p, *path_sub, sep;
+	char *		p, *path_sub, sep = '\0';
 	char *		path_absdrive;
 	char		path_cwd[PATH_MAX + 1];
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
