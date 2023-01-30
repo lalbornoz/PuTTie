@@ -35,7 +35,7 @@ WfsAddHostCA(
 	WfspBackend *	backend_impl;
 	const char *	public_key_new = NULL;
 	WfsHostCA *	hca_new = NULL;
-	const char *	name_new;
+	const char *	name_new = NULL;
 	WfrStatus	status;
 	const char *	validity_new = NULL;
 
