@@ -1,4 +1,5 @@
 # PuTTie 💚
+
 PuTTY plus *pointless frippery* and tremendous amounts of *bloat*[[1](#r1)][[2](#r2)][[3](#r3)][[4](#r4)][[5](#r5)][[9](#r9)]
 
 ## What is PuTTie, and how is it different?
@@ -40,9 +41,11 @@ you should use PuTTie:
    totally prevents PMS!
 
 ## Screenshot
+
 ![Screenshot](https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/PuTTie.png "Screenshot")
 
 ## List of newly introduced features
+
 1. **Background {BMP,EMF,GIF,ICO,JPEG,PNG,TIFF,WMF}[[10](#r10)] images**, similarly to[[6](#r6)]  
    Absolute positioning, centered, fit w/ optional padding, scaled, or tiled, with configurable opacity  
    Melbourne shuffle slideshow with configurable frequency
@@ -80,10 +83,30 @@ you should use PuTTie:
    if present, on startup and written to on exit due to security concerns, even when ephemeral storage
    is selected.
 
+## Jump list integration
+
+PuTTie fixes bugs (particularly [[25](#r25)]) in PuTTy's jump list integration implementation. Owing to
+how shortcuts are specified to interact with jump lists, PuTTie shortcuts must have the Application User
+Model ID[[26](#r26)] common to both PuTTie and PuTTY set on them. A jump list-compatible shortcut creation
+tool is provided for this purpose. Follow the following steps in order to create such a shortcut:  
+  
+1. Extract the contents of the PuTTie release archive into a directory that will neither change
+   name nor location in the future, such as ``%APPDATA%\PuTTie`` or ``%LOCALAPPDATA%\PuTTie``, etc.
+   If this directory is renamed and/or moved, steps 2. and 3. must be repeated.
+
+2. Run ``create_shortcut.exe`` from within this directory. A message box will be displayed on exit
+   or failure. If it exits successfully, a shortcut named ``PuTTie.lnk`` by default will now exist
+   in the same directory; the tool takes two optional arguments, corresponding to the file or path
+   name of the shortcut and the file or path name to ``putty.exe``.
+
+3. The shortcut created in 2. may now be pinned to the Start menu via the context menu.
+
 ## Built with & tested on
+
 1. MinGW w/ GCC v11.3.0 & cmake v3.23.2 on Cygwin v3.4.2-1 & Windows 8.1 x64, resp.
 
 ## How to build
+
 ```shell
 $ git clone --recurse https://github.com/lalbornoz/PuTTie
 
@@ -118,16 +141,19 @@ usage: ./PuTTie/build.sh [-B <backend>] [-c] [--clang] [-d] [-h] [-i] [-j jobs] 
 ```
 
 ## TODO/wish list
+
 1. **New feature**: Direct{2D,Write} backend, similarly to[[21](#r21)]
 2. **New feature**: MS Visual C++ build environment support bits via Winelib & provide installer package(s) & images
 3. **New feature**: ssh:// protocol handler registration, similarly to[[19](#r19)]
 4. **New feature**: ReGIS[[22](#r22)] and/or Sixel[[23](#r23)] terminal graphics support
 
 ## Pull requests policy
+
 Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn,
 Ben Harris, or Jacob Nevins.
 
 ## References
+
 ``Wed, 20 Jun 2018 11:11:13 +0200  [1]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/config-locations.html" id="r1">PuTTY wish config-locations</a>  
 ``Wed, 20 Jun 2018 11:11:14 +0200  [2]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/system-tray.html" id="r2">PuTTY wish system-tray</a>  
 ``Wed, 20 Jun 2018 11:11:15 +0200  [3]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/transparency.html" id="r3">PuTTY wish transparency</a>  
@@ -152,5 +178,9 @@ Ben Harris, or Jacob Nevins.
 ``Mon, 25 Jun 2018 14:59:14 +0200 [22]`` <a href="https://en.wikipedia.org/wiki/ReGIS" id="r22">ReGIS - Wikipedia</a>  
 ``Mon, 25 Jun 2018 14:59:15 +0200 [23]`` <a href="https://en.wikipedia.org/wiki/Sixel" id="r23">Sixel - Wikipedia</a>  
 ``Fri, 27 Aug 2021 18:42:02 +0200 [24]`` <a href="https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecutea" id="r24">ShellExecuteA function (shellapi.h) - Win32 apps | Microsoft Docs</a>  
+``Mon, 30 Jan 2023 16:49:06 +0100 [25]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/win-jumplist-trouble.html" id="r25">PuTTY bug win-jumplist-trouble</a>  
+``Mon, 30 Jan 2023 16:55:44 +0100 [26]`` <a href="https://github.com/MicrosoftDocs/win32/blob/docs/desktop-src/shell/appids.md" id="r26">win32/appids.md at docs · MicrosoftDocs/win32</a>  
   
-vim:tw=0
+<!--
+  vim:tw=0
+  -->
