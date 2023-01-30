@@ -187,6 +187,8 @@ build_install() {
 		done; IFS="${_IFS0}";
 		cp -a "PuTTie/create_shortcut.exe" "PuTTie/${_install_dname}";
 		stat "PuTTie/${_install_dname}/create_shortcut.exe";
+		cp -a "PuTTie/README.md" "PuTTie/${_install_dname}";
+		stat "PuTTie/${_install_dname}/README.md";
 	fi;
 	if [ "${_Rflag:-0}" -eq 1 ]; then
 		if [ -e "PuTTie/${_install_dname}.zip" ]; then
