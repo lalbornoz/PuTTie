@@ -1,7 +1,7 @@
 *.sw[op]
 create_shortcut.exe
-PuTTie-Debug-*.zip
-PuTTie-Debug-*/
-PuTTie-Release-*.zip
-PuTTie-Release-*/
+PuTTie-file-*.zip
+PuTTie-file-*/
+PuTTie-registry-*.zip
+PuTTie-registry/
 TODO
