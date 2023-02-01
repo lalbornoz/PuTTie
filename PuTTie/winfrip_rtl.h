@@ -124,6 +124,18 @@
 	c;										\
 })
 
+#define WFR_STRNCPY(s1, s2, n) ({							\
+	char *	rc = strncpy((s1), (s2), (n));						\
+	(s1)[(n) ? ((n) - 1) : 0] = '\0';						\
+	rc;										\
+})
+
+#define WFR_WCSNCPY(ws1, ws2, n) ({							\
+	wchar_t *	rc = wcsncpy((ws1), (ws2), (n));				\
+	(ws1)[(n) ? ((n) - 1) : 0] = L'\0';						\
+	rc;										\
+})
+
 /*
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
