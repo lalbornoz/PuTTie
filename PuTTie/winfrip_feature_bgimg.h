@@ -17,6 +17,19 @@
 #define	WFF_BGIMG_DEFAULT_STYLE			0
 #define	WFF_BGIMG_DEFAULT_TYPE			0
 
+#define WFF_BGIMG_FILTER_IMAGE_FILES (										\
+	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
+	"Bitmap Files (*.bmp)\0*.bmp\0"										\
+	"EMF (*.emf)\0*.emf\0"											\
+	"GIF (*.gif)\0*.gif\0"											\
+	"ICO (*.ico)\0*.ico\0"											\
+	"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"						\
+	"PNG (*.png)\0*.png\0"											\
+	"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"									\
+	"WMF (*.wmf)\0*.wmf\0"											\
+	"All Files (*.*)\0*\0"											\
+	"\0\0")
+
 /*
  * Public subroutine prototypes used by/in:
  * winfrip_putty_config.c
@@ -36,7 +49,7 @@ typedef enum WffBgImgOp {
 	WFF_BGIMG_OP_SIZE	= 4,
 } WffBgImgOp;
 
-WfReturn	WffBgImgOperation(WffBgImgOp op, BOOL *pbgfl, Conf *conf, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
+WfReturn	WffBgImgOperation(WffBgImgOp op, bool *pbgfl, Conf *conf, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);
 
 #endif // !PUTTY_WINFRIP_FEATURE_BGIMG_H
 

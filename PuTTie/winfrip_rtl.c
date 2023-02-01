@@ -17,6 +17,56 @@
  * Private variables
  */
 
+static const char *	WfrpGdiPlusStatusErrorMessage[] = {
+	"Ok",
+	"GenericError",
+	"InvalidParameter",
+	"OutOfMemory",
+	"ObjectBusy",
+	"InsufficientBuffer",
+	"NotImplemented",
+	"Win32Error",
+	"WrongState",
+	"Aborted",
+	"FileNotFound",
+	"ValueOverflow",
+	"AccessDenied",
+	"UnknownImageFormat",
+	"FontFamilyNotFound",
+	"FontStyleNotFound",
+	"NotTrueTypeFont",
+	"UnsupportedGdiplusVersion",
+	"GdiplusNotInitialized",
+	"PropertyNotFound",
+	"PropertyNotSupported",
+	"ProfileNotFound",
+};
+
+static const wchar_t *	WfrpGdiPlusStatusErrorMessageW[] = {
+	L"Ok",
+	L"GenericError",
+	L"InvalidParameter",
+	L"OutOfMemory",
+	L"ObjectBusy",
+	L"InsufficientBuffer",
+	L"NotImplemented",
+	L"Win32Error",
+	L"WrongState",
+	L"Aborted",
+	L"FileNotFound",
+	L"ValueOverflow",
+	L"AccessDenied",
+	L"UnknownImageFormat",
+	L"FontFamilyNotFound",
+	L"FontStyleNotFound",
+	L"NotTrueTypeFont",
+	L"UnsupportedGdiplusVersion",
+	L"GdiplusNotInitialized",
+	L"PropertyNotFound",
+	L"PropertyNotSupported",
+	L"ProfileNotFound",
+};
+
 static bool		WfrpVersionInit = false;
 static unsigned int	WfrpVersionMajor = UINT_MAX;
 static unsigned int	WfrpVersionMinor = UINT_MAX;
@@ -107,9 +157,9 @@ WfrMessageBoxFW(
 
 
 	va_start(ap, format);
-	(void)vsnwprintf(msg_buf, sizeof(msg_buf), format, ap);
+	(void)vsnwprintf(msg_buf, WFR_SIZEOF_WSTRING(msg_buf), format, ap);
 	va_end(ap);
-	msg_buf[(sizeof(msg_buf) / sizeof(msg_buf[0])) - 1] = L'\0';
+	msg_buf[WFR_SIZEOF_WSTRING(msg_buf) - 1] = L'\0';
 
 	return MessageBoxW(NULL, msg_buf, lpCaption, uType);
 }
@@ -170,16 +220,27 @@ WfrStatusToErrorMessage(
 	WfrStatus	status
 	)
 {
-	static char	condition_msg[128];
+	WfrStatusCondition	condition;
+	static char		condition_msg[128];
 #ifndef WINFRIP_RTL_NO_PCRE2
-	static wchar_t	condition_msg_w[128];
+	static wchar_t		condition_msg_w[128];
 #endif /* WINFRIP_RTL_NO_PCRE2 */
-	static char	error_msg[256];
+	static char		error_msg[256];
+	static HMODULE		hModule_ntdll = NULL;
 
 
 	switch (WFR_STATUS_FACILITY(status)) {
 	default:
 		strncpy(condition_msg, "(unknown facility)", sizeof(condition_msg));
+		break;
+
+	case WFR_STATUS_FACILITY_GDI_PLUS:
+		condition = WFR_STATUS_CONDITION(status);
+		if (condition < WFR_ARRAYCOUNT(WfrpGdiPlusStatusErrorMessage)) {
+			strncpy(condition_msg, WfrpGdiPlusStatusErrorMessage[condition], sizeof(condition_msg));
+		} else {
+			strncpy(condition_msg, "(unknown GDI+ status)", sizeof(condition_msg));
+		}
 		break;
 
 	case WFR_STATUS_FACILITY_POSIX:
@@ -191,6 +252,22 @@ WfrStatusToErrorMessage(
 		(void)FormatMessageA(
 			FORMAT_MESSAGE_FROM_SYSTEM,
 			NULL, status.condition,
+			LANG_USER_DEFAULT,
+			condition_msg, sizeof(condition_msg),
+			NULL);
+		break;
+
+	case WFR_STATUS_FACILITY_WINDOWS_NT:
+		if (!hModule_ntdll) {
+			if (!(hModule_ntdll = LoadLibrary("NTDLL.DLL"))) {
+				return WfrStatusToErrorMessage(WFR_STATUS_FROM_WINDOWS());
+			}
+		}
+
+		condition_msg[0] = '\0';
+		(void)FormatMessageA(
+			FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_FROM_SYSTEM,
+			hModule_ntdll, status.condition,
 			LANG_USER_DEFAULT,
 			condition_msg, sizeof(condition_msg),
 			NULL);
@@ -225,17 +302,28 @@ WfrStatusToErrorMessageW(
 	WfrStatus	status
 	)
 {
-	static wchar_t	condition_msg[128];
-	static wchar_t	error_msg[256];
+	WfrStatusCondition	condition;
+	static wchar_t		condition_msg[128];
+	static wchar_t		error_msg[256];
+	static HMODULE		hModule_ntdllW = NULL;
 
 
 	switch (WFR_STATUS_FACILITY(status)) {
 	default:
-		wcsncpy(condition_msg, L"(unknown facility)", sizeof(condition_msg) / sizeof(condition_msg[0]));
+		wcsncpy(condition_msg, L"(unknown facility)", WFR_SIZEOF_WSTRING(condition_msg));
+		break;
+
+	case WFR_STATUS_FACILITY_GDI_PLUS:
+		condition = WFR_STATUS_CONDITION(status);
+		if (condition < WFR_ARRAYCOUNT(WfrpGdiPlusStatusErrorMessageW)) {
+			wcsncpy(condition_msg, WfrpGdiPlusStatusErrorMessageW[condition], WFR_SIZEOF_WSTRING(condition_msg));
+		} else {
+			wcsncpy(condition_msg, L"(unknown GDI+ status)", WFR_SIZEOF_WSTRING(condition_msg));
+		}
 		break;
 
 	case WFR_STATUS_FACILITY_POSIX:
-		wcsncpy(condition_msg, _wcserror(status.condition), (sizeof(condition_msg) - 1) / sizeof(condition_msg[0]));
+		wcsncpy(condition_msg, _wcserror(status.condition), WFR_SIZEOF_WSTRING(condition_msg));
 		break;
 
 	case WFR_STATUS_FACILITY_WINDOWS:
@@ -243,12 +331,28 @@ WfrStatusToErrorMessageW(
 		(void)FormatMessageW(
 			FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 			NULL, status.condition, LANG_USER_DEFAULT,
-			condition_msg, sizeof(condition_msg), NULL);
+			condition_msg, WFR_SIZEOF_WSTRING(condition_msg), NULL);
+		break;
+
+	case WFR_STATUS_FACILITY_WINDOWS_NT:
+		if (!hModule_ntdllW) {
+			if (!(hModule_ntdllW = LoadLibrary("NTDLL.DLL"))) {
+				return WfrStatusToErrorMessageW(WFR_STATUS_FROM_WINDOWS());
+			}
+		}
+
+		condition_msg[0] = L'\0';
+		(void)FormatMessageW(
+			FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_FROM_SYSTEM,
+			hModule_ntdllW, status.condition,
+			LANG_USER_DEFAULT,
+			condition_msg, WFR_SIZEOF_WSTRING(condition_msg),
+			NULL);
 		break;
 	}
 
 	snwprintf(
-		error_msg, sizeof(error_msg),
+		error_msg, WFR_SIZEOF_WSTRING(error_msg),
 		L"Error in %S:%d: %S",
 		status.file, status.line, condition_msg);
 

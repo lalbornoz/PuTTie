@@ -14,6 +14,9 @@
  * Public macros private to PuTTie/winfrip*.c
  */
 
+#define WFR_ARRAYCOUNT(array)								\
+	(sizeof((array)) / sizeof((array)[0]))
+
 #define WFR_FREE(p) ({									\
 	free((void *)(p)); (p) = NULL;							\
 })
@@ -22,6 +25,16 @@
 	if ((p)) {									\
 		WFR_FREE((p));								\
 	}
+
+#define WFR_FREE_VECTOR_IF_NOTNULL(len, vector) ({					\
+	if ((vector)) {									\
+		for (size_t nitem = 0; nitem < (len); nitem++) {			\
+			WFR_FREE_IF_NOTNULL((vector)[nitem]);				\
+		}									\
+		WFR_FREE((vector));							\
+	}										\
+	(len) = 0;									\
+})
 
 #define WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, fmt, ...)				\
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("PuTTie", (status), fmt, ## __VA_ARGS__)
@@ -102,20 +115,8 @@
 	status;										\
 })
 
-#define WFR_RESIZE_VECTOR_WITHNULL(p, count, count_new, type) ({			\
-	typeof (p)	_p;								\
-	WfrStatus	status;								\
-											\
-	if (!(_p = realloc((p), ((count_new) + 1) * sizeof(type)))) {			\
-		status = WFR_STATUS_FROM_ERRNO();					\
-	} else {									\
-		(p) = _p;								\
-		(count) = (count_new);							\
-		(status) = WFR_STATUS_CONDITION_SUCCESS;				\
-	}										\
-											\
-	status;										\
-})
+#define WFR_SIZEOF_WSTRING(wstring)							\
+	WFR_ARRAYCOUNT(wstring)
 
 #define WFR_SNPRINTF(s, n, fmt, ...) ({							\
 	int		c = snprintf((s), (n), (fmt), ## __VA_ARGS__);			\
