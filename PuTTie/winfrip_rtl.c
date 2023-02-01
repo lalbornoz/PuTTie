@@ -239,20 +239,21 @@ WfrStatusToErrorMessage(
 
 	switch (WFR_STATUS_FACILITY(status)) {
 	default:
-		strncpy(condition_msg, "(unknown facility)", sizeof(condition_msg));
+		WFR_STRNCPY(condition_msg, "(unknown facility)", sizeof(condition_msg));
+		condition_msg[sizeof(condition_msg) - 1] = '\0';
 		break;
 
 	case WFR_STATUS_FACILITY_GDI_PLUS:
 		condition = WFR_STATUS_CONDITION(status);
 		if (condition < WFR_ARRAYCOUNT(WfrpGdiPlusStatusErrorMessage)) {
-			strncpy(condition_msg, WfrpGdiPlusStatusErrorMessage[condition], sizeof(condition_msg));
+			WFR_STRNCPY(condition_msg, WfrpGdiPlusStatusErrorMessage[condition], sizeof(condition_msg));
 		} else {
-			strncpy(condition_msg, "(unknown GDI+ status)", sizeof(condition_msg));
+			WFR_STRNCPY(condition_msg, "(unknown GDI+ status)", sizeof(condition_msg));
 		}
 		break;
 
 	case WFR_STATUS_FACILITY_POSIX:
-		strncpy(condition_msg, strerror(status.condition), sizeof(condition_msg) - 1);
+		WFR_STRNCPY(condition_msg, strerror(status.condition), sizeof(condition_msg));
 		break;
 
 	case WFR_STATUS_FACILITY_WINDOWS:
@@ -318,20 +319,20 @@ WfrStatusToErrorMessageW(
 
 	switch (WFR_STATUS_FACILITY(status)) {
 	default:
-		wcsncpy(condition_msg, L"(unknown facility)", WFR_SIZEOF_WSTRING(condition_msg));
+		WFR_WCSNCPY(condition_msg, L"(unknown facility)", WFR_SIZEOF_WSTRING(condition_msg));
 		break;
 
 	case WFR_STATUS_FACILITY_GDI_PLUS:
 		condition = WFR_STATUS_CONDITION(status);
 		if (condition < WFR_ARRAYCOUNT(WfrpGdiPlusStatusErrorMessageW)) {
-			wcsncpy(condition_msg, WfrpGdiPlusStatusErrorMessageW[condition], WFR_SIZEOF_WSTRING(condition_msg));
+			WFR_WCSNCPY(condition_msg, WfrpGdiPlusStatusErrorMessageW[condition], WFR_SIZEOF_WSTRING(condition_msg));
 		} else {
-			wcsncpy(condition_msg, L"(unknown GDI+ status)", WFR_SIZEOF_WSTRING(condition_msg));
+			WFR_WCSNCPY(condition_msg, L"(unknown GDI+ status)", WFR_SIZEOF_WSTRING(condition_msg));
 		}
 		break;
 
 	case WFR_STATUS_FACILITY_POSIX:
-		wcsncpy(condition_msg, _wcserror(status.condition), WFR_SIZEOF_WSTRING(condition_msg));
+		WFR_WCSNCPY(condition_msg, _wcserror(status.condition), WFR_SIZEOF_WSTRING(condition_msg));
 		break;
 
 	case WFR_STATUS_FACILITY_WINDOWS:
@@ -407,10 +408,13 @@ WfrWcsNDup(
 	size_t		out_w_size;
 
 
-	out_w_size = (in_w_len + 1) * sizeof(*out_w);
-	out_w = WFR_NEWN(out_w_size, wchar_t);
-	ZeroMemory(out_w, out_w_size);
-	wcsncpy(out_w, in_w, in_w_len);
+	out_w_size = in_w_len + 1;
+	if ((out_w = WFR_NEWN(out_w_size, wchar_t))) {
+		memset(out_w, 0, out_w_size * sizeof(wchar_t));
+		wcsncpy(out_w, in_w, in_w_len);
+		out_w[in_w_len] = L'\0';
+	}
+
 	return out_w;
 }
 
