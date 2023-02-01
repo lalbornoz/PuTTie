@@ -164,7 +164,7 @@ WfrEnumerateFiles(
 	WfrEnumerateFilesState **	state
 	)
 {
-	size_t		ext_len;
+	size_t		ext_len = 0;
 	char *		fname, *fname_ext;
 	char		path_cwd[PATH_MAX + 1];
 	struct stat	statbuf;
