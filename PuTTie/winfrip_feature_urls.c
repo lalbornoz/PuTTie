@@ -104,26 +104,69 @@ static WffupState		WffupStateCurrent = WFFUP_STATE_NONE;
  * Private subroutine prototypes
  */
 
+static void		WffupConfigPanelBrowserVerbHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static void		WffupConfigPanelModifierKeyHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static void		WffupConfigPanelModifierExtendShrinkHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static void		WffupConfigPanelModifierShiftHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
-
-static bool		WffupGet(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, pos begin, pos end);
-WfrStatus		WffupGetTermLine(Terminal *term, wchar_t **pline_w, size_t *pline_w_len, int y);
-
-static bool		WffupIsVKeyDown(int nVirtKey);
-
 static WfReturn		WffupReconfig(Conf *conf);
-static void		WffupReconfigModifierKey(Conf *conf);
-static void		WffupReconfigModifierExtendShrinkKey(Conf *conf);
-static void		WffupReconfigModifierShift(Conf *conf);
+static int		WffupReconfigModifierKey(int modifier);
+static int		WffupReconfigModifierShift(int modifier);
 
-static bool		WffupStateMatch(int x, int y);
-static void		WffupStateReset(Terminal *term, bool update_term);
+static WfrStatus	WffupGet(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, pos begin, pos end);
+static WfrStatus	WffupGetTermLine(Terminal *term, int y, wchar_t **pline_w, size_t *pline_w_len);
+static WfrStatus	WffupGetTermLines(Terminal *term, pos begin, pos end, wchar_t **pline_w);
+
+static bool		WffupMatchState(int x, int y);
+static void		WffupResetState(Terminal *term, bool update_term);
+
+static int		WffOpClick(Conf *conf, UINT message, Terminal *term, int x, int y);
+static int		WffOpDraw(Conf *conf, unsigned long *tattr, Terminal *term, int x, int y);
+static int		WffOpSelect(Terminal *term, int x, int );
+static int		WffOpSelectExtendShrink(Terminal *term, WPARAM wParam);
 
 /*
  * Private subroutines
  */
+
+static void
+WffupConfigPanelBrowserVerbHandler(
+	dlgcontrol *	ctrl,
+	dlgparam *	dlg,
+	void *		data,
+	int		event
+	)
+{
+	char *		browser_verb;
+	size_t		browser_verb_len;
+	wchar_t *	browser_verb_w;
+	Conf *		conf = (Conf *)data;
+	WfrStatus	status;
+
+
+	switch (event) {
+	case EVENT_REFRESH:
+		dlg_editbox_set(
+			ctrl, dlg,
+			conf_get_str(conf, CONF_frip_urls_browser_pname_verb));
+		break;
+
+	case EVENT_VALCHANGE:
+		browser_verb = dlg_editbox_get(ctrl, dlg);
+		browser_verb_len = strlen(browser_verb);
+		conf_set_str(conf, CONF_frip_urls_browser_pname_verb, browser_verb);
+
+		if (WFR_STATUS_SUCCESS(status = WfrToWcsDup(
+				browser_verb, browser_verb_len + 1, &browser_verb_w)))
+		{
+			WFR_FREE(browser_verb);
+			WFR_FREE_IF_NOTNULL(WffupAppW);
+			WffupAppW = browser_verb_w;
+		} else {
+			WFR_FREE(browser_verb);
+		}
+		break;
+	}
+}
 
 static void
 WffupConfigPanelModifierKeyHandler(
@@ -165,7 +208,7 @@ WffupConfigPanelModifierKeyHandler(
 	case EVENT_VALCHANGE:
 		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
 		conf_set_int(conf, CONF_frip_urls_modifier_key, id);
-		WffupReconfigModifierKey(conf);
+		WffupModifier = WffupReconfigModifierKey(conf_get_int(conf, CONF_frip_urls_modifier_key));
 		break;
 	}
 }
@@ -210,7 +253,7 @@ WffupConfigPanelModifierExtendShrinkHandler(
 	case EVENT_VALCHANGE:
 		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
 		conf_set_int(conf, CONF_frip_urls_modifier_extendshrink_key, id);
-		WffupReconfigModifierExtendShrinkKey(conf);
+		WffupModifierExtendShrink = WffupReconfigModifierKey(conf_get_int(conf, CONF_frip_urls_modifier_extendshrink_key));
 		break;
 	}
 }
@@ -252,13 +295,146 @@ WffupConfigPanelModifierShiftHandler(
 	case EVENT_VALCHANGE:
 		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
 		conf_set_int(conf, CONF_frip_urls_modifier_shift, id);
-		WffupReconfigModifierShift(conf);
+		WffupModifierShiftState = WffupReconfigModifierShift(conf_get_int(conf, CONF_frip_urls_modifier_shift));
 		break;
 	}
 }
 
+static WfReturn
+WffupReconfig(
+	Conf *	conf
+	)
+{
+	static char	dlg_caption[96], dlg_text[256];
+	int		re_errorcode = 0;
+	PCRE2_SIZE	re_erroroffset = 0;
+	char *		spec;
+	size_t		spec_len;
+	wchar_t *	spec_w;
 
-static bool
+
+	/*
+	 * Obtain/update new configuration values. Reject empty regular expression
+	 * strings. Convert the regular expression string to UTF-16. Release
+	 * previously allocated pcre2 code resources, if any, compile the new
+	 * regular expression string into pcre2 code and create a match data block,
+	 * if necessary. On failure to do so, attempt to obtain the error message
+	 * corresponding to the error produced during compilation.
+	 */
+
+	spec = conf_get_str(conf, CONF_frip_urls_regex); spec_len = strlen(spec);
+	WffupModifier = WffupReconfigModifierKey(conf_get_int(conf, CONF_frip_urls_modifier_key));
+	WffupModifierExtendShrink = WffupReconfigModifierKey(conf_get_int(conf, CONF_frip_urls_modifier_extendshrink_key));
+	WffupModifierShiftState = WffupReconfigModifierShift(conf_get_int(conf, CONF_frip_urls_modifier_shift));
+
+	if (spec_len == 0) {
+		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+		snprintf(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
+		goto fail;
+	} else if (WFR_STATUS_FAILURE(WfrToWcsDup(spec, spec_len + 1, &spec_w))) {
+		WFR_DEBUG_FAIL();
+		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
+		goto fail;
+	} else {
+		if (WffupReCode) {
+			pcre2_code_free(WffupReCode); WffupReCode = NULL;
+		}
+		WffupReCode = pcre2_compile(
+			spec_w,
+			PCRE2_ANCHORED | PCRE2_ZERO_TERMINATED,
+			0, &re_errorcode, &re_erroroffset, NULL);
+
+		if (WffupReCode) {
+			WFR_FREE(spec_w);
+			WffupReMd = pcre2_match_data_create(1, NULL);
+			return WF_RETURN_CONTINUE;
+		} else {
+			ZeroMemory(WffupReErrorMessage, sizeof(WffupReErrorMessage));
+			pcre2_get_error_message(
+				re_errorcode, WffupReErrorMessage,
+				sizeof(WffupReErrorMessage) / sizeof(WffupReErrorMessage[0]));
+
+			snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat="
+			snprintf(
+				dlg_text, sizeof(dlg_text),
+				"Error in regex %S at offset %llu: %S",
+				spec_w, re_erroroffset, WffupReErrorMessage);
+#pragma GCC diagnostic pop
+
+			goto fail;
+		}
+	}
+
+	/*
+	 * On failure, create and show a modal dialogue box describing the
+	 * specific error and offer the user the choice of:
+	 *	1) cancelling the (re)configuration operation altogether, discarding
+	 *	   the entirety of the new configuration values, or
+	 *	2) continuing the (re)configuration operation w/o a compiled regular
+	 *	   expression and URL matching effectively disabled, or
+	 *	3) retrying the (re)configuration operation, discarding the entirety
+	 *	   of the new configuration values, re-entering the configuration
+	 *	   dialogue w/ focus set to the Frippery/URLs category.
+	 */
+
+fail:
+	switch (MessageBoxA(NULL, dlg_caption, dlg_text, MB_CANCELTRYCONTINUE | MB_ICONERROR)) {
+	default:
+	case IDCANCEL:
+		WFR_FREE(spec_w);
+		return WF_RETURN_CANCEL;
+	case IDCONTINUE:
+		WFR_FREE(spec_w);
+		return WF_RETURN_CONTINUE;
+	case IDTRYAGAIN:
+		WFR_FREE(spec_w);
+		return WF_RETURN_RETRY;
+	}
+}
+
+static int
+WffupReconfigModifierKey(
+	int	modifier
+	)
+{
+	switch (modifier) {
+	default:
+		WFR_DEBUG_FAIL();
+		return VK_CONTROL;
+	case WFFUP_MODIFIER_KEY_CTRL:
+		return VK_CONTROL;
+	case WFFUP_MODIFIER_KEY_ALT:
+		return VK_MENU;
+	case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
+		return VK_RCONTROL;
+	case WFFUP_MODIFIER_KEY_RIGHT_ALT:
+		return VK_RMENU;
+	}
+}
+
+static int
+WffupReconfigModifierShift(
+	int	modifier
+	)
+{
+	switch (modifier) {
+	default:
+		WFR_DEBUG_FAIL();
+		return 0;
+	case WFFUP_MODIFIER_SHIFT_NONE:
+		return 0;
+	case WFFUP_MODIFIER_SHIFT_LSHIFT:
+		return VK_LSHIFT;
+	case WFFUP_MODIFIER_SHIFT_RSHIFT:
+		return VK_RSHIFT;
+	}
+}
+
+
+static WfrStatus
 WffupGet(
 	Terminal *	term,
 	pos *		pbegin,
@@ -269,10 +445,8 @@ WffupGet(
 	pos		end
 	)
 {
-	bool		breakfl = false;
-	wchar_t *	line_w = NULL, *line_new_w;
-	bool		line_w_initfl = true;
-	size_t		line_w_size = 0, line_new_w_len;
+	bool		donefl;
+	wchar_t *	line_w = NULL;
 	size_t		match_begin, match_end, match_len;
 	Wfp2MGState	pcre2_state;
 	WfrStatus	status;
@@ -281,59 +455,17 @@ WffupGet(
 	/*
 	 * Fail given non-initialised pcre2 regular expression {code,match data
 	 * block}, whether due to failure to initialise or an invalid regular
-	 * expression provided by the user. Reject invalid {begin,end}.{x,y}
-	 * coordinates, be they negative or falling outside of term->{cols,rows}
+	 * expression provided by the user.
 	 */
 
 	if (!WffupReCode || !WffupReMd) {
-		WFR_DEBUG_FAIL();
-		return FALSE;
-	} else if ((begin.x < 0) || (begin.x >= term->cols)
-		|| (begin.y < 0) || (begin.y >= term->rows)
-		|| (end.x < 0)   || (end.x >= term->cols)
-		|| (end.y < 0)   || (end.y >= term->rows))
+		return WFR_STATUS_FROM_ERRNO1(EINVAL);
+	} else if (WFR_STATUS_SUCCESS(status = WffupGetTermLines(
+			term, begin, end, &line_w)))
 	{
-		WFR_DEBUG_FAIL();
-		return FALSE;
-	} else {
-		/*
-		 * Iteratively get and concatenate entire lines from the terminal's
-		 * buffer of text on real screen specified by the coordinates {begin,end}.{x,y}.
-		 */
-
-		status = WFR_STATUS_CONDITION_SUCCESS;
-		for (int y = begin.y; y <= end.y; y++) {
-			if (WFR_STATUS_FAILURE(status = WffupGetTermLine(
-					term, &line_new_w, &line_new_w_len, y)))
-			{
-				break;
-			} else if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
-					line_w, line_w_size,
-					line_w_size ? (line_w_size + line_new_w_len) : (line_new_w_len + 1),
-					wchar_t)))
-			{
-				WFR_FREE(line_new_w);
-				break;
-			} else {
-				if (line_w_initfl) {
-					wcscpy(line_w, line_new_w);
-					line_w_initfl = false;
-				} else {
-					wcscat(line_w, line_new_w);
-				}
-				WFR_FREE(line_new_w);
-			}
-		}
-
-		if (WFR_STATUS_SUCCESS(status)) {
-			Wfp2Init(
-				&pcre2_state, WffupReCode,
-				wcslen(line_w), WffupReMd, line_w);
-		} else {
-			WFR_FREE_IF_NOTNULL(line_w);
-			WFR_DEBUG_FAIL();
-			return FALSE;
-		}
+		Wfp2Init(
+			&pcre2_state, WffupReCode,
+			wcslen(line_w), WffupReMd, line_w);
 	}
 
 	/*
@@ -345,16 +477,16 @@ WffupGet(
 	 * is returned.
 	 */
 
-	do {
-		switch (WFR_STATUS_CONDITION(Wfp2MatchGlobal(
+	donefl = false;
+	while (WFR_STATUS_SUCCESS(status) && !donefl) {
+		switch (WFR_STATUS_CONDITION(status = Wfp2MatchGlobal(
 				&pcre2_state, &match_begin, &match_end)))
 		{
 		case WFR_STATUS_CONDITION_PCRE2_ERROR:
 			WFR_DEBUGF("error %d trying to match any URL(s) in line `%S'", pcre2_state.last_error, line_w);
-			breakfl = true; break;
-
+			break;
 		case WFR_STATUS_CONDITION_PCRE2_NO_MATCH:
-			breakfl = true; break;
+			break;
 
 		/*
 		 * Given a non-zero length match the range of which is intersected by {begin,end},
@@ -365,7 +497,7 @@ WffupGet(
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 		case WFR_STATUS_CONDITION_PCRE2_DONE:
-			breakfl = true;
+			donefl = true;
 #pragma GCC diagnostic pop
 
 		case WFR_STATUS_CONDITION_PCRE2_CONTINUE:
@@ -374,7 +506,7 @@ WffupGet(
 				if (match_len > 0) {
 					WFR_DEBUGF("URL `%*.*S' matches regular expression", match_len, match_len, &line_w[match_begin]);
 					if (!(*phover_url_w = WfrWcsNDup(&line_w[match_begin], match_len))) {
-						WFR_FREE(line_w); return FALSE;
+						status = WFR_STATUS_FROM_ERRNO();
 					} else {
 						pbegin->x = match_begin;
 						if (pbegin->x > term->cols) {
@@ -392,32 +524,33 @@ WffupGet(
 							pend->y = end.y;
 						}
 
-						*phover_url_w_size = match_len + 1; breakfl = true;
-						WFR_FREE(line_w);
-						return TRUE;
+						donefl = true;
+						*phover_url_w_size = match_len + 1;
+						status = WFR_STATUS_CONDITION_SUCCESS;
 					}
 				} else {
-					breakfl = true;
+					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 				}
 			}
 			break;
 		}
-	} while (!breakfl);
+	}
 
 	/*
 	 * Free line_w and implictly return failure.
 	 */
 
 	WFR_FREE_IF_NOTNULL(line_w);
-	return FALSE;
+
+	return status;
 }
 
-WfrStatus
+static WfrStatus
 WffupGetTermLine(
 	Terminal *	term,
+	int		y,
 	wchar_t **	pline_w,
-	size_t *	pline_w_len,
-	int		y
+	size_t *	pline_w_len
 	)
 {
 	size_t		idx_in, idx_out;
@@ -437,14 +570,12 @@ WffupGetTermLine(
 	 */
 
 	if (y >= term->rows) {
-		WFR_DEBUG_FAIL();
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
 	} else {
 		line_w_len = term->cols;
 		if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
 				line_w, line_w_len, line_w_len + 1, wchar_t)))
 		{
-			WFR_DEBUG_FAIL();
 			return status;
 		} else {
 			line = term->disptext[y];
@@ -521,179 +652,90 @@ WffupGetTermLine(
 
 	line_w[term->cols] = L'\0';
 	*pline_w = line_w, *pline_w_len = line_w_len;
+
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
 
-
-static bool
-WffupIsVKeyDown(
-	int	nVirtKey
+static WfrStatus
+WffupGetTermLines(
+	Terminal *	term,
+	pos		begin,
+	pos		end,
+	wchar_t **	pline_w
 	)
 {
-	return (GetKeyState(nVirtKey) < 0);
-}
-
-
-static WfReturn
-WffupReconfig(
-	Conf *	conf
-	)
-{
-	static char	dlg_caption[96], dlg_text[256];
-	int		re_errorcode = 0;
-	PCRE2_SIZE	re_erroroffset = 0;
-	char *		spec;
-	size_t		spec_len;
-	wchar_t *	spec_w;
+	wchar_t *	line_new_w;
+	size_t		line_new_w_len;
+	wchar_t *	line_w = NULL;
+	bool		line_w_initfl;
+	size_t		line_w_size;
+	WfrStatus	status;
 
 
 	/*
-	 * Obtain/update new configuration values. Reject empty regular expression
-	 * strings. Convert the regular expression string to UTF-16. Release
-	 * previously allocated pcre2 code resources, if any, compile the new
-	 * regular expression string into pcre2 code and create a match data block,
-	 * if necessary. On failure to do so, attempt to obtain the error message
-	 * corresponding to the error produced during compilation.
+	 * Reject invalid {begin,end}.{x,y} * coordinates, be they negative or
+	 * falling outside of term->{cols,rows}
 	 */
 
-	spec = conf_get_str(conf, CONF_frip_urls_regex); spec_len = strlen(spec);
-	WffupReconfigModifierKey(conf);
-	WffupReconfigModifierExtendShrinkKey(conf);
-	WffupReconfigModifierShift(conf);
-
-	if (spec_len == 0) {
-		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-		snprintf(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
-		goto fail;
-	} else if (WFR_STATUS_FAILURE(WfrToWcsDup(spec, spec_len + 1, &spec_w))) {
-		WFR_DEBUG_FAIL();
-		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
-		goto fail;
+	if ((begin.x < 0) || (begin.x >= term->cols)
+	||  (begin.y < 0) || (begin.y >= term->rows)
+	||  (end.x < 0)   || (end.x >= term->cols)
+	||  (end.y < 0)   || (end.y >= term->rows))
+	{
+		status = WFR_STATUS_FROM_ERRNO1(ERANGE);
 	} else {
-		if (WffupReCode) {
-			pcre2_code_free(WffupReCode); WffupReCode = NULL;
+		/*
+		 * Iteratively get and concatenate entire lines from the terminal's
+		 * buffer of text on real screen specified by the coordinates {begin,end}.{x,y}.
+		 */
+
+		line_w_initfl = true;
+		line_w_size = 0;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+
+		for (int y = begin.y; y <= end.y; y++) {
+			if (WFR_STATUS_FAILURE(status = WffupGetTermLine(
+					term, y, &line_new_w, &line_new_w_len)))
+			{
+				break;
+			} else if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
+					line_w, line_w_size,
+					line_w_size ? (line_w_size + line_new_w_len) : (line_new_w_len + 1),
+					wchar_t)))
+			{
+				WFR_FREE(line_new_w);
+				break;
+			} else {
+				if (line_w_initfl) {
+					wcscpy(line_w, line_new_w);
+					line_w_initfl = false;
+				} else {
+					wcscat(line_w, line_new_w);
+				}
+				WFR_FREE(line_new_w);
+			}
 		}
-		WffupReCode = pcre2_compile(
-			spec_w,
-			PCRE2_ANCHORED | PCRE2_ZERO_TERMINATED,
-			0, &re_errorcode, &re_erroroffset, NULL);
-
-		if (WffupReCode) {
-			WFR_FREE(spec_w);
-			WffupReMd = pcre2_match_data_create(1, NULL);
-			return WF_RETURN_CONTINUE;
-		} else {
-			ZeroMemory(WffupReErrorMessage, sizeof(WffupReErrorMessage));
-			pcre2_get_error_message(
-				re_errorcode, WffupReErrorMessage,
-				sizeof(WffupReErrorMessage) / sizeof(WffupReErrorMessage[0]));
-
-			snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat="
-			snprintf(
-				dlg_text, sizeof(dlg_text),
-				"Error in regex %S at offset %llu: %S",
-				spec_w, re_erroroffset, WffupReErrorMessage);
-#pragma GCC diagnostic pop
-
-			goto fail;
-		}
 	}
 
-	/*
-	 * On failure, create and show a modal dialogue box describing the
-	 * specific error and offer the user the choice of:
-	 *	1) cancelling the (re)configuration operation altogether, discarding
-	 *	   the entirety of the new configuration values, or
-	 *	2) continuing the (re)configuration operation w/o a compiled regular
-	 *	   expression and URL matching effectively disabled, or
-	 *	3) retrying the (re)configuration operation, discarding the entirety
-	 *	   of the new configuration values, re-entering the configuration
-	 *	   dialogue w/ focus set to the Frippery/URLs category.
-	 */
-
-fail:
-	switch (MessageBoxA(NULL, dlg_caption, dlg_text, MB_CANCELTRYCONTINUE | MB_ICONERROR)) {
-	default:
-	case IDCANCEL:
-		WFR_FREE(spec_w);
-		return WF_RETURN_CANCEL;
-	case IDCONTINUE:
-		WFR_FREE(spec_w);
-		return WF_RETURN_CONTINUE;
-	case IDTRYAGAIN:
-		WFR_FREE(spec_w);
-		return WF_RETURN_RETRY;
+	if (WFR_STATUS_SUCCESS(status)) {
+		*pline_w = line_w;
+	} else {
+		WFR_FREE_IF_NOTNULL(line_w);
 	}
-}
 
-static void
-WffupReconfigModifierKey(
-	Conf *	conf
-	)
-{
-	switch (conf_get_int(conf, CONF_frip_urls_modifier_key)) {
-	case WFFUP_MODIFIER_KEY_CTRL:
-		WffupModifier = VK_CONTROL; break;
-	case WFFUP_MODIFIER_KEY_ALT:
-		WffupModifier = VK_MENU; break;
-	case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
-		WffupModifier = VK_RCONTROL; break;
-	case WFFUP_MODIFIER_KEY_RIGHT_ALT:
-		WffupModifier = VK_RMENU; break;
-	default:
-		WffupModifier = 0; WFR_DEBUG_FAIL(); break;
-	}
-}
-
-static void
-WffupReconfigModifierExtendShrinkKey(
-	Conf *	conf
-	)
-{
-	switch (conf_get_int(conf, CONF_frip_urls_modifier_extendshrink_key)) {
-	case WFFUP_MODIFIER_KEY_CTRL:
-		WffupModifierExtendShrink = VK_CONTROL; break;
-	case WFFUP_MODIFIER_KEY_ALT:
-		WffupModifierExtendShrink = VK_MENU; break;
-	case WFFUP_MODIFIER_KEY_RIGHT_CTRL:
-		WffupModifierExtendShrink = VK_RCONTROL; break;
-	case WFFUP_MODIFIER_KEY_RIGHT_ALT:
-		WffupModifierExtendShrink = VK_RMENU; break;
-	default:
-		WffupModifierExtendShrink = 0; WFR_DEBUG_FAIL(); break;
-	}
-}
-
-static void
-WffupReconfigModifierShift(
-	Conf *	conf
-	)
-{
-	switch (conf_get_int(conf, CONF_frip_urls_modifier_shift)) {
-	case WFFUP_MODIFIER_SHIFT_NONE:
-		WffupModifierShiftState = 0; break;
-	case WFFUP_MODIFIER_SHIFT_LSHIFT:
-		WffupModifierShiftState = VK_LSHIFT; break;
-	case WFFUP_MODIFIER_SHIFT_RSHIFT:
-		WffupModifierShiftState = VK_RSHIFT; break;
-	default:
-		WffupModifierShiftState = 0; WFR_DEBUG_FAIL(); break;
-	}
+	return status;
 }
 
 
 static bool
-WffupStateMatch(
+WffupMatchState(
 	int	x,
 	int	y
 	)
 {
 	return (
-		   WffupIsVKeyDown(WffupModifier)
-		&& ((WffupModifierShiftState != 0) ? WffupIsVKeyDown(WffupModifierShiftState) : true)
+		   WfrIsVKeyDown(WffupModifier)
+		&& ((WffupModifierShiftState != 0) ? WfrIsVKeyDown(WffupModifierShiftState) : true)
 		&& (y >= WffupMatchBegin.y)
 		&& ((y == WffupMatchBegin.y) ? (x >= WffupMatchBegin.x) : true)
 		&& (y <= WffupMatchEnd.y)
@@ -702,7 +744,7 @@ WffupStateMatch(
 }
 
 static void
-WffupStateReset(
+WffupResetState(
 	Terminal *	term,
 	bool		update_term
 	)
@@ -716,6 +758,156 @@ WffupStateReset(
 	WffupStateCurrent = WFFUP_STATE_NONE;
 	if (update_term) {
 		term_update(term);
+	}
+}
+
+
+static int
+WffOpClick(
+	Conf *		conf,
+	UINT		message,
+	Terminal *	term,
+	int		x,
+	int		y
+	)
+{
+	int		rc;
+	HINSTANCE	rc_shexec;
+
+
+	if ((message == WM_LBUTTONDOWN)
+	&&  WffupMatchState(x, y))
+	{
+		WffupStateCurrent = WFFUP_STATE_CLICK;
+		term_update(term);
+
+		if (conf_get_bool(conf, CONF_frip_urls_browser_default)) {
+			WFR_DEBUGF("ShellExecuteW(\"open\", `%S')", WffupBufW);
+			rc_shexec = ShellExecuteW(NULL, L"open", WffupBufW, NULL, NULL, SW_SHOWNORMAL);
+		} else {
+			WFR_DEBUGF("ShellExecuteW(`%S', `%S')", WffupAppW, WffupBufW);
+			rc_shexec = ShellExecuteW(NULL, NULL, WffupAppW, WffupBufW, NULL, SW_SHOWNORMAL);
+		}
+
+		if ((INT_PTR)rc_shexec <= 32) {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(
+				WFR_STATUS_FROM_WINDOWS(),
+				"opening URL %S with %S",
+				WffupBufW, WffupAppW ? WffupAppW : L"open");
+		}
+
+		rc = WF_RETURN_BREAK;
+	} else {
+		rc = WF_RETURN_CONTINUE;
+	}
+
+	WffupResetState(term, true);
+
+	return rc;
+}
+
+static int
+WffOpDraw(
+	Conf *			conf,
+	unsigned long *		tattr,
+	Terminal *		term,
+	int			x,
+	int			y
+	)
+{
+	if (WffupPosLe(
+			WffupMatchBegin, x, y - term->disptop) &&
+			WffupPosLt(x, y - term->disptop, WffupMatchEnd))
+	{
+		switch (WffupStateCurrent) {
+		case WFFUP_STATE_CLICK:
+			if (conf_get_bool(conf, CONF_frip_urls_revvideo_onclick)) {
+				*tattr |= ATTR_REVERSE;
+			}
+			break;
+
+		case WFFUP_STATE_SELECT:
+			if (conf_get_bool(conf, CONF_frip_urls_underline_onhl)) {
+				*tattr |= ATTR_UNDER;
+			}
+			break;
+
+		default:
+			WFR_DEBUG_FAIL();
+		}
+	}
+
+	return WF_RETURN_CONTINUE;
+}
+
+static int
+WffOpSelect(
+	Terminal *	term,
+	int		x,
+	int		y
+	)
+{
+	WfrStatus	status;
+
+
+	if (WfrIsVKeyDown(WffupModifier)
+	&& ((WffupModifierShiftState != 0)
+	 ? WfrIsVKeyDown(WffupModifierShiftState)
+	 : true))
+	{
+		if (WFR_STATUS_SUCCESS(status = WffupGet(
+				term, &WffupMatchBegin, &WffupMatchEnd,
+				&WffupBufW, &WffupBufW_size,
+				(pos){.x=x, .y=y}, (pos){.x=x, .y=y})))
+		{
+			WffupSelectBegin = (pos){.x=x, .y=y};
+			WffupSelectEnd = (pos){.x=x, .y=y};
+			WffupStateCurrent = WFFUP_STATE_SELECT;
+			term_update(term);
+		}
+	}
+
+	return WF_RETURN_CONTINUE;
+}
+
+static int
+WffOpSelectExtendShrink(
+	Terminal *	term,
+	WPARAM		wParam
+	)
+{
+	wchar_t *	buf_w_new;
+	WfrStatus	status;
+	short		wheel_distance;
+
+
+	if (WfrIsVKeyDown(WffupModifier)
+	&&  WfrIsVKeyDown(WffupModifierExtendShrink)
+	&&  ((WffupModifierShiftState != 0)
+	 ?   WfrIsVKeyDown(WffupModifierShiftState)
+	 :   true))
+	{
+		wheel_distance = (short)HIWORD(wParam);
+		if ((wheel_distance > 0) && (WffupSelectEnd.y < term->rows)) {
+			WffupSelectEnd.y++;
+		} else if ((wheel_distance < 0) && (WffupSelectEnd.y > WffupSelectBegin.y)) {
+			WffupSelectEnd.y--;
+		}
+
+		if (WFR_STATUS_SUCCESS(status = WffupGet(
+				term, &WffupMatchBegin, &WffupMatchEnd,
+				&buf_w_new, &WffupBufW_size,
+				WffupSelectBegin, WffupSelectEnd)))
+		{
+			if (WffupBufW) {
+				WFR_FREE(WffupBufW);
+			}
+			WffupBufW = buf_w_new;
+			term_update(term);
+		}
+		return WF_RETURN_BREAK;
+	} else {
+		return WF_RETURN_CONTINUE;
 	}
 }
 
@@ -768,7 +960,8 @@ WffUrlsConfigPanel(
 
 	s_browser = ctrl_getset(b, "Frippery/URLs", "frip_urls_browser", "Browser");
 	ctrl_checkbox(s_browser, "Default application associated with \"open\" verb", 'd', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_urls_browser_default));
-	ctrl_text(s_browser, "Pathname to browser application:", WFP_HELP_CTX); ctrl_editbox(s_browser, NULL, 'p', 100, WFP_HELP_CTX, conf_editbox_handler, I(CONF_frip_urls_browser_pname_verb), ED_STR);
+	ctrl_text(s_browser, "Pathname to browser application:", WFP_HELP_CTX);
+	ctrl_editbox(s_browser, NULL, 'p', 100, WFP_HELP_CTX, WffupConfigPanelBrowserVerbHandler, P(NULL), P(NULL));
 }
 
 /*
@@ -788,18 +981,11 @@ WffUrlsOperation(
 	int			y
 	)
 {
-	wchar_t *	buf_w_new;
-	WfReturn 	rc;
-	short		wheel_distance;
-
-
 	(void)hwnd;
 
 	switch (op) {
 	case WFF_URLS_OP_INIT:
-		WffupReconfig(conf);
-		rc = WF_RETURN_CONTINUE;
-		break;
+		return WffupReconfig(conf);
 
 	/*
 	 * Given WFF_URLS_OP_DRAW from terminal.c:do_paint(), apply either of
@@ -812,28 +998,7 @@ WffUrlsOperation(
 	 */
 
 	case WFF_URLS_OP_DRAW:
-		if (WffupPosLe(
-				WffupMatchBegin, x, y - term->disptop) &&
-				WffupPosLt(x, y - term->disptop, WffupMatchEnd))
-		{
-			switch (WffupStateCurrent) {
-			case WFFUP_STATE_CLICK:
-				if (conf_get_bool(conf, CONF_frip_urls_revvideo_onclick)) {
-					*tattr |= ATTR_REVERSE;
-				}
-				break;
-
-			case WFFUP_STATE_SELECT:
-				if (conf_get_bool(conf, CONF_frip_urls_underline_onhl)) {
-					*tattr |= ATTR_UNDER;
-				}
-				break;
-
-			default:
-				WFR_DEBUG_FAIL();
-			}
-		}
-		return WF_RETURN_CONTINUE;
+		return WffOpDraw(conf, tattr, term, x, y);
 
 	/*
 	 * Given WFF_URLS_OP_FOCUS_KILL interrupting an URL operation, reset
@@ -842,15 +1007,17 @@ WffUrlsOperation(
 
 	case WFF_URLS_OP_FOCUS_KILL:
 		switch (WffupStateCurrent) {
-		case WFFUP_STATE_SELECT:
-			WffupStateReset(term, true); break;
 		default:
-			break;
+			return WF_RETURN_CONTINUE;
+		case WFFUP_STATE_SELECT:
+			WffupResetState(term, true);
+			return WF_RETURN_CONTINUE;
 		}
-		break;
 
 	case WFF_URLS_OP_MOUSE_BUTTON_EVENT:
 		switch (WffupStateCurrent) {
+		default:
+			return WF_RETURN_CONTINUE;
 
 		/*
 		 * Given WFFUP_STATE_SELECT, a LMB click event, and
@@ -864,29 +1031,13 @@ WffUrlsOperation(
 		 */
 
 		case WFFUP_STATE_SELECT:
-			if ((message == WM_LBUTTONDOWN) && WffupStateMatch(x, y)) {
-				WffupStateCurrent = WFFUP_STATE_CLICK; term_update(term);
-				if (conf_get_bool(conf, CONF_frip_urls_browser_default)) {
-					WFR_DEBUGF("ShellExecuteW(\"open\", `%S')", WffupBufW);
-					ShellExecuteW(NULL, L"open", WffupBufW, NULL, NULL, SW_SHOWNORMAL);
-				} else {
-					WFR_DEBUGF("ShellExecuteW(`%S', `%S')", WffupAppW, WffupBufW);
-					ShellExecuteW(NULL, NULL, WffupAppW, WffupBufW, NULL, SW_SHOWNORMAL);
-				}
-				rc = WF_RETURN_BREAK;
-			} else {
-				rc = WF_RETURN_CONTINUE;
-			}
-			WffupStateReset(term, true);
-			return rc;
-
-		default:
-			break;
+			return WffOpClick(conf, message, term, x, y);
 		}
-		return WF_RETURN_CONTINUE;
 
 	case WFF_URLS_OP_MOUSE_MOTION_EVENT:
 		switch (WffupStateCurrent) {
+		default:
+			return WF_RETURN_CONTINUE;
 
 		/*
 		 * Given WFFUP_STATE_NONE and satisfaction of the constraint
@@ -897,23 +1048,7 @@ WffUrlsOperation(
 		 */
 
 		case WFFUP_STATE_NONE:
-			if (WffupIsVKeyDown(WffupModifier)
-			&& ((WffupModifierShiftState != 0)
-			 ? WffupIsVKeyDown(WffupModifierShiftState)
-			 : true))
-			{
-				if (WffupGet(
-						term, &WffupMatchBegin, &WffupMatchEnd,
-						&WffupBufW, &WffupBufW_size,
-						(pos){.x=x, .y=y}, (pos){.x=x, .y=y}))
-				{
-					WffupSelectBegin = (pos){.x=x, .y=y};
-					WffupSelectEnd = (pos){.x=x, .y=y};
-					WffupStateCurrent = WFFUP_STATE_SELECT;
-					term_update(term);
-				}
-			}
-			break;
+			return WffOpSelect(term, x, y);
 
 		/*
 		 * Given WFFUP_STATE_SELECT, enforce the constraint that the
@@ -925,54 +1060,19 @@ WffUrlsOperation(
 		 */
 
 		case WFFUP_STATE_SELECT:
-			if (!WffupStateMatch(x, y)) {
-				WffupStateReset(term, true);
+			if (!WffupMatchState(x, y)) {
+				WffupResetState(term, true);
 			}
-			break;
-
-		default:
-			break;
+			return WF_RETURN_CONTINUE;
 		}
-		return WF_RETURN_CONTINUE;
 
 	case WFF_URLS_OP_MOUSE_WHEEL_EVENT:
 		switch (WffupStateCurrent) {
-		case WFFUP_STATE_NONE:
-			break;
-
-		case WFFUP_STATE_SELECT:
-			if (WffupIsVKeyDown(WffupModifier)
-			&&  WffupIsVKeyDown(WffupModifierExtendShrink)
-			&&  ((WffupModifierShiftState != 0)
-			 ?   WffupIsVKeyDown(WffupModifierShiftState)
-			 :   true))
-			{
-				wheel_distance = (short)HIWORD(wParam);
-				if ((wheel_distance > 0) && (WffupSelectEnd.y < term->rows)) {
-					WffupSelectEnd.y++;
-				} else if ((wheel_distance < 0) && (WffupSelectEnd.y > WffupSelectBegin.y)) {
-					WffupSelectEnd.y--;
-				}
-
-				if (WffupGet(
-						term, &WffupMatchBegin, &WffupMatchEnd,
-						&buf_w_new, &WffupBufW_size,
-						WffupSelectBegin, WffupSelectEnd))
-				{
-					if (WffupBufW) {
-						WFR_FREE(WffupBufW);
-					}
-					WffupBufW = buf_w_new;
-					term_update(term);
-				}
-				return WF_RETURN_BREAK;
-			}
-			break;
-
 		default:
-			break;
+			return WF_RETURN_CONTINUE;
+		case WFFUP_STATE_SELECT:
+			return WffOpSelectExtendShrink(term, wParam);
 		}
-		return WF_RETURN_CONTINUE;
 
 	case WFF_URLS_OP_RECONFIG:
 		return WffupReconfig(conf);
@@ -981,8 +1081,6 @@ WffUrlsOperation(
 		WFR_DEBUG_FAIL();
 		return WF_RETURN_CONTINUE;
 	}
-
-	return WF_RETURN_CONTINUE;
 }
 
 /*
