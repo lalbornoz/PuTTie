@@ -124,6 +124,14 @@ WfrGetOsVersionMinor(
 	return WfrpVersionMinor;
 }
 
+bool
+WfrIsVKeyDown(
+	int	nVirtKey
+	)
+{
+	return (GetKeyState(nVirtKey) < 0);
+}
+
 int
 WfrMessageBoxF(
 	const char *	lpCaption,
