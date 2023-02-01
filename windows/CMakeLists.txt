@@ -89,6 +89,7 @@ set_source_files_properties(../PuTTie/winfrip_putty_config.c PROPERTIES COMPILE_
 set_source_files_properties(../PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_gdi.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -190,6 +191,7 @@ set_property(TARGET putty APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_rtl.c
   ../PuTTie/winfrip_rtl_debug.c
   ../PuTTie/winfrip_rtl_file.c
+  ../PuTTie/winfrip_rtl_gdi.c
   ../PuTTie/winfrip_rtl_pcre2.c
   ../PuTTie/winfrip_rtl_registry.c
   ../PuTTie/winfrip_storage.c
@@ -251,6 +253,7 @@ set_property(TARGET puttytel APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_rtl.c
   ../PuTTie/winfrip_rtl_debug.c
   ../PuTTie/winfrip_rtl_file.c
+  ../PuTTie/winfrip_rtl_gdi.c
   ../PuTTie/winfrip_rtl_pcre2.c
   ../PuTTie/winfrip_rtl_registry.c
   ../PuTTie/winfrip_storage.c

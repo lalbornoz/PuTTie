@@ -402,7 +402,7 @@ WfspFileEnumerateHostCAs(
 
 	enum_state = (WfrEnumerateFilesState *)state;
 	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
-			WfsppFileExtHostCAs, pdonefl, &name, enum_state)))
+			WfsppFileExtHostCAs, pdonefl, &name, &enum_state)))
 	{
 		if (!(*pdonefl)) {
 			status = WfrUnescapeFileName((char *)name, (const char **)pname);
@@ -848,7 +848,7 @@ WfspFileEnumerateHostKeys(
 
 	enum_state = (WfrEnumerateFilesState *)state;
 	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
-			WfsppFileExtHostKeys, pdonefl, &name, enum_state)))
+			WfsppFileExtHostKeys, pdonefl, &name, &enum_state)))
 	{
 		if (!(*pdonefl)) {
 			status = WfrUnescapeFileName((char *)name, (const char **)pkey_name);
@@ -1102,7 +1102,7 @@ WfspFileEnumerateSessions(
 
 	enum_state = (WfrEnumerateFilesState *)state;
 	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
-			WfsppFileExtSessions, pdonefl, &name, enum_state)))
+			WfsppFileExtSessions, pdonefl, &name, &enum_state)))
 	{
 		if (!(*pdonefl)) {
 			status = WfrUnescapeFileName((char *)name, (const char **)psessionname);

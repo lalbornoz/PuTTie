@@ -3734,7 +3734,7 @@ static void do_text_internal(
     int len2; /* for SURROGATE PAIR */
     int rc_width = 0;
     /* {{{ winfrip */
-    BOOL bgfl = FALSE;
+    bool bgfl = false;
     /* winfrip }}} */
 
     lattr &= LATTR_MODE;

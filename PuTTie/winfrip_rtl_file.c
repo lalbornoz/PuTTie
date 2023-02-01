@@ -161,7 +161,7 @@ WfrEnumerateFiles(
 	const char *			ext,
 	bool *				pdonefl,
 	const char **			pfname,
-	WfrEnumerateFilesState *	state
+	WfrEnumerateFilesState **	state
 	)
 {
 	size_t		ext_len;
@@ -171,11 +171,10 @@ WfrEnumerateFiles(
 	WfrStatus	status;
 
 
-	if (!state->dirp) {
+	if (!(*state)->dirp) {
 		*pdonefl = true;
 		*pfname = NULL;
-		state->donefl = true;
-		WFR_ENUMERATE_FILES_STATE_INIT(*state);
+		WfrEnumerateFilesAbort(state);
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -184,32 +183,34 @@ WfrEnumerateFiles(
 	}
 
 	errno = 0;
-	ext_len = strlen(ext);
+	if (ext) {
+		ext_len = strlen(ext);
+	}
 	status = WFR_STATUS_CONDITION_SUCCESS;
 
 	while (WFR_STATUS_SUCCESS(status)
-	&&     (state->dire = readdir(state->dirp)))
+	&&     ((*state)->dire = readdir((*state)->dirp)))
 	{
-		if (chdir(state->path) < 0) {
+		if (chdir((*state)->path) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
-		} else if (stat(state->dire->d_name, &statbuf) < 0) {
+		} else if (stat((*state)->dire->d_name, &statbuf) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
 			(void)chdir(path_cwd);
 		} else if (chdir(path_cwd) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (!(statbuf.st_mode & S_IFREG)) {
 			continue;
-		} else if ((state->dire->d_name[0] == '.')
-			&& (state->dire->d_name[1] == '\0'))
+		} else if (((*state)->dire->d_name[0] == '.')
+			&& ((*state)->dire->d_name[1] == '\0'))
 		{
 			continue;
-		} else if ((state->dire->d_name[0] == '.')
-			&& (state->dire->d_name[1] == '.')
-			&& (state->dire->d_name[2] == '\0'))
+		} else if (((*state)->dire->d_name[0] == '.')
+			&& ((*state)->dire->d_name[1] == '.')
+			&& ((*state)->dire->d_name[2] == '\0'))
 		{
 			continue;
 		} else {
-			fname = state->dire->d_name;
+			fname = (*state)->dire->d_name;
 			fname_ext = NULL;
 
 			if (!ext
@@ -222,7 +223,7 @@ WfrEnumerateFiles(
 				}
 				*pdonefl = false;
 				*pfname = fname;
-				state->donefl = false;
+				(*state)->donefl = false;
 				return WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
@@ -231,15 +232,27 @@ WfrEnumerateFiles(
 	if (errno == 0) {
 		*pdonefl = true;
 		*pfname = NULL;
-		state->donefl = true;
-		(void)closedir(state->dirp);
-		WFR_FREE(state);
+		WfrEnumerateFilesAbort(state);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	} else {
 		status = WFR_STATUS_FROM_ERRNO();
 	}
 
 	return status;
+}
+
+void
+WfrEnumerateFilesAbort(
+	WfrEnumerateFilesState **	state
+	)
+{
+	if (*state) {
+		if ((*state)->dirp) {
+			(void)closedir((*state)->dirp);
+		}
+		WFR_ENUMERATE_FILES_STATE_INIT(**state);
+		WFR_FREE(*state); *state = NULL;
+	}
 }
 
 WfrStatus
@@ -273,6 +286,53 @@ WfrEnumerateFilesInit(
 	if (WFR_STATUS_FAILURE(status)) {
 		WFR_FREE_IF_NOTNULL((*state)->path);
 		WFR_FREE_IF_NOTNULL(*state);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrEnumerateFilesV(
+	const char *	dname,
+	const char *	ext,
+	size_t *	pfilec,
+	char ***	pfilev
+	)
+{
+	bool				donefl;
+	size_t				filec_new = 0;
+	char **				filev_new = NULL;
+	const char *			fname;
+	char *				fname_new;
+	WfrEnumerateFilesState *	state;
+	WfrStatus			status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFilesInit(dname, &state))) {
+		while (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
+				ext, &donefl, &fname, &state)) && !donefl)
+		{
+			if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
+					filev_new, filec_new,
+					filec_new + 1, char *)))
+			{
+				(void)WfrEnumerateFilesAbort(&state);
+				break;
+			} else if (!(fname_new = strdup(fname))) {
+				status = WFR_STATUS_FROM_ERRNO();
+				(void)WfrEnumerateFilesAbort(&state);
+				break;
+			} else {
+				filev_new[filec_new - 1] = fname_new;
+			}
+		}
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		*pfilec = filec_new;
+		*pfilev = filev_new;
+	} else {
+		WFR_FREE_VECTOR_IF_NOTNULL(filec_new, filev_new);
 	}
 
 	return status;
@@ -442,7 +502,7 @@ WfrPathNameToAbsoluteW(
 		return WFR_STATUS_CONDITION_SUCCESS;
 	} else if ((path_abs_size = GetFullPathNameW(*pname, 0, NULL, NULL)) == 0) {
 		return WFR_STATUS_FROM_WINDOWS();
-	} else if (!(path_abs = (LPWSTR)malloc(path_abs_size * sizeof(path_abs[0])))) {
+	} else if (!(path_abs = WFR_NEWN(path_abs_size * sizeof(path_abs[0]), WCHAR))) {
 		return WFR_STATUS_FROM_ERRNO();
 	} else if (GetFullPathNameW(*pname, path_abs_size, path_abs, NULL) == 0) {
 		return WFR_STATUS_FROM_WINDOWS();
@@ -452,6 +512,40 @@ WfrPathNameToAbsoluteW(
 		path_abs = NULL;
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
+}
+
+WfrStatus
+WfrPathNameToDirectory(
+	char *		pname,
+	char **		pdname
+	)
+{
+	char *		dname;
+	size_t		dname_len;
+	char *		dname_end;
+	size_t		pname_len;
+	WfrStatus	status;
+
+
+	if ((pname_len = strlen(pname))) {
+		for (dname_end = &pname[pname_len - 1];
+		     (dname_end > pname) && (*dname_end != '/') && (*dname_end != '\\');
+		     dname_end--);
+
+		dname_len = (dname_end > pname) ? (dname_end - pname) : 1;
+		if (!(dname = WFR_NEWN(dname_len + 1, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			memcpy(dname, pname, dname_len);
+			dname[dname_len] = '\0';
+			*pdname = dname;
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+	}
+
+	return status;
 }
 
 WfrStatus
@@ -473,7 +567,7 @@ WfrPathNameToDirectoryW(
 		     dname_end--);
 
 		dname_len = (dname_end > pname) ? (dname_end - pname) : 1;
-		if (!(dname = (wchar_t *)malloc((dname_len + 1) * sizeof(dname[0])))) {
+		if (!(dname = WFR_NEWN((dname_len + 1) * sizeof(dname[0]), wchar_t))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			memcpy(dname, pname, dname_len * sizeof(dname[0]));
