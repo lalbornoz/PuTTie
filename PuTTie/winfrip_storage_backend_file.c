@@ -1479,6 +1479,7 @@ WfspFileGetEntriesJumpList(
 			} else {
 				(*pjump_list)[0] = '\0';
 				(*pjump_list)[1] = '\0';
+				*pjump_list_size = 2;
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
