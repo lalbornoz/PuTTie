@@ -677,17 +677,26 @@ WfspFileSaveHostCA(
 	FILE *		file = NULL;
 	char		fname[MAX_PATH], fname_tmp[MAX_PATH];
 	int		rc;
+	struct stat	statbuf;
 	WfrStatus	status;
 
 
 	(void)backend;
 
+	if (stat(WfsppFileDnameHostCAs, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			status = WfrMakeDirectory(WfsppFileDnameHostCAs, true);
+		}
+		if (WFR_STATUS_FAILURE(status)) {
+			return status;
+		}
+	}
+
 	if (!(dname_tmp = getenv("TEMP"))
 	||  !(dname_tmp = getenv("TMP"))) {
 		dname_tmp = "./";
 	}
-
-	if (!(stat(
 
 	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
@@ -954,10 +963,21 @@ WfspFileSaveHostKey(
 	char		fname[MAX_PATH + 1], fname_tmp[MAX_PATH + 1];
 	size_t		key_len;
 	size_t		nwritten;
+	struct stat	statbuf;
 	WfrStatus	status;
 
 
 	(void)backend;
+
+	if (stat(WfsppFileDnameHostKeys, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			status = WfrMakeDirectory(WfsppFileDnameHostKeys, true);
+		}
+		if (WFR_STATUS_FAILURE(status)) {
+			return status;
+		}
+	}
 
 	if (!(dname_tmp = getenv("TEMP"))
 	||  !(dname_tmp = getenv("TMP"))) {
@@ -1312,10 +1332,21 @@ WfspFileSaveSession(
 	WfsTreeItem *	item;
 	char		fname[MAX_PATH], fname_tmp[MAX_PATH];
 	int		rc;
+	struct stat	statbuf;
 	WfrStatus	status;
 
 
 	(void)backend;
+
+	if (stat(WfsppFileDnameSessions, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			status = WfrMakeDirectory(WfsppFileDnameSessions, true);
+		}
+		if (WFR_STATUS_FAILURE(status)) {
+			return status;
+		}
+	}
 
 	if (!(dname_tmp = getenv("TEMP"))
 	||  !(dname_tmp = getenv("TMP"))) {
