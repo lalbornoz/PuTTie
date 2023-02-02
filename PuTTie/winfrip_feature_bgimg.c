@@ -11,6 +11,7 @@
 #pragma GCC diagnostic pop
 
 #include <stdbool.h>
+#include <sys/stat.h>
 
 #include <bcrypt.h>
 #include <ntstatus.h>
@@ -414,9 +415,12 @@ WffbpSlideshowReconf(
 {
 	char *			bg_dname;
 	Filename *		bg_dname_conf;
+	char *			bg_fname;
+	Filename *		bg_fname_conf;
 	size_t			dname_filec_new = 0;
 	char **			dname_filev_new = NULL;
 	char *			dname_new = NULL;
+	struct stat		statbuf;
 	WfrStatus		status;
 	WffbpContext *		timer_ctx_new = NULL;
 
@@ -427,17 +431,25 @@ WffbpSlideshowReconf(
 		break;
 
 	case WFFBP_SLIDESHOW_SINGLE_IMAGE:
-		WFR_FREE_IF_NOTNULL(WffbpDname);
-		WffbpDnameLen = 0;
-		WFR_FREE_IF_NOTNULL(WffbpFname);
-		WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
+		bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
+		bg_fname = bg_fname_conf->path;
 
-		if (WffbpTimerContext) {
-			expire_timer_context(WffbpTimerContext);
-			WFR_FREE(WffbpTimerContext);
+		if (stat(bg_fname, &statbuf) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			WFR_FREE_IF_NOTNULL(WffbpDname);
+			WffbpDnameLen = 0;
+			WFR_FREE_IF_NOTNULL(WffbpFname);
+			WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
+
+			if (WffbpTimerContext) {
+				expire_timer_context(WffbpTimerContext);
+				WFR_FREE(WffbpTimerContext);
+			}
+
+			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 
-		status = WFR_STATUS_CONDITION_SUCCESS;
 		break;
 
 	case WFFBP_SLIDESHOW_SHUFFLE:
@@ -485,6 +497,7 @@ WffbpSlideshowReconf(
 		break;
 	}
 
+	// FIXME TODO XXX doesnt show up
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "configuring background image");
 
 	return status;
