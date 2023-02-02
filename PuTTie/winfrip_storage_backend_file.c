@@ -644,11 +644,11 @@ WfspFileRenameHostCA(
 
 	(void)backend;
 
-	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
 			WfsppFileExtHostCAs, name,
 			false, fname, sizeof(fname)))
-	||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+	&&  WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
 			WfsppFileExtHostCAs, name_new,
 			false, fname_new, sizeof(fname_new))))
@@ -1298,11 +1298,11 @@ WfspFileRenameSession(
 
 	(void)backend;
 
-	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameSessions,
 			WfsppFileExtSessions, sessionname,
 			false, fname, sizeof(fname)))
-	||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+	&&  WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
 			WfsppFileDnameSessions,
 			WfsppFileExtSessions, sessionname_new,
 			false, fname_new, sizeof(fname_new))))
