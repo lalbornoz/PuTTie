@@ -11,7 +11,15 @@
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_sessions.h"
+#include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
+
+/*
+ * Private variables
+ */
+
+static char *	WfspEphemeralJumpList = NULL;
+static size_t	WfspEphemeralJumpListSize = 0;
 
 /*
  * Public subroutines private to PuTTie/winfrip_storage*.c
@@ -310,11 +318,9 @@ WfspEphemeralAddJumpList(
 	const char *const	sessionname
 	)
 {
-	(void)sessionname;
-
-	/*
-	 * Inhibit jump list processing
-	 */
+	(void)WfsTransformJumpList(
+		true, false, &WfspEphemeralJumpList,
+		&WfspEphemeralJumpListSize, sessionname);
 }
 
 WfrStatus
@@ -330,9 +336,8 @@ WfspEphemeralClearJumpList(
 	void
 	)
 {
-	/*
-	 * Inhibit jump list processing
-	 */
+	WFR_FREE_IF_NOTNULL(WfspEphemeralJumpList);
+	WfspEphemeralJumpListSize = 0;
 }
 
 WfrStatus
@@ -341,16 +346,28 @@ WfspEphemeralGetEntriesJumpList(
 	size_t *	pjump_list_size
 	)
 {
+	char *		jump_list_copy;
 	WfrStatus	status;
 
 
-	if (!((*pjump_list = WFR_NEWN(2, char)))) {
-		status = WFR_STATUS_FROM_ERRNO();
+	if (WfspEphemeralJumpListSize > 0) {
+		if (!(jump_list_copy = WFR_NEWN(WfspEphemeralJumpListSize, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			memcpy(jump_list_copy, WfspEphemeralJumpList, WfspEphemeralJumpListSize);
+			*pjump_list = jump_list_copy;
+			*pjump_list_size = WfspEphemeralJumpListSize;
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
 	} else {
-		(*pjump_list)[0] = '\0';
-		(*pjump_list)[1] = '\0';
-		*pjump_list_size = 2;
-		status = WFR_STATUS_CONDITION_SUCCESS;
+		if (!(jump_list_copy = WFR_NEWN(2, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			(*pjump_list)[0] = '\0';
+			(*pjump_list)[1] = '\0';
+			*pjump_list_size = 2;
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
 	}
 
 	return status;
@@ -361,11 +378,9 @@ WfspEphemeralRemoveJumpList(
 	const char *const	sessionname
 	)
 {
-	(void)sessionname;
-
-	/*
-	 * Inhibit jump list processing
-	 */
+	(void)WfsTransformJumpList(
+		false, true, &WfspEphemeralJumpList,
+		&WfspEphemeralJumpListSize, sessionname);
 }
 
 WfrStatus
@@ -374,11 +389,22 @@ WfspEphemeralSetEntriesJumpList(
 	size_t		jump_list_size
 	)
 {
-	(void)jump_list;
-	(void)jump_list_size;
-	return WFR_STATUS_CONDITION_SUCCESS;
-}
+	char *		jump_list_new;
+	WfrStatus	status;
 
+
+	if (!(jump_list_new = WFR_NEWN(jump_list_size, char))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		memcpy(jump_list_new, jump_list, jump_list_size);
+		WFR_FREE_IF_NOTNULL(WfspEphemeralJumpList);
+		WfspEphemeralJumpList = jump_list_new;
+		WfspEphemeralJumpListSize = jump_list_size;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
+}
 
 
 WfrStatus
