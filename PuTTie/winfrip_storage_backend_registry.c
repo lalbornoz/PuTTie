@@ -1187,10 +1187,11 @@ WfspRegistryGetEntriesJumpList(
 	size_t *	pjump_list_size
 	)
 {
+	DWORD		jump_list_size_;
 	WfrStatus	status;
 
 
-	status = WfsppRegistryGetJumpList(NULL, pjump_list, (DWORD *)pjump_list_size);
+	status = WfsppRegistryGetJumpList(NULL, pjump_list, &jump_list_size_);
 	if (WFR_STATUS_FAILURE(status)) {
 		if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
 		||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
@@ -1200,9 +1201,12 @@ WfspRegistryGetEntriesJumpList(
 			} else {
 				(*pjump_list)[0] = '\0';
 				(*pjump_list)[1] = '\0';
+				*pjump_list_size = 2;
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
+	} else {
+		*pjump_list_size = (size_t)jump_list_size_;
 	}
 
 	return status;
