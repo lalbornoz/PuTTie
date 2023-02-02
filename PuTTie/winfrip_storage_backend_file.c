@@ -176,6 +176,7 @@ WfsppFileInitAppDataSubdir(
 			"%s/jump.list", WfsppFileDname);
 
 		if (WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDname, true))
+		&&  WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameHostCAs, true))
 		&&  WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameHostKeys, true))
 		&&  WFR_STATUS_SUCCESS(status = WfrMakeDirectory(WfsppFileDnameSessions, true)))
 		{
@@ -685,6 +686,8 @@ WfspFileSaveHostCA(
 	||  !(dname_tmp = getenv("TMP"))) {
 		dname_tmp = "./";
 	}
+
+	if (!(stat(
 
 	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
 			WfsppFileDnameHostCAs,
