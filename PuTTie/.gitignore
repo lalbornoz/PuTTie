@@ -3,5 +3,5 @@ create_shortcut.exe
 PuTTie-file-*.zip
 PuTTie-file-*/
 PuTTie-registry-*.zip
-PuTTie-registry/
+PuTTie-registry-*/
 TODO
