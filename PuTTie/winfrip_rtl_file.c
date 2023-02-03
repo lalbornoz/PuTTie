@@ -779,7 +779,7 @@ WfrSaveListToFile(
 
 	if (!(dname_tmp = getenv("TEMP"))
 	||  !(dname_tmp = getenv("TMP"))) {
-		dname_tmp = "./";
+		dname_tmp = (char *)"./";
 	}
 	WFR_SNPRINTF(
 		pname_tmp, sizeof(pname_tmp),
@@ -856,7 +856,7 @@ WfrSaveRawFile(
 
 	if (!(dname_tmp = getenv("TEMP"))
 	||  !(dname_tmp = getenv("TMP"))) {
-		dname_tmp = "./";
+		dname_tmp = (char *)"./";
 	}
 
 	if (escape_fnamefl) {
