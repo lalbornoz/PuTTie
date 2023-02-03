@@ -37,16 +37,22 @@ typedef struct WfrEnumerateFilesState {
  */
 
 WfrStatus	WfrDeleteDirectory(const char *path, bool noentfl, bool recursefl);
+WfrStatus	WfrDeleteFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname);
 WfrStatus	WfrDeleteFiles(const char *dname, const char *ext);
 WfrStatus	WfrEnumerateFiles(const char *ext, bool *pdonefl, const char **pfname, WfrEnumerateFilesState **pstate);
 void		WfrEnumerateFilesCancel(WfrEnumerateFilesState **pstate);
 WfrStatus	WfrEnumerateFilesInit(const char *dname, WfrEnumerateFilesState **pstate);
 WfrStatus	WfrEnumerateFilesV(const char *dname, const char *ext, size_t *pfilec, char ***pfilev);
 WfrStatus	WfrEscapeFileName(const char *dname, const char *ext, const char *name, bool tmpfl, char *fname, size_t fname_size);
+WfrStatus	WfrLoadListFromFile(const char *fname, char **plist, size_t *plist_size);
+WfrStatus	WfrLoadRawFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname, char **pdata, size_t *pdata_size);
 WfrStatus	WfrMakeDirectory(char *path, bool existsfl);
 WfrStatus	WfrPathNameToAbsoluteW(wchar_t **pname);
 WfrStatus	WfrPathNameToDirectory(char *pname, char **pdname);
 WfrStatus	WfrPathNameToDirectoryW(wchar_t *pname, wchar_t **pdname);
+WfrStatus	WfrRenameFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname, const char *fname_new);
+WfrStatus	WfrSaveListToFile(const char *fname, const char *fname_tmp, const char *list, size_t list_size);
+WfrStatus	WfrSaveRawFile(bool escape_fnamefl, bool recreate_dnamefl, char *dname, const char *ext, const char *fname, const char *data, size_t data_size);
 WfrStatus	WfrUnescapeFileName(char *fname, const char **pname);
 
 #endif // !PUTTY_WINFRIP_RTL_FILE_H

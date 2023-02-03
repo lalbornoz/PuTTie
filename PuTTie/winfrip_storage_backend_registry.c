@@ -197,7 +197,7 @@ WfsppRegistryTransformJumpList(
 			jump_list_size_ = jump_list_size;
 		}
 
-		if (WFR_STATUS_SUCCESS(status = WfsTransformJumpList(
+		if (WFR_STATUS_SUCCESS(status = WfsTransformList(
 				addfl, delfl, &jump_list,
 				&jump_list_size_, trans_item)))
 		{
@@ -239,7 +239,7 @@ WfsppRegistryTransformPrivKeyList(
 			privkey_list_size_ = privkey_list_size;
 		}
 
-		if (WFR_STATUS_SUCCESS(status = WfsTransformPrivKeyList(
+		if (WFR_STATUS_SUCCESS(status = WfsTransformList(
 				addfl, delfl, &privkey_list,
 				&privkey_list_size_, trans_item)))
 		{

@@ -321,7 +321,7 @@ WfspEphemeralAddJumpList(
 	const char *const	sessionname
 	)
 {
-	(void)WfsTransformJumpList(
+	(void)WfsTransformList(
 		true, false, &WfspEphemeralJumpList,
 		&WfspEphemeralJumpListSize, sessionname);
 }
@@ -385,7 +385,7 @@ WfspEphemeralRemoveJumpList(
 	const char *const	sessionname
 	)
 {
-	(void)WfsTransformJumpList(
+	(void)WfsTransformList(
 		false, true, &WfspEphemeralJumpList,
 		&WfspEphemeralJumpListSize, sessionname);
 }
@@ -419,7 +419,7 @@ WfspEphemeralAddPrivKeyList(
 	const char *const	sessionname
 	)
 {
-	return WfsTransformPrivKeyList(
+	return WfsTransformList(
 		true, false, &WfspEphemeralPrivKeyList,
 		&WfspEphemeralPrivKeyListSize, sessionname);
 }
@@ -485,7 +485,7 @@ WfspEphemeralRemovePrivKeyList(
 	const char *const	sessionname
 	)
 {
-	return WfsTransformPrivKeyList(
+	return WfsTransformList(
 		false, true, &WfspEphemeralPrivKeyList,
 		&WfspEphemeralPrivKeyListSize, sessionname);
 }

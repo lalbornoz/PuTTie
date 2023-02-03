@@ -87,6 +87,39 @@ WfrDeleteDirectory(
 }
 
 WfrStatus
+WfrDeleteFile(
+	bool		escape_fnamefl,
+	const char *	dname,
+	const char *	ext,
+	const char *	fname
+	)
+{
+	char		pname[MAX_PATH + 1];
+	struct stat	statbuf;
+	WfrStatus	status;
+
+
+	if (escape_fnamefl) {
+		if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+				dname, ext, fname, false,
+				pname, sizeof(pname))))
+		{
+			return status;
+		}
+	}
+
+	if ((stat(pname, &statbuf) < 0)) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (unlink(pname) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
+}
+
+WfrStatus
 WfrDeleteFiles(
 	const char *	dname,
 	const char *	ext
@@ -405,6 +438,117 @@ WfrEscapeFileName(
 }
 
 WfrStatus
+WfrLoadListFromFile(
+	const char *	fname,
+	char **		plist,
+	size_t *	plist_size
+	)
+{
+	FILE *		file = NULL;
+	char *		list = NULL;
+	size_t		list_size = 0;
+	struct stat	statbuf;
+	WfrStatus	status;
+
+
+	if (stat(fname, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if ((list_size = statbuf.st_size) < 2) {
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
+	} else if (!(file = fopen(fname, "rb"))
+		|| !(list = WFR_NEWN(list_size = statbuf.st_size, char)))
+	{
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (fread(list, statbuf.st_size, 1, file) != 1) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (feof(file)) {
+			status = WFR_STATUS_FROM_ERRNO1(ENODATA);
+		}
+	} else {
+		list[list_size - 2] = '\0';
+		list[list_size - 1] = '\0';
+
+		*plist = list;
+		if (plist_size) {
+			*plist_size = list_size;
+		}
+
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (file != NULL) {
+		fclose(file);
+	}
+
+	if (WFR_STATUS_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(list);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrLoadRawFile(
+	bool		escape_fnamefl,
+	const char *	dname,
+	const char *	ext,
+	const char *	fname,
+	char **		pdata,
+	size_t *	pdata_size
+	)
+{
+	FILE *		file = NULL;
+	char *		data = NULL;
+	size_t		data_size;
+	char		pname[MAX_PATH + 1];
+	struct stat	statbuf;
+	WfrStatus	status;
+
+
+	if (escape_fnamefl) {
+		status = WfrEscapeFileName(
+			dname, ext, fname,
+			false, pname, sizeof(pname));
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		if ((stat(pname, &statbuf) < 0)
+		||  (!(file = fopen(pname, "rb")))
+		||  (!(data = WFR_NEWN(data_size = (statbuf.st_size + 1), char)))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else if (fread(data, statbuf.st_size, 1, file) != 1) {
+			if (statbuf.st_size == 0) {
+				status = WFR_STATUS_FROM_ERRNO1(ENODATA);
+			} else {
+				status = WFR_STATUS_FROM_ERRNO();
+				if (feof(file)) {
+					status = WFR_STATUS_FROM_ERRNO1(ENODATA);
+				}
+			}
+		} else {
+			data[statbuf.st_size] = '\0';
+		}
+
+		if (file) {
+			(void)fclose(file);
+		}
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		*pdata = data;
+		if (pdata_size) {
+			*pdata_size = data_size;
+		}
+	} else {
+		WFR_FREE(data);
+	}
+
+	return status;
+}
+
+WfrStatus
 WfrMakeDirectory(
 	char *	path,
 	bool	existsfl
@@ -577,6 +721,192 @@ WfrPathNameToDirectoryW(
 		}
 	} else {
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrRenameFile(
+	bool		escape_fnamefl,
+	const char *	dname,
+	const char *	ext,
+	const char *	fname,
+	const char *	fname_new
+	)
+{
+	char		pname[MAX_PATH + 1], pname_new[MAX_PATH + 1];
+	WfrStatus	status;
+
+
+	if (escape_fnamefl) {
+		if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
+				dname, ext, fname, false,
+				pname, sizeof(pname)))
+		&&  WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
+				dname, ext, fname_new, false,
+				pname_new, sizeof(pname_new))))
+		{
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			pname, pname_new, MOVEFILE_REPLACE_EXISTING));
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrSaveListToFile(
+	const char *	fname,
+	const char *	fname_tmp,
+	const char *	list,
+	size_t		list_size
+	)
+{
+	char *		dname_tmp;
+	int		fd = -1;
+	FILE *		file = NULL;
+	ssize_t		nwritten;
+	char		pname_tmp[MAX_PATH + 1];
+	WfrStatus	status;
+
+
+	if (!(dname_tmp = getenv("TEMP"))
+	||  !(dname_tmp = getenv("TMP"))) {
+		dname_tmp = "./";
+	}
+	WFR_SNPRINTF(
+		pname_tmp, sizeof(pname_tmp),
+		"%s/%s", dname_tmp, fname_tmp);
+
+	if ((fd = mkstemp(pname_tmp)) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (!(file = fdopen(fd, "wb"))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (list_size > 0) {
+		if ((nwritten = fwrite(list, list_size, 1, file)) != 1) {
+			if (ferror(file) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				status = WFR_STATUS_FROM_ERRNO1(EPIPE);
+			}
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (file) {
+		(void)fflush(file);
+		(void)fclose(file);
+	} else if ((fd >= 0)) {
+		(void)close(fd);
+	}
+
+	if (WFR_STATUS_SUCCESS(status)
+	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			pname_tmp, fname, MOVEFILE_REPLACE_EXISTING))))
+	{
+		(void)unlink(pname_tmp);
+	} else if (WFR_STATUS_FAILURE(status)) {
+		(void)unlink(pname_tmp);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrSaveRawFile(
+	bool		escape_fnamefl,
+	bool		recreate_dnamefl,
+	char *		dname,
+	const char *	ext,
+	const char *	fname,
+	const char *	data,
+	size_t		data_size
+	)
+{
+	char *		dname_tmp;
+	int		fd = -1;
+	FILE *		file = NULL;
+	size_t		nwritten;
+	char		pname[MAX_PATH + 1], pname_tmp[MAX_PATH + 1];
+	struct stat	statbuf;
+	WfrStatus	status;
+
+
+	if (stat(dname, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			if (recreate_dnamefl) {
+				status = WfrMakeDirectory(dname, true);
+			}
+		}
+		if (WFR_STATUS_FAILURE(status)) {
+			return status;
+		}
+	}
+
+	if (!(dname_tmp = getenv("TEMP"))
+	||  !(dname_tmp = getenv("TMP"))) {
+		dname_tmp = "./";
+	}
+
+	if (escape_fnamefl) {
+		if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
+				dname, ext, fname, false,
+				pname, sizeof(pname)))
+		&&  WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
+				dname_tmp, ext, fname, true,
+				pname_tmp, sizeof(pname_tmp))))
+		{
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		if ((fd = mkstemp(pname_tmp)) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else if (!(file = fdopen(fd, "wb"))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else if (data_size > 0) {
+			if ((nwritten = fwrite(data, data_size, 1, file)) != 1) {
+				if (ferror(file) < 0) {
+					status = WFR_STATUS_FROM_ERRNO();
+				} else {
+					status = WFR_STATUS_FROM_ERRNO1(EPIPE);
+				}
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+
+		if (file) {
+			(void)fflush(file);
+			(void)fclose(file);
+		} else if ((fd >= 0)) {
+			(void)close(fd);
+		}
+	}
+
+	if (WFR_STATUS_SUCCESS(status)
+	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			pname_tmp, pname, MOVEFILE_REPLACE_EXISTING))))
+	{
+		(void)unlink(pname_tmp);
+	} else if (WFR_STATUS_FAILURE(status)) {
+		(void)unlink(pname_tmp);
 	}
 
 	return status;
