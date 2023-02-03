@@ -27,3 +27,9 @@ const char sshver[] = SSHVER;
  * compile time assertion to verify this.
  */
 enum { vorpal_sword = 1 / (sizeof(sshver) <= 40) };
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

@@ -1386,3 +1386,9 @@ void get_sesslist(struct sesslist *list, bool allocate)
         list->sessions = NULL;
     }
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

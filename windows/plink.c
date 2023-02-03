@@ -578,3 +578,9 @@ int main(int argc, char **argv)
     cleanup_exit(exitcode);
     return 0;                          /* placate compiler warning */
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

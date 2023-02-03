@@ -2447,7 +2447,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             /* winfrip }}} */
             reconfig_result = do_reconfig(
                 hwnd, wgs->conf,
-		wgs->backend ? backend_cfg_info(wgs->backend) : 0, NULL);
+                wgs->backend ? backend_cfg_info(wgs->backend) : 0, NULL);
             /* {{{ winfrip */
             bool breakfl = false;
             do {
@@ -3020,10 +3020,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         term_update(wgs->term);
         break;
       case WM_KILLFOCUS:
-	/* {{{ winfrip */
-	WffTransOperation(WFF_TRANS_OP_FOCUS_KILL, wgs->conf, hwnd);
+        /* {{{ winfrip */
+        WffTransOperation(WFF_TRANS_OP_FOCUS_KILL, wgs->conf, hwnd);
         WffUrlsOperation(WFF_URLS_OP_FOCUS_KILL, wgs->conf, NULL, message, NULL, wgs->term, wParam, -1, -1);
-	/* winfrip }}} */
+        /* winfrip }}} */
         show_mouseptr(wgs, true);
         term_set_focus(wgs->term, false);
         DestroyCaret();
@@ -3902,8 +3902,9 @@ static void do_text_internal(
     }
 
     /* {{{ winfrip */
-    WffBgImgOperation(WFF_BGIMG_OP_DRAW, &bgfl, wgs->conf, wgs->wintw_hdc, NULL,
-		     char_width, font_height, len, nbg, rc_width, x, y);
+    WffBgImgOperation(
+        WFF_BGIMG_OP_DRAW, &bgfl, wgs->conf, wgs->wintw_hdc, NULL,
+        char_width, font_height, len, nbg, rc_width, x, y);
     /* winfrip }}} */
 
     if ((attr & TATTR_COMBINING) || bgfl)
@@ -6133,3 +6134,9 @@ static bool win_seat_get_window_pixel_size(Seat *seat, int *x, int *y)
     *y = r.bottom - r.top;
     return true;
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

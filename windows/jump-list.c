@@ -795,3 +795,9 @@ bool set_explicit_app_user_model_id(void)
     return true;
 
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

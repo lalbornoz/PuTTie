@@ -2389,3 +2389,9 @@ int psftp_main(int argc, char *argv[])
 }
 
 /* end */
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

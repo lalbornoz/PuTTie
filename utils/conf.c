@@ -599,3 +599,9 @@ bool conf_deserialise(Conf *conf, BinarySource *src)
         conf_insert(conf, entry);
     }
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

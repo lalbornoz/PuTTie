@@ -2939,3 +2939,9 @@ int psftp_main(int argc, char *argv[])
 
     return toret;
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */
