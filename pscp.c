@@ -2286,7 +2286,7 @@ int psftp_main(int argc, char *argv[])
         WFR_IF_STATUS_FAILURE_MESSAGEBOX1("pscp", status, "setting backend");
         exit(1);
     }
-    /* }}} */
+    /* winfrip }}} */
 
     /* Load Default Settings before doing anything else. */
     conf = conf_new();

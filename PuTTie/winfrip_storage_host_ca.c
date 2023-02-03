@@ -217,7 +217,7 @@ WfsEnumerateHostCAs(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		pname,
-	void *		state
+	void **		pstate
 	)
 {
 	WfspBackend *	backend_impl;
@@ -230,7 +230,7 @@ WfsEnumerateHostCAs(
 		case true:
 			status = WfsTreeEnumerate(
 				backend_impl->tree_host_ca, initfl,
-				pdonefl, &item, state);
+				pdonefl, &item, pstate);
 			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
 				if (!(*pname = strdup(item->key))) {
 					status = WFR_STATUS_FROM_ERRNO();
@@ -241,7 +241,7 @@ WfsEnumerateHostCAs(
 		case false:
 			status = backend_impl->EnumerateHostCAs(
 				backend, initfl, pdonefl,
-				pname, state);
+				pname, pstate);
 			break;
 		}
 	}
@@ -316,7 +316,7 @@ WfsExportHostCAs(
 			name = NULL;
 			status = WfsEnumerateHostCAs(
 				backend_from, false, false,
-				&donefl, &name, enum_state);
+				&donefl, &name, &enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && name) {
 				status = WfsExportHostCA(

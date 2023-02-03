@@ -587,7 +587,7 @@ enum_settings_start(
 
 	if (WFR_STATUS_SUCCESS(status = WfsEnumerateSessions(
 			WfsGetBackend(), false, true,
-			NULL, NULL, (void **)&handle)))
+			NULL, NULL, &handle)))
 	{
 		return handle;
 	} else {
@@ -610,7 +610,7 @@ enum_settings_next(
 
 	status = WfsEnumerateSessions(
 		WfsGetBackend(), false, false,
-		&donefl, &sessionname, handle);
+		&donefl, &sessionname, (void **)&handle);
 
 	if (WFR_STATUS_FAILURE(status) || donefl) {
 		if (WFR_STATUS_FAILURE(status)) {
@@ -734,7 +734,7 @@ enum_host_ca_start(
 
 	if (WFR_STATUS_SUCCESS(status = WfsEnumerateHostCAs(
 			WfsGetBackend(), false, true,
-			NULL, NULL, (void **)&handle)))
+			NULL, NULL, &handle)))
 	{
 		return handle;
 	} else {
@@ -757,7 +757,7 @@ enum_host_ca_next(
 
 	status = WfsEnumerateHostCAs(
 		WfsGetBackend(), false, false,
-		&donefl, &name, handle);
+		&donefl, &name, (void **)&handle);
 
 	if (WFR_STATUS_FAILURE(status) || donefl) {
 		if (WFR_STATUS_FAILURE(status)) {

@@ -406,6 +406,23 @@ WfsCleanupContainer(
 }
 
 WfrStatus
+WfsEnumerateCancel(
+	WfsBackend	backend,
+	void **		pstate
+	)
+{
+	WfspBackend *	backend_impl;
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+		status = backend_impl->EnumerateCancel(backend, pstate);
+	}
+
+	return status;
+}
+
+WfrStatus
 WfsInit(
 	void
 	)

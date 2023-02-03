@@ -216,7 +216,7 @@ WfsEnumerateSessions(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		psessionname,
-	void *		state
+	void **		pstate
 	)
 {
 	WfspBackend *	backend_impl;
@@ -229,7 +229,7 @@ WfsEnumerateSessions(
 		case true:
 			status = WfsTreeEnumerate(
 				backend_impl->tree_session, initfl,
-				pdonefl, &item, state);
+				pdonefl, &item, pstate);
 			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
 				if (!(*psessionname = strdup(item->key))) {
 					status = WFR_STATUS_FROM_ERRNO();
@@ -240,7 +240,7 @@ WfsEnumerateSessions(
 		case false:
 			status = backend_impl->EnumerateSessions(
 				backend, initfl, pdonefl,
-				psessionname, state);
+				psessionname, pstate);
 			break;
 		}
 	}
@@ -315,7 +315,7 @@ WfsExportSessions(
 			sessionname = NULL;
 			status = WfsEnumerateSessions(
 				backend_from, false, false,
-				&donefl, &sessionname, enum_state);
+				&donefl, &sessionname, &enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && sessionname) {
 				status = WfsExportSession(

@@ -2463,7 +2463,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                         "Frippery/URLs"); break;
                 }
             } while (!breakfl);
-            /* }}} */
+            /* winfrip }}} */
             wgs->reconfiguring = false;
             if (!reconfig_result) {
               /* {{{ winfrip */

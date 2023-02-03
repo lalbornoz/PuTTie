@@ -34,14 +34,15 @@
 	WfspFileGetEntriesPrivKeyList, WfspFileRemovePrivKeyList,			\
 	WfspFileSetEntriesPrivKeyList,							\
 											\
-	WfspFileCleanupContainer, WfspFileInit, WfspFileSetBackend,			\
+	WfspFileCleanupContainer, WfspFileEnumerateCancel,				\
+       	WfspFileInit, WfspFileSetBackend,						\
 }
 
 WfrStatus	WfspFileCleanupHostCAs(WfsBackend backend);
 WfrStatus	WfspFileClearHostCAs(WfsBackend backend);
 WfrStatus	WfspFileCloseHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspFileDeleteHostCA(WfsBackend backend, const char *name);
-WfrStatus	WfspFileEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void *state);
+WfrStatus	WfspFileEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void **pstate);
 WfrStatus	WfspFileLoadHostCA(WfsBackend backend, const char *name, WfsHostCA **phca);
 WfrStatus	WfspFileRenameHostCA(WfsBackend backend, const char *name, const char *name_new);
 WfrStatus	WfspFileSaveHostCA(WfsBackend backend, WfsHostCA *hca);
@@ -49,7 +50,7 @@ WfrStatus	WfspFileSaveHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspFileCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspFileClearHostKeys(WfsBackend backend);
 WfrStatus	WfspFileDeleteHostKey(WfsBackend backend, const char *key_name);
-WfrStatus	WfspFileEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, char **pkey_name, void *state);
+WfrStatus	WfspFileEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, char **pkey_name, void **pstate);
 WfrStatus	WfspFileLoadHostKey(WfsBackend backend, const char *key_name, const char **pkey);
 WfrStatus	WfspFileRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspFileSaveHostKey(WfsBackend backend, const char *key_name, const char *key);
@@ -58,7 +59,7 @@ WfrStatus	WfspFileCleanupSessions(WfsBackend backend);
 WfrStatus	WfspFileClearSessions(WfsBackend backend);
 WfrStatus	WfspFileCloseSession(WfsBackend backend, WfsSession *session);
 WfrStatus	WfspFileDeleteSession(WfsBackend backend, const char *sessionname);
-WfrStatus	WfspFileEnumerateSessions(WfsBackend backend, bool initfl, bool *pdonefl, char **psessionname, void *state);
+WfrStatus	WfspFileEnumerateSessions(WfsBackend backend, bool initfl, bool *pdonefl, char **psessionname, void **pstate);
 WfrStatus	WfspFileLoadSession(WfsBackend backend, const char *sessionname, WfsSession **psession);
 WfrStatus	WfspFileRenameSession(WfsBackend backend, const char *sessionname, const char *sessionname_new);
 WfrStatus	WfspFileSaveSession(WfsBackend backend, WfsSession *session);
@@ -78,6 +79,7 @@ WfrStatus	WfspFileRemovePrivKeyList(const char *const privkey_name);
 WfrStatus	WfspFileSetEntriesPrivKeyList(const char *privkey_list, size_t privkey_list_size);
 
 WfrStatus	WfspFileCleanupContainer(WfsBackend backend);
+WfrStatus	WfspFileEnumerateCancel(WfsBackend backend, void **pstate);
 WfrStatus	WfspFileInit(void);
 WfrStatus	WfspFileSetBackend(WfsBackend backend_new);
 

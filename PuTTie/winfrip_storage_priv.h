@@ -22,7 +22,7 @@ typedef struct WfspBackend {
 	WfrStatus	(*ClearHostCAs)(WfsBackend);
 	WfrStatus	(*CloseHostCA)(WfsBackend, WfsHostCA *);
 	WfrStatus	(*DeleteHostCA)(WfsBackend, const char *);
-	WfrStatus	(*EnumerateHostCAs)(WfsBackend, bool, bool *, char **, void *);
+	WfrStatus	(*EnumerateHostCAs)(WfsBackend, bool, bool *, char **, void **);
 	WfrStatus	(*LoadHostCA)(WfsBackend, const char *, WfsHostCA **);
 	WfrStatus	(*RenameHostCA)(WfsBackend, const char *, const char *);
 	WfrStatus	(*SaveHostCA)(WfsBackend, WfsHostCA *);
@@ -30,7 +30,7 @@ typedef struct WfspBackend {
 	WfrStatus	(*CleanupHostKeys)(WfsBackend);
 	WfrStatus	(*ClearHostKeys)(WfsBackend);
 	WfrStatus	(*DeleteHostKey)(WfsBackend, const char *);
-	WfrStatus	(*EnumerateHostKeys)(WfsBackend, bool, bool *, char **, void *);
+	WfrStatus	(*EnumerateHostKeys)(WfsBackend, bool, bool *, char **, void **);
 	WfrStatus	(*LoadHostKey)(WfsBackend, const char *, const char **);
 	WfrStatus	(*RenameHostKey)(WfsBackend, const char *, const char *);
 	WfrStatus	(*SaveHostKey)(WfsBackend, const char *, const char *);
@@ -39,7 +39,7 @@ typedef struct WfspBackend {
 	WfrStatus	(*ClearSessions)(WfsBackend);
 	WfrStatus	(*CloseSession)(WfsBackend, WfsSession *);
 	WfrStatus	(*DeleteSession)(WfsBackend, const char *);
-	WfrStatus	(*EnumerateSessions)(WfsBackend, bool, bool *, char **, void *);
+	WfrStatus	(*EnumerateSessions)(WfsBackend, bool, bool *, char **, void **);
 	WfrStatus	(*LoadSession)(WfsBackend, const char *, WfsSession **);
 	WfrStatus	(*RenameSession)(WfsBackend, const char *, const char *);
 	WfrStatus	(*SaveSession)(WfsBackend, WfsSession *);
@@ -59,6 +59,7 @@ typedef struct WfspBackend {
 	WfrStatus	(*SetEntriesPrivKeyList)(const char *, size_t);
 
 	WfrStatus	(*CleanupContainer)(WfsBackend);
+	WfrStatus	(*EnumerateCancel)(WfsBackend, void **);
 	WfrStatus	(*Init)(void);
 	WfrStatus	(*SetBackend)(WfsBackend);
 

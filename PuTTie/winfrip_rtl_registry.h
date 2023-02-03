@@ -33,9 +33,10 @@ typedef struct WfrEnumerateRegState {
 
 #define		WfrCreateRegKey(hKey, phKey, ...)	WfrOpenRegKey((hKey), true, true, (phKey), ## __VA_ARGS__, (const char *)NULL)
 #define		WfrCreateRegKeyV(hKey, phKey, ap)	WfrOpenRegKey((hKey), true, true, (phKey), ap)
-WfrStatus	WfrEnumerateRegInit(WfrEnumerateRegState **state, ...);
-WfrStatus	WfrEnumerateRegKeys(bool *pdonefl, char **pitem_name, WfrEnumerateRegState *state);
-WfrStatus	WfrEnumerateRegValues(bool *pdonefl, void **pitem_data, size_t *pitem_data_len, char **pitem_name, DWORD *pitem_type, WfrEnumerateRegState *state);
+void		WfrEnumerateRegCancel(WfrEnumerateRegState **pstate);
+WfrStatus	WfrEnumerateRegInit(WfrEnumerateRegState **pstate, ...);
+WfrStatus	WfrEnumerateRegKeys(bool *pdonefl, char **pitem_name, WfrEnumerateRegState **pstate);
+WfrStatus	WfrEnumerateRegValues(bool *pdonefl, void **pitem_data, size_t *pitem_data_len, char **pitem_name, DWORD *pitem_type, WfrEnumerateRegState **pstate);
 WfrStatus	WfrEscapeRegKey(const char *key, char **pkey_escaped);
 WfrStatus	WfrOpenRegKey(HKEY hKey, bool createfl, bool writefl, HKEY *phKey, ...);
 WfrStatus	WfrOpenRegKeyV(HKEY hKey, bool createfl, bool writefl, HKEY *phKey, va_list ap);

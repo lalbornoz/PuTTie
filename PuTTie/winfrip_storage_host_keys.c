@@ -101,7 +101,7 @@ WfsEnumerateHostKeys(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		pkey_name,
-	void *		state
+	void **		pstate
 	)
 {
 	WfspBackend *	backend_impl = NULL;
@@ -114,7 +114,7 @@ WfsEnumerateHostKeys(
 		case true:
 			status = WfsTreeEnumerate(
 				backend_impl->tree_host_key,
-				initfl, pdonefl, &item, state);
+				initfl, pdonefl, &item, pstate);
 			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
 				if (!(*pkey_name = strdup(item->key))) {
 					status = WFR_STATUS_FROM_ERRNO();
@@ -125,7 +125,7 @@ WfsEnumerateHostKeys(
 		case false:
 			status = backend_impl->EnumerateHostKeys(
 				backend, initfl, pdonefl,
-				pkey_name, state);
+				pkey_name, pstate);
 			break;
 		}
 	}
@@ -200,7 +200,7 @@ WfsExportHostKeys(
 			key_name = NULL;
 			status = WfsEnumerateHostKeys(
 				backend_from, false, false,
-				&donefl, (char **)&key_name, enum_state);
+				&donefl, (char **)&key_name, &enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && key_name) {
 				status = WfsExportHostKey(

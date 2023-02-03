@@ -12,7 +12,7 @@
 /* {{{ winfrip */
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_storage_sessions.h"
-#include "PuTTie/winfrip_putty_config.h"
+#include "PuTTie/winfrip_subr_putty_config.h"
 /* winfrip }}} */
 #include "tree234.h"
 

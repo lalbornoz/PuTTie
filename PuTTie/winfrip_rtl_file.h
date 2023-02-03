@@ -38,9 +38,9 @@ typedef struct WfrEnumerateFilesState {
 
 WfrStatus	WfrDeleteDirectory(const char *path, bool noentfl, bool recursefl);
 WfrStatus	WfrDeleteFiles(const char *dname, const char *ext);
-WfrStatus	WfrEnumerateFiles(const char *ext, bool *pdonefl, const char **pfname, WfrEnumerateFilesState **state);
-void		WfrEnumerateFilesAbort(WfrEnumerateFilesState **state);
-WfrStatus	WfrEnumerateFilesInit(const char *dname, WfrEnumerateFilesState **state);
+WfrStatus	WfrEnumerateFiles(const char *ext, bool *pdonefl, const char **pfname, WfrEnumerateFilesState **pstate);
+void		WfrEnumerateFilesCancel(WfrEnumerateFilesState **pstate);
+WfrStatus	WfrEnumerateFilesInit(const char *dname, WfrEnumerateFilesState **pstate);
 WfrStatus	WfrEnumerateFilesV(const char *dname, const char *ext, size_t *pfilec, char ***pfilev);
 WfrStatus	WfrEscapeFileName(const char *dname, const char *ext, const char *name, bool tmpfl, char *fname, size_t fname_size);
 WfrStatus	WfrMakeDirectory(char *path, bool existsfl);

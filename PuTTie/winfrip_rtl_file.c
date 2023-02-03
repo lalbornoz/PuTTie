@@ -161,7 +161,7 @@ WfrEnumerateFiles(
 	const char *			ext,
 	bool *				pdonefl,
 	const char **			pfname,
-	WfrEnumerateFilesState **	state
+	WfrEnumerateFilesState **	pstate
 	)
 {
 	size_t		ext_len = 0;
@@ -171,10 +171,10 @@ WfrEnumerateFiles(
 	WfrStatus	status;
 
 
-	if (!(*state)->dirp) {
+	if (!(*pstate)->dirp) {
 		*pdonefl = true;
 		*pfname = NULL;
-		WfrEnumerateFilesAbort(state);
+		WfrEnumerateFilesCancel(pstate);
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -189,28 +189,28 @@ WfrEnumerateFiles(
 	status = WFR_STATUS_CONDITION_SUCCESS;
 
 	while (WFR_STATUS_SUCCESS(status)
-	&&     ((*state)->dire = readdir((*state)->dirp)))
+	&&     ((*pstate)->dire = readdir((*pstate)->dirp)))
 	{
-		if (chdir((*state)->path) < 0) {
+		if (chdir((*pstate)->path) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
-		} else if (stat((*state)->dire->d_name, &statbuf) < 0) {
+		} else if (stat((*pstate)->dire->d_name, &statbuf) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
 			(void)chdir(path_cwd);
 		} else if (chdir(path_cwd) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (!(statbuf.st_mode & S_IFREG)) {
 			continue;
-		} else if (((*state)->dire->d_name[0] == '.')
-			&& ((*state)->dire->d_name[1] == '\0'))
+		} else if (((*pstate)->dire->d_name[0] == '.')
+			&& ((*pstate)->dire->d_name[1] == '\0'))
 		{
 			continue;
-		} else if (((*state)->dire->d_name[0] == '.')
-			&& ((*state)->dire->d_name[1] == '.')
-			&& ((*state)->dire->d_name[2] == '\0'))
+		} else if (((*pstate)->dire->d_name[0] == '.')
+			&& ((*pstate)->dire->d_name[1] == '.')
+			&& ((*pstate)->dire->d_name[2] == '\0'))
 		{
 			continue;
 		} else {
-			fname = (*state)->dire->d_name;
+			fname = (*pstate)->dire->d_name;
 			fname_ext = NULL;
 
 			if (!ext
@@ -223,7 +223,7 @@ WfrEnumerateFiles(
 				}
 				*pdonefl = false;
 				*pfname = fname;
-				(*state)->donefl = false;
+				(*pstate)->donefl = false;
 				return WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
@@ -232,7 +232,7 @@ WfrEnumerateFiles(
 	if (errno == 0) {
 		*pdonefl = true;
 		*pfname = NULL;
-		WfrEnumerateFilesAbort(state);
+		WfrEnumerateFilesCancel(pstate);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	} else {
 		status = WFR_STATUS_FROM_ERRNO();
@@ -242,41 +242,41 @@ WfrEnumerateFiles(
 }
 
 void
-WfrEnumerateFilesAbort(
-	WfrEnumerateFilesState **	state
+WfrEnumerateFilesCancel(
+	WfrEnumerateFilesState **	pstate
 	)
 {
-	if (*state) {
-		if ((*state)->dirp) {
-			(void)closedir((*state)->dirp);
+	if (*pstate) {
+		if ((*pstate)->dirp) {
+			(void)closedir((*pstate)->dirp);
 		}
-		WFR_ENUMERATE_FILES_STATE_INIT(**state);
-		WFR_FREE(*state); *state = NULL;
+		WFR_ENUMERATE_FILES_STATE_INIT(**pstate);
+		WFR_FREE(*pstate); *pstate = NULL;
 	}
 }
 
 WfrStatus
 WfrEnumerateFilesInit(
 	const char *			dname,
-	WfrEnumerateFilesState **	state
+	WfrEnumerateFilesState **	pstate
 	)
 {
 	struct stat	statbuf;
 	WfrStatus	status;
 
 
-	if (!((*state) = WFR_NEW(WfrEnumerateFilesState))) {
+	if (!((*pstate) = WFR_NEW(WfrEnumerateFilesState))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
-		WFR_ENUMERATE_FILES_STATE_INIT(**state);
-		if (!((*state)->path = strdup(dname))) {
+		WFR_ENUMERATE_FILES_STATE_INIT(**pstate);
+		if (!((*pstate)->path = strdup(dname))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (stat(dname, &statbuf) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
 			if (WFR_STATUS_CONDITION(status) == ENOENT) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
-		} else if (!((*state)->dirp = opendir(dname))) {
+		} else if (!((*pstate)->dirp = opendir(dname))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
 			status = WFR_STATUS_CONDITION_SUCCESS;
@@ -284,8 +284,8 @@ WfrEnumerateFilesInit(
 	}
 
 	if (WFR_STATUS_FAILURE(status)) {
-		WFR_FREE_IF_NOTNULL((*state)->path);
-		WFR_FREE_IF_NOTNULL(*state);
+		WFR_FREE_IF_NOTNULL((*pstate)->path);
+		WFR_FREE_IF_NOTNULL(*pstate);
 	}
 
 	return status;
@@ -316,11 +316,11 @@ WfrEnumerateFilesV(
 					filev_new, filec_new,
 					filec_new + 1, char *)))
 			{
-				(void)WfrEnumerateFilesAbort(&state);
+				(void)WfrEnumerateFilesCancel(&state);
 				break;
 			} else if (!(fname_new = strdup(fname))) {
 				status = WFR_STATUS_FROM_ERRNO();
-				(void)WfrEnumerateFilesAbort(&state);
+				(void)WfrEnumerateFilesCancel(&state);
 				break;
 			} else {
 				filev_new[filec_new - 1] = fname_new;

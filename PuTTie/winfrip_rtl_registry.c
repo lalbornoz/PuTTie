@@ -74,9 +74,22 @@ WfrpEnumerateRegKey(
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
+void
+WfrEnumerateRegCancel(
+	WfrEnumerateRegState **		pstate
+	)
+{
+	if (*pstate) {
+		if ((*pstate)->hKey) {
+			(void)RegCloseKey((*pstate)->hKey);
+		}
+		WFR_FREE(*pstate); *pstate = NULL;
+	}
+}
+
 WfrStatus
 WfrEnumerateRegInit(
-	WfrEnumerateRegState **		state,
+	WfrEnumerateRegState **		pstate,
 					...
 	)
 {
@@ -84,20 +97,20 @@ WfrEnumerateRegInit(
 	WfrStatus	status;
 
 
-	if (!(((*state) = WFR_NEW(WfrEnumerateRegState)))) {
+	if (!(((*pstate) = WFR_NEW(WfrEnumerateRegState)))) {
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
-		WFR_ENUMERATE_REG_STATE_INIT((**state));
-		va_start(ap, state);
+		WFR_ENUMERATE_REG_STATE_INIT((**pstate));
+		va_start(ap, pstate);
 		if (WFR_STATUS_FAILURE(status = WfrOpenRegKeyRoV(
-				HKEY_CURRENT_USER, &(*state)->hKey, ap)))
+				HKEY_CURRENT_USER, &(*pstate)->hKey, ap)))
 		{
 			if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
 			||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			} else {
-				WFR_FREE((*state));
+				WFR_FREE((*pstate));
 			}
 		}
 		va_end(ap);
@@ -108,34 +121,33 @@ WfrEnumerateRegInit(
 
 WfrStatus
 WfrEnumerateRegKeys(
-	bool *			pdonefl,
-	char **			pitem_name,
-	WfrEnumerateRegState *	state
+	bool *				pdonefl,
+	char **				pitem_name,
+	WfrEnumerateRegState **		pstate
 	)
 {
 	char *		item_name = NULL, *item_name_escaped;
 	WfrStatus	status;
 
 
-	if (!state->hKey) {
-		*pdonefl = state->donefl = true;
+	if (!(*pstate)->hKey) {
+		*pdonefl = (*pstate)->donefl = true;
 		*pitem_name = NULL;
 		return WFR_STATUS_CONDITION_SUCCESS;
 
 	}
 
-	if (state->donefl) {
-		*pdonefl = state->donefl = true;
+	if ((*pstate)->donefl) {
+		*pdonefl = (*pstate)->donefl = true;
 		*pitem_name = NULL;
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	} else if (WFR_STATUS_FAILURE(status = WfrpEnumerateRegKey(
-			state->hKey, state->dwIndex, &item_name)))
+			(*pstate)->hKey, (*pstate)->dwIndex, &item_name)))
 	{
 		if (WFR_STATUS_CONDITION(status) == ERROR_NO_MORE_ITEMS) {
 			*pdonefl = true;
 			*pitem_name = NULL;
-			(void)RegCloseKey(state->hKey);
-			WFR_FREE(state);
+			WfrEnumerateRegCancel(pstate);
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	} else if (WFR_STATUS_SUCCESS(status = WfrUnescapeRegKey(
@@ -143,7 +155,7 @@ WfrEnumerateRegKeys(
 	{
 		*pdonefl = false;
 		*pitem_name = item_name_escaped;
-		state->dwIndex++;
+		(*pstate)->dwIndex++;
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -154,12 +166,12 @@ WfrEnumerateRegKeys(
 
 WfrStatus
 WfrEnumerateRegValues(
-	bool *			pdonefl,
-	void **			pitem_data,
-	size_t *		pitem_data_len,
-	char **			pitem_name,
-	DWORD *			pitem_type,
-	WfrEnumerateRegState *	state
+	bool *				pdonefl,
+	void **				pitem_data,
+	size_t *			pitem_data_len,
+	char **				pitem_name,
+	DWORD *				pitem_type,
+	WfrEnumerateRegState **		pstate
 	)
 {
 	bool			donefl;
@@ -180,10 +192,10 @@ WfrEnumerateRegValues(
 		return status;
 	}
 
-	if (!state->hKey) {
+	if (!(*pstate)->hKey) {
 		donefl = true; *pdonefl = true;
 		*pitem_name = NULL;
-		WFR_ENUMERATE_REG_STATE_INIT(*state);
+		WFR_ENUMERATE_REG_STATE_INIT(**pstate);
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -195,7 +207,7 @@ WfrEnumerateRegValues(
 		do {
 			item_data_len = item_data_size; item_name_len = sizeof(item_name);
 			switch ((status_registry = RegEnumValue(
-					state->hKey, state->dwIndex, item_name,
+					(*pstate)->hKey, (*pstate)->dwIndex, item_name,
 					&item_name_len, NULL, &dwType, item_data,
 					&item_data_len)))
 			{
@@ -217,8 +229,7 @@ WfrEnumerateRegValues(
 
 				*pdonefl = true;
 				*pitem_name = NULL;
-				(void)RegCloseKey(state->hKey);
-				WFR_FREE(state);
+				WfrEnumerateRegCancel(pstate);
 				status = WFR_STATUS_CONDITION_SUCCESS;
 				break;
 
@@ -257,7 +268,7 @@ WfrEnumerateRegValues(
 					if (pitem_type) {
 						*pitem_type = item_type;
 					}
-					state->dwIndex++;
+					(*pstate)->dwIndex++;
 				}
 
 			out:
