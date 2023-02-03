@@ -1519,7 +1519,8 @@ WfspRegistrySetBackend(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsClearHostKeys(backend_new, false))
+	if (WFR_STATUS_SUCCESS(status = WfsClearHostCAs(backend_new, false))
+	&&  WFR_STATUS_SUCCESS(status = WfsClearHostKeys(backend_new, false))
 	&&  WFR_STATUS_SUCCESS(status = WfsClearSessions(backend_new, false)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
