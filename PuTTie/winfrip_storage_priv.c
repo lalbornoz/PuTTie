@@ -60,18 +60,18 @@ WfsGetBackendImpl(
 }
 
 WfrStatus
-WfsTransformJumpList(
+WfsTransformList(
 	bool			addfl,
 	bool			delfl,
-	char **			pjump_list,
-	size_t *		pjump_list_size,
+	char **			plist,
+	size_t *		plist_size,
 	const char *const	trans_item
 	)
 {
 	size_t		item_len;
-	char *		jump_list_new = NULL, *jump_list_new_last;
-	ptrdiff_t	jump_list_new_delta;
-	size_t		jump_list_new_size = 0;
+	char *		list_new = NULL, *list_new_last;
+	ptrdiff_t	list_new_delta;
+	size_t		list_new_size = 0;
 	WfrStatus	status;
 	size_t		trans_item_len;
 
@@ -79,29 +79,29 @@ WfsTransformJumpList(
 	if (addfl || delfl) {
 		trans_item_len = strlen(trans_item);
 
-		if (*pjump_list == NULL) {
-			if (!(*pjump_list = WFR_NEWN(2, char))) {
+		if (*plist == NULL) {
+			if (!(*plist = WFR_NEWN(2, char))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
-				(*pjump_list)[0] = '\0'; (*pjump_list)[1] = '\0';
-				*pjump_list_size = 1;
+				(*plist)[0] = '\0'; (*plist)[1] = '\0';
+				*plist_size = 1;
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
 
-		jump_list_new_size = trans_item_len + 1 + *pjump_list_size;
-		if (!(jump_list_new = WFR_NEWN(jump_list_new_size, char))) {
+		list_new_size = trans_item_len + 1 + *plist_size;
+		if (!(list_new = WFR_NEWN(list_new_size, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
-			memset(jump_list_new, '\0', jump_list_new_size);
-			jump_list_new_last = jump_list_new;
+			memset(list_new, '\0', list_new_size);
+			list_new_last = list_new;
 
 			if (addfl) {
-				memcpy(jump_list_new_last, trans_item, trans_item_len + 1);
-				jump_list_new_last += trans_item_len + 1;
+				memcpy(list_new_last, trans_item, trans_item_len + 1);
+				list_new_last += trans_item_len + 1;
 			}
 
-			for (char *item = *pjump_list, *item_next = NULL;
+			for (char *item = *plist, *item_next = NULL;
 			     item && *item; item = item_next)
 			{
 				if ((item_next = strchr(item, '\0'))) {
@@ -111,113 +111,31 @@ WfsTransformJumpList(
 					if ((trans_item_len != item_len)
 					||  (strncmp(trans_item, item, item_len) != 0))
 					{
-						memcpy(jump_list_new_last, item, item_len);
-						jump_list_new_last += item_len + 1;
+						memcpy(list_new_last, item, item_len);
+						list_new_last += item_len + 1;
 					}
 				}
 			}
 
-			if (&jump_list_new_last[0] < &jump_list_new[jump_list_new_size - 1]) {
-				jump_list_new_delta = (&jump_list_new[jump_list_new_size - 1] - &jump_list_new_last[0]);
+			if (&list_new_last[0] < &list_new[list_new_size - 1]) {
+				list_new_delta = (&list_new[list_new_size - 1] - &list_new_last[0]);
 				status = WFR_RESIZE(
-					jump_list_new, jump_list_new_size,
-					jump_list_new_size - jump_list_new_delta, char);
+					list_new, list_new_size,
+					list_new_size - list_new_delta, char);
 			} else {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 
 			if (WFR_STATUS_SUCCESS(status)) {
-				WFR_FREE(*pjump_list);
-				*pjump_list = jump_list_new;
-				*pjump_list_size = jump_list_new_size;
+				WFR_FREE(*plist);
+				*plist = list_new;
+				*plist_size = list_new_size;
 			}
 		}
 	}
 
 	if (WFR_STATUS_FAILURE(status)) {
-		WFR_FREE_IF_NOTNULL(jump_list_new);
-	}
-
-	return status;
-}
-
-WfrStatus
-WfsTransformPrivKeyList(
-	bool			addfl,
-	bool			delfl,
-	char **			pprivkey_list,
-	size_t *		pprivkey_list_size,
-	const char *const	trans_item
-	)
-{
-	size_t		item_len;
-	char *		privkey_list_new = NULL, *privkey_list_new_last;
-	ptrdiff_t	privkey_list_new_delta;
-	size_t		privkey_list_new_size = 0;
-	WfrStatus	status;
-	size_t		trans_item_len;
-
-
-	if (addfl || delfl) {
-		trans_item_len = strlen(trans_item);
-
-		if (*pprivkey_list == NULL) {
-			if (!(*pprivkey_list = WFR_NEWN(2, char))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				(*pprivkey_list)[0] = '\0'; (*pprivkey_list)[1] = '\0';
-				*pprivkey_list_size = 1;
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
-		}
-
-		privkey_list_new_size = trans_item_len + 1 + *pprivkey_list_size;
-		if (!(privkey_list_new = WFR_NEWN(privkey_list_new_size, char))) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else {
-			memset(privkey_list_new, '\0', privkey_list_new_size);
-			privkey_list_new_last = privkey_list_new;
-
-			if (addfl) {
-				memcpy(privkey_list_new_last, trans_item, trans_item_len + 1);
-				privkey_list_new_last += trans_item_len + 1;
-			}
-
-			for (char *item = *pprivkey_list, *item_next = NULL;
-			     item && *item; item = item_next)
-			{
-				if ((item_next = strchr(item, '\0'))) {
-					item_len = item_next - item;
-					item_next++;
-
-					if ((trans_item_len != item_len)
-					||  (strncmp(trans_item, item, item_len) != 0))
-					{
-						memcpy(privkey_list_new_last, item, item_len);
-						privkey_list_new_last += item_len + 1;
-					}
-				}
-			}
-
-			if (&privkey_list_new_last[0] < &privkey_list_new[privkey_list_new_size - 1]) {
-				privkey_list_new_delta = (&privkey_list_new[privkey_list_new_size - 1] - &privkey_list_new_last[0]);
-				status = WFR_RESIZE(
-					privkey_list_new, privkey_list_new_size,
-					privkey_list_new_size - privkey_list_new_delta, char);
-			} else {
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
-
-			if (WFR_STATUS_SUCCESS(status)) {
-				WFR_FREE(*pprivkey_list);
-				*pprivkey_list = privkey_list_new;
-				*pprivkey_list_size = privkey_list_new_size;
-			}
-		}
-	}
-
-	if (WFR_STATUS_FAILURE(status)) {
-		WFR_FREE_IF_NOTNULL(privkey_list_new);
+		WFR_FREE_IF_NOTNULL(list_new);
 	}
 
 	return status;
