@@ -71,10 +71,10 @@ WfspEphemeralEnumerateHostCAs(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		pname,
-	void *		state
+	void **		pstate
 	)
 {
-	return WfsEnumerateHostCAs(backend, true, initfl, pdonefl, pname, state);
+	return WfsEnumerateHostCAs(backend, true, initfl, pdonefl, pname, pstate);
 }
 
 WfrStatus
@@ -155,10 +155,10 @@ WfspEphemeralEnumerateHostKeys(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		pkey_name,
-	void *		state
+	void **		pstate
 	)
 {
-	return WfsEnumerateHostKeys(backend, true, initfl, pdonefl, pkey_name, state);
+	return WfsEnumerateHostKeys(backend, true, initfl, pdonefl, pkey_name, pstate);
 }
 
 WfrStatus
@@ -263,10 +263,10 @@ WfspEphemeralEnumerateSessions(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		psessionname,
-	void *		state
+	void **		pstate
 	)
 {
-	return WfsEnumerateSessions(backend, true, initfl, pdonefl, psessionname, state);
+	return WfsEnumerateSessions(backend, true, initfl, pdonefl, psessionname, pstate);
 }
 
 WfrStatus
@@ -520,6 +520,17 @@ WfspEphemeralCleanupContainer(
 	)
 {
 	(void)backend;
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
+WfrStatus
+WfspEphemeralEnumerateCancel(
+	WfsBackend	backend,
+	void **		pstate
+	)
+{
+	(void)backend;
+	WfsTreeEnumerateCancel(pstate);
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
 

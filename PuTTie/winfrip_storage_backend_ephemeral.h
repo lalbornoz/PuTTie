@@ -34,14 +34,15 @@
 	WfspEphemeralGetEntriesPrivKeyList, WfspEphemeralRemovePrivKeyList,				\
 	WfspEphemeralSetEntriesPrivKeyList,								\
 													\
-	WfspEphemeralCleanupContainer, WfspEphemeralInit, WfspEphemeralSetBackend,			\
+	WfspEphemeralCleanupContainer, WfspEphemeralEnumerateCancel,					\
+	WfspEphemeralInit, WfspEphemeralSetBackend,							\
 }
 
 WfrStatus	WfspEphemeralCleanupHostCAs(WfsBackend backend);
 WfrStatus	WfspEphemeralClearHostCAs(WfsBackend backend);
 WfrStatus	WfspEphemeralCloseHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspEphemeralDeleteHostCA(WfsBackend backend, const char *name);
-WfrStatus	WfspEphemeralEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void *state);
+WfrStatus	WfspEphemeralEnumerateHostCAs(WfsBackend backend, bool initfl, bool *pdonefl, char **pname, void **pstate);
 WfrStatus	WfspEphemeralLoadHostCA(WfsBackend backend, const char *name, WfsHostCA **phca);
 WfrStatus	WfspEphemeralRenameHostCA(WfsBackend backend, const char *name, const char *name_new);
 WfrStatus	WfspEphemeralSaveHostCA(WfsBackend backend, WfsHostCA *hca);
@@ -49,7 +50,7 @@ WfrStatus	WfspEphemeralSaveHostCA(WfsBackend backend, WfsHostCA *hca);
 WfrStatus	WfspEphemeralCleanupHostKeys(WfsBackend backend);
 WfrStatus	WfspEphemeralClearHostKeys(WfsBackend backend);
 WfrStatus	WfspEphemeralDeleteHostKey(WfsBackend backend, const char *key_name);
-WfrStatus	WfspEphemeralEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, char **pkey_name, void *state);
+WfrStatus	WfspEphemeralEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdonefl, char **pkey_name, void **pstate);
 WfrStatus	WfspEphemeralLoadHostKey(WfsBackend backend, const char *key_name, const char **pkey);
 WfrStatus	WfspEphemeralRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspEphemeralSaveHostKey(WfsBackend backend, const char *key_name, const char *key);
@@ -58,7 +59,7 @@ WfrStatus	WfspEphemeralCleanupSessions(WfsBackend backend);
 WfrStatus	WfspEphemeralClearSessions(WfsBackend backend);
 WfrStatus	WfspEphemeralCloseSession(WfsBackend backend, WfsSession *session);
 WfrStatus	WfspEphemeralDeleteSession(WfsBackend backend, const char *sessionname);
-WfrStatus	WfspEphemeralEnumerateSessions(WfsBackend backend, bool initfl, bool *pdonefl, char **psessionname, void *state);
+WfrStatus	WfspEphemeralEnumerateSessions(WfsBackend backend, bool initfl, bool *pdonefl, char **psessionname, void **pstate);
 WfrStatus	WfspEphemeralLoadSession(WfsBackend backend, const char *sessionname, WfsSession **psession);
 WfrStatus	WfspEphemeralRenameSession(WfsBackend backend, const char *sessionname, const char *sessionname_new);
 WfrStatus	WfspEphemeralSaveSession(WfsBackend backend, WfsSession *session);
@@ -78,6 +79,7 @@ WfrStatus	WfspEphemeralRemovePrivKeyList(const char *const privkey_name);
 WfrStatus	WfspEphemeralSetEntriesPrivKeyList(const char *privkey_list, size_t privkey_list_size);
 
 WfrStatus	WfspEphemeralCleanupContainer(WfsBackend backend);
+WfrStatus	WfspEphemeralEnumerateCancel(WfsBackend backend, void **pstate);
 WfrStatus	WfspEphemeralInit(void);
 WfrStatus	WfspEphemeralSetBackend(WfsBackend backend_new);
 

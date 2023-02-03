@@ -498,7 +498,7 @@ WffsUpdateItemList(
 		do {
 			status = update_fn(
 				backend, false, false,
-				&donefl, &item_name, enum_state);
+				&donefl, &item_name, &enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && !donefl) {
 				if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(

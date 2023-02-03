@@ -1,5 +1,5 @@
 /*
- * winfrip_putty_config.c - pointless frippery & tremendous amounts of bloat
+ * winfrip_subr_putty_config.c - pointless frippery & tremendous amounts of bloat
  * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
@@ -19,7 +19,7 @@
 #include "PuTTie/winfrip_feature_storage_sessions.h"
 #include "PuTTie/winfrip_feature_trans.h"
 #include "PuTTie/winfrip_feature_urls.h"
-#include "PuTTie/winfrip_putty_config.h"
+#include "PuTTie/winfrip_subr_putty_config.h"
 
 /*
  * Public subroutines

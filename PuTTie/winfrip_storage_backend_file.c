@@ -538,12 +538,11 @@ WfspFileEnumerateHostCAs(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		pname,
-	void *		state
+	void **		pstate
 	)
 {
-	WfrEnumerateFilesState *	enum_state;
-	const char *			name;
-	WfrStatus			status;
+	const char *	name;
+	WfrStatus	status;
 
 
 	(void)backend;
@@ -551,12 +550,12 @@ WfspFileEnumerateHostCAs(
 	if (initfl) {
 		return WfrEnumerateFilesInit(
 			WfsppFileDnameHostCAs,
-			(WfrEnumerateFilesState **)state);
+			(WfrEnumerateFilesState **)pstate);
 	}
 
-	enum_state = (WfrEnumerateFilesState *)state;
 	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
-			WfsppFileExtHostCAs, pdonefl, &name, &enum_state)))
+			WfsppFileExtHostCAs, pdonefl,
+			&name, (WfrEnumerateFilesState **)pstate)))
 	{
 		if (!(*pdonefl)) {
 			status = WfrUnescapeFileName((char *)name, (const char **)pname);
@@ -995,12 +994,11 @@ WfspFileEnumerateHostKeys(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		pkey_name,
-	void *		state
+	void **		pstate
 	)
 {
-	WfrEnumerateFilesState *	enum_state;
-	const char *			name;
-	WfrStatus			status;
+	const char *	name;
+	WfrStatus	status;
 
 
 	(void)backend;
@@ -1008,12 +1006,12 @@ WfspFileEnumerateHostKeys(
 	if (initfl) {
 		return WfrEnumerateFilesInit(
 			WfsppFileDnameHostKeys,
-			(WfrEnumerateFilesState **)state);
+			(WfrEnumerateFilesState **)pstate);
 	}
 
-	enum_state = (WfrEnumerateFilesState *)state;
 	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
-			WfsppFileExtHostKeys, pdonefl, &name, &enum_state)))
+			WfsppFileExtHostKeys, pdonefl,
+			&name, (WfrEnumerateFilesState **)pstate)))
 	{
 		if (!(*pdonefl)) {
 			status = WfrUnescapeFileName((char *)name, (const char **)pkey_name);
@@ -1260,12 +1258,11 @@ WfspFileEnumerateSessions(
 	bool		initfl,
 	bool *		pdonefl,
 	char **		psessionname,
-	void *		state
+	void **		pstate
 	)
 {
-	WfrEnumerateFilesState *	enum_state;
-	const char *			name;
-	WfrStatus			status;
+	const char *	name;
+	WfrStatus	status;
 
 
 	(void)backend;
@@ -1273,12 +1270,12 @@ WfspFileEnumerateSessions(
 	if (initfl) {
 		return WfrEnumerateFilesInit(
 			WfsppFileDnameSessions,
-			(WfrEnumerateFilesState **)state);
+			(WfrEnumerateFilesState **)pstate);
 	}
 
-	enum_state = (WfrEnumerateFilesState *)state;
 	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
-			WfsppFileExtSessions, pdonefl, &name, &enum_state)))
+			WfsppFileExtSessions, pdonefl,
+			&name, (WfrEnumerateFilesState **)pstate)))
 	{
 		if (!(*pdonefl)) {
 			status = WfrUnescapeFileName((char *)name, (const char **)psessionname);
@@ -1775,6 +1772,17 @@ WfspFileCleanupContainer(
 	(void)backend;
 	status = WfrDeleteDirectory(WfsppFileDname, true, true);
 	return status;
+}
+
+WfrStatus
+WfspFileEnumerateCancel(
+	WfsBackend	backend,
+	void **		pstate
+	)
+{
+	(void)backend;
+	WfrEnumerateFilesCancel((WfrEnumerateFilesState **)pstate);
+	return WFR_STATUS_CONDITION_SUCCESS;
 }
 
 WfrStatus

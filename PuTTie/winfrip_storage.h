@@ -62,6 +62,7 @@ WfrStatus	WfsSetBackendFromCmdLine(char *cmdline);
  */
 
 WfrStatus	WfsCleanupContainer(WfsBackend backend);
+WfrStatus	WfsEnumerateCancel(WfsBackend backend, void **pstate);
 WfrStatus	WfsInit(void);
 
 #endif // !PUTTY_WINFRIP_STORAGE_H

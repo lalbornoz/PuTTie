@@ -128,7 +128,7 @@ WfsTreeEnumerate(
 	bool			initfl,
 	bool *			pdonefl,
 	WfsTreeItem **		pitem,
-	void *			state
+	void **			pstate
 	)
 {
 	WfsTreeItem *	item;
@@ -136,10 +136,10 @@ WfsTreeEnumerate(
 
 
 	if (initfl) {
-		if (!((*(int **)state) = WFR_NEW(int))) {
+		if (!((*(int **)pstate) = WFR_NEW(int))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
-			**(int **)state = 0;
+			**(int **)pstate = 0;
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 
@@ -147,17 +147,28 @@ WfsTreeEnumerate(
 	}
 
 	status = WFR_STATUS_CONDITION_SUCCESS;
-	if ((item = index234(tree, *(int *)state))) {
+	if ((item = index234(tree, **(int **)pstate))) {
 		*pdonefl = false;
 		*pitem = item;
-		(*(int *)state)++;
+		(**(int **)pstate)++;
 	} else {
 		*pdonefl = true;
 		*pitem = NULL;
-		*(int *)state = 0;
+		**(int **)pstate = 0;
 	}
 
 	return status;
+}
+
+void
+WfsTreeEnumerateCancel(
+	void **		pstate
+	)
+{
+	if (pstate) {
+		WFR_FREE(*(int **)pstate);
+		*(int **)pstate = NULL;
+	}
 }
 
 WfrStatus

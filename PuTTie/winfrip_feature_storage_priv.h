@@ -77,7 +77,7 @@ typedef WfrStatus	(*WffsClearItemsFn)(WfsBackend, bool);
 typedef WfrStatus	(*WffsDeleteItemFn)(WfsBackend, bool, const char *);
 typedef WfrStatus	(*WffsExportItemFn)(WfsBackend, WfsBackend, bool, char *);
 typedef WfrStatus	(*WffsRenameItemFn)(WfsBackend, bool, const char *, const char *);
-typedef WfrStatus	(*WffsUpdateItemListFn)(WfsBackend, bool, bool, bool *, char **, void *);
+typedef WfrStatus	(*WffsUpdateItemListFn)(WfsBackend, bool, bool, bool *, char **, void **);
 
 WfrStatus	WffsClearItems(WffsClearItemsFn clear_items_fn, dlgcontrol *ctrl, WffsContext *ctx, dlgparam *dlg, const char *items_title, WffsUpdateItemListFn update_fn);
 WfrStatus	WffsDeleteItem(WffsDeleteItemFn delete_item_fn, dlgcontrol *ctrl, WffsContext *ctx, dlgparam * dlg, WffsUpdateItemListFn update_fn);

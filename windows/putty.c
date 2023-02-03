@@ -70,7 +70,7 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
                 }; break;
             }
         } while (!breakfl);
-        /* }}} */
+        /* winfrip }}} */
         special_launchable_argument = true;
     } else if (handle_special_filemapping_cmdline(p, conf)) {
         special_launchable_argument = true;
@@ -199,7 +199,7 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
                 }; break;
             }
         } while (!breakfl);
-        /* }}} */
+        /* winfrip }}} */
         }
     }
 
