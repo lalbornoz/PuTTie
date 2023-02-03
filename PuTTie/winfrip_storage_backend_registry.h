@@ -10,27 +10,31 @@
  * Public subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
-#define WFSP_REGISTRY_BACKEND {									\
-	"Registry",										\
-	"registry",										\
-												\
-	WfspRegistryCleanupHostCAs, WfspRegistryClearHostCAs, WfspRegistryCloseHostCA,		\
-	WfspRegistryDeleteHostCA, WfspRegistryEnumerateHostCAs, WfspRegistryLoadHostCA,		\
-	WfspRegistryRenameHostCA, WfspRegistrySaveHostCA,					\
-												\
-	WfspRegistryCleanupHostKeys, WfspRegistryClearHostKeys, WfspRegistryDeleteHostKey,	\
-	WfspRegistryEnumerateHostKeys, WfspRegistryLoadHostKey, WfspRegistryRenameHostKey,	\
-	WfspRegistrySaveHostKey,								\
-												\
-	WfspRegistryCleanupSessions, WfspRegistryClearSessions, WfspRegistryCloseSession,	\
-	WfspRegistryDeleteSession, WfspRegistryEnumerateSessions, WfspRegistryLoadSession,	\
-	WfspRegistryRenameSession, WfspRegistrySaveSession,					\
-												\
-	WfspRegistryAddJumpList, WfspRegistryCleanupJumpList, WfspRegistryClearJumpList,	\
-	WfspRegistryGetEntriesJumpList, WfspRegistryRemoveJumpList,				\
-	WfspRegistrySetEntriesJumpList,								\
-												\
-	WfspRegistryCleanupContainer, WfspRegistryInit, WfspRegistrySetBackend,			\
+#define WFSP_REGISTRY_BACKEND {										\
+	"Registry",											\
+	"registry",											\
+													\
+	WfspRegistryCleanupHostCAs, WfspRegistryClearHostCAs, WfspRegistryCloseHostCA,			\
+	WfspRegistryDeleteHostCA, WfspRegistryEnumerateHostCAs, WfspRegistryLoadHostCA,			\
+	WfspRegistryRenameHostCA, WfspRegistrySaveHostCA,						\
+													\
+	WfspRegistryCleanupHostKeys, WfspRegistryClearHostKeys, WfspRegistryDeleteHostKey,		\
+	WfspRegistryEnumerateHostKeys, WfspRegistryLoadHostKey, WfspRegistryRenameHostKey,		\
+	WfspRegistrySaveHostKey,									\
+													\
+	WfspRegistryCleanupSessions, WfspRegistryClearSessions, WfspRegistryCloseSession,		\
+	WfspRegistryDeleteSession, WfspRegistryEnumerateSessions, WfspRegistryLoadSession,		\
+	WfspRegistryRenameSession, WfspRegistrySaveSession,						\
+													\
+	WfspRegistryAddJumpList, WfspRegistryCleanupJumpList, WfspRegistryClearJumpList,		\
+	WfspRegistryGetEntriesJumpList, WfspRegistryRemoveJumpList,					\
+	WfspRegistrySetEntriesJumpList,									\
+													\
+	WfspRegistryAddPrivKeyList, WfspRegistryCleanupPrivKeyList, WfspRegistryClearPrivKeyList,	\
+	WfspRegistryGetEntriesPrivKeyList, WfspRegistryRemovePrivKeyList,				\
+	WfspRegistrySetEntriesPrivKeyList,								\
+													\
+	WfspRegistryCleanupContainer, WfspRegistryInit, WfspRegistrySetBackend,				\
 }
 
 WfrStatus	WfspRegistryCleanupHostCAs(WfsBackend backend);
@@ -65,6 +69,13 @@ void		WfspRegistryClearJumpList(void);
 WfrStatus	WfspRegistryGetEntriesJumpList(char **pjump_list, size_t *pjump_list_size);
 void		WfspRegistryRemoveJumpList(const char *const sessionname);
 WfrStatus	WfspRegistrySetEntriesJumpList(const char *jump_list, size_t jump_list_size);
+
+WfrStatus	WfspRegistryAddPrivKeyList(const char *const privkey_name);
+WfrStatus	WfspRegistryCleanupPrivKeyList(void);
+WfrStatus	WfspRegistryClearPrivKeyList(void);
+WfrStatus	WfspRegistryGetEntriesPrivKeyList(char **pprivkey_list, size_t *pprivkey_list_size);
+WfrStatus	WfspRegistryRemovePrivKeyList(const char *const privkey_name);
+WfrStatus	WfspRegistrySetEntriesPrivKeyList(const char *privkey_list, size_t privkey_list_size);
 
 WfrStatus	WfspRegistryCleanupContainer(WfsBackend backend);
 WfrStatus	WfspRegistryInit(void);

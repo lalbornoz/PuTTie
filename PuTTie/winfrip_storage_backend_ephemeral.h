@@ -30,6 +30,10 @@
 	WfspEphemeralGetEntriesJumpList, WfspEphemeralRemoveJumpList,					\
 	WfspEphemeralSetEntriesJumpList,								\
 													\
+	WfspEphemeralAddPrivKeyList, WfspEphemeralCleanupPrivKeyList, WfspEphemeralClearPrivKeyList,	\
+	WfspEphemeralGetEntriesPrivKeyList, WfspEphemeralRemovePrivKeyList,				\
+	WfspEphemeralSetEntriesPrivKeyList,								\
+													\
 	WfspEphemeralCleanupContainer, WfspEphemeralInit, WfspEphemeralSetBackend,			\
 }
 
@@ -65,6 +69,13 @@ void		WfspEphemeralClearJumpList(void);
 WfrStatus	WfspEphemeralGetEntriesJumpList(char **pjump_list, size_t *pjump_list_size);
 void		WfspEphemeralRemoveJumpList(const char *const sessionname);
 WfrStatus	WfspEphemeralSetEntriesJumpList(const char *jump_list, size_t jump_list_size);
+
+WfrStatus	WfspEphemeralAddPrivKeyList(const char *const privkey_name);
+WfrStatus	WfspEphemeralCleanupPrivKeyList(void);
+WfrStatus	WfspEphemeralClearPrivKeyList(void);
+WfrStatus	WfspEphemeralGetEntriesPrivKeyList(char **pprivkey_list, size_t *pprivkey_list_size);
+WfrStatus	WfspEphemeralRemovePrivKeyList(const char *const privkey_name);
+WfrStatus	WfspEphemeralSetEntriesPrivKeyList(const char *privkey_list, size_t privkey_list_size);
 
 WfrStatus	WfspEphemeralCleanupContainer(WfsBackend backend);
 WfrStatus	WfspEphemeralInit(void);

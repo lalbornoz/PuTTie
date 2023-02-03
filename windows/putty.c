@@ -39,8 +39,8 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
 
     /* {{{ winfrip */
     WfrStatus    status;
-	
-	if (WFR_STATUS_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
+
+    if (WFR_STATUS_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
         WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "setting backend");
         exit(1);
     }

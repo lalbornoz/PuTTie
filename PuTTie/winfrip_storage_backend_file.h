@@ -30,6 +30,10 @@
 	WfspFileGetEntriesJumpList, WfspFileRemoveJumpList,				\
 	WfspFileSetEntriesJumpList,							\
 											\
+	WfspFileAddPrivKeyList, WfspFileCleanupPrivKeyList, WfspFileClearPrivKeyList,	\
+	WfspFileGetEntriesPrivKeyList, WfspFileRemovePrivKeyList,			\
+	WfspFileSetEntriesPrivKeyList,							\
+											\
 	WfspFileCleanupContainer, WfspFileInit, WfspFileSetBackend,			\
 }
 
@@ -65,6 +69,13 @@ void		WfspFileClearJumpList(void);
 WfrStatus	WfspFileGetEntriesJumpList(char **pjump_list, size_t *pjump_list_size);
 void		WfspFileRemoveJumpList(const char *const sessionname);
 WfrStatus	WfspFileSetEntriesJumpList(const char *jump_list, size_t jump_list_size);
+
+WfrStatus	WfspFileAddPrivKeyList(const char *const privkey_name);
+WfrStatus	WfspFileCleanupPrivKeyList(void);
+WfrStatus	WfspFileClearPrivKeyList(void);
+WfrStatus	WfspFileGetEntriesPrivKeyList(char **pprivkey_list, size_t *pprivkey_list_size);
+WfrStatus	WfspFileRemovePrivKeyList(const char *const privkey_name);
+WfrStatus	WfspFileSetEntriesPrivKeyList(const char *privkey_list, size_t privkey_list_size);
 
 WfrStatus	WfspFileCleanupContainer(WfsBackend backend);
 WfrStatus	WfspFileInit(void);

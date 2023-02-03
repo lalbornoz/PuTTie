@@ -26,7 +26,13 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_privkey_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
+/* winfrip }}} */
+
+/* {{{ winfrip */
+const char *pageant_get_nth_ssh1_key_path(int idx);
+const char *pageant_get_nth_ssh2_key_path(int idx);
 /* winfrip }}} */
 
 #include <shellapi.h>
@@ -487,7 +493,15 @@ void keylist_update(void)
     }
 }
 
+/* {{{ winfrip */
+#if 1
+static int win_add_keyfile(Filename *filename, bool encrypted)
+#else
+/* winfrip }}} */
 static void win_add_keyfile(Filename *filename, bool encrypted)
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 {
     char *err;
     int ret;
@@ -545,7 +559,15 @@ static void win_add_keyfile(Filename *filename, bool encrypted)
                 HELPCTXID(errors_cantloadkey));
   done:
     sfree(err);
+/* {{{ winfrip */
+#if 1
+    return ret;
+#else
+/* winfrip }}} */
     return;
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 }
 
 /*
@@ -572,7 +594,19 @@ static void prompt_add_keyfile(bool encrypted)
         if (strlen(filelist) > of.nFileOffset) {
             /* Only one filename returned? */
             Filename *fn = filename_from_str(filelist);
+            /* {{{ winfrip */
+        #if 1
+            WfrStatus   status;
+            if (win_add_keyfile(fn, encrypted) == PAGEANT_ACTION_OK) {
+                status = WfsAddPrivKeyList(WfsGetBackend(), fn->path);
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "adding %s to Pageant private key list", fn->path);
+            }
+        #else
+            /* winfrip }}} */
             win_add_keyfile(fn, encrypted);
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
             filename_free(fn);
         } else {
             /* we are returned a bunch of strings, end to
@@ -585,7 +619,19 @@ static void prompt_add_keyfile(bool encrypted)
             while (*filewalker != '\0') {
                 char *filename = dupcat(dir, "\\", filewalker);
                 Filename *fn = filename_from_str(filename);
+                /* {{{ winfrip */
+            #if 1
+                WfrStatus   status;
+                if (win_add_keyfile(fn, encrypted) == PAGEANT_ACTION_OK) {
+                    status = WfsAddPrivKeyList(WfsGetBackend(), fn->path);
+                    WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "adding %s to Pageant private key list", fn->path);
+                }
+            #else
+                /* winfrip }}} */
                 win_add_keyfile(fn, encrypted);
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
                 filename_free(fn);
                 sfree(filename);
                 filewalker += strlen(filewalker) + 1;
@@ -802,7 +848,20 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
                     if (selectedArray[itemNum] == rCount + i) {
                         switch (LOWORD(wParam)) {
                           case IDC_KEYLIST_REMOVE:
+                            /* {{{ winfrip */
+                        #if 1
+                            char *    path = dupstr(pageant_get_nth_ssh2_key_path(i));
+                            if (pageant_delete_nth_ssh2_key(i)) {
+                                WfrStatus       status = WfsRemovePrivKeyList(WfsGetBackend(), path);
+                                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting %s from Pageant private key list", path);
+                            }
+                            sfree(path);
+                        #else
+                            /* winfrip }}} */
                             pageant_delete_nth_ssh2_key(i);
+                            /* {{{ winfrip */
+                        #endif
+                            /* winfrip }}} */
                             break;
                           case IDC_KEYLIST_REENCRYPT:
                             pageant_reencrypt_nth_ssh2_key(i);
@@ -817,7 +876,20 @@ static INT_PTR CALLBACK KeyListProc(HWND hwnd, UINT msg,
                     if (selectedArray[itemNum] == i) {
                         switch (LOWORD(wParam)) {
                           case IDC_KEYLIST_REMOVE:
+                            /* {{{ winfrip */
+                        #if 1
+                            char *    path = dupstr(pageant_get_nth_ssh1_key_path(i));
+                            if (pageant_delete_nth_ssh1_key(i)) {
+                                WfrStatus       status = WfsRemovePrivKeyList(WfsGetBackend(), path);
+                                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting %s from Pageant private key list", path);
+                            }
+                            sfree(path);
+                        #else
+                            /* winfrip }}} */
                             pageant_delete_nth_ssh1_key(i);
+                            /* {{{ winfrip */
+                        #endif
+                            /* winfrip }}} */
                             break;
                           case IDC_KEYLIST_REENCRYPT:
                             /* SSH-1 keys can't be re-encrypted */
@@ -925,12 +997,12 @@ static void update_sessions(void)
 
     backend = WfsGetBackend();
     if (WFR_STATUS_FAILURE(status = WfsEnumerateSessions(
-                           backend, false, true,
-                           NULL, NULL, (void **)&handle)))
-	{
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
+            backend, false, true,
+            NULL, NULL, (void **)&handle)))
+    {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
         return;
-	}
+    }
 
     for(num_entries = GetMenuItemCount(session_menu);
         num_entries > initial_menuitems_count;
@@ -941,7 +1013,8 @@ static void update_sessions(void)
 
     while (WFR_STATUS_SUCCESS(status = WfsEnumerateSessions(
                               backend, false, false,
-                              &donefl, &sessionname, handle)) && !donefl) {
+                              &donefl, &sessionname, handle)) && !donefl)
+    {
         if(strcmp(sessionname, PUTTY_DEFAULT) != 0) {
             memset(&mii, 0, sizeof(mii));
             mii.cbSize = sizeof(mii);
@@ -952,18 +1025,16 @@ static void update_sessions(void)
             mii.dwTypeData = strdup(sessionname);
 
             if (!mii.dwTypeData) {
-				status = WFR_STATUS_FROM_ERRNO();
-				WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
+                status = WFR_STATUS_FROM_ERRNO();
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
                 return;
-			}
+            }
             InsertMenuItem(session_menu, index_menu, true, &mii);
             index_menu++;
         }
     }
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
-
-    sfree(handle);
+    WFR_IF_STATUS_FAILURE_MESSAGEBOX1("enumerating sessions", status, "Pageant");
 
     if(index_menu == 0) {
         mii.cbSize = sizeof(mii);
@@ -1395,7 +1466,7 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
             WfrStatus status;
 
             status = WfsGetBackendArgString(&backend_arg_string);
-	        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("getting argument string", status, "Pageant");
+            WFR_IF_STATUS_FAILURE_MESSAGEBOX1("getting argument string", status, "Pageant");
             if (backend_arg_string) {
                 if (strlen(cmdline) > 0) {
                     strcat(cmdline, " ");
@@ -1403,8 +1474,9 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
                 strcat(cmdline, backend_arg_string);
             }
             /* winfrip }}} */
-            if ((INT_PTR)ShellExecute(hwnd, NULL, putty_path, cmdline,
-                                      _T(""), SW_SHOW) <= 32) {
+            if ((INT_PTR)ShellExecute(
+                    hwnd, NULL, putty_path, cmdline, _T(""), SW_SHOW) <= 32)
+            {
                 MessageBox(NULL, "Unable to execute PuTTY!",
                            "Error", MB_OK | MB_ICONERROR);
             }
@@ -1438,7 +1510,17 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
             prompt_add_keyfile(command == IDM_ADDKEY_ENCRYPTED);
             break;
           case IDM_REMOVE_ALL:
+            /* {{{ winfrip */
+        #if 1
             pageant_delete_all();
+            WfrStatus   status = WfsClearPrivKeyList(WfsGetBackend());
+            WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "clearing Pageant private key list");
+        #else
+            /* winfrip }}} */
+            pageant_delete_all();
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
             keylist_update();
             break;
           case IDM_REENCRYPT_ALL:
@@ -1699,10 +1781,17 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     }
 
     /* {{{ winfrip */
+    char *      privkey_list;
+    WfrStatus   status;
+
+
     WfrDebugInit();
     if (WFR_STATUS_FAILURE(WfsInit())) {
-    	return FALSE;
+       return FALSE;
     } else if (WFR_STATUS_FAILURE(WfsSetBackendFromCmdLine(cmdline))) {
+        exit(1);
+    } else if (WFR_STATUS_FAILURE(status = WfsGetEntriesPrivKeyList(WfsGetBackend(), &privkey_list, NULL))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting Pageant private key list");
         exit(1);
     }
     /* winfrip }}} */
@@ -1927,6 +2016,49 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
      */
     unlock_interprocess_mutex(mutex);
 
+    /* {{{ winfrip */
+#if 1
+    if (nclkeys > 0) {
+        WfrStatus   status;
+
+        /*
+         * Add any keys provided on the command line.
+         */
+
+        status = WfsClearPrivKeyList(WfsGetBackend());
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "clearing Pageant private key list");
+        for (size_t nclkey = 0; nclkey < nclkeys; nclkey++) {
+            CommandLineKey *    clkey = &clkeys[nclkey];
+
+            if (win_add_keyfile(clkey->fn, clkey->add_encrypted) == PAGEANT_ACTION_OK) {
+                status = WfsAddPrivKeyList(WfsGetBackend(), clkey->fn->path);
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "adding %s to Pageant private key list", clkey->fn->path);
+            }
+            filename_free(clkey->fn);
+        }
+        sfree(clkeys);
+    } else {
+        for (char *privkey = privkey_list, *privkey_next = NULL;
+             privkey && *privkey; privkey = privkey_next)
+        {
+            if ((privkey_next = strchr(privkey, '\0'))) {
+                if (win_add_keyfile(
+                        filename_from_str(privkey),
+                        add_keys_encrypted) == PAGEANT_ACTION_OK)
+                {
+                    status = WfsAddPrivKeyList(WfsGetBackend(), privkey);
+                    WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "adding %s to Pageant private key list", privkey);
+                } else {
+                    status = WfsRemovePrivKeyList(WfsGetBackend(), privkey);
+                    WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting %s from Pageant private key list", privkey);
+                }
+                privkey_next++;
+            }
+        }
+    }
+#else
+    /* winfrip }}} */
+
     /*
      * Add any keys provided on the command line.
      */
@@ -1938,6 +2070,10 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     sfree(clkeys);
     /* And forget any passphrases we stashed during that loop. */
     pageant_forget_passphrases();
+
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 
     /*
      * Now our keys are present, spawn a command, if we were asked to.
@@ -2071,3 +2207,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     cleanup_exit(msg.wParam);
     return msg.wParam;                 /* just in case optimiser complains */
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */
