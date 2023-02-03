@@ -1786,12 +1786,14 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
 
     WfrDebugInit();
-    if (WFR_STATUS_FAILURE(WfsInit())) {
-       return FALSE;
-    } else if (WFR_STATUS_FAILURE(WfsSetBackendFromCmdLine(cmdline))) {
+    if (WFR_STATUS_FAILURE(status = WfsInit())) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "initialising storage");
+        exit(1);
+    } else if (WFR_STATUS_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "setting backend");
         exit(1);
     } else if (WFR_STATUS_FAILURE(status = WfsGetEntriesPrivKeyList(WfsGetBackend(), &privkey_list, NULL))) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting Pageant private key list");
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting private key list");
         exit(1);
     }
     /* winfrip }}} */

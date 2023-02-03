@@ -2817,13 +2817,13 @@ int psftp_main(int argc, char *argv[])
     /* {{{ winfrip */
     WfrStatus    status;
 
+
     WfrDebugInit();
-    if (WFR_STATUS_SUCCESS(status = WfsInit())
-    &&  WFR_STATUS_SUCCESS(WfsSetBackendFromArgV(&argc, &argv)))
-    {
-        status = WFR_STATUS_CONDITION_SUCCESS;
-    } else {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("setting backend", status, "psftp");
+    if (WFR_STATUS_FAILURE(status = WfsInit())) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("psftp", status, "initialising storage");
+        exit(1);
+    } else if (WFR_STATUS_FAILURE(WfsSetBackendFromArgV(&argc, &argv))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("psftp", status, "setting backend");
         exit(1);
     }
     /* }}} */
