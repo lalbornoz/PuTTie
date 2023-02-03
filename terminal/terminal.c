@@ -8025,3 +8025,9 @@ void term_notify_window_size_pixels(Terminal *term, int x, int y)
     term->winpixsize_x = x;
     term->winpixsize_y = y;
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

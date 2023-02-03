@@ -2974,3 +2974,9 @@ Socket *platform_start_subprocess(const char *cmd, Plug *plug,
     (0x10000 + (((wch1) & 0x3FF) << 10) + ((wch2) & 0x3FF))
 
 #endif
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

@@ -3364,3 +3364,9 @@ void setup_config_box(struct controlbox *b, bool midsession,
                       I(CONF_supdup_scroll));
     }
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

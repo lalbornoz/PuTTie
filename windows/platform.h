@@ -805,3 +805,9 @@ void gui_terminal_ready(HWND hwnd, Seat *seat, Backend *backend);
 void setup_gui_timing(void);
 
 #endif /* PUTTY_WINDOWS_PLATFORM_H */
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

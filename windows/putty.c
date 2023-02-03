@@ -252,3 +252,9 @@ void gui_terminal_ready(HWND hwnd, Seat *seat, Backend *backend)
         schedule_timer(TICKSPERSEC, demo_terminal_screenshot, (void *)hwnd);
     }
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

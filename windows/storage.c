@@ -854,3 +854,9 @@ void cleanup_all(void)
      * Now we're done.
      */
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

@@ -378,16 +378,16 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
         char *text = dupprintf(
             "%s\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s\r\n%s",
             appname, ver, buildinfo_text,
-		/* {{{ winfrip */
-		#if 1
+        /* {{{ winfrip */
+        #if 1
             "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.",
             "\251 2018, 2022, 2023 Lucia Andrea Illanes Albornoz. All rights reserved.");
-		#else
-		/* winfrip }}} */
+        #else
+        /* winfrip }}} */
             "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
-		/* {{{ winfrip */
-		#endif
-		/* winfrip }}} */
+        /* {{{ winfrip */
+        #endif
+        /* winfrip }}} */
         sfree(buildinfo_text);
         SetDlgItemText(hwnd, IDA_TEXT, text);
         MakeDlgItemBorderless(hwnd, IDA_TEXT);
@@ -410,19 +410,19 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
 
           case IDA_WEB:
             /* Load web browser */
-		/* {{{ winfrip */
-		#if 1
+        /* {{{ winfrip */
+        #if 1
             ShellExecute(hwnd, "open",
                          "https://www.github.com/lalbornoz/PuTTie/",
                          0, 0, SW_SHOWDEFAULT);
-		#else
-		/* winfrip }}} */
+        #else
+        /* winfrip }}} */
             ShellExecute(hwnd, "open",
                          "https://www.chiark.greenend.org.uk/~sgtatham/putty/",
                          0, 0, SW_SHOWDEFAULT);
-		/* {{{ winfrip */
-		#endif
-		/* winfrip }}} */
+        /* {{{ winfrip */
+        #endif
+        /* winfrip }}} */
             return 0;
         }
         return 0;
@@ -1366,3 +1366,9 @@ void show_ca_config_box(dlgparam *dp)
 
     pds_free(pds);
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */
