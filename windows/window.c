@@ -3569,10 +3569,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
                 if (WffMouseOperation(
                             WFF_MOUSE_OP_MOUSE_EVENT, wgs->conf,
-                            message, wParam) == WF_RETURN_BREAK_RESET_WINDOW) 
+                            message, wParam) == WF_RETURN_BREAK_RESET_WINDOW)
                 {
                     reset_window(wgs, 2);
-					return 0;
+                    return 0;
                 }
                 /* winfrip }}} */
                 wgs->wheel_accumulator += (short)HIWORD(wParam);

@@ -181,6 +181,9 @@ struct PageantPublicKey {
     strbuf *base_pub;            /* the true owner of sort.priv.base_pub */
     strbuf *full_pub;            /* the true owner of sort.full_pub */
     char *comment;
+    /* {{{ winfrip */
+    char *path;
+    /* winfrip }}} */
 };
 static tree234 *pubkeytree;
 
@@ -406,7 +409,15 @@ static bool pageant_add_key_common(PageantPublicKey *pub,
     }
 }
 
+/* {{{ winfrip */
+#if 1
+static bool pageant_add_ssh1_key(RSAKey *rkey, const char *path)
+#else
+/* winfrip }}} */
 static bool pageant_add_ssh1_key(RSAKey *rkey)
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 {
     PageantPublicKey *pub = snew(PageantPublicKey);
     memset(pub, 0, sizeof(PageantPublicKey));
@@ -423,10 +434,22 @@ static bool pageant_add_ssh1_key(RSAKey *rkey)
     priv->rkey = snew(RSAKey);
     duprsakey(priv->rkey, rkey);
 
+    /* {{{ winfrip */
+    pub->path = dupstr(path);
+    /* winfrip }}} */
+
     return pageant_add_key_common(pub, priv);
 }
 
+/* {{{ winfrip */
+#if 1
+static bool pageant_add_ssh2_key(ssh2_userkey *skey, const char *path)
+#else
+/* winfrip }}} */
 static bool pageant_add_ssh2_key(ssh2_userkey *skey)
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 {
     PageantPublicKey *pub = snew(PageantPublicKey);
     memset(pub, 0, sizeof(PageantPublicKey));
@@ -450,6 +473,10 @@ static bool pageant_add_ssh2_key(ssh2_userkey *skey)
         strbuf_free(tmp);
     }
 
+    /* {{{ winfrip */
+    pub->path = dupstr(path);
+    /* winfrip }}} */
+
     return pageant_add_key_common(pub, priv);
 }
 
@@ -470,6 +497,10 @@ static bool pageant_add_ssh2_key_encrypted(PageantPublicKeySort sort,
 
     priv->encrypted_key_file = strbuf_dup_nm(keyfile);
     priv->encrypted_key_comment = dupstr(comment);
+
+    /* {{{ winfrip */
+    pub->path = strbuf_to_str(strbuf_dup_nm(keyfile));
+    /* winfrip }}} */
 
     return pageant_add_key_common(pub, priv);
 }
@@ -1136,6 +1167,10 @@ static PageantAsyncOp *pageant_make_op(
 
         pageant_client_log(pc, reqid, "request: SSH1_AGENTC_ADD_RSA_IDENTITY");
 
+        /* {{{ winfrip */
+        char *path = mkstr(get_string(msg));
+        /* winfrip }}} */
+
         key = get_rsa_ssh1_priv_agent(msg);
         key->comment = mkstr(get_string(msg));
 
@@ -1156,7 +1191,15 @@ static PageantAsyncOp *pageant_make_op(
             sfree(fingerprint);
         }
 
+        /* {{{ winfrip */
+    #if 1
+        if (pageant_add_ssh1_key(key, path)) {
+    #else
+        /* winfrip }}} */
         if (pageant_add_ssh1_key(key)) {
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
             keylist_update();
             put_byte(sb, SSH_AGENT_SUCCESS);
             pageant_client_log(pc, reqid, "reply: SSH_AGENT_SUCCESS");
@@ -1182,6 +1225,10 @@ static PageantAsyncOp *pageant_make_op(
         const ssh_keyalg *alg;
 
         pageant_client_log(pc, reqid, "request: SSH2_AGENTC_ADD_IDENTITY");
+
+        /* {{{ winfrip */
+        char *path = mkstr(get_string(msg));
+        /* winfrip }}} */
 
         algpl = get_string(msg);
 
@@ -1215,7 +1262,15 @@ static PageantAsyncOp *pageant_make_op(
             sfree(fingerprint);
         }
 
+        /* {{{ winfrip */
+    #if 1
+        if (pageant_add_ssh2_key(key, path)) {
+    #else
+        /* winfrip }}} */
         if (pageant_add_ssh2_key(key)) {
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
             keylist_update();
             put_byte(sb, SSH_AGENT_SUCCESS);
 
@@ -1433,7 +1488,15 @@ static PageantAsyncOp *pageant_make_op(
                 ssh2_userkey *skey = ppk_load_s(src, NULL, &error);
                 if (!skey) {
                     fail("failed to decode private key: %s", error);
+                /* {{{ winfrip */
+            #if 1
+                } else if (pageant_add_ssh2_key(skey, mkstr(keyfile))) {
+            #else
+                /* winfrip }}} */
                 } else if (pageant_add_ssh2_key(skey)) {
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
                     keylist_update();
                     put_byte(sb, SSH_AGENT_SUCCESS);
 
@@ -1649,6 +1712,28 @@ bool pageant_delete_nth_ssh2_key(int i)
     pk_pub_free(pub);
     return true;
 }
+
+/* {{{ winfrip */
+const char *
+pageant_get_nth_ssh1_key_path(
+    int idx
+    )
+{
+    PageantPublicKey    *pub_key = pageant_nth_pubkey(1, idx);
+
+    return (pub_key ? pub_key->path : NULL);
+}
+
+const char *
+pageant_get_nth_ssh2_key_path(
+    int idx
+    )
+{
+    PageantPublicKey    *pub_key = pageant_nth_pubkey(2, idx);
+
+    return (pub_key ? pub_key->path : NULL);
+}
+/* winfrip }}} */
 
 bool pageant_reencrypt_nth_ssh2_key(int i)
 {
@@ -2426,6 +2511,9 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
     if (type == SSH_KEYTYPE_SSH1) {
         PageantClientOp *pco = pageant_client_op_new();
         put_byte(pco, SSH1_AGENTC_ADD_RSA_IDENTITY);
+        /* {{{ winfrip */
+        put_stringz(pco, filename->path);
+        /* winfrip }}} */
         rsa_ssh1_private_blob_agent(BinarySink_UPCAST(pco), rkey);
         put_stringz(pco, rkey->comment);
         unsigned reply = pageant_client_op_query(pco);
@@ -2442,6 +2530,9 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
     } else {
         PageantClientOp *pco = pageant_client_op_new();
         put_byte(pco, SSH2_AGENTC_ADD_IDENTITY);
+        /* {{{ winfrip */
+        put_stringz(pco, filename->path);
+        /* winfrip }}} */
         put_stringz(pco, ssh_key_ssh_id(skey->key));
         ssh_key_openssh_blob(skey->key, BinarySink_UPCAST(pco));
         put_stringz(pco, skey->comment);
@@ -2689,3 +2780,9 @@ void pageant_pubkey_free(struct pageant_pubkey *key)
     strbuf_free(key->blob);
     sfree(key);
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

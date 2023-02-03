@@ -141,6 +141,87 @@ WfsTransformJumpList(
 	return status;
 }
 
+WfrStatus
+WfsTransformPrivKeyList(
+	bool			addfl,
+	bool			delfl,
+	char **			pprivkey_list,
+	size_t *		pprivkey_list_size,
+	const char *const	trans_item
+	)
+{
+	size_t		item_len;
+	char *		privkey_list_new = NULL, *privkey_list_new_last;
+	ptrdiff_t	privkey_list_new_delta;
+	size_t		privkey_list_new_size = 0;
+	WfrStatus	status;
+	size_t		trans_item_len;
+
+
+	if (addfl || delfl) {
+		trans_item_len = strlen(trans_item);
+
+		if (*pprivkey_list == NULL) {
+			if (!(*pprivkey_list = WFR_NEWN(2, char))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				(*pprivkey_list)[0] = '\0'; (*pprivkey_list)[1] = '\0';
+				*pprivkey_list_size = 1;
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		}
+
+		privkey_list_new_size = trans_item_len + 1 + *pprivkey_list_size;
+		if (!(privkey_list_new = WFR_NEWN(privkey_list_new_size, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			memset(privkey_list_new, '\0', privkey_list_new_size);
+			privkey_list_new_last = privkey_list_new;
+
+			if (addfl) {
+				memcpy(privkey_list_new_last, trans_item, trans_item_len + 1);
+				privkey_list_new_last += trans_item_len + 1;
+			}
+
+			for (char *item = *pprivkey_list, *item_next = NULL;
+			     item && *item; item = item_next)
+			{
+				if ((item_next = strchr(item, '\0'))) {
+					item_len = item_next - item;
+					item_next++;
+
+					if ((trans_item_len != item_len)
+					||  (strncmp(trans_item, item, item_len) != 0))
+					{
+						memcpy(privkey_list_new_last, item, item_len);
+						privkey_list_new_last += item_len + 1;
+					}
+				}
+			}
+
+			if (&privkey_list_new_last[0] < &privkey_list_new[privkey_list_new_size - 1]) {
+				privkey_list_new_delta = (&privkey_list_new[privkey_list_new_size - 1] - &privkey_list_new_last[0]);
+				status = WFR_RESIZE(
+					privkey_list_new, privkey_list_new_size,
+					privkey_list_new_size - privkey_list_new_delta, char);
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+
+			if (WFR_STATUS_SUCCESS(status)) {
+				WFR_FREE(*pprivkey_list);
+				*pprivkey_list = privkey_list_new;
+				*pprivkey_list_size = privkey_list_new_size;
+			}
+		}
+	}
+
+	if (WFR_STATUS_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(privkey_list_new);
+	}
+
+	return status;
+}
 
 WfrStatus
 WfsTreeCloneValue(

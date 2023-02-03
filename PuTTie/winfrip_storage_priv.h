@@ -51,6 +51,13 @@ typedef struct WfspBackend {
 	void		(*RemoveJumpList)(const char *const);
 	WfrStatus	(*SetEntriesJumpList)(const char *, size_t);
 
+	WfrStatus	(*AddPrivKeyList)(const char *const);
+	WfrStatus	(*CleanupPrivKeyList)(void);
+	WfrStatus	(*ClearPrivKeyList)(void);
+	WfrStatus	(*GetEntriesPrivKeyList)(char **, size_t *);
+	WfrStatus	(*RemovePrivKeyList)(const char *const);
+	WfrStatus	(*SetEntriesPrivKeyList)(const char *, size_t);
+
 	WfrStatus	(*CleanupContainer)(WfsBackend);
 	WfrStatus	(*Init)(void);
 	WfrStatus	(*SetBackend)(WfsBackend);
@@ -71,6 +78,7 @@ typedef struct WfspBackend {
 
 WfrStatus	WfsGetBackendImpl(WfsBackend backend, void *pbackend);
 WfrStatus	WfsTransformJumpList(bool addfl, bool delfl, char **pjump_list, size_t *pjump_list_size, const char *const trans_item);
+WfrStatus	WfsTransformPrivKeyList(bool addfl, bool delfl, char **pprivkey_list, size_t *pprivkey_list_size, const char *const trans_item);
 WfrStatus	WfsTreeCloneValue(WfsTreeItem *item, void **pvalue_new);
 void		WfsTreeFreeItem(WfsTreeItem *item);
 

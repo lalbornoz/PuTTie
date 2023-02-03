@@ -21,6 +21,9 @@
 static char *	WfspEphemeralJumpList = NULL;
 static size_t	WfspEphemeralJumpListSize = 0;
 
+static char *	WfspEphemeralPrivKeyList = NULL;
+static size_t	WfspEphemeralPrivKeyListSize = 0;
+
 /*
  * Public subroutines private to PuTTie/winfrip_storage*.c
  */
@@ -356,7 +359,9 @@ WfspEphemeralGetEntriesJumpList(
 		} else {
 			memcpy(jump_list_copy, WfspEphemeralJumpList, WfspEphemeralJumpListSize);
 			*pjump_list = jump_list_copy;
-			*pjump_list_size = WfspEphemeralJumpListSize;
+			if (pjump_list_size) {
+				*pjump_list_size = WfspEphemeralJumpListSize;
+			}
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	} else {
@@ -365,7 +370,9 @@ WfspEphemeralGetEntriesJumpList(
 		} else {
 			(*pjump_list)[0] = '\0';
 			(*pjump_list)[1] = '\0';
-			*pjump_list_size = 2;
+			if (pjump_list_size) {
+				*pjump_list_size = 2;
+			}
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	}
@@ -400,6 +407,106 @@ WfspEphemeralSetEntriesJumpList(
 		WFR_FREE_IF_NOTNULL(WfspEphemeralJumpList);
 		WfspEphemeralJumpList = jump_list_new;
 		WfspEphemeralJumpListSize = jump_list_size;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
+}
+
+
+WfrStatus
+WfspEphemeralAddPrivKeyList(
+	const char *const	sessionname
+	)
+{
+	return WfsTransformPrivKeyList(
+		true, false, &WfspEphemeralPrivKeyList,
+		&WfspEphemeralPrivKeyListSize, sessionname);
+}
+
+WfrStatus
+WfspEphemeralCleanupPrivKeyList(
+	void
+	)
+{
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
+WfrStatus
+WfspEphemeralClearPrivKeyList(
+	void
+	)
+{
+	WFR_FREE_IF_NOTNULL(WfspEphemeralPrivKeyList);
+	WfspEphemeralPrivKeyListSize = 0;
+
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
+WfrStatus
+WfspEphemeralGetEntriesPrivKeyList(
+	char **		pprivkey_list,
+	size_t *	pprivkey_list_size
+	)
+{
+	char *		privkey_list_copy;
+	WfrStatus	status;
+
+
+	if (WfspEphemeralPrivKeyListSize > 0) {
+		if (!(privkey_list_copy = WFR_NEWN(WfspEphemeralPrivKeyListSize, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			memcpy(privkey_list_copy, WfspEphemeralPrivKeyList, WfspEphemeralPrivKeyListSize);
+			*pprivkey_list = privkey_list_copy;
+			if (pprivkey_list_size) {
+				*pprivkey_list_size = WfspEphemeralPrivKeyListSize;
+			}
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		if (!(privkey_list_copy = WFR_NEWN(2, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			(*pprivkey_list)[0] = '\0';
+			(*pprivkey_list)[1] = '\0';
+			if (pprivkey_list_size) {
+				*pprivkey_list_size = 2;
+			}
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	}
+
+	return status;
+}
+
+WfrStatus
+WfspEphemeralRemovePrivKeyList(
+	const char *const	sessionname
+	)
+{
+	return WfsTransformPrivKeyList(
+		false, true, &WfspEphemeralPrivKeyList,
+		&WfspEphemeralPrivKeyListSize, sessionname);
+}
+
+WfrStatus
+WfspEphemeralSetEntriesPrivKeyList(
+	const char *	privkey_list,
+	size_t		privkey_list_size
+	)
+{
+	char *		privkey_list_new;
+	WfrStatus	status;
+
+
+	if (!(privkey_list_new = WFR_NEWN(privkey_list_size, char))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		memcpy(privkey_list_new, privkey_list, privkey_list_size);
+		WFR_FREE_IF_NOTNULL(WfspEphemeralPrivKeyList);
+		WfspEphemeralPrivKeyList = privkey_list_new;
+		WfspEphemeralPrivKeyListSize = privkey_list_size;
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
