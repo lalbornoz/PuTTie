@@ -477,10 +477,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     /* {{{ winfrip */
     WfrStatus   status;
 
+
     WfrDebugInit();
     if (WFR_STATUS_FAILURE(status = WfsInit())) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("initialising storage", status, "PuTTie");
-        return FALSE;
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("PuTTie", status, "initialising storage");
+        exit(1);
     }
     /* winfrip }}} */
 

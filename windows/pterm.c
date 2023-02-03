@@ -15,16 +15,16 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
     /* {{{ winfrip */
     WfrStatus    status;
 
+
     WfrDebugInit();
-    if (WFR_STATUS_SUCCESS(status = WfsInit())
-    &&  WFR_STATUS_SUCCESS(WfsSetBackendFromCmdLine(cmdline)))
-    {
-        status = WFR_STATUS_CONDITION_SUCCESS;
-    } else {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("setting backend", status, "pterm");
+    if (WFR_STATUS_FAILURE(status = WfsInit())) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("pterm", status, "initialising storage");
+        exit(1);
+    } else if (WFR_STATUS_FAILURE(WfsSetBackendFromCmdLine(cmdline))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("pterm", status, "setting backend");
         exit(1);
     }
-    /* }}} */
+    /* winfrip }}} */
 
     do_defaults(NULL, conf);
     conf_set_str(conf, CONF_remote_cmd, "");
@@ -82,3 +82,9 @@ const wchar_t *get_app_user_model_id(void)
 void gui_terminal_ready(HWND hwnd, Seat *seat, Backend *backend)
 {
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */
