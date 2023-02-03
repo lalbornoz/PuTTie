@@ -119,9 +119,17 @@ WfsTransformList(
 
 			if (&list_new_last[0] < &list_new[list_new_size - 1]) {
 				list_new_delta = (&list_new[list_new_size - 1] - &list_new_last[0]);
-				status = WFR_RESIZE(
-					list_new, list_new_size,
-					list_new_size - list_new_delta, char);
+				if ((list_new_size - list_new_delta) < 2) {
+					status = WFR_RESIZE(list_new, list_new_size, 2, char);
+					if (WFR_STATUS_SUCCESS(status)) {
+						list_new[0] = '\0';
+						list_new[1] = '\0';
+					}
+				} else {
+					status = WFR_RESIZE(
+						list_new, list_new_size,
+						list_new_size - list_new_delta, char);
+				}
 			} else {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
