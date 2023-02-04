@@ -74,6 +74,147 @@ WfrpEnumerateRegKey(
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
+WfrStatus
+WfrCleanupRegSubKey(
+	const char *	key_name,
+	const char *	subkey
+	)
+{
+	HKEY		hKey = NULL;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, key_name))
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegDeleteTree(hKey, subkey))))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_STATUS_FAILURE(status)
+	&&  ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
+	||   (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND)))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+	if (hKey) {
+		(void)RegCloseKey(hKey);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrClearRegSubKey(
+	const char *	subkey
+	)
+{
+	bool			donefl;
+	WfrEnumerateRegState *	enum_state;
+	HKEY			hKey = NULL;
+	size_t			itemc = 0;
+	char **			itemv = NULL;
+	char *			key_name;
+	char *			key_name_escaped;
+	WfrStatus		status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegInit(&enum_state, subkey, NULL))
+	&&  enum_state->hKey
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_WINDOWS_BOOL(DuplicateHandle(
+			GetCurrentProcess(), enum_state->hKey,
+			GetCurrentProcess(), (LPHANDLE)&hKey,
+			0, FALSE, DUPLICATE_SAME_ACCESS))))
+	{
+		do {
+			if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegValues(
+					&donefl, NULL, NULL, &key_name, NULL, &enum_state))
+			&&  !donefl)
+			{
+				if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
+						itemv, itemc, itemc + 1, char *)))
+				{
+					WFR_FREE(key_name);
+				} else if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(
+						(char *)key_name, &key_name_escaped)))
+				{
+					WFR_FREE(key_name);
+					itemv[itemc - 1] = key_name_escaped;
+				} else {
+					WFR_FREE(key_name);
+					itemv[itemc - 1] = NULL;
+				}
+			}
+		} while (WFR_STATUS_SUCCESS(status) && !donefl);
+
+		for (size_t nitem = 0; WFR_STATUS_SUCCESS(status) && (nitem < itemc); nitem++) {
+			status = WFR_STATUS_BIND_LSTATUS(RegDeleteValue(hKey, itemv[nitem]));
+		}
+
+		for (size_t nitem = 0; nitem < itemc; nitem++) {
+			WFR_FREE_IF_NOTNULL(itemv[nitem]);
+		}
+		WFR_FREE_IF_NOTNULL(itemv);
+	}
+
+	if (hKey) {
+		(void)RegCloseKey(hKey);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrDeleteRegSubKey(
+	const char *	key_name,
+	const char *	subkey
+	)
+{
+	HKEY		hKey;
+	LPSTR		subkey_escaped = NULL;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, key_name))
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegDeleteTree(hKey, subkey_escaped))))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	WFR_FREE_IF_NOTNULL(subkey_escaped);
+	if (hKey) {
+		(void)RegCloseKey(hKey);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrDeleteRegValue(
+	const char *	key_name,
+	const char *	value_name
+	)
+{
+	HKEY		hKey;
+	LPSTR		value_name_escaped = NULL;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(value_name, &value_name_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, key_name))
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegDeleteValue(hKey, value_name_escaped))))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	WFR_FREE_IF_NOTNULL(value_name_escaped);
+	if (hKey) {
+		(void)RegCloseKey(hKey);
+	}
+
+	return status;
+}
+
 void
 WfrEnumerateRegCancel(
 	WfrEnumerateRegState **		pstate
@@ -342,6 +483,54 @@ WfrEscapeRegKey(
 }
 
 WfrStatus
+WfrLoadRegValue(
+	const char *	key_name,
+	const char *	subkey,
+	char **		pvalue,
+	size_t *	pvalue_size
+	)
+{
+	HKEY		hKey = NULL;
+	WfrStatus	status;
+	char *		subkey_escaped = NULL;
+	char *		value = NULL;
+	DWORD		value_size = 0;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(HKEY_CURRENT_USER, &hKey, key_name))
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegGetValue(
+			hKey, NULL, subkey_escaped,
+			RRF_RT_REG_SZ, NULL, NULL, &value_size))))
+	{
+		if (!(value = WFR_NEWN(value_size, char))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			status = WFR_STATUS_BIND_LSTATUS(RegGetValue(
+				hKey, NULL, subkey_escaped,
+				RRF_RT_REG_SZ, NULL, value,
+				&value_size));
+		}
+	}
+
+	if (hKey != NULL) {
+		(void)RegCloseKey(hKey);
+	}
+	WFR_FREE_IF_NOTNULL(subkey_escaped);
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		*pvalue = value;
+		if (pvalue_size) {
+			*pvalue_size = value_size;
+		}
+	} else {
+		WFR_FREE_IF_NOTNULL(value);
+	}
+
+	return status;
+}
+
+WfrStatus
 WfrOpenRegKey(
 	HKEY		hKey,
 	bool		createfl,
@@ -410,6 +599,112 @@ WfrOpenRegKeyV(
 	} else {
 		status = WFR_STATUS_FROM_WINDOWS1(status_registry);
 	}
+
+	return status;
+}
+
+WfrStatus
+WfrRenameRegSubKey(
+	const char *	key_name,
+	const char *	subkey,
+	const char *	subkey_new
+	)
+{
+	HKEY		hKey = NULL;
+	WfrStatus	status;
+	char *		subkey_escaped = NULL, *subkey_new_escaped = NULL;
+	wchar_t *	subkey_escaped_w = NULL, *subkey_new_escaped_w = NULL;
+
+
+	status = WFR_STATUS_CONDITION_SUCCESS;
+
+	if ((strcmp(subkey, subkey_new) != 0)
+	&&  WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrToWcsDup(subkey_escaped, strlen(subkey_escaped) + 1, &subkey_escaped_w))
+	&&  WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey_new, &subkey_new_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrToWcsDup(subkey_new_escaped, strlen(subkey_new_escaped) + 1, &subkey_new_escaped_w))
+	&&  WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, key_name))
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegRenameKey(hKey, subkey_escaped_w, subkey_new_escaped_w))))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (hKey != NULL) {
+		(void)RegCloseKey(hKey);
+	}
+	WFR_FREE_IF_NOTNULL(subkey_escaped);
+	WFR_FREE_IF_NOTNULL(subkey_new_escaped);
+	WFR_FREE_IF_NOTNULL(subkey_escaped_w);
+	WFR_FREE_IF_NOTNULL(subkey_new_escaped_w);
+
+	return status;
+}
+
+WfrStatus
+WfrRenameRegValue(
+	const char *	key_name,
+	const char *	value_name,
+	const char *	value_name_new
+	)
+{
+	HKEY		hKey = NULL;
+	char *		value_name_escaped = NULL, *value_name_new_escaped = NULL;
+	WfrStatus	status;
+	char *		value = NULL;
+	size_t		value_size;
+
+
+	status = WFR_STATUS_CONDITION_SUCCESS;
+
+	if ((strcmp(value_name, value_name_new) != 0)
+	&&  WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(value_name, &value_name_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(value_name_new, &value_name_new_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrLoadRegValue(key_name, value_name, &value, &value_size))
+	&&  WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, key_name))
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+			hKey, value_name_new_escaped, 0, REG_SZ,
+			(const BYTE *)value, value_size)))
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegDeleteValue(hKey, value_name_escaped))))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (hKey != NULL) {
+		(void)RegCloseKey(hKey);
+	}
+	WFR_FREE_IF_NOTNULL(value);
+	WFR_FREE_IF_NOTNULL(value_name_escaped);
+	WFR_FREE_IF_NOTNULL(value_name_new_escaped);
+
+	return status;
+}
+
+WfrStatus
+WfrSetRegValue(
+	const char *	key_name,
+	const char *	value_name,
+	const char *	value,
+	size_t		value_size
+	)
+{
+	HKEY		hKey;
+	char *		value_name_escaped = NULL;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(value_name, &value_name_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, key_name))
+	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+			hKey, value_name_escaped, 0, REG_SZ,
+			(const BYTE *)value, value_size))))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (hKey != NULL) {
+		(void)RegCloseKey(hKey);
+	}
+	WFR_FREE_IF_NOTNULL(value_name_escaped);
 
 	return status;
 }
