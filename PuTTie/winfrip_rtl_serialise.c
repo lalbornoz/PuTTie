@@ -16,6 +16,7 @@
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_file.h"
+#include "PuTTie/winfrip_rtl_registry.h"
 #include "PuTTie/winfrip_rtl_serialise.h"
 #include "PuTTie/winfrip_rtl_pcre2.h"
 
@@ -103,6 +104,63 @@ WfrpInitRegex(
 /*
  * Public subroutines private to PuTTie/winfrip*.c
  */
+
+WfrStatus
+WfrLoadRegSubKey(
+	const char *		key_name,
+	const char *		subkey,
+	WfrLoadRegSubKeyItemFn	item_fn,
+	void *			param1,
+	void *			param2
+	)
+{
+	bool			donefl;
+	WfrEnumerateRegState *	enum_state;
+	char *			name;
+	WfrStatus		status;
+	char *			subkey_escaped = NULL;
+	WfrTreeItemTypeBase	type;
+	DWORD			type_registry;
+	void *			value = NULL;
+	size_t			value_len;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrEnumerateRegInit(
+			&enum_state, key_name, subkey_escaped, NULL)))
+	{
+		donefl = false;
+
+		while (WFR_STATUS_SUCCESS(status) && !donefl) {
+			if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegValues(
+					&donefl, &value, &value_len,
+					&name, &type_registry, &enum_state)) && !donefl)
+			{
+				switch (type_registry) {
+				default:
+					status = WFR_STATUS_FROM_ERRNO1(EINVAL); break;
+				case REG_DWORD:
+					type = WFR_TREE_ITYPE_INT; break;
+				case REG_SZ:
+					type = WFR_TREE_ITYPE_STRING; break;
+				}
+
+				if (WFR_STATUS_SUCCESS(status)) {
+					status = item_fn(param1, param2, name, type, value, value_len);
+				}
+
+				WFR_FREE(name);
+				if (WFR_STATUS_FAILURE(status)) {
+					WFR_FREE(value);
+				}
+			}
+		}
+	}
+
+	WFR_FREE_IF_NOTNULL(subkey_escaped);
+
+	return status;
+}
 
 WfrStatus
 WfrLoadParse(
@@ -337,6 +395,71 @@ WfrSaveToFileV(
 }
 
 WfrStatus
+WfrSaveToRegSubKeyV(
+	const char *	key_name,
+	const char *	subkey,
+			...
+	)
+{
+	va_list		ap;
+	HKEY		hKey;
+	const char *	key;
+	WfrStatus	status;
+	char *		subkey_escaped = NULL;
+	int		type;
+	const char *	value;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(
+			HKEY_CURRENT_USER, &hKey,
+			key_name, subkey_escaped)))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+
+		va_start(ap, subkey);
+		while (WFR_STATUS_SUCCESS(status)) {
+			if (!(key = va_arg(ap, const char *))) {
+				break;
+			} else {
+				type = va_arg(ap, int);
+				value = va_arg(ap, void *);
+			}
+
+			switch (type) {
+			default:
+				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+				break;
+
+			case WFR_TREE_ITYPE_INT:
+				status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+					hKey, key, 0, REG_DWORD,
+					(const BYTE *)value, sizeof(int)));
+				break;
+
+			case WFR_TREE_ITYPE_STRING:
+				status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+					hKey, key, 0, REG_SZ,
+					(const BYTE *)value, strlen(value)));
+				break;
+			}
+		}
+		va_end(ap);
+	}
+
+	if (hKey != NULL) {
+		(void)RegCloseKey(hKey);
+	}
+	if (WFR_STATUS_FAILURE(status)) {
+		(void)RegDeleteTree(hKey, subkey_escaped);
+	}
+
+	WFR_FREE_IF_NOTNULL(subkey_escaped)
+
+	return status;
+}
+
+WfrStatus
 WfrSaveTreeToFile(
 	char *		dname,
 	const char *	ext,
@@ -424,6 +547,57 @@ WfrSaveTreeToFile(
 	} else if (WFR_STATUS_FAILURE(status)) {
 		(void)unlink(fname_tmp);
 	}
+
+	return status;
+}
+
+WfrStatus
+WfrSaveTreeToRegSubKey(
+	const char *	key_name,
+	const char *	subkey,
+	WfrTree	*	tree
+	)
+{
+	HKEY		hKey;
+	WfrTreeItem *	item;
+	char *		subkey_escaped = NULL;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))) {
+		(void)RegDeleteTree(hKey, subkey_escaped);
+		if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(
+				HKEY_CURRENT_USER, &hKey,
+				key_name, subkey_escaped)))
+		{
+			WFR_TREE234_FOREACH(status, tree, idx, item) {
+				switch (item->type) {
+				default:
+					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+					break;
+
+				case WFR_TREE_ITYPE_INT:
+					status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+						hKey, item->key, 0, REG_DWORD,
+						(const BYTE *)item->value, item->value_size));
+					break;
+
+				case WFR_TREE_ITYPE_STRING:
+					status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+						hKey, item->key, 0, REG_SZ,
+						(const BYTE *)item->value, item->value_size));
+					break;
+				}
+			}
+		}
+
+		if (WFR_STATUS_FAILURE(status)) {
+			(void)RegDeleteTree(hKey, subkey_escaped);
+		}
+	}
+
+	(void)RegCloseKey(hKey);
+	WFR_FREE_IF_NOTNULL(subkey_escaped);
 
 	return status;
 }
