@@ -11,6 +11,7 @@
  */
 
 WfrStatus WfrCreateShortcut(LPCWSTR app_user_model_id, LPCWSTR description, LPCWSTR shortcut_pname, LPCWSTR target_pname, LPCWSTR working_dname);
+WfrStatus WfrCreateShortcutStartup(LPCWSTR app_user_model_id, LPCWSTR description, LPCWSTR shortcut_fname, LPCWSTR target_pname, LPCWSTR working_dname);
 
 #endif // !PUTTY_WINFRIP_RTL_SHORTCUT_HPP
 
