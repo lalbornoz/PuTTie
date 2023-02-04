@@ -120,6 +120,8 @@ set_source_files_properties(PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS 
 set_source_files_properties(PuTTie/winfrip_rtl_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_rtl_serialise.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_rtl_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_backend_ephemeral.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_backend_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -131,7 +133,6 @@ set_source_files_properties(PuTTie/winfrip_storage_priv.c PROPERTIES COMPILE_FLA
 set_source_files_properties(PuTTie/winfrip_storage_privkey_list.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_putty_adapter.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_sessions.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
-set_source_files_properties(PuTTie/winfrip_storage_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 
 if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
   set(DEFAULT_STORAGE_BACKEND "WFS_BACKEND_REGISTRY")
@@ -160,6 +161,8 @@ set_property(TARGET plink APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_file.c
   PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_rtl_registry.c
+  PuTTie/winfrip_rtl_serialise.c
+  PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_backend_ephemeral.c
   PuTTie/winfrip_storage_backend_file.c
@@ -170,8 +173,7 @@ set_property(TARGET plink APPEND PROPERTY SOURCES
   PuTTie/winfrip_storage_priv.c
   PuTTie/winfrip_storage_privkey_list.c
   PuTTie/winfrip_storage_putty_adapter.c
-  PuTTie/winfrip_storage_sessions.c
-  PuTTie/winfrip_storage_tree.c)
+  PuTTie/winfrip_storage_sessions.c)
 endif()
 # winfrip }}}
 # Note: if we ever port Plink to a platform where we can't implement a
@@ -198,6 +200,8 @@ set_property(TARGET pscp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_file.c
   PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_rtl_registry.c
+  PuTTie/winfrip_rtl_serialise.c
+  PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_backend_ephemeral.c
   PuTTie/winfrip_storage_backend_file.c
@@ -208,8 +212,7 @@ set_property(TARGET pscp APPEND PROPERTY SOURCES
   PuTTie/winfrip_storage_priv.c
   PuTTie/winfrip_storage_privkey_list.c
   PuTTie/winfrip_storage_putty_adapter.c
-  PuTTie/winfrip_storage_sessions.c
-  PuTTie/winfrip_storage_tree.c)
+  PuTTie/winfrip_storage_sessions.c)
 endif()
 # winfrip }}}
 be_list(pscp PSCP SSH)
@@ -230,6 +233,8 @@ set_property(TARGET psftp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_file.c
   PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_rtl_registry.c
+  PuTTie/winfrip_rtl_serialise.c
+  PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_backend_ephemeral.c
   PuTTie/winfrip_storage_backend_file.c
@@ -240,8 +245,7 @@ set_property(TARGET psftp APPEND PROPERTY SOURCES
   PuTTie/winfrip_storage_priv.c
   PuTTie/winfrip_storage_privkey_list.c
   PuTTie/winfrip_storage_putty_adapter.c
-  PuTTie/winfrip_storage_sessions.c
-  PuTTie/winfrip_storage_tree.c)
+  PuTTie/winfrip_storage_sessions.c)
 endif()
 # winfrip }}}
 be_list(psftp PSFTP SSH)

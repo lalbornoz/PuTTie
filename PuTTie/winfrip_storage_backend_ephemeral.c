@@ -530,7 +530,7 @@ WfspEphemeralEnumerateCancel(
 	)
 {
 	(void)backend;
-	WfsTreeEnumerateCancel(pstate);
+	WfrTreeEnumerateCancel(pstate);
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
 

@@ -54,7 +54,7 @@ WfsClearHostKeys(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfsTreeClear(&backend_impl->tree_host_key, WfsTreeFreeItem);
+			status = WfrTreeClear(&backend_impl->tree_host_key, WfrTreeFreeItem);
 		}
 	}
 
@@ -78,10 +78,10 @@ WfsDeleteHostKey(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfsTreeDelete(
+			status = WfrTreeDelete(
 				backend_impl->tree_host_key, NULL,
-				key_name, WFS_TREE_ITYPE_HOST_KEY,
-				WfsTreeFreeItem);
+				key_name, WFR_TREE_ITYPE_HOST_KEY,
+				WfrTreeFreeItem);
 
 			if ((WFR_STATUS_CONDITION(status) == ENOENT)
 			&&  delete_in_backend)
@@ -105,14 +105,14 @@ WfsEnumerateHostKeys(
 	)
 {
 	WfspBackend *	backend_impl = NULL;
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
-			status = WfsTreeEnumerate(
+			status = WfrTreeEnumerate(
 				backend_impl->tree_host_key,
 				initfl, pdonefl, &item, pstate);
 			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
@@ -234,16 +234,16 @@ WfsGetHostKey(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
-			status = WfsTreeGet(
+			status = WfrTreeGet(
 				backend_impl->tree_host_key,
-				key_name, WFS_TREE_ITYPE_HOST_KEY, &item);
+				key_name, WFR_TREE_ITYPE_HOST_KEY, &item);
 			if (WFR_STATUS_SUCCESS(status)) {
 				*pkey = item->value;
 			}
@@ -293,10 +293,10 @@ WfsRenameHostKey(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		status = WfsTreeRename(
+		status = WfrTreeRename(
 			backend_impl->tree_host_key, NULL, key_name,
-			WFS_TREE_ITYPE_HOST_KEY, key_name_new,
-			WfsTreeFreeItem);
+			WFR_TREE_ITYPE_HOST_KEY, key_name_new,
+			WfrTreeFreeItem);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)
@@ -339,10 +339,10 @@ WfsSetHostKey(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		status = WfsTreeSet(
+		status = WfrTreeSet(
 			backend_impl->tree_host_key, key_name,
-			WFS_TREE_ITYPE_HOST_KEY, (void *)key,
-			strlen(key) + 1, WfsTreeFreeItem);
+			WFR_TREE_ITYPE_HOST_KEY, (void *)key,
+			strlen(key) + 1, WfrTreeFreeItem);
 	}
 
 	return status;

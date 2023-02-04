@@ -176,7 +176,7 @@ write_setting_s(
 		value_new_size = strlen(value_new) + 1;
 		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, value_new_size,
-				WFS_TREE_ITYPE_STRING)))
+				WFR_TREE_ITYPE_STRING)))
 		{
 			WFR_FREE(value_new);
 			WFR_DEBUG_FAIL();
@@ -204,7 +204,7 @@ write_setting_i(
 		*value_new = value;
 		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, sizeof(*value_new),
-				WFS_TREE_ITYPE_INT)))
+				WFR_TREE_ITYPE_INT)))
 		{
 			WFR_FREE(value_new);
 			WFR_DEBUG_FAIL();
@@ -233,7 +233,7 @@ write_setting_filename(
 		value_new_size = strlen(value_new) + 1;
 		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, value_new_size,
-				WFS_TREE_ITYPE_STRING)))
+				WFR_TREE_ITYPE_STRING)))
 		{
 			WFR_FREE(value_new);
 			WFR_DEBUG_FAIL();
@@ -277,16 +277,16 @@ write_setting_fontspec(
 
 			if (WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
 					session, key_charset, val_charset,
-					sizeof(*val_charset), WFS_TREE_ITYPE_INT))
+					sizeof(*val_charset), WFR_TREE_ITYPE_INT))
 			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
 					session, key_height, val_height,
-					sizeof(*val_height), WFS_TREE_ITYPE_INT))
+					sizeof(*val_height), WFR_TREE_ITYPE_INT))
 			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
 					session, key_isbold, val_isbold,
-					sizeof(*val_isbold), WFS_TREE_ITYPE_INT))
+					sizeof(*val_isbold), WFR_TREE_ITYPE_INT))
 			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
 					session, key, val_name, val_name_size,
-					WFS_TREE_ITYPE_STRING)))
+					WFR_TREE_ITYPE_STRING)))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -382,7 +382,7 @@ read_setting_s(
 	}
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-			session, key, WFS_TREE_ITYPE_STRING,
+			session, key, WFR_TREE_ITYPE_STRING,
 			&value, NULL)))
 	{
 		return strdup(value);
@@ -419,7 +419,7 @@ read_setting_i(
 		return defvalue;
 	}
 	if (WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-			session, key, WFS_TREE_ITYPE_INT,
+			session, key, WFR_TREE_ITYPE_INT,
 			(void *)&value, NULL)))
 	{
 		return value;
@@ -459,7 +459,7 @@ read_setting_filename(
 		status = WFR_STATUS_FROM_ERRNO();
 	} else {
 		status = WfsGetSessionKey(
-			session, key, WFS_TREE_ITYPE_STRING,
+			session, key, WFR_TREE_ITYPE_STRING,
 			(void *)&value->path, NULL);
 	}
 
@@ -502,16 +502,16 @@ read_setting_fontspec(
 		if (WFR_STATUS_SUCCESS(status = WfspExpandFontSpecKeys(
 				key, &key_charset, &key_height, &key_isbold))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-				session, key_charset, WFS_TREE_ITYPE_INT,
+				session, key_charset, WFR_TREE_ITYPE_INT,
 				(void **)&value->charset, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-				session, key_height, WFS_TREE_ITYPE_INT,
+				session, key_height, WFR_TREE_ITYPE_INT,
 				(void **)&value->height, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-				session, key_isbold, WFS_TREE_ITYPE_INT,
+				session, key_isbold, WFR_TREE_ITYPE_INT,
 				(void **)&value->isbold, NULL))
 		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
-				session, key, WFS_TREE_ITYPE_STRING,
+				session, key, WFR_TREE_ITYPE_STRING,
 				(void **)&value->name, NULL)))
 		{
 			if (!(value->name = strdup(value->name))) {

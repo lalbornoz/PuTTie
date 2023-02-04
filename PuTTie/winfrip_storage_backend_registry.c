@@ -418,12 +418,9 @@ WfspRegistryLoadHostCA(
 				hca->validity = hca_tmpl.validity;
 			} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
 				status = WfsAddHostCA(
-					backend, hca_tmpl.public_key,
-					name, hca_tmpl.permit_rsa_sha1,
-					hca_tmpl.permit_rsa_sha256,
-					hca_tmpl.permit_rsa_sha512,
-					hca_tmpl.validity,
-					&hca);
+					backend, hca_tmpl.public_key, 0, name,
+					hca_tmpl.permit_rsa_sha1, hca_tmpl.permit_rsa_sha256,
+					hca_tmpl.permit_rsa_sha512, hca_tmpl.validity, &hca);
 			}
 		}
 	}
@@ -589,7 +586,7 @@ WfspRegistryLoadSession(
 {
 	bool			addedfl = false, donefl = false;
 	WfrEnumerateRegState *	enum_state;
-	WfsTreeItemType		item_type;
+	WfrTreeItemType		item_type;
 	DWORD			item_type_registry;
 	WfsSession *		session;
 	char *			sessionname_escaped = NULL;
@@ -622,9 +619,9 @@ WfspRegistryLoadSession(
 				default:
 					status = WFR_STATUS_FROM_ERRNO1(EINVAL); break;
 				case REG_DWORD:
-					item_type = WFS_TREE_ITYPE_INT; break;
+					item_type = WFR_TREE_ITYPE_INT; break;
 				case REG_SZ:
-					item_type = WFS_TREE_ITYPE_STRING; break;
+					item_type = WFR_TREE_ITYPE_STRING; break;
 				}
 
 				if (WFR_STATUS_SUCCESS(status)) {
@@ -674,7 +671,7 @@ WfspRegistrySaveSession(
 	)
 {
 	HKEY		hKey;
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	char *		sessionname, *sessionname_escaped = NULL;
 	WfrStatus	status;
 
@@ -688,19 +685,19 @@ WfspRegistrySaveSession(
 				HKEY_CURRENT_USER, &hKey,
 				WfspRegistrySubKeySessions, sessionname_escaped)))
 		{
-			WFS_TREE234_FOREACH(status, session->tree, idx, item) {
+			WFR_TREE234_FOREACH(status, session->tree, idx, item) {
 				switch (item->type) {
 				default:
 					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 					break;
 
-				case WFS_TREE_ITYPE_INT:
+				case WFR_TREE_ITYPE_INT:
 					status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
 						hKey, item->key, 0, REG_DWORD,
 						(const BYTE *)item->value, item->value_size));
 					break;
 
-				case WFS_TREE_ITYPE_STRING:
+				case WFR_TREE_ITYPE_STRING:
 					status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
 						hKey, item->key, 0, REG_SZ,
 						(const BYTE *)item->value, item->value_size));

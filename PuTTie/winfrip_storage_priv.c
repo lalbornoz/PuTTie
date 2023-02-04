@@ -150,8 +150,8 @@ WfsTransformList(
 }
 
 WfrStatus
-WfsTreeCloneValue(
-	WfsTreeItem *	item,
+WfrTreeCloneValue(
+	WfrTreeItem *	item,
 	void **		pvalue_new
 	)
 {
@@ -164,7 +164,7 @@ WfsTreeCloneValue(
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 		break;
 
-	case WFS_TREE_ITYPE_INT:
+	case WFR_TREE_ITYPE_INT:
 		if ((value_new = WFR_NEWN(item->value_size, uint8_t))) {
 			*(int *)value_new = *(int *)item->value;
 			*pvalue_new = value_new;
@@ -174,8 +174,8 @@ WfsTreeCloneValue(
 		}
 		break;
 
-	case WFS_TREE_ITYPE_HOST_KEY:
-	case WFS_TREE_ITYPE_STRING:
+	case WFR_TREE_ITYPE_HOST_KEY:
+	case WFR_TREE_ITYPE_STRING:
 		if ((value_new = WFR_NEWN(item->value_size, char))) {
 			memcpy(value_new, item->value, item->value_size);
 			*(char **)pvalue_new = (char *)value_new;
@@ -190,8 +190,8 @@ WfsTreeCloneValue(
 }
 
 void
-WfsTreeFreeItem(
-	WfsTreeItem *	item
+WfrTreeFreeItem(
+	WfrTreeItem *	item
 	)
 {
 	WfsHostCA *	hca;
@@ -202,7 +202,7 @@ WfsTreeFreeItem(
 	default:
 		WFR_DEBUG_FAIL(); break;
 
-	case WFS_TREE_ITYPE_HOST_CA:
+	case WFR_TREE_ITYPE_HOST_CA:
 		hca = (WfsHostCA *)item->value;
 		WFR_FREE_IF_NOTNULL(hca->name);
 		WFR_FREE_IF_NOTNULL(hca->public_key);
@@ -211,16 +211,16 @@ WfsTreeFreeItem(
 		item->value = NULL;
 		break;
 
-	case WFS_TREE_ITYPE_HOST_KEY:
-	case WFS_TREE_ITYPE_INT:
-	case WFS_TREE_ITYPE_STRING:
+	case WFR_TREE_ITYPE_HOST_KEY:
+	case WFR_TREE_ITYPE_INT:
+	case WFR_TREE_ITYPE_STRING:
 		WFR_FREE_IF_NOTNULL(item->value);
 		item->value = NULL;
 		break;
 
-	case WFS_TREE_ITYPE_SESSION:
+	case WFR_TREE_ITYPE_SESSION:
 		session = (WfsSession *)item->value;
-		if (WFR_STATUS_FAILURE(WfsTreeClear(&session->tree, WfsTreeFreeItem))) {
+		if (WFR_STATUS_FAILURE(WfrTreeClear(&session->tree, WfrTreeFreeItem))) {
 			WFR_DEBUG_FAIL();
 		}
 		WFR_FREE_IF_NOTNULL(session->name);
