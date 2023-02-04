@@ -47,7 +47,7 @@ WfrStatus	WfrEscapeFileName(const char *dname, const char *ext, const char *name
 WfrStatus	WfrLoadListFromFile(const char *fname, char **plist, size_t *plist_size);
 WfrStatus	WfrLoadRawFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname, char **pdata, size_t *pdata_size);
 WfrStatus	WfrMakeDirectory(char *path, bool existsfl);
-WfrStatus	WfrPathNameToAbsoluteW(wchar_t **pname);
+WfrStatus	WfrPathNameToAbsoluteW(const wchar_t *pname, wchar_t **ppname_abs);
 WfrStatus	WfrPathNameToDirectory(char *pname, char **pdname);
 WfrStatus	WfrPathNameToDirectoryW(wchar_t *pname, wchar_t **pdname);
 WfrStatus	WfrRenameFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname, const char *fname_new);

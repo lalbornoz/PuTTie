@@ -635,25 +635,24 @@ WfrMakeDirectory(
 
 WfrStatus
 WfrPathNameToAbsoluteW(
-	wchar_t **	pname
+	const wchar_t *		pname,
+	wchar_t **		ppname_abs
 	)
 {
 	LPWSTR	path_abs;
 	DWORD	path_abs_size;
 
 
-	if (WFR_IS_ABSOLUTE_PATHW(*pname)) {
+	if (WFR_IS_ABSOLUTE_PATHW(pname)) {
 		return WFR_STATUS_CONDITION_SUCCESS;
-	} else if ((path_abs_size = GetFullPathNameW(*pname, 0, NULL, NULL)) == 0) {
+	} else if ((path_abs_size = GetFullPathNameW(pname, 0, NULL, NULL)) == 0) {
 		return WFR_STATUS_FROM_WINDOWS();
 	} else if (!(path_abs = WFR_NEWN(path_abs_size * sizeof(path_abs[0]), WCHAR))) {
 		return WFR_STATUS_FROM_ERRNO();
-	} else if (GetFullPathNameW(*pname, path_abs_size, path_abs, NULL) == 0) {
+	} else if (GetFullPathNameW(pname, path_abs_size, path_abs, NULL) == 0) {
 		return WFR_STATUS_FROM_WINDOWS();
 	} else {
-		free(*pname);
-		*pname = path_abs;
-		path_abs = NULL;
+		*ppname_abs = path_abs;
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 }
