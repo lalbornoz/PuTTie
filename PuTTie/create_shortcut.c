@@ -72,8 +72,7 @@ WinMain(
 	} else {
 		status = WfrCreateShortcut(
 			PUTTIE_APP_USER_MODEL_ID, PUTTIE_SHORTCUT_DESCRIPTION,
-			PUTTIE_SHORTCUT_PATH_DEFAULT, PUTTIE_PATH_DEFAULT,
-			NULL);
+			shortcut_path, puttie_path, NULL);
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			(void)WfrMessageBoxFW(

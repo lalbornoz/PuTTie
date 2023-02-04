@@ -124,6 +124,12 @@
 	c;										\
 })
 
+#define WFR_SNWPRINTF(ws, n, fmt, ...) ({						\
+	int		c = snwprintf((ws), (n), (fmt), ## __VA_ARGS__);		\
+	((wchar_t *)(ws))[(n) - 1] = L'\0';						\
+	c;										\
+})
+
 #define WFR_STRNCPY(s1, s2, n) ({							\
 	char *	rc = strncpy((s1), (s2), (n));						\
 	(s1)[(n) ? ((n) - 1) : 0] = '\0';						\

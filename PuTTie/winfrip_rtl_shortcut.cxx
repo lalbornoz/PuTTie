@@ -18,6 +18,7 @@
 #include <objbase.h>
 #include <objidl.h>
 #include <shlguid.h>
+#include <shlobj.h>
 #include <propkey.h>
 #include <propvarutil.h>
 
@@ -143,6 +144,39 @@ out:
 	WFR_FREE_IF_NOTNULL(shortcut_pname_abs);
 	WFR_FREE_IF_NOTNULL(target_pname_abs);
 	WFR_FREE_IF_NOTNULL(working_dname_full);
+
+	return status;
+}
+
+WfrStatus
+WfrCreateShortcutStartup(
+	LPCWSTR		app_user_model_id,
+	LPCWSTR		description,
+	LPCWSTR		shortcut_fname,
+	LPCWSTR		target_pname,
+	LPCWSTR		working_dname
+	)
+{
+	HRESULT		hres;
+	PWSTR		startup_dname_abs = NULL;
+	WCHAR 		shortcut_pname[PATH_MAX + 1];
+	WfrStatus	status;
+
+
+	hres = SHGetKnownFolderPath(
+		FOLDERID_Startup, 0, NULL, &startup_dname_abs);
+	if (FAILED(hres)) {
+		status = WFR_STATUS_FROM_WINDOWS_HRESULT(hres);
+	} else {
+		WFR_SNWPRINTF(
+			shortcut_pname, WFR_SIZEOF_WSTRING(shortcut_pname),
+			L"%S\\%S", startup_dname_abs, shortcut_fname);
+		status = WfrCreateShortcut(
+			app_user_model_id, description, shortcut_pname,
+			target_pname, working_dname);
+	}
+
+	CoTaskMemFree(startup_dname_abs);
 
 	return status;
 }

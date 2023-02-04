@@ -644,7 +644,11 @@ WfrPathNameToAbsoluteW(
 
 
 	if (WFR_IS_ABSOLUTE_PATHW(pname)) {
-		return WFR_STATUS_CONDITION_SUCCESS;
+		if (!(*ppname_abs = wcsdup(pname))) {
+			return WFR_STATUS_FROM_ERRNO();
+		} else {
+			return WFR_STATUS_CONDITION_SUCCESS;
+		}
 	} else if ((path_abs_size = GetFullPathNameW(pname, 0, NULL, NULL)) == 0) {
 		return WFR_STATUS_FROM_WINDOWS();
 	} else if (!(path_abs = WFR_NEWN(path_abs_size * sizeof(path_abs[0]), WCHAR))) {
