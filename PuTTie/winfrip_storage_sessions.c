@@ -43,11 +43,11 @@ WfsAddSession(
 			WFS_SESSION_INIT(*session_new);
 			session_new->name = sessionname_new;
 
-			if (WFR_STATUS_SUCCESS(status = WfsTreeInit(&session_new->tree))
-			&&  WFR_STATUS_SUCCESS(status = WfsTreeSet(
+			if (WFR_STATUS_SUCCESS(status = WfrTreeInit(&session_new->tree))
+			&&  WFR_STATUS_SUCCESS(status = WfrTreeSet(
 					backend_impl->tree_session, sessionname,
-					WFS_TREE_ITYPE_SESSION, session_new,
-					sizeof(*session_new), WfsTreeFreeItem)))
+					WFR_TREE_ITYPE_SESSION, session_new,
+					sizeof(*session_new), WfrTreeFreeItem)))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -95,7 +95,7 @@ WfsClearSession(
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (WFR_STATUS_SUCCESS(status = WfsGetSession(backend, true, sessionname, &session))) {
-			status = WfsTreeClear(&session->tree, WfsTreeFreeItem);
+			status = WfrTreeClear(&session->tree, WfrTreeFreeItem);
 		}
 	}
 
@@ -118,7 +118,7 @@ WfsClearSessions(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfsTreeClear(&backend_impl->tree_session, WfsTreeFreeItem);
+			status = WfrTreeClear(&backend_impl->tree_session, WfrTreeFreeItem);
 		}
 	}
 
@@ -167,7 +167,7 @@ WfsCopySession(
 
 		if (WFR_STATUS_SUCCESS(status)
 		&&  WFR_STATUS_SUCCESS(status = WfsAddSession(backend_to, sessionname, &session_to))
-		&&  WFR_STATUS_SUCCESS(status = WfsTreeCopy(session->tree, session_to->tree, WfsTreeCloneValue, WfsTreeFreeItem)))
+		&&  WFR_STATUS_SUCCESS(status = WfrTreeCopy(session->tree, session_to->tree, WfrTreeCloneValue, WfrTreeFreeItem)))
 		{
 			*psession = session_to;
 		}
@@ -193,10 +193,10 @@ WfsDeleteSession(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfsTreeDelete(
+			status = WfrTreeDelete(
 				backend_impl->tree_session, NULL,
-				sessionname, WFS_TREE_ITYPE_SESSION,
-				WfsTreeFreeItem);
+				sessionname, WFR_TREE_ITYPE_SESSION,
+				WfrTreeFreeItem);
 
 			if ((WFR_STATUS_CONDITION(status) == ENOENT)
 			&&  delete_in_backend)
@@ -220,14 +220,14 @@ WfsEnumerateSessions(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
-			status = WfsTreeEnumerate(
+			status = WfrTreeEnumerate(
 				backend_impl->tree_session, initfl,
 				pdonefl, &item, pstate);
 			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
@@ -349,16 +349,16 @@ WfsGetSession(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
-			status = WfsTreeGet(
+			status = WfrTreeGet(
 				backend_impl->tree_session, sessionname,
-				WFS_TREE_ITYPE_SESSION, &item);
+				WFR_TREE_ITYPE_SESSION, &item);
 			if (WFR_STATUS_SUCCESS(status)) {
 				*psession = item->value;
 			}
@@ -377,28 +377,28 @@ WfrStatus
 WfsGetSessionKey(
 	WfsSession *		session,
 	const char *		key,
-	WfsTreeItemType		item_type,
+	WfrTreeItemType		item_type,
 	void **			pvalue,
 	size_t *		pvalue_size
 	)
 {
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 
 
-	status = WfsTreeGet(session->tree, key, item_type, &item);
+	status = WfrTreeGet(session->tree, key, item_type, &item);
 	if (WFR_STATUS_SUCCESS(status)) {
 		switch (item->type) {
 		default:
 			status = WFR_STATUS_FROM_ERRNO1(EINVAL); break;
 
-		case WFS_TREE_ITYPE_HOST_KEY:
-		case WFS_TREE_ITYPE_SESSION:
-		case WFS_TREE_ITYPE_STRING:
+		case WFR_TREE_ITYPE_HOST_KEY:
+		case WFR_TREE_ITYPE_SESSION:
+		case WFR_TREE_ITYPE_STRING:
 			*pvalue = item->value;
 			break;
 
-		case WFS_TREE_ITYPE_INT:
+		case WFR_TREE_ITYPE_INT:
 			*(int *)pvalue = *(int *)item->value;
 			break;
 		}
@@ -424,10 +424,10 @@ WfsRenameSession(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		status = WfsTreeRename(
+		status = WfrTreeRename(
 			backend_impl->tree_session, NULL,
-			sessionname, WFS_TREE_ITYPE_SESSION,
-			sessionname_new, WfsTreeFreeItem);
+			sessionname, WFR_TREE_ITYPE_SESSION,
+			sessionname_new, WfrTreeFreeItem);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)
@@ -464,12 +464,12 @@ WfsSetSessionKey(
 	const char *		key,
 	void *			value,
 	size_t			value_size,
-	WfsTreeItemType		item_type
+	WfrTreeItemType		item_type
 	)
 {
-	return WfsTreeSet(
+	return WfrTreeSet(
 		session->tree, key, item_type,
-		value, value_size, WfsTreeFreeItem);
+		value, value_size, WfrTreeFreeItem);
 }
 
 /*

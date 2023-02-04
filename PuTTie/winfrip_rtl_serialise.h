@@ -1,0 +1,26 @@
+/*
+ * winfrip_rtl_serialise.h - pointless frippery & tremendous amounts of bloat
+ * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+ */
+
+#ifndef PUTTY_WINFRIP_RTL_SERIALISE_H
+#define PUTTY_WINFRIP_RTL_SERIALISE_H
+
+#include "winfrip_rtl_pcre2.h"
+#include "winfrip_rtl_tree.h"
+
+/*
+ * Public subroutine prototypes private to PuTTie/winfrip*.c
+ */
+
+typedef WfrStatus (*WfrLoadParseItemFn)(void *param1, void *param2, const char *key, Wfp2RType type, const void *value, size_t value_size);
+WfrStatus	WfrLoadParse(char *data, size_t data_size, WfrLoadParseItemFn item_fn, void *param1, void *param2);
+WfrStatus	WfrMapPcre2TypeToTreeType(Wfp2RType pcre2_type, WfrTreeItemTypeBase *ptree_item_type);
+WfrStatus	WfrSaveToFileV(char *dname, const char *ext, const char *fname, ...);
+WfrStatus	WfrSaveTreeToFile(char *dname, const char *ext, const char *fname, WfrTree *tree);
+
+#endif // !PUTTY_WINFRIP_RTL_SERIALISE_H
+
+/*
+ * vim:noexpandtab sw=8 ts=8 tw=0
+ */

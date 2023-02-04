@@ -6,7 +6,7 @@
 #ifndef PUTTY_WINFRIP_STORAGE_H
 #define PUTTY_WINFRIP_STORAGE_H
 
-#include "winfrip_storage_tree.h"
+#include "winfrip_rtl_tree.h"
 
 /*
  * Public type definitions private to PuTTie/winfrip*.c
@@ -22,14 +22,12 @@ typedef enum WfsBackend {
 	WFS_BACKEND_MAX		= WFS_BACKEND_REGISTRY,
 } WfsBackend;
 
-typedef enum WfsTreeItemType {
-	WFS_TREE_ITYPE_HOST_CA		= 1,
-	WFS_TREE_ITYPE_HOST_KEY		= 2,
-	WFS_TREE_ITYPE_INT		= 3,
-	WFS_TREE_ITYPE_SESSION		= 4,
-	WFS_TREE_ITYPE_STRING		= 5,
-	WFS_TREE_ITYPE_MAX		= WFS_TREE_ITYPE_STRING,
-} WfsTreeItemType;
+typedef enum WfrTreeItemType {
+	WFR_TREE_ITYPE_HOST_CA		= WFR_TREE_ITYPE_BASE_MAX + 1,
+	WFR_TREE_ITYPE_HOST_KEY		= WFR_TREE_ITYPE_BASE_MAX + 2,
+	WFR_TREE_ITYPE_SESSION		= WFR_TREE_ITYPE_BASE_MAX + 3,
+	WFR_TREE_ITYPE_MAX		= WFR_TREE_ITYPE_SESSION,
+} WfrTreeItemType;
 
 /*
  * Public macros private to PuTTie/winfrip_storage*.c
@@ -39,10 +37,6 @@ typedef enum WfsTreeItemType {
 	if(!(name) || !((name)[0])) {			\
 		(name) = "Default Settings";		\
 	}
-
-#define WFS_TREE234_FOREACH(status, tree, idx, item)	\
-	for (int (idx) = 0; WFR_STATUS_SUCCESS(status)	\
-	  && ((item) = index234((tree), (idx))); (idx)++)
 
 /*
  * Public storage backend subroutine prototypes private to PuTTie/winfrip_storage*.c

@@ -6,6 +6,8 @@
 #ifndef PUTTY_WINFRIP_STORAGE_PRIV_H
 #define PUTTY_WINFRIP_STORAGE_PRIV_H
 
+#include "winfrip_rtl_pcre2.h"
+
 /*
  * Public type definitions private to PuTTie/winfrip_storage*.c
  */
@@ -79,8 +81,8 @@ typedef struct WfspBackend {
 
 WfrStatus	WfsGetBackendImpl(WfsBackend backend, void *pbackend);
 WfrStatus	WfsTransformList(bool addfl, bool delfl, char **plist, size_t *plist_size, const char *const trans_item);
-WfrStatus	WfsTreeCloneValue(WfsTreeItem *item, void **pvalue_new);
-void		WfsTreeFreeItem(WfsTreeItem *item);
+WfrStatus	WfrTreeCloneValue(WfrTreeItem *item, void **pvalue_new);
+void		WfrTreeFreeItem(WfrTreeItem *item);
 
 #endif // !PUTTY_WINFRIP_STORAGE_PRIV_H
 

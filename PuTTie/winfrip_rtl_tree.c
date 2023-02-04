@@ -1,5 +1,5 @@
 /*
- * winfrip_storage_tree.c - pointless frippery & tremendous amounts of bloat
+ * winfrip_rtl_tree.c - pointless frippery & tremendous amounts of bloat
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
@@ -22,19 +22,19 @@
  * Private subroutine prototypes
  */
 
-static int	WfspTree234Cmp(void *e1, void *e2);
+static int	WfrpTree234Cmp(void *e1, void *e2);
 
 /*
  * Private subroutines
  */
 
 static int
-WfspTree234Cmp(
+WfrpTree234Cmp(
 	void *	e1,
 	void *	e2
 	)
 {
-	WfsTreeItem *	item1, *item2;
+	WfrTreeItem *	item1, *item2;
 
 
 	item1 = e1; item2 = e2;
@@ -46,12 +46,12 @@ WfspTree234Cmp(
  */
 
 WfrStatus
-WfsTreeClear(
-	WfsTree **		tree,
-	WfsTreeFreeItemFn	free_item_fn
+WfrTreeClear(
+	WfrTree **		tree,
+	WfrTreeFreeItemFn	free_item_fn
 	)
 {
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
@@ -60,28 +60,28 @@ WfsTreeClear(
 		WFR_FREE(item);
 	}
 	freetree234(*tree);
-	*tree = newtree234(WfspTree234Cmp);
+	*tree = newtree234(WfrpTree234Cmp);
 
 	return status;
 }
 
 WfrStatus
-WfsTreeCopy(
-	WfsTree *		tree_from,
-	WfsTree *		tree_to,
-	WfsTreeCloneValueFn	clone_value_fn,
-	WfsTreeFreeItemFn	free_item_fn
+WfrTreeCopy(
+	WfrTree *		tree_from,
+	WfrTree *		tree_to,
+	WfrTreeCloneValueFn	clone_value_fn,
+	WfrTreeFreeItemFn	free_item_fn
 	)
 {
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 	void *		value_new;
 
 
-	WFS_TREE234_FOREACH(status, tree_from, idx, item) {
+	WFR_TREE234_FOREACH(status, tree_from, idx, item) {
 		if (WFR_STATUS_SUCCESS(status = clone_value_fn(item, &value_new)))
 		{
-			status = WfsTreeSet(
+			status = WfrTreeSet(
 				tree_to, item->key, item->type,
 				value_new, item->value_size,
 				free_item_fn);
@@ -95,19 +95,19 @@ WfsTreeCopy(
 }
 
 WfrStatus
-WfsTreeDelete(
-	WfsTree *		tree,
-	WfsTreeItem *		item,
+WfrTreeDelete(
+	WfrTree *		tree,
+	WfrTreeItem *		item,
 	const char *		key,
-	WfsTreeItemTypeBase	type,
-	WfsTreeFreeItemFn	free_item_fn
+	WfrTreeItemTypeBase	type,
+	WfrTreeFreeItemFn	free_item_fn
 	)
 {
 	WfrStatus	status;
 
 
 	if (!item) {
-		status = WfsTreeGet(tree, key, type, &item);
+		status = WfrTreeGet(tree, key, type, &item);
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -123,15 +123,15 @@ WfsTreeDelete(
 }
 
 WfrStatus
-WfsTreeEnumerate(
-	WfsTree *		tree,
+WfrTreeEnumerate(
+	WfrTree *		tree,
 	bool			initfl,
 	bool *			pdonefl,
-	WfsTreeItem **		pitem,
+	WfrTreeItem **		pitem,
 	void **			pstate
 	)
 {
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 
 
@@ -161,7 +161,7 @@ WfsTreeEnumerate(
 }
 
 void
-WfsTreeEnumerateCancel(
+WfrTreeEnumerateCancel(
 	void **		pstate
 	)
 {
@@ -172,22 +172,22 @@ WfsTreeEnumerateCancel(
 }
 
 WfrStatus
-WfsTreeGet(
-	WfsTree *		tree,
+WfrTreeGet(
+	WfrTree *		tree,
 	const char *		key,
-	WfsTreeItemTypeBase	type,
-	WfsTreeItem **		pitem
+	WfrTreeItemTypeBase	type,
+	WfrTreeItem **		pitem
 	)
 {
-	WfsTreeItem *	item, item_find;
+	WfrTreeItem *	item, item_find;
 	WfrStatus	status;
 
 
-	WFS_TREE_ITEM_INIT(item_find);
+	WFR_TREE_ITEM_INIT(item_find);
 	item_find.key = (char *)key;
 	item_find.type = type;
 
-	if (!(item = find234(tree, &item_find, WfspTree234Cmp))) {
+	if (!(item = find234(tree, &item_find, WfrpTree234Cmp))) {
 		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
 	} else {
 		*pitem = item;
@@ -198,36 +198,36 @@ WfsTreeGet(
 }
 
 WfrStatus
-WfsTreeInit(
-	WfsTree **	tree
+WfrTreeInit(
+	WfrTree **	tree
 	)
 {
-	*tree = newtree234(WfspTree234Cmp);
+	*tree = newtree234(WfrpTree234Cmp);
 
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
 
 WfrStatus
-WfsTreeRename(
-	WfsTree *		tree,
-	WfsTreeItem *		item,
+WfrTreeRename(
+	WfrTree *		tree,
+	WfrTreeItem *		item,
 	const char *		key,
-	WfsTreeItemTypeBase	type,
+	WfrTreeItemTypeBase	type,
 	const char *		key_new,
-	WfsTreeFreeItemFn	free_item_fn
+	WfrTreeFreeItemFn	free_item_fn
 	)
 {
-	WfsTreeItem *	item_old;
+	WfrTreeItem *	item_old;
 	char *		key_new_ = NULL;
 	size_t		key_new__size;
 	WfrStatus	status;
 
 
-	if (type == WFS_TREE_ITYPE_ANY) {
+	if (type == WFR_TREE_ITYPE_ANY) {
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 	} else {
 		if (!item) {
-			status = WfsTreeGet(tree, key, type, &item);
+			status = WfrTreeGet(tree, key, type, &item);
 		} else {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
@@ -238,9 +238,9 @@ WfsTreeRename(
 		if (!(key_new_ = WFR_NEWN(key_new__size, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
-			status = WfsTreeGet(tree, key_new, -1, &item_old);
+			status = WfrTreeGet(tree, key_new, -1, &item_old);
 			if (WFR_STATUS_SUCCESS(status)) {
-				status = WfsTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
+				status = WfrTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
 			} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -260,37 +260,37 @@ WfsTreeRename(
 }
 
 WfrStatus
-WfsTreeSet(
-	WfsTree *		tree,
+WfrTreeSet(
+	WfrTree *		tree,
 	const char *		key,
-	WfsTreeItemTypeBase	type,
+	WfrTreeItemTypeBase	type,
 	void *			value,
 	size_t			value_size,
-	WfsTreeFreeItemFn	free_item_fn
+	WfrTreeFreeItemFn	free_item_fn
 	)
 {
-	WfsTreeItem *	item = NULL, *item_old;
+	WfrTreeItem *	item = NULL, *item_old;
 	char *		key_new = NULL;
 	WfrStatus	status;
 
 
-	if (type == WFS_TREE_ITYPE_ANY) {
+	if (type == WFR_TREE_ITYPE_ANY) {
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
 	}
 
-	if ((item = WFR_NEW(WfsTreeItem))
+	if ((item = WFR_NEW(WfrTreeItem))
 	&&  (key_new = WFR_NEWN(strlen(key) + 1, char)))
 	{
-		WFS_TREE_ITEM_INIT(*item);
+		WFR_TREE_ITEM_INIT(*item);
 		strcpy(key_new, key);
 		item->key = key_new;
 		item->type = type;
 		item->value = value;
 		item->value_size = value_size;
 
-		status = WfsTreeGet(tree, key, -1, &item_old);
+		status = WfrTreeGet(tree, key, -1, &item_old);
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfsTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
+			status = WfrTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
 		} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}

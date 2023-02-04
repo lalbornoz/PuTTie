@@ -494,7 +494,8 @@ WfrLoadRawFile(
 	const char *	ext,
 	const char *	fname,
 	char **		pdata,
-	size_t *	pdata_size
+	size_t *	pdata_size,
+	time_t *	pmtime
 	)
 {
 	FILE *		file = NULL;
@@ -540,6 +541,9 @@ WfrLoadRawFile(
 		*pdata = data;
 		if (pdata_size) {
 			*pdata_size = data_size;
+		}
+		if (pmtime) {
+			*pmtime = statbuf.st_mtime;
 		}
 	} else {
 		WFR_FREE(data);

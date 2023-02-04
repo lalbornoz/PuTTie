@@ -24,6 +24,7 @@ WfrStatus
 WfsAddHostCA(
 	WfsBackend	backend,
 	const char *	public_key,
+	time_t		mtime,
 	const char *	name,
 	bool		permit_rsa_sha1,
 	bool		permit_rsa_sha256,
@@ -54,16 +55,17 @@ WfsAddHostCA(
 		} else {
 			WFS_HOST_CA_INIT(*hca_new);
 			hca_new->public_key = public_key_new;
+			hca_new->mtime = mtime;
 			hca_new->name = name_new;
 			hca_new->permit_rsa_sha1 = permit_rsa_sha1;
 			hca_new->permit_rsa_sha256 = permit_rsa_sha256;
 			hca_new->permit_rsa_sha512 = permit_rsa_sha512;
 			hca_new->validity = validity_new;
 
-			if (WFR_STATUS_SUCCESS(status = WfsTreeSet(
+			if (WFR_STATUS_SUCCESS(status = WfrTreeSet(
 					backend_impl->tree_host_ca, name,
-					WFS_TREE_ITYPE_HOST_CA, hca_new,
-					sizeof(*hca_new), WfsTreeFreeItem)))
+					WFR_TREE_ITYPE_HOST_CA, hca_new,
+					sizeof(*hca_new), WfrTreeFreeItem)))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -116,7 +118,7 @@ WfsClearHostCAs(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfsTreeClear(&backend_impl->tree_host_ca, WfsTreeFreeItem);
+			status = WfrTreeClear(&backend_impl->tree_host_ca, WfrTreeFreeItem);
 		}
 	}
 
@@ -165,7 +167,7 @@ WfsCopyHostCA(
 
 		if (WFR_STATUS_SUCCESS(status)
 		&&  WFR_STATUS_SUCCESS(status = WfsAddHostCA(
-				backend_to, hca->public_key, name,
+				backend_to, hca->public_key, hca->mtime, name,
 				hca->permit_rsa_sha1, hca->permit_rsa_sha256,
 				hca->permit_rsa_sha512, hca->validity,
 				&hca_to)))
@@ -194,10 +196,10 @@ WfsDeleteHostCA(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfsTreeDelete(
+			status = WfrTreeDelete(
 				backend_impl->tree_host_ca,
-				NULL, name, WFS_TREE_ITYPE_HOST_CA,
-				WfsTreeFreeItem);
+				NULL, name, WFR_TREE_ITYPE_HOST_CA,
+				WfrTreeFreeItem);
 
 			if ((WFR_STATUS_CONDITION(status) == ENOENT)
 			&&  delete_in_backend)
@@ -221,14 +223,14 @@ WfsEnumerateHostCAs(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
-			status = WfsTreeEnumerate(
+			status = WfrTreeEnumerate(
 				backend_impl->tree_host_ca, initfl,
 				pdonefl, &item, pstate);
 			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
@@ -350,16 +352,16 @@ WfsGetHostCA(
 	)
 {
 	WfspBackend *	backend_impl;
-	WfsTreeItem *	item;
+	WfrTreeItem *	item;
 	WfrStatus	status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
-			status = WfsTreeGet(
+			status = WfrTreeGet(
 				backend_impl->tree_host_ca, name,
-				WFS_TREE_ITYPE_HOST_CA, &item);
+				WFR_TREE_ITYPE_HOST_CA, &item);
 			if (WFR_STATUS_SUCCESS(status)) {
 				*phca = item->value;
 			}
@@ -387,10 +389,10 @@ WfsRenameHostCA(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		status = WfsTreeRename(
+		status = WfrTreeRename(
 			backend_impl->tree_host_ca, NULL,
-			name, WFS_TREE_ITYPE_HOST_CA,
-			name_new, WfsTreeFreeItem);
+			name, WFR_TREE_ITYPE_HOST_CA,
+			name_new, WfrTreeFreeItem);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)

@@ -45,10 +45,10 @@ WfrStatus	WfsEnumerateSessions(WfsBackend backend, bool cached, bool initfl, boo
 WfrStatus	WfsExportSession(WfsBackend backend_from, WfsBackend backend_to, bool movefl, char *sessionname);
 WfrStatus	WfsExportSessions(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, void (*error_fn)(const char *, WfrStatus));
 WfrStatus	WfsGetSession(WfsBackend backend, bool cached, const char *sessionname, WfsSession **psession);
-WfrStatus	WfsGetSessionKey(WfsSession *session, const char *key, WfsTreeItemType value_type, void **pvalue, size_t *pvalue_size);
+WfrStatus	WfsGetSessionKey(WfsSession *session, const char *key, WfrTreeItemType value_type, void **pvalue, size_t *pvalue_size);
 WfrStatus	WfsRenameSession(WfsBackend backend, bool rename_in_backend, const char *sessionname, const char *sessionname_new);
 WfrStatus	WfsSaveSession(WfsBackend backend, WfsSession *session);
-WfrStatus	WfsSetSessionKey(WfsSession *session, const char *key, void *value, size_t value_size, WfsTreeItemType value_type);
+WfrStatus	WfsSetSessionKey(WfsSession *session, const char *key, void *value, size_t value_size, WfrTreeItemType value_type);
 
 #endif // !PUTTY_WINFRIP_STORAGE_SESSIONS_H
 

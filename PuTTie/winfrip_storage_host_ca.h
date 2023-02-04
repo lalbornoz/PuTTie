@@ -33,8 +33,8 @@ typedef struct WfsHostCA {
 	.permit_rsa_sha512 = false,			\
 	.validity = NULL,				\
 }
-#define WFS_HOST_CA_INIT(session) ({			\
-	(session) = (WfsHostCA)WFS_HOST_CA_EMPTY;	\
+#define WFS_HOST_CA_INIT(hca) ({			\
+	(hca) = (WfsHostCA)WFS_HOST_CA_EMPTY;		\
 	WFR_STATUS_CONDITION_SUCCESS;			\
 })
 
@@ -42,7 +42,7 @@ typedef struct WfsHostCA {
  * Public host CAs storage subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
-WfrStatus	WfsAddHostCA(WfsBackend backend, const char *public_key, const char *name, bool permit_rsa_sha1, bool permit_rsa_sha256, bool permit_rsa_sha512, const char *validity, WfsHostCA **phca);
+WfrStatus	WfsAddHostCA(WfsBackend backend, const char *public_key, time_t mtime, const char *name, bool permit_rsa_sha1, bool permit_rsa_sha256, bool permit_rsa_sha512, const char *validity, WfsHostCA **phca);
 WfrStatus	WfsCleanupHostCAs(WfsBackend backend);
 WfrStatus	WfsClearHostCAs(WfsBackend backend, bool delete_in_backend);
 WfrStatus	WfsCloseHostCA(WfsBackend backend, WfsHostCA *hca);
