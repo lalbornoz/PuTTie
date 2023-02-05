@@ -21,19 +21,6 @@
 #include "PuTTie/winfrip_rtl_pcre2.h"
 
 /*
- * Private macros
- */
-
-#define WFRP_SNPRINTF_PNAME(pname, pname_size, dname, ext, fname)	\
-	WFR_SNPRINTF(							\
-		(pname), (pname_size),					\
-		"%s%s%s%s",						\
-		((dname) ? (dname) : ""),				\
-		((dname) ? "/" : ""),					\
-		(fname),						\
-		((ext) ? (ext) : ""))
-
-/*
  * Private types
  */
 
@@ -358,8 +345,8 @@ WfrSaveToFileV(
 			return status;
 		}
 	} else {
-		WFRP_SNPRINTF_PNAME(fname_full, sizeof(fname_full), dname, ext, fname);
-		WFRP_SNPRINTF_PNAME(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
+		WFR_SNPRINTF_PNAME(fname_full, sizeof(fname_full), dname, ext, fname);
+		WFR_SNPRINTF_PNAME(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
 	}
 
 	if ((fd = mkstemp(fname_tmp)) < 0) {
@@ -529,8 +516,8 @@ WfrSaveTreeToFile(
 			return status;
 		}
 	} else {
-		WFRP_SNPRINTF_PNAME(fname_full, sizeof(fname_full), dname, ext, fname);
-		WFRP_SNPRINTF_PNAME(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
+		WFR_SNPRINTF_PNAME(fname_full, sizeof(fname_full), dname, ext, fname);
+		WFR_SNPRINTF_PNAME(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
 	}
 
 	if ((fd = mkstemp(fname_tmp)) < 0) {

@@ -33,8 +33,17 @@ typedef struct WfrEnumerateFilesState {
 })
 
 /*
- * Public subroutine prototypes private to PuTTie/winfrip*.c
+ * Public macros and subroutine prototypes private to PuTTie/winfrip*.c
  */
+
+#define WFR_SNPRINTF_PNAME(pname, pname_size, dname, ext, fname)	\
+	WFR_SNPRINTF(							\
+		(pname), (pname_size),					\
+		"%s%s%s%s",						\
+		((dname) ? (dname) : ""),				\
+		((dname) ? "/" : ""),					\
+		(fname),						\
+		((ext) ? (ext) : ""))
 
 WfrStatus	WfrDeleteDirectory(const char *path, bool noentfl, bool recursefl);
 WfrStatus	WfrDeleteFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname);
