@@ -125,58 +125,51 @@ WfrpMapPcre2TypeToTreeType(
  */
 
 WfrStatus
-WfrLoadRegSubKey(
-	const char *		key_name,
-	const char *		subkey,
-	void *			param1,
-	void *			param2,
-	WfrLoadRegSubKeyItemFn	item_fn
+WfrLoadListFromFile(
+	const char *	fname,
+	char **		plist,
+	size_t *	plist_size
 	)
 {
-	bool			donefl;
-	WfrEnumerateRegState *	enum_state;
-	char *			name;
-	WfrStatus		status;
-	char *			subkey_escaped = NULL;
-	WfrTreeItemTypeBase	type;
-	DWORD			type_registry;
-	void *			value = NULL;
-	size_t			value_len;
+	FILE *		file = NULL;
+	char *		list = NULL;
+	size_t		list_size = 0;
+	struct stat	statbuf;
+	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
-	&&  WFR_STATUS_SUCCESS(status = WfrEnumerateRegInit(
-			&enum_state, key_name, subkey_escaped, NULL)))
+	if (stat(fname, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if ((list_size = statbuf.st_size) < 2) {
+		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
+	} else if (!(file = fopen(fname, "rb"))
+		|| !(list = WFR_NEWN(list_size = statbuf.st_size, char)))
 	{
-		donefl = false;
-
-		while (WFR_STATUS_SUCCESS(status) && !donefl) {
-			if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegValues(
-					&donefl, &value, &value_len,
-					&name, &type_registry, &enum_state)) && !donefl)
-			{
-				switch (type_registry) {
-				default:
-					status = WFR_STATUS_FROM_ERRNO1(EINVAL); break;
-				case REG_DWORD:
-					type = WFR_TREE_ITYPE_INT; break;
-				case REG_SZ:
-					type = WFR_TREE_ITYPE_STRING; break;
-				}
-
-				if (WFR_STATUS_SUCCESS(status)) {
-					status = item_fn(param1, param2, name, type, value, value_len);
-				}
-
-				WFR_FREE(name);
-				if (WFR_STATUS_FAILURE(status)) {
-					WFR_FREE(value);
-				}
-			}
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (fread(list, statbuf.st_size, 1, file) != 1) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (feof(file)) {
+			status = WFR_STATUS_FROM_ERRNO1(ENODATA);
 		}
+	} else {
+		list[list_size - 2] = '\0';
+		list[list_size - 1] = '\0';
+
+		*plist = list;
+		if (plist_size) {
+			*plist_size = list_size;
+		}
+
+		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_FREE_IF_NOTNULL(subkey_escaped);
+	if (file != NULL) {
+		fclose(file);
+	}
+
+	if (WFR_STATUS_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(list);
+	}
 
 	return status;
 }
@@ -294,6 +287,282 @@ WfrLoadParse(
 	} while (WFR_STATUS_SUCCESS(status)
 	      && line_sep
 	      && (p < &data[data_size]));
+
+	return status;
+}
+
+WfrStatus
+WfrLoadRawFile(
+	bool		escape_fnamefl,
+	const char *	dname,
+	const char *	ext,
+	const char *	fname,
+	char **		pdata,
+	size_t *	pdata_size,
+	time_t *	pmtime
+	)
+{
+	FILE *		file = NULL;
+	char *		data = NULL;
+	size_t		data_size;
+	char		pname[MAX_PATH + 1];
+	struct stat	statbuf;
+	WfrStatus	status;
+
+
+	if (escape_fnamefl) {
+		status = WfrEscapeFileName(
+			dname, ext, fname,
+			false, pname, sizeof(pname));
+	} else {
+		WFR_SNPRINTF_PNAME(pname, sizeof(pname), dname, ext, fname);
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		if ((stat(pname, &statbuf) < 0)
+		||  (!(file = fopen(pname, "rb")))
+		||  (!(data = WFR_NEWN(data_size = (statbuf.st_size + 1), char)))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else if (fread(data, statbuf.st_size, 1, file) != 1) {
+			if (statbuf.st_size == 0) {
+				status = WFR_STATUS_FROM_ERRNO1(ENODATA);
+			} else {
+				status = WFR_STATUS_FROM_ERRNO();
+				if (feof(file)) {
+					status = WFR_STATUS_FROM_ERRNO1(ENODATA);
+				}
+			}
+		} else {
+			data[statbuf.st_size] = '\0';
+		}
+
+		if (file) {
+			(void)fclose(file);
+		}
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		*pdata = data;
+		if (pdata_size) {
+			*pdata_size = data_size;
+		}
+		if (pmtime) {
+			*pmtime = statbuf.st_mtime;
+		}
+	} else {
+		WFR_FREE(data);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrLoadRegSubKey(
+	const char *		key_name,
+	const char *		subkey,
+	void *			param1,
+	void *			param2,
+	WfrLoadRegSubKeyItemFn	item_fn
+	)
+{
+	bool			donefl;
+	WfrEnumerateRegState *	enum_state;
+	char *			name;
+	WfrStatus		status;
+	char *			subkey_escaped = NULL;
+	WfrTreeItemTypeBase	type;
+	DWORD			type_registry;
+	void *			value = NULL;
+	size_t			value_len;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
+	&&  WFR_STATUS_SUCCESS(status = WfrEnumerateRegInit(
+			&enum_state, key_name, subkey_escaped, NULL)))
+	{
+		donefl = false;
+
+		while (WFR_STATUS_SUCCESS(status) && !donefl) {
+			if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegValues(
+					&donefl, &value, &value_len,
+					&name, &type_registry, &enum_state)) && !donefl)
+			{
+				switch (type_registry) {
+				default:
+					status = WFR_STATUS_FROM_ERRNO1(EINVAL); break;
+				case REG_DWORD:
+					type = WFR_TREE_ITYPE_INT; break;
+				case REG_SZ:
+					type = WFR_TREE_ITYPE_STRING; break;
+				}
+
+				if (WFR_STATUS_SUCCESS(status)) {
+					status = item_fn(param1, param2, name, type, value, value_len);
+				}
+
+				WFR_FREE(name);
+				if (WFR_STATUS_FAILURE(status)) {
+					WFR_FREE(value);
+				}
+			}
+		}
+	}
+
+	WFR_FREE_IF_NOTNULL(subkey_escaped);
+
+	return status;
+}
+
+WfrStatus
+WfrSaveListToFile(
+	const char *	fname,
+	const char *	fname_tmp,
+	const char *	list,
+	size_t		list_size
+	)
+{
+	char *		dname_tmp;
+	int		fd = -1;
+	FILE *		file = NULL;
+	ssize_t		nwritten;
+	char		pname_tmp[MAX_PATH + 1];
+	WfrStatus	status;
+
+
+	if (!(dname_tmp = getenv("TEMP"))
+	||  !(dname_tmp = getenv("TMP"))) {
+		dname_tmp = (char *)"./";
+	}
+	WFR_SNPRINTF(
+		pname_tmp, sizeof(pname_tmp),
+		"%s/%s", dname_tmp, fname_tmp);
+
+	if ((fd = mkstemp(pname_tmp)) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (!(file = fdopen(fd, "wb"))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (list_size > 0) {
+		if ((nwritten = fwrite(list, list_size, 1, file)) != 1) {
+			if (ferror(file) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				status = WFR_STATUS_FROM_ERRNO1(EPIPE);
+			}
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (file) {
+		(void)fflush(file);
+		(void)fclose(file);
+	} else if ((fd >= 0)) {
+		(void)close(fd);
+	}
+
+	if (WFR_STATUS_SUCCESS(status)
+	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			pname_tmp, fname, MOVEFILE_REPLACE_EXISTING))))
+	{
+		(void)unlink(pname_tmp);
+	} else if (WFR_STATUS_FAILURE(status)) {
+		(void)unlink(pname_tmp);
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrSaveRawFile(
+	bool		escape_fnamefl,
+	bool		recreate_dnamefl,
+	char *		dname,
+	const char *	ext,
+	const char *	fname,
+	const char *	data,
+	size_t		data_size
+	)
+{
+	char *		dname_tmp;
+	int		fd = -1;
+	FILE *		file = NULL;
+	size_t		nwritten;
+	char		pname[MAX_PATH + 1], pname_tmp[MAX_PATH + 1];
+	struct stat	statbuf;
+	WfrStatus	status;
+
+
+	if (stat(dname, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			if (recreate_dnamefl) {
+				status = WfrMakeDirectory(dname, true);
+			}
+		}
+		if (WFR_STATUS_FAILURE(status)) {
+			return status;
+		}
+	}
+
+	if (!(dname_tmp = getenv("TEMP"))
+	||  !(dname_tmp = getenv("TMP"))) {
+		dname_tmp = (char *)"./";
+	}
+
+	if (escape_fnamefl) {
+		if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
+				dname, ext, fname, false,
+				pname, sizeof(pname)))
+		&&  WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
+				dname_tmp, ext, fname, true,
+				pname_tmp, sizeof(pname_tmp))))
+		{
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	} else {
+		WFR_SNPRINTF_PNAME(pname, sizeof(pname), dname, ext, fname);
+		WFR_SNPRINTF_PNAME(pname_tmp, sizeof(pname_tmp), dname_tmp, ext, fname);
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_STATUS_SUCCESS(status)) {
+		if ((fd = mkstemp(pname_tmp)) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else if (!(file = fdopen(fd, "wb"))) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else if (data_size > 0) {
+			if ((nwritten = fwrite(data, data_size, 1, file)) != 1) {
+				if (ferror(file) < 0) {
+					status = WFR_STATUS_FROM_ERRNO();
+				} else {
+					status = WFR_STATUS_FROM_ERRNO1(EPIPE);
+				}
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+
+		if (file) {
+			(void)fflush(file);
+			(void)fclose(file);
+		} else if ((fd >= 0)) {
+			(void)close(fd);
+		}
+	}
+
+	if (WFR_STATUS_SUCCESS(status)
+	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
+			pname_tmp, pname, MOVEFILE_REPLACE_EXISTING))))
+	{
+		(void)unlink(pname_tmp);
+	} else if (WFR_STATUS_FAILURE(status)) {
+		(void)unlink(pname_tmp);
+	}
 
 	return status;
 }
