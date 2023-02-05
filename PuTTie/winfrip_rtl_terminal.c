@@ -10,7 +10,19 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_debug.h"
+#include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_rtl_terminal.h"
+
+/*
+ * Private variables
+ */
+
+/*
+ * PCRE2 regular expression compiled code and match data block
+ */
+static pcre2_code *		WfrpReCode = NULL;
+static pcre2_match_data *	WfrpReMd = NULL;
 
 /*
  * Public subroutines private to PuTTie/winfrip*.c
@@ -195,6 +207,144 @@ WfrGetTermLines(
 	}
 
 	return status;
+}
+
+WfrStatus
+WfrGetTermLinesURLW(
+	Terminal *	term,
+	pos *		pbegin,
+	pos *		pend,
+	wchar_t **	phover_url_w,
+	size_t *	phover_url_w_size,
+	pos		begin,
+	pos		end
+	)
+{
+	bool		donefl;
+	wchar_t *	line_w = NULL;
+	size_t		match_begin, match_end, match_len;
+	Wfp2MGState	pcre2_state;
+	WfrStatus	status;
+
+
+	/*
+	 * Fail given non-initialised pcre2 regular expression {code,match data
+	 * block}, whether due to failure to initialise or an invalid regular
+	 * expression provided by the user.
+	 */
+
+	if (!WfrpReCode || !WfrpReMd) {
+		return WFR_STATUS_FROM_ERRNO1(EINVAL);
+	} else if (WFR_STATUS_SUCCESS(status = WfrGetTermLines(
+			term, begin, end, &line_w)))
+	{
+		Wfp2Init(
+			&pcre2_state, WfrpReCode,
+			wcslen(line_w), WfrpReMd, line_w);
+	}
+
+	/*
+	 * Iteratively attempt to match the regular expression and UTF-16 encoded
+	 * terminal buffer string described by pcre2_state until either a non-zero
+	 * length match comprising a range intersected by the x coordinate parameter
+	 * is found or until either WFR_STATUS_CONDITION_PCRE2_ERROR,
+	 * WFR_STATUS_CONDITION_PCRE2_NO_MATCH, or WFR_STATUS_CONDITION_PCRE2_DONE
+	 * is returned.
+	 */
+
+	donefl = false;
+	while (WFR_STATUS_SUCCESS(status) && !donefl) {
+		switch (WFR_STATUS_CONDITION(status = Wfp2MatchGlobal(
+				&pcre2_state, &match_begin, &match_end)))
+		{
+		case WFR_STATUS_CONDITION_PCRE2_ERROR:
+			WFR_DEBUGF("error %d trying to match any URL(s) in line `%S'", pcre2_state.last_error, line_w);
+			break;
+		case WFR_STATUS_CONDITION_PCRE2_NO_MATCH:
+			break;
+
+		/*
+		 * Given a non-zero length match the range of which is intersected by {begin,end},
+		 * attempt to duplicate the corresponding substring and return it, its size in bytes,
+		 * and the beginning and end positions thereof. Given failure, return failure.
+		 */
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+		case WFR_STATUS_CONDITION_PCRE2_DONE:
+			donefl = true;
+#pragma GCC diagnostic pop
+
+		case WFR_STATUS_CONDITION_PCRE2_CONTINUE:
+			if (((size_t)begin.x >= match_begin) && ((size_t)begin.x <= match_end)) {
+				match_len = match_end - match_begin;
+				if (match_len > 0) {
+					WFR_DEBUGF("URL `%*.*S' matches regular expression", match_len, match_len, &line_w[match_begin]);
+					if (!(*phover_url_w = WfrWcsNDup(&line_w[match_begin], match_len))) {
+						status = WFR_STATUS_FROM_ERRNO();
+					} else {
+						pbegin->x = match_begin;
+						if (pbegin->x > term->cols) {
+							pbegin->y = begin.y + (pbegin->x / term->cols);
+							pbegin->x %= term->cols;
+						} else {
+							pbegin->y = begin.y;
+						}
+
+						pend->x = match_end;
+						if (pend->x > term->cols) {
+							pend->y = begin.y + (pend->x / term->cols);
+							pend->x %= term->cols;
+						} else {
+							pend->y = end.y;
+						}
+
+						donefl = true;
+						*phover_url_w_size = match_len + 1;
+						status = WFR_STATUS_CONDITION_SUCCESS;
+					}
+				} else {
+					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+				}
+			}
+			break;
+		}
+	}
+
+	/*
+	 * Free line_w and implictly return failure.
+	 */
+
+	WFR_FREE_IF_NOTNULL(line_w);
+
+	return status;
+}
+
+WfrStatus
+WfrInitTermLinesURLWRegex(
+	const wchar_t *		spec_w,
+	int *			pre_errorcode,
+	PCRE2_SIZE *		pre_erroroffset
+	)
+{
+	if (WfrpReCode) {
+		pcre2_code_free(WfrpReCode); WfrpReCode = NULL;
+	}
+	WfrpReCode = pcre2_compile(
+		spec_w,
+		PCRE2_ANCHORED | PCRE2_ZERO_TERMINATED,
+		0, pre_errorcode, pre_erroroffset, NULL);
+
+	if (WfrpReCode) {
+		if ((WfrpReMd = pcre2_match_data_create(1, NULL))) {
+			return WFR_STATUS_CONDITION_SUCCESS;
+		} else {
+			pcre2_code_free(WfrpRegex.code); WfrpRegex.code = NULL;
+			return WFR_STATUS_FROM_ERRNO1(ENOMEM);
+		}
+	} else {
+		return WFR_STATUS_FROM_ERRNO1(EINVAL);
+	}
 }
 
 /*

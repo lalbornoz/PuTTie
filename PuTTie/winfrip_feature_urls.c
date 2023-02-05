@@ -61,45 +61,42 @@ typedef enum WffupState {
 /*
  * UTF-16 encoded pathname to browser application or NULL (default)
  */
-static wchar_t *		WffupAppW = NULL;
+static wchar_t *	WffupAppW = NULL;
 
 /*
  * Zero-based inclusive beginning and exclusive end terminal buffer coordinates
  * of URL during URL matching and selecting operations
  */
-static pos			WffupMatchBegin = {0, 0};
-static pos			WffupMatchEnd = {0, 0};
-static pos			WffupSelectBegin = {0, 0};
-static pos			WffupSelectEnd = {0, 0};
+static pos		WffupMatchBegin = {0, 0};
+static pos		WffupMatchEnd = {0, 0};
+static pos		WffupSelectBegin = {0, 0};
+static pos		WffupSelectEnd = {0, 0};
 
 /*
  * UTF-16 encoded URL buffer and buffer size in bytes during URL operations
  * or NULL/0, resp.
  */
-static wchar_t *		WffupBufW = NULL;
-static size_t			WffupBufW_size = 0;
+static wchar_t *	WffupBufW = NULL;
+static size_t		WffupBufW_size = 0;
 
 /*
  * Windows base API GetKeyState() virtual keys corresponding to the URL mouse
  * motion, URL extending/shrinking, and LMB click modifier and shift modifier
  * keys configured by the user.
  */
-static int			WffupModifier = 0;
-static int			WffupModifierExtendShrink = 0;
-static int			WffupModifierShiftState = 0;
+static int		WffupModifier = 0;
+static int		WffupModifierExtendShrink = 0;
+static int		WffupModifierShiftState = 0;
 
 /*
- * PCRE2 regular expression compiled code or NULL, error message buffer, and
- * match data block or NULL
+ * PCRE2 error message buffer
  */
-static pcre2_code *		WffupReCode = NULL;
-static wchar_t			WffupReErrorMessage[256] = {0,};
-static pcre2_match_data *	WffupReMd = NULL;
+static wchar_t		WffupReErrorMessage[256] = {0,};
 
 /*
  * URL operation state (WFFUP_STATE_{NONE,CLICK,SELECT})
  */
-static WffupState		WffupStateCurrent = WFFUP_STATE_NONE;
+static WffupState	WffupStateCurrent = WFFUP_STATE_NONE;
 
 /*
  * Private subroutine prototypes
@@ -113,14 +110,13 @@ static WfReturn		WffupReconfig(Conf *conf);
 static int		WffupReconfigModifierKey(int modifier);
 static int		WffupReconfigModifierShift(int modifier);
 
-static WfrStatus	WffupGet(Terminal *term, pos *pbegin, pos *pend, wchar_t **phover_url_w, size_t *phover_url_w_size, pos begin, pos end);
 static bool		WffupMatchState(int x, int y);
 static void		WffupResetState(Terminal *term, bool update_term);
 
-static int		WffOpClick(Conf *conf, UINT message, Terminal *term, int x, int y);
-static int		WffOpDraw(Conf *conf, unsigned long *tattr, Terminal *term, int x, int y);
-static int		WffOpSelect(Terminal *term, int x, int );
-static int		WffOpSelectExtendShrink(Terminal *term, WPARAM wParam);
+static int		WffupOpClick(Conf *conf, UINT message, Terminal *term, int x, int y);
+static int		WffupOpDraw(Conf *conf, unsigned long *tattr, Terminal *term, int x, int y);
+static int		WffupOpSelect(Terminal *term, int x, int );
+static int		WffupOpSelectExtendShrink(Terminal *term, WPARAM wParam);
 
 /*
  * Private subroutines
@@ -334,36 +330,27 @@ WffupReconfig(
 		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
 		goto fail;
+	} else if (WFR_STATUS_SUCCESS(WfrInitTermLinesURLWRegex(
+			spec_w, &re_errorcode, &re_erroroffset)))
+	{
+		WFR_FREE(spec_w);
+		return WF_RETURN_CONTINUE;
 	} else {
-		if (WffupReCode) {
-			pcre2_code_free(WffupReCode); WffupReCode = NULL;
-		}
-		WffupReCode = pcre2_compile(
-			spec_w,
-			PCRE2_ANCHORED | PCRE2_ZERO_TERMINATED,
-			0, &re_errorcode, &re_erroroffset, NULL);
+		ZeroMemory(WffupReErrorMessage, sizeof(WffupReErrorMessage));
+		pcre2_get_error_message(
+			re_errorcode, WffupReErrorMessage,
+			sizeof(WffupReErrorMessage) / sizeof(WffupReErrorMessage[0]));
 
-		if (WffupReCode) {
-			WFR_FREE(spec_w);
-			WffupReMd = pcre2_match_data_create(1, NULL);
-			return WF_RETURN_CONTINUE;
-		} else {
-			ZeroMemory(WffupReErrorMessage, sizeof(WffupReErrorMessage));
-			pcre2_get_error_message(
-				re_errorcode, WffupReErrorMessage,
-				sizeof(WffupReErrorMessage) / sizeof(WffupReErrorMessage[0]));
-
-			snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
+		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
-			snprintf(
-				dlg_text, sizeof(dlg_text),
-				"Error in regex %S at offset %llu: %S",
-				spec_w, re_erroroffset, WffupReErrorMessage);
+		snprintf(
+			dlg_text, sizeof(dlg_text),
+			"Error in regex %S at offset %llu: %S",
+			spec_w, re_erroroffset, WffupReErrorMessage);
 #pragma GCC diagnostic pop
 
-			goto fail;
-		}
+		goto fail;
 	}
 
 	/*
@@ -432,117 +419,6 @@ WffupReconfigModifierShift(
 }
 
 
-static WfrStatus
-WffupGet(
-	Terminal *	term,
-	pos *		pbegin,
-	pos *		pend,
-	wchar_t **	phover_url_w,
-	size_t *	phover_url_w_size,
-	pos		begin,
-	pos		end
-	)
-{
-	bool		donefl;
-	wchar_t *	line_w = NULL;
-	size_t		match_begin, match_end, match_len;
-	Wfp2MGState	pcre2_state;
-	WfrStatus	status;
-
-
-	/*
-	 * Fail given non-initialised pcre2 regular expression {code,match data
-	 * block}, whether due to failure to initialise or an invalid regular
-	 * expression provided by the user.
-	 */
-
-	if (!WffupReCode || !WffupReMd) {
-		return WFR_STATUS_FROM_ERRNO1(EINVAL);
-	} else if (WFR_STATUS_SUCCESS(status = WfrGetTermLines(
-			term, begin, end, &line_w)))
-	{
-		Wfp2Init(
-			&pcre2_state, WffupReCode,
-			wcslen(line_w), WffupReMd, line_w);
-	}
-
-	/*
-	 * Iteratively attempt to match the regular expression and UTF-16 encoded
-	 * terminal buffer string described by pcre2_state until either a non-zero
-	 * length match comprising a range intersected by the x coordinate parameter
-	 * is found or until either WFR_STATUS_CONDITION_PCRE2_ERROR,
-	 * WFR_STATUS_CONDITION_PCRE2_NO_MATCH, or WFR_STATUS_CONDITION_PCRE2_DONE
-	 * is returned.
-	 */
-
-	donefl = false;
-	while (WFR_STATUS_SUCCESS(status) && !donefl) {
-		switch (WFR_STATUS_CONDITION(status = Wfp2MatchGlobal(
-				&pcre2_state, &match_begin, &match_end)))
-		{
-		case WFR_STATUS_CONDITION_PCRE2_ERROR:
-			WFR_DEBUGF("error %d trying to match any URL(s) in line `%S'", pcre2_state.last_error, line_w);
-			break;
-		case WFR_STATUS_CONDITION_PCRE2_NO_MATCH:
-			break;
-
-		/*
-		 * Given a non-zero length match the range of which is intersected by {begin,end},
-		 * attempt to duplicate the corresponding substring and return it, its size in bytes,
-		 * and the beginning and end positions thereof. Given failure, return failure.
-		 */
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-		case WFR_STATUS_CONDITION_PCRE2_DONE:
-			donefl = true;
-#pragma GCC diagnostic pop
-
-		case WFR_STATUS_CONDITION_PCRE2_CONTINUE:
-			if (((size_t)begin.x >= match_begin) && ((size_t)begin.x <= match_end)) {
-				match_len = match_end - match_begin;
-				if (match_len > 0) {
-					WFR_DEBUGF("URL `%*.*S' matches regular expression", match_len, match_len, &line_w[match_begin]);
-					if (!(*phover_url_w = WfrWcsNDup(&line_w[match_begin], match_len))) {
-						status = WFR_STATUS_FROM_ERRNO();
-					} else {
-						pbegin->x = match_begin;
-						if (pbegin->x > term->cols) {
-							pbegin->y = begin.y + (pbegin->x / term->cols);
-							pbegin->x %= term->cols;
-						} else {
-							pbegin->y = begin.y;
-						}
-
-						pend->x = match_end;
-						if (pend->x > term->cols) {
-							pend->y = begin.y + (pend->x / term->cols);
-							pend->x %= term->cols;
-						} else {
-							pend->y = end.y;
-						}
-
-						donefl = true;
-						*phover_url_w_size = match_len + 1;
-						status = WFR_STATUS_CONDITION_SUCCESS;
-					}
-				} else {
-					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-				}
-			}
-			break;
-		}
-	}
-
-	/*
-	 * Free line_w and implictly return failure.
-	 */
-
-	WFR_FREE_IF_NOTNULL(line_w);
-
-	return status;
-}
-
 static bool
 WffupMatchState(
 	int	x,
@@ -579,7 +455,7 @@ WffupResetState(
 
 
 static int
-WffOpClick(
+WffupOpClick(
 	Conf *		conf,
 	UINT		message,
 	Terminal *	term,
@@ -623,7 +499,7 @@ WffOpClick(
 }
 
 static int
-WffOpDraw(
+WffupOpDraw(
 	Conf *			conf,
 	unsigned long *		tattr,
 	Terminal *		term,
@@ -657,7 +533,7 @@ WffOpDraw(
 }
 
 static int
-WffOpSelect(
+WffupOpSelect(
 	Terminal *	term,
 	int		x,
 	int		y
@@ -671,7 +547,7 @@ WffOpSelect(
 	 ? WfrIsVKeyDown(WffupModifierShiftState)
 	 : true))
 	{
-		if (WFR_STATUS_SUCCESS(status = WffupGet(
+		if (WFR_STATUS_SUCCESS(status = WfrGetTermLinesURLW(
 				term, &WffupMatchBegin, &WffupMatchEnd,
 				&WffupBufW, &WffupBufW_size,
 				(pos){.x=x, .y=y}, (pos){.x=x, .y=y})))
@@ -687,7 +563,7 @@ WffOpSelect(
 }
 
 static int
-WffOpSelectExtendShrink(
+WffupOpSelectExtendShrink(
 	Terminal *	term,
 	WPARAM		wParam
 	)
@@ -710,7 +586,7 @@ WffOpSelectExtendShrink(
 			WffupSelectEnd.y--;
 		}
 
-		if (WFR_STATUS_SUCCESS(status = WffupGet(
+		if (WFR_STATUS_SUCCESS(status = WfrGetTermLinesURLW(
 				term, &WffupMatchBegin, &WffupMatchEnd,
 				&buf_w_new, &WffupBufW_size,
 				WffupSelectBegin, WffupSelectEnd)))
@@ -814,7 +690,7 @@ WffUrlsOperation(
 	 */
 
 	case WFF_URLS_OP_DRAW:
-		return WffOpDraw(conf, tattr, term, x, y);
+		return WffupOpDraw(conf, tattr, term, x, y);
 
 	/*
 	 * Given WFF_URLS_OP_FOCUS_KILL interrupting an URL operation, reset
@@ -847,7 +723,7 @@ WffUrlsOperation(
 		 */
 
 		case WFFUP_STATE_SELECT:
-			return WffOpClick(conf, message, term, x, y);
+			return WffupOpClick(conf, message, term, x, y);
 		}
 
 	case WFF_URLS_OP_MOUSE_MOTION_EVENT:
@@ -864,7 +740,7 @@ WffUrlsOperation(
 		 */
 
 		case WFFUP_STATE_NONE:
-			return WffOpSelect(term, x, y);
+			return WffupOpSelect(term, x, y);
 
 		/*
 		 * Given WFFUP_STATE_SELECT, enforce the constraint that the
@@ -887,7 +763,7 @@ WffUrlsOperation(
 		default:
 			return WF_RETURN_CONTINUE;
 		case WFFUP_STATE_SELECT:
-			return WffOpSelectExtendShrink(term, wParam);
+			return WffupOpSelectExtendShrink(term, wParam);
 		}
 
 	case WFF_URLS_OP_RECONFIG:
