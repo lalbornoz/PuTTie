@@ -221,7 +221,8 @@ WfPageantUpdateSessions(
 	int		idx_menu;
 	MENUITEMINFO	mii;
 	int		nentries;
-	char *		sessionname, *sessionname_new;
+	char *		sessionname;
+	char *		sessionname_new = NULL;
 	WfrStatus	status;
 
 
