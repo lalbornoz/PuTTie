@@ -15,6 +15,7 @@
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
+#include "PuTTie/winfrip_storage_options.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_registry.h"
@@ -25,9 +26,9 @@
 
 /*
  * Names of registry subkeys/value containing PuTTie/PuTTy's top-level keys,
- * host CAs, host keys, the jump list, the private key list, and sessions,
- * and the value names of the jump list and the private key list, resp.
- * [see windows/storage.c]
+ * host CAs, host keys, the jump list, global options, the private key list,
+ * and sessions, and the value names of the jump list and the private key list,
+ * resp. [see windows/storage.c]
  */
 
 static LPCSTR	WfspRegistryKey = "Software\\SimonTatham\\PuTTY";
@@ -38,6 +39,7 @@ static LPCSTR	WfspRegistrySubKeyHostKeys = "Software\\SimonTatham\\PuTTY\\SshHos
 static LPCSTR	WfspRegistrySubKeyHostKeysName = "SshHostKeys";
 static LPCSTR	WfspRegistrySubKeyJumpList = "Software\\SimonTatham\\PuTTY\\Jumplist";
 static LPCSTR	WfspRegistrySubKeyJumpListName = "Jumplist";
+static LPCSTR	WfspRegistrySubKeyOptionsName = "Options";
 static LPCSTR	WfspRegistrySubKeyPrivKeyList = "Software\\SimonTatham\\PuTTY\\PrivKeyList";
 static LPCSTR	WfspRegistrySubKeyPrivKeyListName = "PrivKeyList";
 static LPCSTR	WfspRegistrySubKeySessions = "Software\\SimonTatham\\PuTTY\\Sessions";
@@ -379,7 +381,6 @@ WfspRegistryLoadHostCA(
 				*bits |= WFSP_FILE_LHCA_BIT_VALIDITY_EXPRESSION;
 				hca->validity = value;
 			} else {
-				WFR_FREE(value);
 				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 			}
 
@@ -453,6 +454,52 @@ WfspRegistrySaveHostCA(
 		"PermitRSASHA512", WFR_TREE_ITYPE_INT, &hca->permit_rsa_sha512,
 		"Validity", WFR_TREE_ITYPE_STRING, hca->validity,
 		NULL);
+}
+
+
+WfrStatus
+WfspRegistryClearOptions(
+	WfsBackend	backend
+	)
+{
+	(void)backend;
+	return WfrCleanupRegSubKey(WfspRegistryKey, WfspRegistrySubKeyOptionsName);
+}
+
+WfrStatus
+WfspRegistryLoadOptions(
+	WfsBackend	backend
+	)
+{
+	WfrLoadRegSubKeyItemFn	item_fn =
+		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_len) {
+			(void)param2;
+			return WfsSetOption(*(WfsBackend *)param1, key, value, value_len, type);
+		});
+
+	WfrStatus	status;
+
+
+	(void)backend;
+
+	status = WfrLoadRegSubKey(
+		WfspRegistryKey, WfspRegistrySubKeyOptionsName,
+		item_fn, &backend, NULL);
+
+	return status;
+}
+
+WfrStatus
+WfspRegistrySaveOptions(
+	WfsBackend	backend,
+	WfrTree *	backend_tree
+	)
+{
+	(void)backend;
+	return WfrSaveTreeToRegSubKey(
+		WfspRegistryKey,
+		WfspRegistrySubKeyOptionsName,
+		backend_tree);
 }
 
 
@@ -534,13 +581,8 @@ WfspRegistryLoadSession(
 {
 	WfrLoadRegSubKeyItemFn	item_fn =
 		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_len) {
-			WfrStatus	status;
-
 			(void)param2;
-			if (WFR_STATUS_FAILURE(status = WfsSetSessionKey((WfsSession *)param1, key, (void *)value, value_len, type))) {
-				WFR_FREE(value);
-			}
-			return status;
+			return WfsSetSessionKey((WfsSession *)param1, key, (void *)value, value_len, type);
 		});
 
 	bool			addedfl = false;
@@ -619,27 +661,7 @@ WfspRegistryCleanupJumpList(
 	void
 	)
 {
-	HKEY		hKey = NULL;
-	WfrStatus	status;
-
-
-	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, WfspRegistryKey))
-	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegDeleteTree(hKey, WfspRegistrySubKeyJumpListName))))
-	{
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	if (WFR_STATUS_FAILURE(status)
-	&&  ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
-	||   (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND)))
-	{
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-	if (hKey) {
-		(void)RegCloseKey(hKey);
-	}
-
-	return status;
+	return WfrCleanupRegSubKey(WfspRegistryKey, WfspRegistrySubKeyJumpListName);
 }
 
 void

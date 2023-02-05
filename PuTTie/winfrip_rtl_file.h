@@ -43,7 +43,7 @@ WfrStatus	WfrEnumerateFiles(const char *ext, bool *pdonefl, const char **pfname,
 void		WfrEnumerateFilesCancel(WfrEnumerateFilesState **pstate);
 WfrStatus	WfrEnumerateFilesInit(const char *dname, WfrEnumerateFilesState **pstate);
 WfrStatus	WfrEnumerateFilesV(const char *dname, const char *ext, size_t *pfilec, char ***pfilev);
-WfrStatus	WfrEscapeFileName(const char *dname, const char *ext, const char *name, bool tmpfl, char *fname, size_t fname_size);
+WfrStatus	WfrEscapeFileName(const char *dname, const char *ext, const char *name, bool tmpfl, char *pname, size_t pname_size);
 WfrStatus	WfrLoadListFromFile(const char *fname, char **plist, size_t *plist_size);
 WfrStatus	WfrLoadRawFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname, char **pdata, size_t *pdata_size, time_t *pmtime);
 WfrStatus	WfrMakeDirectory(char *path, bool existsfl);

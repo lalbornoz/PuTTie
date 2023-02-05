@@ -22,6 +22,8 @@
 	WfspFileEnumerateHostKeys, WfspFileLoadHostKey, WfspFileRenameHostKey,		\
 	WfspFileSaveHostKey,								\
 											\
+	WfspFileClearOptions, WfspFileLoadOptions, WfspFileSaveOptions,			\
+											\
 	WfspFileCleanupSessions, WfspFileClearSessions, WfspFileCloseSession,		\
 	WfspFileDeleteSession, WfspFileEnumerateSessions, WfspFileLoadSession,		\
 	WfspFileRenameSession, WfspFileSaveSession,					\
@@ -54,6 +56,10 @@ WfrStatus	WfspFileEnumerateHostKeys(WfsBackend backend, bool initfl, bool *pdone
 WfrStatus	WfspFileLoadHostKey(WfsBackend backend, const char *key_name, const char **pkey);
 WfrStatus	WfspFileRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspFileSaveHostKey(WfsBackend backend, const char *key_name, const char *key);
+
+WfrStatus	WfspFileClearOptions(WfsBackend backend);
+WfrStatus	WfspFileLoadOptions(WfsBackend backend);
+WfrStatus	WfspFileSaveOptions(WfsBackend backend, WfrTree *backend_tree);
 
 WfrStatus	WfspFileCleanupSessions(WfsBackend backend);
 WfrStatus	WfspFileClearSessions(WfsBackend backend);

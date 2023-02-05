@@ -21,6 +21,7 @@
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
+#include "PuTTie/winfrip_storage_options.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_file.h"
@@ -37,6 +38,7 @@
  * WfsppFileExtHostKeys: file name extension of PuTTie host key files
  * WfsppFileExtSessions: file name extension of PuTTie session files
  * WfsppFileFnameJumpList{,Tmp}: absolute pathname to the current user's PuTTie jump list file
+ * WfsppFileFnameOptions: absolute pathname to the current user's PuTTie global options file
  * WfsppFileFnamePrivKeyList{,Tmp}: absolute pathname to the current user's Pageant private key list file
  */
 
@@ -50,6 +52,7 @@ static char		WfsppFileExtHostKeys[] = ".hostkey";
 static char		WfsppFileExtSessions[] = ".ini";
 static char		WfsppFileFnameJumpList[MAX_PATH + 1] = "";
 static char		WfsppFileFnameJumpListTmp[MAX_PATH + 1] = "";
+static char		WfsppFileFnameOptions[MAX_PATH + 1] = "";
 static char		WfsppFileFnamePrivKeyList[MAX_PATH + 1] = "";
 static char		WfsppFileFnamePrivKeyListTmp[MAX_PATH + 1] = "";
 
@@ -97,6 +100,9 @@ WfsppFileInitAppDataSubdir(
 		WFR_SNPRINTF(
 			WfsppFileDnameSessions, sizeof(WfsppFileDnameSessions),
 			"%s/sessions", WfsppFileDname);
+		WFR_SNPRINTF(
+			WfsppFileFnameOptions, sizeof(WfsppFileFnameOptions),
+			"%s/options.ini", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileFnameJumpList, sizeof(WfsppFileFnameJumpList),
 			"%s/jump.list", WfsppFileDname);
@@ -253,32 +259,31 @@ WfspFileLoadHostCA(
 
 
 	WfrLoadParseItemFn	item_fn =
-		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, Wfp2RType type, const void *value, size_t value_size) {
+		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
 			WfsHostCA *			hca = (WfsHostCA *)param1;
 			enum WfspFileLHCABits *		bits = (enum WfspFileLHCABits *)param2;
 			WfrStatus			status;
 
 			(void)value_size;
-			if (	   (strcmp(key, "PublicKey") == 0) && (type == WFP2_RTYPE_STRING)) {
+			if (	   (strcmp(key, "PublicKey") == 0) && (type == WFR_TREE_ITYPE_STRING)) {
 				*bits |= WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY;
 				hca->public_key = value;
-			} else if ((strcmp(key, "PermitRSASHA1") == 0) && (type == WFP2_RTYPE_INT)) {
+			} else if ((strcmp(key, "PermitRSASHA1") == 0) && (type == WFR_TREE_ITYPE_INT)) {
 				*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA1;
 				hca->permit_rsa_sha1 = *(int *)value;
 				WFR_FREE(value);
-			} else if ((strcmp(key, "PermitRSASHA256") == 0) && (type == WFP2_RTYPE_INT)) {
+			} else if ((strcmp(key, "PermitRSASHA256") == 0) && (type == WFR_TREE_ITYPE_INT)) {
 				*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA256;
 				hca->permit_rsa_sha256 = *(int *)value;
 				WFR_FREE(value);
-			} else if ((strcmp(key, "PermitRSASHA512") == 0) && (type == WFP2_RTYPE_INT)) {
+			} else if ((strcmp(key, "PermitRSASHA512") == 0) && (type == WFR_TREE_ITYPE_INT)) {
 				*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA512;
 				hca->permit_rsa_sha512 = *(int *)value;
 				WFR_FREE(value);
-			} else if ((strcmp(key, "Validity") == 0) && (type == WFP2_RTYPE_STRING)) {
+			} else if ((strcmp(key, "Validity") == 0) && (type == WFR_TREE_ITYPE_STRING)) {
 				*bits |= WFSP_FILE_LHCA_BIT_VALIDITY_EXPRESSION;
 				hca->validity = value;
 			} else {
-				WFR_FREE(value);
 				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 			}
 
@@ -364,7 +369,7 @@ WfspFileSaveHostCA(
 {
 	(void)backend;
 	return WfrSaveToFileV(
-		WfsppFileDnameHostCAs, WfsppFileExtHostCAs,
+		true, WfsppFileDnameHostCAs, WfsppFileExtHostCAs,
 		hca->name,
 		"PublicKey", WFR_TREE_ITYPE_STRING, hca->public_key,
 		"PermitRSASHA1", WFR_TREE_ITYPE_INT, &hca->permit_rsa_sha1,
@@ -499,6 +504,54 @@ WfspFileSaveHostKey(
 
 
 WfrStatus
+WfspFileClearOptions(
+	WfsBackend	backend
+	)
+{
+	(void)backend;
+	return WfrDeleteFile(false, NULL, NULL, WfsppFileFnameOptions);
+}
+
+WfrStatus
+WfspFileLoadOptions(
+	WfsBackend	backend
+	)
+{
+	WfrLoadParseItemFn	item_fn =
+		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
+			(void)param2;
+			return WfsSetOption(*(WfsBackend *)param1, key, value, value_size, type);
+		});
+
+	char *			options_data = NULL;
+	size_t			options_data_size;
+	WfrStatus		status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfrLoadRawFile(
+			false, NULL, NULL, WfsppFileFnameOptions,
+			&options_data, &options_data_size, NULL)))
+	{
+		status = WfrLoadParse(options_data, options_data_size, item_fn, &backend, NULL);
+	}
+
+	WFR_FREE_IF_NOTNULL(options_data);
+
+	return status;
+}
+
+WfrStatus
+WfspFileSaveOptions(
+	WfsBackend	backend,
+	WfrTree *	backend_tree
+	)
+{
+	(void)backend;
+	return WfrSaveTreeToFile(false, NULL, NULL, WfsppFileFnameOptions, backend_tree);
+}
+
+
+WfrStatus
 WfspFileCleanupSessions(
 	WfsBackend	backend
 	)
@@ -587,17 +640,9 @@ WfspFileLoadSession(
 	)
 {
 	WfrLoadParseItemFn	item_fn =
-		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, Wfp2RType type, const void *value, size_t value_size) {
-			WfrStatus		status;
-			WfrTreeItemType		tree_item_type;
-
+		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
 			(void)param2;
-			if (WFR_STATUS_FAILURE(status = WfrMapPcre2TypeToTreeType(type, (int *)&tree_item_type))
-			||  WFR_STATUS_FAILURE(status = WfsSetSessionKey((WfsSession *)param1, key, (void *)value, value_size, tree_item_type)))
-			{
-				WFR_FREE(value);
-			}
-			return status;
+			return WfsSetSessionKey((WfsSession *)param1, key, (void *)value, value_size, type);
 		});
 
 	bool			addedfl = false;
@@ -662,7 +707,7 @@ WfspFileSaveSession(
 {
 	(void)backend;
 	return WfrSaveTreeToFile(
-		WfsppFileDnameSessions, WfsppFileExtSessions,
+		true, WfsppFileDnameSessions, WfsppFileExtSessions,
 		session->name, session->tree);
 }
 
@@ -691,22 +736,7 @@ WfspFileCleanupJumpList(
 	void
 	)
 {
-	struct stat	statbuf;
-	WfrStatus	status;
-
-
-	if ((stat(WfsppFileFnameJumpList, &statbuf) < 0)) {
-		status = WFR_STATUS_FROM_ERRNO();
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-	} else if (unlink(WfsppFileFnameJumpList) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	return status;
+	return WfrDeleteFile(false, NULL, NULL, WfsppFileFnameJumpList);
 }
 
 void
@@ -799,22 +829,7 @@ WfspFileCleanupPrivKeyList(
 	void
 	)
 {
-	struct stat	statbuf;
-	WfrStatus	status;
-
-
-	if ((stat(WfsppFileFnamePrivKeyList, &statbuf) < 0)) {
-		status = WFR_STATUS_FROM_ERRNO();
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-	} else if (unlink(WfsppFileFnamePrivKeyList) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	return status;
+	return WfrDeleteFile(false, NULL, NULL, WfsppFileFnamePrivKeyList);
 }
 
 WfrStatus

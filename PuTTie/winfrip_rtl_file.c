@@ -17,6 +17,19 @@
 #include "PuTTie/winfrip_rtl_file.h"
 
 /*
+ * Private macros
+ */
+
+#define WFRP_SNPRINTF_PNAME(pname, pname_size, dname, ext, fname)	\
+	WFR_SNPRINTF(							\
+		(pname), (pname_size),					\
+		"%s%s%s%s",						\
+		((dname) ? (dname) : ""),				\
+		((dname) ? "/" : ""),					\
+		(fname),						\
+		((ext) ? (ext) : ""))
+
+/*
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
@@ -106,6 +119,8 @@ WfrDeleteFile(
 		{
 			return status;
 		}
+	} else {
+		WFRP_SNPRINTF_PNAME(pname, sizeof(pname), dname, ext, fname);
 	}
 
 	if ((stat(pname, &statbuf) < 0)) {
@@ -426,8 +441,12 @@ WfrEscapeFileName(
 
 		if (WFR_STATUS_SUCCESS(status)) {
 			WFR_SNPRINTF(
-				fname, fname_size, "%s/%s%s%s",
-				dname, name_escaped, ext,
+				fname, fname_size,
+				"%s%s%s%s%s",
+				(dname ? dname : ""),
+				(dname ? "/" : ""),
+				name_escaped,
+				(ext ? ext : ""),
 				(tmpfl ? ".XXXXXX" : ""));
 		}
 	}
@@ -511,6 +530,7 @@ WfrLoadRawFile(
 			dname, ext, fname,
 			false, pname, sizeof(pname));
 	} else {
+		WFRP_SNPRINTF_PNAME(pname, sizeof(pname), dname, ext, fname);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -757,6 +777,8 @@ WfrRenameFile(
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	} else {
+		WFRP_SNPRINTF_PNAME(pname, sizeof(pname), dname, ext, fname);
+		WFRP_SNPRINTF_PNAME(pname_new, sizeof(pname_new), dname, ext, fname_new);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -877,6 +899,8 @@ WfrSaveRawFile(
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	} else {
+		WFRP_SNPRINTF_PNAME(pname, sizeof(pname), dname, ext, fname);
+		WFRP_SNPRINTF_PNAME(pname_tmp, sizeof(pname_tmp), dname_tmp, ext, fname);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
