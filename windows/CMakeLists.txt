@@ -92,6 +92,7 @@ set_source_files_properties(../PuTTie/winfrip_rtl_gdi.c PROPERTIES COMPILE_FLAGS
 set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_serialise.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_terminal.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage_backend_ephemeral.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -202,6 +203,7 @@ set_property(TARGET putty APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_rtl_pcre2.c
   ../PuTTie/winfrip_rtl_registry.c
   ../PuTTie/winfrip_rtl_serialise.c
+  ../PuTTie/winfrip_rtl_terminal.c
   ../PuTTie/winfrip_rtl_tree.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_backend_ephemeral.c
@@ -267,6 +269,7 @@ set_property(TARGET puttytel APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_rtl_pcre2.c
   ../PuTTie/winfrip_rtl_registry.c
   ../PuTTie/winfrip_rtl_serialise.c
+  ../PuTTie/winfrip_rtl_terminal.c
   ../PuTTie/winfrip_rtl_tree.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_backend_ephemeral.c
