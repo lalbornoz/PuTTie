@@ -82,10 +82,14 @@ you should use PuTTie:
    N.B. The random seed file ``PUTTY.RND`` stored beneath ``%LOCALAPPDATA%`` is still read from,
    if present, on startup and written to on exit due to security concerns, even when ephemeral storage
    is selected.
-9. **Persist Pageant private key file names across startups**, similarly to[[11](#r11)]  
+9. **Persist Pageant private key file names across startups**  
    A list of private key files is stored in file- or registry-based storage to persist key files
    added to Pageant across startups. This list is updated on adding or removing keys and may additionally
    be set from the command line by passing any number of path- or filenames to Pageant as arguments.
+  
+   This feature may be turned on or off (default) from Pageant's system tray menu.
+10. **Launch Pageant at Windows startup**  
+   This feature may be turned on or off (default) from Pageant's system tray menu.
 
 ## Jump list integration
 
