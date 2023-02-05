@@ -10,6 +10,7 @@
  * Public global options storage subroutine prototypes private to PuTTie/winfrip_storage*.c
  */
 
+WfrStatus	WfsCleanupOptions(WfsBackend backend);
 WfrStatus	WfsClearOptions(WfsBackend backend, bool delete_in_backend);
 WfrStatus	WfsCopyOption(WfsBackend backend_from, WfsBackend backend_to, const char *key);
 WfrStatus	WfsDeleteOption(WfsBackend backend, bool delete_in_backend, const char *key);
