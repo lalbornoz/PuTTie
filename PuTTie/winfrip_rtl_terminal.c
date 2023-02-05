@@ -339,7 +339,7 @@ WfrInitTermLinesURLWRegex(
 		if ((WfrpReMd = pcre2_match_data_create(1, NULL))) {
 			return WFR_STATUS_CONDITION_SUCCESS;
 		} else {
-			pcre2_code_free(WfrpRegex.code); WfrpRegex.code = NULL;
+			pcre2_code_free(WfrpReCode); WfrpReCode = NULL;
 			return WFR_STATUS_FROM_ERRNO1(ENOMEM);
 		}
 	} else {

@@ -500,6 +500,7 @@ WfspEphemeralGetEntriesPrivKeyList(
 		if (!(privkey_list_copy = WFR_NEWN(2, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
+			*pprivkey_list = privkey_list_copy;
 			(*pprivkey_list)[0] = '\0';
 			(*pprivkey_list)[1] = '\0';
 			if (pprivkey_list_size) {
