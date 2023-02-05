@@ -118,9 +118,10 @@ if (MINGW)
 set_source_files_properties(PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_rtl_load.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
-set_source_files_properties(PuTTie/winfrip_rtl_serialise.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_rtl_save.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_adapter.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -163,9 +164,10 @@ set_property(TARGET plink APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_file.c
+  PuTTie/winfrip_rtl_load.c
   PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_rtl_registry.c
-  PuTTie/winfrip_rtl_serialise.c
+  PuTTie/winfrip_rtl_save.c
   PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_adapter.c
@@ -206,9 +208,10 @@ set_property(TARGET pscp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_file.c
+  PuTTie/winfrip_rtl_load.c
   PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_rtl_registry.c
-  PuTTie/winfrip_rtl_serialise.c
+  PuTTie/winfrip_rtl_save.c
   PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_adapter.c
@@ -243,9 +246,10 @@ set_property(TARGET psftp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl.c
   PuTTie/winfrip_rtl_debug.c
   PuTTie/winfrip_rtl_file.c
+  PuTTie/winfrip_rtl_load.c
   PuTTie/winfrip_rtl_pcre2.c
   PuTTie/winfrip_rtl_registry.c
-  PuTTie/winfrip_rtl_serialise.c
+  PuTTie/winfrip_rtl_save.c
   PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_adapter.c
