@@ -122,6 +122,30 @@ WfrDeleteFile(
 }
 
 WfrStatus
+WfrDeleteFileW(
+	const wchar_t *		dname,
+	const wchar_t *		fname
+	)
+{
+	wchar_t		pname[MAX_PATH + 1];
+	struct _stat64	statbuf;
+	WfrStatus	status;
+
+
+	WFR_SNPRINTF_PNAMEW(pname, WFR_SIZEOF_WSTRING(pname), dname, fname);
+
+	if ((_wstat64(pname, &statbuf) < 0)) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (_wunlink(pname) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
+}
+
+WfrStatus
 WfrDeleteFiles(
 	const char *	dname,
 	const char *	ext

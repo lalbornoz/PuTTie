@@ -5,6 +5,8 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <limits.h>
+#include <wchar.h>
 
 #include <windows.h>
 

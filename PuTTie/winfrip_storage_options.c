@@ -70,14 +70,14 @@ WfsCopyOption(
 	WfspBackend *		backend_from_impl, *backend_to_impl;
 	size_t			option_size;
 	WfrTreeItemType		option_type;
-	const void *		option_value;
+	void *			option_value;
 	WfrStatus		status;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
 	&&  WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl))
-	&&  WFR_STATUS_SUCCESS(status = WfsGetOption(backend_from, key, NULL, 0, 0, &option_value, &option_size, &option_type))
-	&&  WFR_STATUS_SUCCESS(status = WfsSetOption(backend_to, key, option_value, option_size, option_type)))
+	&&  WFR_STATUS_SUCCESS(status = WfsGetOption(backend_from, key, &option_value, &option_size, &option_type))
+	&&  WFR_STATUS_SUCCESS(status = WfsSetOption(backend_to, key, false, option_value, option_size, option_type)))
 	{
 		status = backend_to_impl->SaveOptions(backend_to, backend_to_impl->tree_options);
 	}
@@ -204,10 +204,7 @@ WfrStatus
 WfsGetOption(
 	WfsBackend		backend,
 	const char *		key,
-	const void *		value_default,
-	size_t			value_default_size,
-	WfrTreeItemType		value_default_type,
-	const void **		pvalue,
+	void **			pvalue,
 	size_t *		pvalue_size,
 	WfrTreeItemType *	pvalue_type
 	)
@@ -229,19 +226,6 @@ WfsGetOption(
 			}
 			if (pvalue_type) {
 				*pvalue_type = item->type;
-			}
-		} else if ((WFR_STATUS_CONDITION(status) == ENOENT)
-			&& value_default
-			&& WFR_STATUS_SUCCESS(status = WfsSetOption(
-					backend, key, value_default,
-					value_default_size, value_default_type)))
-		{
-			*pvalue = value_default;
-			if (pvalue_size) {
-				*pvalue_size = value_default_size;
-			}
-			if (pvalue_type) {
-				*pvalue_type = value_default_type;
 			}
 		}
 	}
@@ -315,6 +299,7 @@ WfsSaveOptions(
 WfrStatus
 WfsSetOption(
 	WfsBackend		backend,
+	bool			set_in_backend,
 	const char *		key,
 	const void *		value,
 	size_t			value_size,
@@ -330,7 +315,9 @@ WfsSetOption(
 			backend_impl->tree_options, key, value_type,
 			(void *)value, value_size, WfrTreeFreeItem);
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_STATUS_SUCCESS(status)
+		&&  set_in_backend)
+		{
 			status = backend_impl->SaveOptions(backend, backend_impl->tree_options);
 		}
 	}

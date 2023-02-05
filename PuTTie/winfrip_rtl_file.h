@@ -41,12 +41,30 @@ typedef struct WfrEnumerateFilesState {
 		(pname), (pname_size),					\
 		"%s%s%s%s",						\
 		((dname) ? (dname) : ""),				\
-		((dname) ? "/" : ""),					\
+		((dname) ? "\\" : ""),					\
 		(fname),						\
 		((ext) ? (ext) : ""))
 
+#define WFR_SNPRINTF_PNAME_TMP(pname, pname_size, dname, ext, fname)	\
+	WFR_SNPRINTF(							\
+		(pname), (pname_size),					\
+		"%s%s%s%s.XXXXXX",					\
+		((dname) ? (dname) : ""),				\
+		((dname) ? "\\" : ""),					\
+		(fname),						\
+		((ext) ? (ext) : ""))
+
+#define WFR_SNPRINTF_PNAMEW(pname, pname_size, dname, fname)		\
+	WFR_SNWPRINTF(							\
+		(pname), (pname_size),					\
+		L"%S%S%S",						\
+		((dname) ? (dname) : L""),				\
+		((dname) ? L"\\" : L""),				\
+		(fname))
+
 WfrStatus	WfrDeleteDirectory(const char *path, bool noentfl, bool recursefl);
 WfrStatus	WfrDeleteFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname);
+WfrStatus	WfrDeleteFileW(const wchar_t *dname, const wchar_t *fname);
 WfrStatus	WfrDeleteFiles(const char *dname, const char *ext);
 WfrStatus	WfrEnumerateFiles(const char *ext, bool *pdonefl, const char **pfname, WfrEnumerateFilesState **pstate);
 void		WfrEnumerateFilesCancel(WfrEnumerateFilesState **pstate);

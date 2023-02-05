@@ -80,7 +80,7 @@
 
 #define WFR_RELEASE_IF_NOTNULL(p)							\
 	if ((p)) {									\
-		(void)(p)->Release(); (p) = NULL;					\
+		(void)(p)->lpVtbl->Release((p)); (p) = NULL;				\
 	}
 
 #define WFR_RESIZE(p, size, size_new, type) ({						\

@@ -13,6 +13,7 @@
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
+#include "PuTTie/winfrip_storage_options.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
@@ -266,6 +267,13 @@ WfsSetBackend(
 					status = WFR_STATUS_CONDITION_SUCCESS;
 				}
 			}
+		}
+
+		if (WFR_STATUS_SUCCESS(status)
+		&&  WFR_STATUS_SUCCESS(status = WfsClearOptions(new_backend, false))
+		&&  WFR_STATUS_SUCCESS(status = WfsLoadOptions(new_backend)))
+		{
+			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {

@@ -476,7 +476,7 @@ WfspRegistryLoadOptions(
 		WfspRegistryKey, WfspRegistrySubKeyOptionsName, &backend, NULL,
 		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_len) {
 			(void)param2;
-			return WfsSetOption(*(WfsBackend *)param1, key, value, value_len, type);
+			return WfsSetOption(*(WfsBackend *)param1, false, key, value, value_len, type);
 		}));
 }
 
