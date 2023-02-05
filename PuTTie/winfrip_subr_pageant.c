@@ -220,7 +220,6 @@ WfPageantUpdateSessions(
 	const char *	error_context;
 	int		idx_menu;
 	MENUITEMINFO	mii;
-	int		nentries;
 	char *		sessionname;
 	char *		sessionname_new = NULL;
 	WfrStatus	status;
@@ -239,10 +238,12 @@ WfPageantUpdateSessions(
 		goto out;
 	}
 
-	for(nentries = GetMenuItemCount(session_menu);
-	    nentries > initial_menuitems_count;
-	    nentries--);
-	RemoveMenu(session_menu, 0, MF_BYPOSITION);
+	for (int nentry = GetMenuItemCount(session_menu);
+	     nentry > initial_menuitems_count;
+	     nentry--)
+	{
+		(void)RemoveMenu(session_menu, nentry, MF_BYPOSITION);
+	}
 
 	error_context = "enumerating sessions";
 	idx_menu = 0;
