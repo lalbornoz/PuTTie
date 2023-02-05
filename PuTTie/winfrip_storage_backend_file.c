@@ -257,39 +257,6 @@ WfspFileLoadHostCA(
 		WFSP_FILE_LHCA_BIT_VALIDITY_EXPRESSION	= 4,
 	};
 
-
-	WfrLoadParseItemFn	item_fn =
-		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
-			WfsHostCA *			hca = (WfsHostCA *)param1;
-			enum WfspFileLHCABits *		bits = (enum WfspFileLHCABits *)param2;
-			WfrStatus			status;
-
-			(void)value_size;
-			if (	   (strcmp(key, "PublicKey") == 0) && (type == WFR_TREE_ITYPE_STRING)) {
-				*bits |= WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY;
-				hca->public_key = value;
-			} else if ((strcmp(key, "PermitRSASHA1") == 0) && (type == WFR_TREE_ITYPE_INT)) {
-				*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA1;
-				hca->permit_rsa_sha1 = *(int *)value;
-				WFR_FREE(value);
-			} else if ((strcmp(key, "PermitRSASHA256") == 0) && (type == WFR_TREE_ITYPE_INT)) {
-				*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA256;
-				hca->permit_rsa_sha256 = *(int *)value;
-				WFR_FREE(value);
-			} else if ((strcmp(key, "PermitRSASHA512") == 0) && (type == WFR_TREE_ITYPE_INT)) {
-				*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA512;
-				hca->permit_rsa_sha512 = *(int *)value;
-				WFR_FREE(value);
-			} else if ((strcmp(key, "Validity") == 0) && (type == WFR_TREE_ITYPE_STRING)) {
-				*bits |= WFSP_FILE_LHCA_BIT_VALIDITY_EXPRESSION;
-				hca->validity = value;
-			} else {
-				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-			}
-
-			return status;
-		});
-
 	enum WfspFileLHCABits	bits = 0;
 	WfsHostCA *		hca;
 	char *			hca_data = NULL;
@@ -312,7 +279,38 @@ WfspFileLoadHostCA(
 			}
 		}
 
-		status = WfrLoadParse(hca_data, hca_data_size, item_fn, &hca_tmpl, &bits);
+		status = WfrLoadParse(
+			hca_data, hca_data_size, &hca_tmpl, &bits,
+			WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
+				WfsHostCA *			hca = (WfsHostCA *)param1;
+				enum WfspFileLHCABits *		bits = (enum WfspFileLHCABits *)param2;
+				WfrStatus			status;
+
+				(void)value_size;
+				if (	   (strcmp(key, "PublicKey") == 0) && (type == WFR_TREE_ITYPE_STRING)) {
+					*bits |= WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY;
+					hca->public_key = value;
+				} else if ((strcmp(key, "PermitRSASHA1") == 0) && (type == WFR_TREE_ITYPE_INT)) {
+					*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA1;
+					hca->permit_rsa_sha1 = *(int *)value;
+					WFR_FREE(value);
+				} else if ((strcmp(key, "PermitRSASHA256") == 0) && (type == WFR_TREE_ITYPE_INT)) {
+					*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA256;
+					hca->permit_rsa_sha256 = *(int *)value;
+					WFR_FREE(value);
+				} else if ((strcmp(key, "PermitRSASHA512") == 0) && (type == WFR_TREE_ITYPE_INT)) {
+					*bits |= WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA512;
+					hca->permit_rsa_sha512 = *(int *)value;
+					WFR_FREE(value);
+				} else if ((strcmp(key, "Validity") == 0) && (type == WFR_TREE_ITYPE_STRING)) {
+					*bits |= WFSP_FILE_LHCA_BIT_VALIDITY_EXPRESSION;
+					hca->validity = value;
+				} else {
+					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+				}
+
+				return status;
+			}));
 	}
 
 out:
@@ -517,12 +515,6 @@ WfspFileLoadOptions(
 	WfsBackend	backend
 	)
 {
-	WfrLoadParseItemFn	item_fn =
-		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
-			(void)param2;
-			return WfsSetOption(*(WfsBackend *)param1, key, value, value_size, type);
-		});
-
 	char *			options_data = NULL;
 	size_t			options_data_size;
 	WfrStatus		status;
@@ -532,7 +524,12 @@ WfspFileLoadOptions(
 			false, NULL, NULL, WfsppFileFnameOptions,
 			&options_data, &options_data_size, NULL)))
 	{
-		status = WfrLoadParse(options_data, options_data_size, item_fn, &backend, NULL);
+		status = WfrLoadParse(
+			options_data, options_data_size, &backend, NULL,
+			WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
+				(void)param2;
+				return WfsSetOption(*(WfsBackend *)param1, key, value, value_size, type);
+			}));
 	}
 
 	WFR_FREE_IF_NOTNULL(options_data);
@@ -639,12 +636,6 @@ WfspFileLoadSession(
 	WfsSession **	psession
 	)
 {
-	WfrLoadParseItemFn	item_fn =
-		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
-			(void)param2;
-			return WfsSetSessionKey((WfsSession *)param1, key, (void *)value, value_size, type);
-		});
-
 	bool			addedfl = false;
 	time_t			mtime;
 	WfsSession *		session = NULL;
@@ -671,7 +662,12 @@ WfspFileLoadSession(
 			addedfl = WFR_STATUS_SUCCESS(status);
 		}
 
-		status = WfrLoadParse(session_data, session_data_size, item_fn, session, NULL);
+		status = WfrLoadParse(
+			session_data, session_data_size, session, NULL,
+			WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
+				(void)param2;
+				return WfsSetSessionKey((WfsSession *)param1, key, (void *)value, value_size, type);
+			}));
 	}
 
 out:

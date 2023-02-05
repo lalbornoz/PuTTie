@@ -141,9 +141,9 @@ WfrStatus
 WfrLoadRegSubKey(
 	const char *		key_name,
 	const char *		subkey,
-	WfrLoadRegSubKeyItemFn	item_fn,
 	void *			param1,
-	void *			param2
+	void *			param2,
+	WfrLoadRegSubKeyItemFn	item_fn
 	)
 {
 	bool			donefl;
@@ -198,9 +198,9 @@ WfrStatus
 WfrLoadParse(
 	char *			data,
 	size_t			data_size,
-	WfrLoadParseItemFn	item_fn,
 	void *			param1,
-	void *			param2
+	void *			param2,
+	WfrLoadParseItemFn	item_fn
 	)
 {
 	char *			key;

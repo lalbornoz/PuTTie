@@ -354,8 +354,16 @@ WfspRegistryLoadHostCA(
 		WFSP_FILE_LHCA_BIT_VALIDITY_EXPRESSION	= 4,
 	};
 
+	enum WfspFileLHCABits	bits = 0;
+	WfsHostCA *		hca;
+	WfsHostCA		hca_tmpl;
+	WfrStatus		status;
 
-	WfrLoadRegSubKeyItemFn	item_fn =
+
+	WFS_HOST_CA_INIT(hca_tmpl);
+
+	status = WfrLoadRegSubKey(
+		WfspRegistrySubKeyHostCAs, name, &hca_tmpl, &bits,
 		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_len) {
 			WfsHostCA *			hca = (WfsHostCA *)param1;
 			enum WfspFileLHCABits *		bits = (enum WfspFileLHCABits *)param2;
@@ -386,19 +394,9 @@ WfspRegistryLoadHostCA(
 
 			return status;
 
-		});
+		}));
 
-	enum WfspFileLHCABits	bits = 0;
-	WfsHostCA *		hca;
-	WfsHostCA		hca_tmpl;
-	WfrStatus		status;
-
-
-	WFS_HOST_CA_INIT(hca_tmpl);
-
-	if (WFR_STATUS_SUCCESS(status = WfrLoadRegSubKey(
-			WfspRegistrySubKeyHostCAs, name, item_fn, &hca_tmpl, &bits)))
-	{
+	if (WFR_STATUS_SUCCESS(status)) {
 		if (bits !=
 		    ( WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY
 		    | WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA1
@@ -471,22 +469,14 @@ WfspRegistryLoadOptions(
 	WfsBackend	backend
 	)
 {
-	WfrLoadRegSubKeyItemFn	item_fn =
+	(void)backend;
+
+	return WfrLoadRegSubKey(
+		WfspRegistryKey, WfspRegistrySubKeyOptionsName, &backend, NULL,
 		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_len) {
 			(void)param2;
 			return WfsSetOption(*(WfsBackend *)param1, key, value, value_len, type);
-		});
-
-	WfrStatus	status;
-
-
-	(void)backend;
-
-	status = WfrLoadRegSubKey(
-		WfspRegistryKey, WfspRegistrySubKeyOptionsName,
-		item_fn, &backend, NULL);
-
-	return status;
+		}));
 }
 
 WfrStatus
@@ -579,12 +569,6 @@ WfspRegistryLoadSession(
 	WfsSession **	psession
 	)
 {
-	WfrLoadRegSubKeyItemFn	item_fn =
-		WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_len) {
-			(void)param2;
-			return WfsSetSessionKey((WfsSession *)param1, key, (void *)value, value_len, type);
-		});
-
 	bool			addedfl = false;
 	WfsSession *		session = NULL;
 	WfrStatus		status;
@@ -601,9 +585,11 @@ WfspRegistryLoadSession(
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		status = WfrLoadRegSubKey(
-			WfspRegistrySubKeySessions, sessionname,
-			item_fn, session, NULL);
-
+			WfspRegistrySubKeySessions, sessionname, session, NULL,
+			WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_len) {
+				(void)param2;
+				return WfsSetSessionKey((WfsSession *)param1, key, (void *)value, value_len, type);
+			}));
 	}
 
 	if (WFR_STATUS_SUCCESS(status) && psession) {
