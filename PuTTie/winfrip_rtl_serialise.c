@@ -21,6 +21,19 @@
 #include "PuTTie/winfrip_rtl_pcre2.h"
 
 /*
+ * Private macros
+ */
+
+#define WFRP_SNPRINTF_PNAME(pname, pname_size, dname, ext, fname)	\
+	WFR_SNPRINTF(							\
+		(pname), (pname_size),					\
+		"%s%s%s%s",						\
+		((dname) ? (dname) : ""),				\
+		((dname) ? "/" : ""),					\
+		(fname),						\
+		((ext) ? (ext) : ""))
+
+/*
  * Private types
  */
 
@@ -60,6 +73,7 @@ static bool		WfrpRegexInitialised = false;
  */
 
 static WfrStatus	WfrpInitRegex(void);
+static WfrStatus	WfrpMapPcre2TypeToTreeType(Wfp2RType pcre2_type, WfrTreeItemTypeBase *ptree_item_type);
 
 /*
  * Private subroutines
@@ -99,6 +113,24 @@ WfrpInitRegex(
 	}
 
 	return status;
+}
+
+static WfrStatus
+WfrpMapPcre2TypeToTreeType(
+	Wfp2RType		pcre2_type,
+	WfrTreeItemTypeBase *	ptree_item_type
+	)
+{
+	switch (pcre2_type) {
+	default:
+		return WFR_STATUS_FROM_ERRNO1(EINVAL);
+	case WFP2_RTYPE_INT:
+		*ptree_item_type = WFR_TREE_ITYPE_INT;
+		return WFR_STATUS_CONDITION_SUCCESS;
+	case WFP2_RTYPE_STRING:
+		*ptree_item_type = WFR_TREE_ITYPE_STRING;
+		return WFR_STATUS_CONDITION_SUCCESS;
+	}
 }
 
 /*
@@ -181,6 +213,7 @@ WfrLoadParse(
 	int			nmatches_count;
 	char *			p;
 	WfrStatus		status;
+	WfrTreeItemTypeBase	tree_item_type;
 	Wfp2RType		type;
 	char *			type_string;
 	size_t			type_string_size;
@@ -250,11 +283,16 @@ WfrLoadParse(
 
 					WFR_FREE(type_string);
 
-					if (WFR_STATUS_SUCCESS(status)) {
-						status = item_fn(param1, param2, key, type, value, value_size);
+					if (WFR_STATUS_SUCCESS(status)
+					&&  WFR_STATUS_SUCCESS(WfrpMapPcre2TypeToTreeType(type, &tree_item_type)))
+					{
+						status = item_fn(param1, param2, key, tree_item_type, value, value_size);
 					}
 
-					WFR_FREE_IF_NOTNULL(key);
+					WFR_FREE(key);
+					if (WFR_STATUS_FAILURE(status)) {
+						WFR_FREE_IF_NOTNULL(value);
+					}
 				}
 			}
 
@@ -274,25 +312,8 @@ WfrLoadParse(
 }
 
 WfrStatus
-WfrMapPcre2TypeToTreeType(
-	Wfp2RType		pcre2_type,
-	WfrTreeItemTypeBase *	ptree_item_type
-	)
-{
-	switch (pcre2_type) {
-	default:
-		return WFR_STATUS_FROM_ERRNO1(EINVAL);
-	case WFP2_RTYPE_INT:
-		*ptree_item_type = WFR_TREE_ITYPE_INT;
-		return WFR_STATUS_CONDITION_SUCCESS;
-	case WFP2_RTYPE_STRING:
-		*ptree_item_type = WFR_TREE_ITYPE_STRING;
-		return WFR_STATUS_CONDITION_SUCCESS;
-	}
-}
-
-WfrStatus
 WfrSaveToFileV(
+	bool		escape_fnamefl,
 	char *		dname,
 	const char *	ext,
 	const char *	fname,
@@ -313,7 +334,7 @@ WfrSaveToFileV(
 	const char *		value;
 
 
-	if (stat(dname, &statbuf) < 0) {
+	if (dname && (stat(dname, &statbuf) < 0)) {
 		status = WFR_STATUS_FROM_ERRNO();
 		if (WFR_STATUS_CONDITION(status) == ENOENT) {
 			status = WfrMakeDirectory(dname, true);
@@ -328,12 +349,17 @@ WfrSaveToFileV(
 		dname_tmp = "./";
 	}
 
-	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
-			dname, ext, fname, false, fname_full, sizeof(fname_full)))
-	||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
-			dname_tmp, ext, fname, true, fname_tmp, sizeof(fname_tmp))))
-	{
-		return status;
+	if (escape_fnamefl) {
+		if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+				dname, ext, fname, false, fname_full, sizeof(fname_full)))
+		||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+				dname_tmp, ext, fname, true, fname_tmp, sizeof(fname_tmp))))
+		{
+			return status;
+		}
+	} else {
+		WFRP_SNPRINTF_PNAME(fname_full, sizeof(fname_full), dname, ext, fname);
+		WFRP_SNPRINTF_PNAME(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
 	}
 
 	if ((fd = mkstemp(fname_tmp)) < 0) {
@@ -461,6 +487,7 @@ WfrSaveToRegSubKeyV(
 
 WfrStatus
 WfrSaveTreeToFile(
+	bool		escape_fnamefl,
 	char *		dname,
 	const char *	ext,
 	const char *	fname,
@@ -478,7 +505,7 @@ WfrSaveTreeToFile(
 	WfrStatus	status;
 
 
-	if (stat(dname, &statbuf) < 0) {
+	if (dname && (stat(dname, &statbuf) < 0)) {
 		status = WFR_STATUS_FROM_ERRNO();
 		if (WFR_STATUS_CONDITION(status) == ENOENT) {
 			status = WfrMakeDirectory(dname, true);
@@ -493,12 +520,17 @@ WfrSaveTreeToFile(
 		dname_tmp = "./";
 	}
 
-	if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
-			dname, ext, fname, false, fname_full, sizeof(fname_full)))
-	||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
-			dname_tmp, ext, fname, true, fname_tmp, sizeof(fname_tmp))))
-	{
-		return status;
+	if (escape_fnamefl) {
+		if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+				dname, ext, fname, false, fname_full, sizeof(fname_full)))
+		||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+				dname_tmp, ext, fname, true, fname_tmp, sizeof(fname_tmp))))
+		{
+			return status;
+		}
+	} else {
+		WFRP_SNPRINTF_PNAME(fname_full, sizeof(fname_full), dname, ext, fname);
+		WFRP_SNPRINTF_PNAME(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
 	}
 
 	if ((fd = mkstemp(fname_tmp)) < 0) {

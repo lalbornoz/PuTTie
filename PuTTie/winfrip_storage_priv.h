@@ -37,6 +37,10 @@ typedef struct WfspBackend {
 	WfrStatus	(*RenameHostKey)(WfsBackend, const char *, const char *);
 	WfrStatus	(*SaveHostKey)(WfsBackend, const char *, const char *);
 
+	WfrStatus	(*ClearOptions)(WfsBackend);
+	WfrStatus	(*LoadOptions)(WfsBackend);
+	WfrStatus	(*SaveOptions)(WfsBackend, WfrTree *);
+
 	WfrStatus	(*CleanupSessions)(WfsBackend);
 	WfrStatus	(*ClearSessions)(WfsBackend);
 	WfrStatus	(*CloseSession)(WfsBackend, WfsSession *);
@@ -65,12 +69,16 @@ typedef struct WfspBackend {
 	WfrStatus	(*Init)(void);
 	WfrStatus	(*SetBackend)(WfsBackend);
 
-	tree234 *	tree_host_ca, *tree_host_key, *tree_session;
+	tree234 *	tree_host_ca;
+	tree234 *	tree_host_key;
+	tree234 *	tree_options;
+	tree234 *	tree_session;
 } WfspBackend;
 
 #define WFSP_BACKEND_INIT(backend) ({		\
 	(backend).tree_host_ca = NULL;		\
 	(backend).tree_host_key = NULL;		\
+	(backend).tree_options = NULL;		\
 	(backend).tree_session = NULL;		\
 	WFR_STATUS_CONDITION_SUCCESS;		\
 })

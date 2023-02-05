@@ -14,15 +14,14 @@
  * Public subroutine prototypes private to PuTTie/winfrip*.c
  */
 
-typedef WfrStatus (*WfrLoadParseItemFn)(void *param1, void *param2, const char *key, Wfp2RType type, const void *value, size_t value_size);
+typedef WfrStatus (*WfrLoadParseItemFn)(void *param1, void *param2, const char *key, int type, const void *value, size_t value_size);
 typedef WfrStatus (*WfrLoadRegSubKeyItemFn)(void *param1, void *param2, const char *key, int type, const void *value, size_t value_len);
 
 WfrStatus	WfrLoadParse(char *data, size_t data_size, WfrLoadParseItemFn item_fn, void *param1, void *param2);
 WfrStatus	WfrLoadRegSubKey(const char *key_name, const char *subkey, WfrLoadRegSubKeyItemFn item_fn, void *param1, void *param2);
-WfrStatus	WfrMapPcre2TypeToTreeType(Wfp2RType pcre2_type, WfrTreeItemTypeBase *ptree_item_type);
-WfrStatus	WfrSaveToFileV(char *dname, const char *ext, const char *fname, ...);
+WfrStatus	WfrSaveToFileV(bool escape_fnamefl, char *dname, const char *ext, const char *fname, ...);
 WfrStatus	WfrSaveToRegSubKeyV(const char *key_name, const char *subkey, ...);
-WfrStatus	WfrSaveTreeToFile(char *dname, const char *ext, const char *fname, WfrTree *tree);
+WfrStatus	WfrSaveTreeToFile(bool escape_fnamefl, char *dname, const char *ext, const char *fname, WfrTree *tree);
 WfrStatus	WfrSaveTreeToRegSubKey(const char *key_name, const char *subkey, WfrTree *tree);
 
 #endif // !PUTTY_WINFRIP_RTL_SERIALISE_H

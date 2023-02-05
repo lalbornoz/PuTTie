@@ -22,6 +22,8 @@
 	WfspRegistryEnumerateHostKeys, WfspRegistryLoadHostKey, WfspRegistryRenameHostKey,		\
 	WfspRegistrySaveHostKey,									\
 													\
+	WfspRegistryClearOptions, WfspRegistryLoadOptions, WfspRegistrySaveOptions,			\
+													\
 	WfspRegistryCleanupSessions, WfspRegistryClearSessions, WfspRegistryCloseSession,		\
 	WfspRegistryDeleteSession, WfspRegistryEnumerateSessions, WfspRegistryLoadSession,		\
 	WfspRegistryRenameSession, WfspRegistrySaveSession,						\
@@ -54,6 +56,10 @@ WfrStatus	WfspRegistryEnumerateHostKeys(WfsBackend backend, bool initfl, bool *p
 WfrStatus	WfspRegistryLoadHostKey(WfsBackend backend, const char *key_name, const char **pkey);
 WfrStatus	WfspRegistryRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspRegistrySaveHostKey(WfsBackend backend, const char *key_name, const char *key);
+
+WfrStatus	WfspRegistryClearOptions(WfsBackend backend);
+WfrStatus	WfspRegistryLoadOptions(WfsBackend backend);
+WfrStatus	WfspRegistrySaveOptions(WfsBackend backend, WfrTree *backend_tree);
 
 WfrStatus	WfspRegistryCleanupSessions(WfsBackend backend);
 WfrStatus	WfspRegistryClearSessions(WfsBackend backend);

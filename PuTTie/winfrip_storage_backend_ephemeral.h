@@ -22,6 +22,8 @@
 	WfspEphemeralEnumerateHostKeys, WfspEphemeralLoadHostKey, WfspEphemeralRenameHostKey,		\
 	WfspEphemeralSaveHostKey,									\
 													\
+	WfspEphemeralClearOptions, WfspEphemeralLoadOptions, WfspEphemeralSaveOptions,			\
+													\
 	WfspEphemeralCleanupSessions, WfspEphemeralClearSessions, WfspEphemeralCloseSession,		\
 	WfspEphemeralDeleteSession, WfspEphemeralEnumerateSessions, WfspEphemeralLoadSession,		\
 	WfspEphemeralRenameSession, WfspEphemeralSaveSession,						\
@@ -54,6 +56,10 @@ WfrStatus	WfspEphemeralEnumerateHostKeys(WfsBackend backend, bool initfl, bool *
 WfrStatus	WfspEphemeralLoadHostKey(WfsBackend backend, const char *key_name, const char **pkey);
 WfrStatus	WfspEphemeralRenameHostKey(WfsBackend backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfspEphemeralSaveHostKey(WfsBackend backend, const char *key_name, const char *key);
+
+WfrStatus	WfspEphemeralClearOptions(WfsBackend backend);
+WfrStatus	WfspEphemeralLoadOptions(WfsBackend backend);
+WfrStatus	WfspEphemeralSaveOptions(WfsBackend backend, WfrTree *backend_tree);
 
 WfrStatus	WfspEphemeralCleanupSessions(WfsBackend backend);
 WfrStatus	WfspEphemeralClearSessions(WfsBackend backend);

@@ -10,6 +10,7 @@
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
+#include "PuTTie/winfrip_storage_options.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
@@ -215,6 +216,37 @@ WfspEphemeralSaveHostKey(
 	(void)backend;
 	(void)key_name;
 	(void)key;
+
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
+
+WfrStatus
+WfspEphemeralClearOptions(
+	WfsBackend	backend
+	)
+{
+	(void)backend;
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
+WfrStatus
+WfspEphemeralLoadOptions(
+	WfsBackend	backend
+	)
+{
+	(void)backend;
+	return WFR_STATUS_CONDITION_SUCCESS;
+}
+
+WfrStatus
+WfspEphemeralSaveOptions(
+	WfsBackend	backend,
+	WfrTree *	backend_tree
+	)
+{
+	(void)backend;
+	(void)backend_tree;
 
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
