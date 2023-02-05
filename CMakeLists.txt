@@ -123,6 +123,10 @@ set_source_files_properties(PuTTie/winfrip_rtl_registry.c PROPERTIES COMPILE_FLA
 set_source_files_properties(PuTTie/winfrip_rtl_serialise.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_adapter.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_adapter_host_ca.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_adapter_host_keys.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_storage_adapter_sessions.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_backend_ephemeral.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_backend_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_backend_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -132,7 +136,6 @@ set_source_files_properties(PuTTie/winfrip_storage_jump_list.c PROPERTIES COMPIL
 set_source_files_properties(PuTTie/winfrip_storage_options.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_priv.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_privkey_list.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
-set_source_files_properties(PuTTie/winfrip_storage_putty_adapter.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_sessions.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 
 if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
@@ -165,6 +168,10 @@ set_property(TARGET plink APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_serialise.c
   PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
+  PuTTie/winfrip_storage_adapter.c
+  PuTTie/winfrip_storage_adapter_host_ca.c
+  PuTTie/winfrip_storage_adapter_host_keys.c
+  PuTTie/winfrip_storage_adapter_sessions.c
   PuTTie/winfrip_storage_backend_ephemeral.c
   PuTTie/winfrip_storage_backend_file.c
   PuTTie/winfrip_storage_backend_registry.c
@@ -174,7 +181,6 @@ set_property(TARGET plink APPEND PROPERTY SOURCES
   PuTTie/winfrip_storage_options.c
   PuTTie/winfrip_storage_priv.c
   PuTTie/winfrip_storage_privkey_list.c
-  PuTTie/winfrip_storage_putty_adapter.c
   PuTTie/winfrip_storage_sessions.c)
 endif()
 # winfrip }}}
@@ -205,6 +211,10 @@ set_property(TARGET pscp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_serialise.c
   PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
+  PuTTie/winfrip_storage_adapter.c
+  PuTTie/winfrip_storage_adapter_host_ca.c
+  PuTTie/winfrip_storage_adapter_host_keys.c
+  PuTTie/winfrip_storage_adapter_sessions.c
   PuTTie/winfrip_storage_backend_ephemeral.c
   PuTTie/winfrip_storage_backend_file.c
   PuTTie/winfrip_storage_backend_registry.c
@@ -214,7 +224,6 @@ set_property(TARGET pscp APPEND PROPERTY SOURCES
   PuTTie/winfrip_storage_options.c
   PuTTie/winfrip_storage_priv.c
   PuTTie/winfrip_storage_privkey_list.c
-  PuTTie/winfrip_storage_putty_adapter.c
   PuTTie/winfrip_storage_sessions.c)
 endif()
 # winfrip }}}
@@ -239,6 +248,10 @@ set_property(TARGET psftp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_serialise.c
   PuTTie/winfrip_rtl_tree.c
   PuTTie/winfrip_storage.c
+  PuTTie/winfrip_storage_adapter.c
+  PuTTie/winfrip_storage_adapter_host_ca.c
+  PuTTie/winfrip_storage_adapter_host_keys.c
+  PuTTie/winfrip_storage_adapter_sessions.c
   PuTTie/winfrip_storage_backend_ephemeral.c
   PuTTie/winfrip_storage_backend_file.c
   PuTTie/winfrip_storage_backend_registry.c
@@ -248,7 +261,6 @@ set_property(TARGET psftp APPEND PROPERTY SOURCES
   PuTTie/winfrip_storage_options.c
   PuTTie/winfrip_storage_priv.c
   PuTTie/winfrip_storage_privkey_list.c
-  PuTTie/winfrip_storage_putty_adapter.c
   PuTTie/winfrip_storage_sessions.c)
 endif()
 # winfrip }}}
