@@ -134,7 +134,7 @@ WfrSaveRawFile(
 		}
 	} else {
 		WFR_SNPRINTF_PNAME(pname, sizeof(pname), dname, ext, fname);
-		WFR_SNPRINTF_PNAME(pname_tmp, sizeof(pname_tmp), dname_tmp, ext, fname);
+		WFR_SNPRINTF_PNAME_TMP(pname_tmp, sizeof(pname_tmp), dname_tmp, ext, fname);
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -225,7 +225,7 @@ WfrSaveToFileV(
 		}
 	} else {
 		WFR_SNPRINTF_PNAME(fname_full, sizeof(fname_full), dname, ext, fname);
-		WFR_SNPRINTF_PNAME(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
+		WFR_SNPRINTF_PNAME_TMP(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
 	}
 
 	if ((fd = mkstemp(fname_tmp)) < 0) {
@@ -396,7 +396,7 @@ WfrSaveTreeToFile(
 		}
 	} else {
 		WFR_SNPRINTF_PNAME(fname_full, sizeof(fname_full), dname, ext, fname);
-		WFR_SNPRINTF_PNAME(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
+		WFR_SNPRINTF_PNAME_TMP(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
 	}
 
 	if ((fd = mkstemp(fname_tmp)) < 0) {

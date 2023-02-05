@@ -103,7 +103,7 @@ WfsppFileInitAppDataSubdir(
 			"%s/sessions", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileFnameOptions, sizeof(WfsppFileFnameOptions),
-			"%s/options.ini", WfsppFileDname);
+			"options.ini");
 		WFR_SNPRINTF(
 			WfsppFileFnameJumpList, sizeof(WfsppFileFnameJumpList),
 			"%s/jump.list", WfsppFileDname);
@@ -508,7 +508,7 @@ WfspFileClearOptions(
 	)
 {
 	(void)backend;
-	return WfrDeleteFile(false, NULL, NULL, WfsppFileFnameOptions);
+	return WfrDeleteFile(false, WfsppFileDname, NULL, WfsppFileFnameOptions);
 }
 
 WfrStatus
@@ -522,14 +522,14 @@ WfspFileLoadOptions(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfrLoadRawFile(
-			false, NULL, NULL, WfsppFileFnameOptions,
+			false, WfsppFileDname, NULL, WfsppFileFnameOptions,
 			&options_data, &options_data_size, NULL)))
 	{
 		status = WfrLoadParse(
 			options_data, options_data_size, &backend, NULL,
 			WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
 				(void)param2;
-				return WfsSetOption(*(WfsBackend *)param1, key, value, value_size, type);
+				return WfsSetOption(*(WfsBackend *)param1, false, key, value, value_size, type);
 			}));
 	}
 
@@ -545,7 +545,7 @@ WfspFileSaveOptions(
 	)
 {
 	(void)backend;
-	return WfrSaveTreeToFile(false, NULL, NULL, WfsppFileFnameOptions, backend_tree);
+	return WfrSaveTreeToFile(false, WfsppFileDname, NULL, WfsppFileFnameOptions, backend_tree);
 }
 
 

@@ -16,7 +16,7 @@
 
 #include "winfrip_rtl.h"
 #include "winfrip_rtl_file.h"
-#include "winfrip_rtl_shortcut.hpp"
+#include "winfrip_rtl_shortcut.h"
 
 /*
  * Private constants

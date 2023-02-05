@@ -93,6 +93,7 @@ set_source_files_properties(../PuTTie/winfrip_rtl_load.c PROPERTIES COMPILE_FLAG
 set_source_files_properties(../PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_save.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_shortcut.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_terminal.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -145,6 +146,7 @@ set_property(TARGET pageant APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_rtl_pcre2.c
   ../PuTTie/winfrip_rtl_registry.c
   ../PuTTie/winfrip_rtl_save.c
+  ../PuTTie/winfrip_rtl_shortcut.c
   ../PuTTie/winfrip_rtl_tree.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_adapter.c
@@ -168,6 +170,9 @@ add_dependencies(pageant generated_licence_h)
 target_link_libraries(pageant
   guimisc eventloop agent network crypto utils
   ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
+  # {{{ winfrip
+  shlwapi.lib
+  # winfrip }}}
   ${platform_libraries})
 set_target_properties(pageant PROPERTIES
   WIN32_EXECUTABLE ON

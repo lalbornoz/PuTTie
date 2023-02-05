@@ -16,14 +16,17 @@ typedef struct CommandLineKey {
 	bool		add_encrypted;
 } CommandLineKey;
 
-void WfPageantAddKey(bool encrypted, Filename *fn, int (*win_add_keyfile)(Filename *, bool));
-void WfPageantAddKeysFromCmdLine(bool add_keys_encrypted, CommandLineKey *clkeys, size_t nclkeys, int (*win_add_keyfile)(Filename *, bool));
-void WfPageantAppendCmdLineBackendArgString(TCHAR *cmdline, size_t cmdline_size);
-void WfPageantAppendParamBackendArgString(TCHAR *param, size_t param_size);
-void WfPageantDeleteAllKeys(void (*pageant_delete_all)(void));
-void WfPageantDeleteKey(int nkey, bool (*pageant_delete_nth_key)(int), const char *(*pageant_get_nth_key_path)(int));
-void WfPageantInit(LPSTR *pcmdline);
-void WfPageantUpdateSessions(UINT idm_sessions_base, int initial_menuitems_count, char *putty_default, char *putty_path, HMENU session_menu);
+void	WfPageantAddKey(bool encrypted, Filename *fn, int (*win_add_keyfile)(Filename *, bool));
+void	WfPageantAddKeysFromCmdLine(bool add_keys_encrypted, CommandLineKey *clkeys, size_t nclkeys, int (*win_add_keyfile)(Filename *, bool));
+void	WfPageantAppendCmdLineBackendArgString(TCHAR *cmdline, size_t cmdline_size);
+void	WfPageantAppendParamBackendArgString(TCHAR *param, size_t param_size);
+void	WfPageantCommandLaunchAtStartup(HMENU systray_menu, UINT_PTR idm_launch_at_startup);
+void	WfPageantCommandPersistKeys(HMENU systray_menu, UINT_PTR idm_persist_keys);
+void	WfPageantDeleteAllKeys(void (*pageant_delete_all)(void));
+void	WfPageantDeleteKey(int nkey, bool (*pageant_delete_nth_key)(int), const char *(*pageant_get_nth_key_path)(int));
+void	WfPageantInit(LPSTR *pcmdline);
+void	WfPageantInitSysTrayMenu(HMENU systray_menu, UINT_PTR idm_launch_at_startup, UINT_PTR idm_persist_keys);
+void	WfPageantUpdateSessions(UINT idm_sessions_base, int initial_menuitems_count, char *putty_default, char *putty_path, HMENU session_menu);
 
 #endif // !PUTTY_WINFRIP_SUBR_PAGEANT_H
 

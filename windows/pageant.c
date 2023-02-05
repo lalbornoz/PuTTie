@@ -77,6 +77,10 @@ static filereq *keypath = NULL;
 #define IDM_ADDKEY_ENCRYPTED   0x0040
 #define IDM_REMOVE_ALL         0x0050
 #define IDM_REENCRYPT_ALL      0x0060
+/* {{{ winfrip */
+#define IDM_LAUNCH_AT_STARTUP  0x0100
+#define IDM_PERSIST_KEYS       0x0110
+/* winfrip }}} */
 #define IDM_HELP               0x0070
 #define IDM_ABOUT              0x0080
 #define IDM_PUTTY              0x0090
@@ -1442,6 +1446,14 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
             pageant_reencrypt_all();
             keylist_update();
             break;
+          /* {{{ winfrip */
+          case IDM_LAUNCH_AT_STARTUP:
+	        WfPageantCommandLaunchAtStartup(systray_menu, IDM_LAUNCH_AT_STARTUP);
+            break;
+          case IDM_PERSIST_KEYS:
+	        WfPageantCommandPersistKeys(systray_menu, IDM_PERSIST_KEYS);
+            break;
+          /* winfrip }}} */
           case IDM_ABOUT:
             if (!aboutbox) {
                 aboutbox = CreateDialog(hinst, MAKEINTRESOURCE(IDD_ABOUT),
@@ -1989,6 +2001,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     AppendMenu(systray_menu, MF_ENABLED, IDM_REENCRYPT_ALL,
                "Re-encrypt All Keys");
     AppendMenu(systray_menu, MF_SEPARATOR, 0, 0);
+    /* {{{ winfrip */
+    WfPageantInitSysTrayMenu(systray_menu, IDM_LAUNCH_AT_STARTUP, IDM_PERSIST_KEYS);
+    /* winfrip }}} */
     if (has_help())
         AppendMenu(systray_menu, MF_ENABLED, IDM_HELP, "&Help");
     AppendMenu(systray_menu, MF_ENABLED, IDM_ABOUT, "&About");
