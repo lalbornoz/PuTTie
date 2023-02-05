@@ -17,8 +17,8 @@
 typedef WfrStatus (*WfrLoadParseItemFn)(void *param1, void *param2, const char *key, int type, const void *value, size_t value_size);
 typedef WfrStatus (*WfrLoadRegSubKeyItemFn)(void *param1, void *param2, const char *key, int type, const void *value, size_t value_len);
 
-WfrStatus	WfrLoadParse(char *data, size_t data_size, WfrLoadParseItemFn item_fn, void *param1, void *param2);
-WfrStatus	WfrLoadRegSubKey(const char *key_name, const char *subkey, WfrLoadRegSubKeyItemFn item_fn, void *param1, void *param2);
+WfrStatus	WfrLoadParse(char *data, size_t data_size, void *param1, void *param2, WfrLoadParseItemFn item_fn);
+WfrStatus	WfrLoadRegSubKey(const char *key_name, const char *subkey, void *param1, void *param2, WfrLoadRegSubKeyItemFn item_fn);
 WfrStatus	WfrSaveToFileV(bool escape_fnamefl, char *dname, const char *ext, const char *fname, ...);
 WfrStatus	WfrSaveToRegSubKeyV(const char *key_name, const char *subkey, ...);
 WfrStatus	WfrSaveTreeToFile(bool escape_fnamefl, char *dname, const char *ext, const char *fname, WfrTree *tree);
