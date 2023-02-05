@@ -61,6 +61,7 @@ WfspInit(
 
 		if (WFR_STATUS_SUCCESS(status = WfrTreeInit(&backend_impl->tree_host_ca))
 		&&  WFR_STATUS_SUCCESS(status = WfrTreeInit(&backend_impl->tree_host_key))
+		&&  WFR_STATUS_SUCCESS(status = WfrTreeInit(&backend_impl->tree_options))
 		&&  WFR_STATUS_SUCCESS(status = WfrTreeInit(&backend_impl->tree_session))
 		&&  WFR_STATUS_SUCCESS(status = backend_impl->Init()))
 		{
