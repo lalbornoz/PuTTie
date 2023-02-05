@@ -22,6 +22,22 @@
  */
 
 WfrStatus
+WfsCleanupOptions(
+	WfsBackend	backend
+	)
+{
+	WfspBackend *	backend_impl;
+	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+		status = WfsClearOptions(backend, true);
+	}
+
+	return status;
+}
+
+WfrStatus
 WfsClearOptions(
 	WfsBackend	backend,
 	bool		delete_in_backend
@@ -155,6 +171,7 @@ WfsExportOptions(
 	}
 
 	status = WfsEnumerateOptions(backend_from, true, &donefl, &key, &enum_state);
+
 	if (WFR_STATUS_SUCCESS(status)) {
 		do {
 			key = NULL;
@@ -165,9 +182,7 @@ WfsExportOptions(
 			}
 
 			if (WFR_STATUS_FAILURE(status)) {
-				if (error_fn) {
-					error_fn(key, status);
-				}
+				error_fn(key, status);
 			}
 		} while (!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
 	}

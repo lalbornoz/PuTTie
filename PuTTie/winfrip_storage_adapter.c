@@ -17,6 +17,7 @@
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
+#include "PuTTie/winfrip_storage_options.h"
 #include "PuTTie/winfrip_storage_privkey_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
@@ -43,6 +44,7 @@ cleanup_all(
 	(void)WfsCleanupSessions(backend);
 	(void)WfsCleanupJumpList(backend);
 	(void)WfsCleanupPrivKeyList(backend);
+	(void)WfsCleanupOptions(backend);
 	(void)WfsCleanupContainer(backend);
 }
 
