@@ -521,16 +521,20 @@ WfspFileLoadOptions(
 	WfrStatus		status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrLoadRawFile(
-			false, WfsppFileDname, NULL, WfsppFileFnameOptions,
-			&options_data, &options_data_size, NULL)))
-	{
-		status = WfrLoadParse(
-			options_data, options_data_size, &backend, NULL,
-			WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
-				(void)param2;
-				return WfsSetOption(*(WfsBackend *)param1, false, key, value, value_size, type);
-			}));
+	if (WFR_STATUS_SUCCESS(status = WfsClearOptions(backend, false))) {
+		if (WFR_STATUS_SUCCESS(status = WfrLoadRawFile(
+				false, WfsppFileDname, NULL, WfsppFileFnameOptions,
+				&options_data, &options_data_size, NULL)))
+		{
+			status = WfrLoadParse(
+				options_data, options_data_size, &backend, NULL,
+				WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_size) {
+					(void)param2;
+					return WfsSetOption(*(WfsBackend *)param1, false, key, value, value_size, type);
+				}));
+		} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
 	}
 
 	WFR_FREE_IF_NOTNULL(options_data);
