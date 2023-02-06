@@ -269,8 +269,9 @@ WfrTreeSet(
 	WfrTreeFreeItemFn	free_item_fn
 	)
 {
-	WfrTreeItem *	item = NULL, *item_old;
-	char *		key_new = NULL;
+	WfrTreeItem *	item = NULL;
+	WfrTreeItem	item_free;
+	char *		key_new;
 	WfrStatus	status;
 
 
@@ -278,33 +279,36 @@ WfrTreeSet(
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
 	}
 
-	if ((item = WFR_NEW(WfrTreeItem))
-	&&  (key_new = WFR_NEWN(strlen(key) + 1, char)))
-	{
-		WFR_TREE_ITEM_INIT(*item);
-		strcpy(key_new, key);
-		item->key = key_new;
+	status = WfrTreeGet(tree, key, WFR_TREE_ITYPE_ANY, &item);
+	if (WFR_STATUS_SUCCESS(status)) {
+		if (item->value != value) {
+			WFR_TREE_ITEM_INIT(item_free);
+			item_free.type = item->type;
+			item_free.value = item->value;
+			item_free.value_size = item->value_size;
+			free_item_fn(&item_free);
+
+			item->value = value;
+		}
+
 		item->type = type;
-		item->value = value;
 		item->value_size = value_size;
-
-		status = WfrTreeGet(tree, key, -1, &item_old);
-		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfrTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
-		} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-
-		if (WFR_STATUS_SUCCESS(status)) {
-			(void)add234(tree, item);
+	} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		if (!(item = WFR_NEW(WfrTreeItem))
+		||  !(key_new = WFR_NEWN(strlen(key) + 1, char)))
+		{
+			WFR_FREE_IF_NOTNULL(item);
+			status = WFR_STATUS_FROM_ERRNO();
 		} else {
-			free_item_fn(item);
-			WFR_FREE(item);
+			WFR_TREE_ITEM_INIT(*item);
+			strcpy(key_new, key);
+			item->key = key_new;
+			item->type = type;
+			item->value = value;
+			item->value_size = value_size;
+			status = WFR_STATUS_CONDITION_SUCCESS;
+			(void)add234(tree, item);
 		}
-	} else {
-		WFR_FREE_IF_NOTNULL(item);
-		WFR_FREE_IF_NOTNULL(key_new);
-		status = WFR_STATUS_FROM_ERRNO();
 	}
 
 	return status;
