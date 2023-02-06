@@ -829,7 +829,7 @@ WfspRegistryRemovePrivKeyList(
 	)
 {
 	return WfsppRegistryTransformList(
-		true, false, WfspRegistrySubKeyPrivKeyList,
+		false, true, WfspRegistrySubKeyPrivKeyList,
 		privkey_name, WfspRegistryValuePrivKeyList);
 }
 
