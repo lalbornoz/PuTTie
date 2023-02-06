@@ -242,7 +242,7 @@ WfspRegistryLoadHostKey(
 	if (WFR_STATUS_SUCCESS(status = WfrLoadRegValue(
 			WfspRegistrySubKeyHostKeys, key_name, (char **)pkey, NULL)))
 	{
-		status = WfsSetHostKey(backend, key_name, *pkey);
+		status = WfsSetHostKey(backend, false, key_name, *pkey);
 	}
 
 	return status;

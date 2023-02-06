@@ -327,6 +327,7 @@ WfsSaveHostKey(
 WfrStatus
 WfsSetHostKey(
 	WfsBackend	backend,
+	bool		set_in_backend,
 	const char *	key_name,
 	const char *	key
 	)
@@ -340,6 +341,10 @@ WfsSetHostKey(
 			backend_impl->tree_host_key, key_name,
 			WFR_TREE_ITYPE_HOST_KEY, (void *)key,
 			strlen(key) + 1, WfsTreeFreeItem);
+
+		if (set_in_backend && WFR_STATUS_SUCCESS(status)) {
+			status = backend_impl->SaveHostKey(backend, key_name, key);
+		}
 	}
 
 	return status;
