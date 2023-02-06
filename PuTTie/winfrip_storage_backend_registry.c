@@ -82,7 +82,7 @@ WfsppRegistryGetList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(
+	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(
 			HKEY_CURRENT_USER, &hKey, subkey))
 	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegGetValue(
 			hKey, NULL, value_name, RRF_RT_REG_MULTI_SZ,
