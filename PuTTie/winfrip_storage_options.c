@@ -77,8 +77,8 @@ WfsCopyOption(
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
 	&&  WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl))
-	&&  WFR_STATUS_SUCCESS(status = WfsGetOption(backend_from, key, &option_value, &option_size, &option_type))
-	&&  WFR_STATUS_SUCCESS(status = WfsSetOption(backend_to, false, key, option_value, option_size, option_type)))
+	&&  WFR_STATUS_SUCCESS(status = WfsGetOption(backend_from, key, NULL, &option_value, &option_size, &option_type))
+	&&  WFR_STATUS_SUCCESS(status = WfsSetOption(backend_to, true, false, key, option_value, option_size, option_type)))
 	{
 		if (save_in_backend) {
 			status = backend_to_impl->SaveOptions(backend_to, backend_to_impl->tree_options);
@@ -211,6 +211,7 @@ WfrStatus
 WfsGetOption(
 	WfsBackend		backend,
 	const char *		key,
+	WfrTreeItem **		pitem,
 	void **			pvalue,
 	size_t *		pvalue_size,
 	WfrTreeItemType *	pvalue_type
@@ -227,13 +228,74 @@ WfsGetOption(
 			WFR_TREE_ITYPE_ANY, &item);
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			*pvalue = item->value;
+			if (pitem) {
+				*pitem = item;
+			}
+			if (pvalue) {
+				*pvalue = item->value;
+			}
 			if (pvalue_size) {
 				*pvalue_size = item->value_size;
 			}
 			if (pvalue_type) {
 				*pvalue_type = item->type;
 			}
+		}
+	}
+
+	return status;
+}
+
+WfrStatus
+WfsGetOptionIntWithDefault(
+	WfsBackend		backend,
+	const char *		key,
+	int			value_default,
+	int *			pvalue
+	)
+{
+	int *		option_value;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsGetOptionWithDefault(
+			backend, key, &value_default, sizeof(value_default),
+			WFR_TREE_ITYPE_INT, (void **)&option_value, NULL, NULL)))
+	{
+		*pvalue = *option_value;
+	}
+
+	return status;
+}
+
+WfrStatus
+WfsGetOptionWithDefault(
+	WfsBackend		backend,
+	const char *		key,
+	void *			value_default,
+	size_t			value_default_size,
+	WfrTreeItemType		value_default_type,
+	void **			pvalue,
+	size_t *		pvalue_size,
+	WfrTreeItemType *	pvalue_type
+	)
+{
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_SUCCESS(status = WfsGetOption(
+			backend, key, NULL, pvalue, pvalue_size, pvalue_type)))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	} else if (WFR_STATUS_FAILURE(status)
+		&& (WFR_STATUS_CONDITION(status) == ENOENT))
+	{
+		status = WfsSetOption(
+			backend, true, true, key, value_default,
+			value_default_size, value_default_type);
+
+		if (WFR_STATUS_SUCCESS(status)) {
+			status = WfsGetOption(backend, key, NULL, pvalue, pvalue_size, pvalue_type);
 		}
 	}
 
@@ -306,6 +368,7 @@ WfsSaveOptions(
 WfrStatus
 WfsSetOption(
 	WfsBackend		backend,
+	bool			clone_value,
 	bool			set_in_backend,
 	const char *		key,
 	const void *		value,
@@ -314,13 +377,29 @@ WfsSetOption(
 	)
 {
 	WfspBackend *	backend_impl;
+	WfrTreeItem	item_clone;
 	WfrStatus	status;
+	void *		value_ptr;
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		status = WfrTreeSet(
-			backend_impl->tree_options, key, value_type,
-			(void *)value, value_size, WfsTreeFreeItem);
+		if (clone_value) {
+			WFR_TREE_ITEM_INIT(item_clone);
+			item_clone.type = value_type;
+			item_clone.value = (void *)value;
+			item_clone.value_size = value_size;
+
+			status = WfsTreeCloneValue(&item_clone, &value_ptr);
+		} else {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+			value_ptr = (void *)value;
+		}
+
+		if (WFR_STATUS_SUCCESS(status)) {
+			status = WfrTreeSet(
+				backend_impl->tree_options, key, value_type,
+				(void *)value_ptr, value_size, WfsTreeFreeItem);
+		}
 
 		if (WFR_STATUS_SUCCESS(status)
 		&&  set_in_backend)
