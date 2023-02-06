@@ -107,7 +107,7 @@ WfrSaveRawFile(
 
 	if (stat(dname, &statbuf) < 0) {
 		status = WFR_STATUS_FROM_ERRNO();
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			if (recreate_dnamefl) {
 				status = WfrMakeDirectory(dname, true);
 			}
@@ -202,7 +202,7 @@ WfrSaveToFileV(
 
 	if (dname && (stat(dname, &statbuf) < 0)) {
 		status = WFR_STATUS_FROM_ERRNO();
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WfrMakeDirectory(dname, true);
 		}
 		if (WFR_STATUS_FAILURE(status)) {
@@ -373,7 +373,7 @@ WfrSaveTreeToFile(
 
 	if (dname && (stat(dname, &statbuf) < 0)) {
 		status = WFR_STATUS_FROM_ERRNO();
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WfrMakeDirectory(dname, true);
 		}
 		if (WFR_STATUS_FAILURE(status)) {

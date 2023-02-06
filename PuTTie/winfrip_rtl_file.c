@@ -36,7 +36,7 @@ WfrDeleteDirectory(
 
 	if (rmdir(path) < 0) {
 		status = WFR_STATUS_FROM_ERRNO();
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			if (noentfl) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -165,7 +165,7 @@ WfrDeleteFiles(
 
 	if (stat(dname, &statbuf) < 0) {
 		status = WFR_STATUS_FROM_ERRNO();
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			return WFR_STATUS_CONDITION_SUCCESS;
 		} else {
 			return status;
@@ -332,7 +332,7 @@ WfrEnumerateFilesInit(
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (stat(dname, &statbuf) < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
-			if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			if (WFR_STATUS_IS_NOT_FOUND(status)) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		} else if (!((*pstate)->dirp = opendir(dname))) {

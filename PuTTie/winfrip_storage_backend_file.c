@@ -532,7 +532,7 @@ WfspFileLoadOptions(
 					(void)param2;
 					return WfsSetOption(*(WfsBackend *)param1, false, false, key, value, value_size, type);
 				}));
-		} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	}
@@ -662,7 +662,7 @@ WfspFileLoadSession(
 				status = WfsClearSession(backend, session, sessionname);
 				addedfl = false;
 			}
-		} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WfsAddSession(backend, sessionname, &session);
 			addedfl = WFR_STATUS_SUCCESS(status);
 		}
@@ -762,7 +762,7 @@ WfspFileGetEntriesJumpList(
 		WfsppFileFnameJumpList,
 		pjump_list, &jump_list_size);
 	if (WFR_STATUS_FAILURE(status)) {
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			if (!((*pjump_list = WFR_NEWN(2, char)))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
@@ -855,7 +855,7 @@ WfspFileGetEntriesPrivKeyList(
 		WfsppFileFnamePrivKeyList,
 		pprivkey_list, &privkey_list_size);
 	if (WFR_STATUS_FAILURE(status)) {
-		if (WFR_STATUS_CONDITION(status) == ENOENT) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			if (!((*pprivkey_list = WFR_NEWN(2, char)))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {

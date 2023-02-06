@@ -241,7 +241,7 @@ WfrTreeRename(
 			status = WfrTreeGet(tree, key_new, -1, &item_old);
 			if (WFR_STATUS_SUCCESS(status)) {
 				status = WfrTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
-			} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
+			} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 
@@ -293,7 +293,7 @@ WfrTreeSet(
 
 		item->type = type;
 		item->value_size = value_size;
-	} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
+	} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
 		if (!(item = WFR_NEW(WfrTreeItem))
 		||  !(key_new = WFR_NEWN(strlen(key) + 1, char)))
 		{

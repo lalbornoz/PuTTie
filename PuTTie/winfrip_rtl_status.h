@@ -41,18 +41,21 @@ typedef struct WfrStatus {
 } __attribute__((packed)) WfrStatus;
 
 /*
- * Constructors
+ * Base WfrStatus constructors and values
  */
 
 #define WFR_STATUS(facility, severity, condition)		\
 	(WfrStatus){__FILE__, __LINE__, (facility), (condition), (severity)}
 #define WFR_STATUS1(file, line, facility, severity, condition)	\
 	(WfrStatus){(file), (line), (facility), (condition), (severity)}
-
-#define WFR_STATUS_CONDITION_ERROR	\
+#define WFR_STATUS_CONDITION_ERROR				\
 	WFR_STATUS(WFR_STATUS_FACILITY_NONE, WFR_STATUS_SEVERITY_ERROR, WFR_STATUS_SEVERITY_SUCCESS)
-#define WFR_STATUS_CONDITION_SUCCESS	\
+#define WFR_STATUS_CONDITION_SUCCESS				\
 	WFR_STATUS1(NULL, 0, WFR_STATUS_FACILITY_NONE, WFR_STATUS_SEVERITY_SUCCESS, WFR_STATUS_SEVERITY_SUCCESS)
+
+/*
+ * Bind {LSTATUS,bool} expression to WfrStatus
+ */
 
 #define WFR_STATUS_BIND_LSTATUS(...) ({										\
 	LSTATUS		lstatus;										\
@@ -79,6 +82,11 @@ typedef struct WfrStatus {
 	status;													\
 })
 
+/*
+ * WfrStatus constructors from POSIX errno, GDI+ return codes, Windows results,
+ * Windows NT NTSTATUS, Windows COM HRESults, and PCRE2 error codes
+ */
+
 #define WFR_STATUS_FROM_ERRNO()				\
 	WFR_STATUS(WFR_STATUS_FACILITY_POSIX, WFR_STATUS_SEVERITY_ERROR, errno)
 #define WFR_STATUS_FROM_ERRNO1(errno_)			\
@@ -95,6 +103,26 @@ typedef struct WfrStatus {
 	WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, (WfrStatusCondition)(hres))
 #define WFR_STATUS_FROM_PCRE2(condition, severity)	\
 	WFR_STATUS(WFR_STATUS_FACILITY_PCRE2, (severity), (condition))
+
+/*
+ * Check if WfrStatus is POSIX or Windows error that indicates non-existence
+ * of an item, file, or resource, etc.
+ */
+
+#ifndef ERROR_FILE_NOT_FOUND
+#define ERROR_FILE_NOT_FOUND	2
+#endif /* !ERROR_FILE_NOT_FOUND */
+#ifndef ERROR_PATH_NOT_FOUND
+#define ERROR_PATH_NOT_FOUND	3
+#endif /* !ERROR_PATH_NOT_FOUND */
+#define WFR_STATUS_IS_NOT_FOUND(status)						\
+	(   WFR_STATUS_FAILURE((status))					\
+	 && (((WFR_STATUS_FACILITY((status)) == WFR_STATUS_FACILITY_POSIX)	\
+	 &&   (WFR_STATUS_CONDITION((status)) == ENOENT))			\
+	 ||  ((WFR_STATUS_FACILITY((status)) == WFR_STATUS_FACILITY_WINDOWS)	\
+	 &&   (WFR_STATUS_CONDITION((status)) == ERROR_FILE_NOT_FOUND))		\
+	 ||  ((WFR_STATUS_FACILITY((status)) == WFR_STATUS_FACILITY_WINDOWS)	\
+	 &&   (WFR_STATUS_CONDITION((status)) == ERROR_PATH_NOT_FOUND))))
 
 /*
  * Getters

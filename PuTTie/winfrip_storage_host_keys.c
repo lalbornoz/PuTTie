@@ -83,9 +83,7 @@ WfsDeleteHostKey(
 				key_name, WFR_TREE_ITYPE_HOST_KEY,
 				WfsTreeFreeItem);
 
-			if ((WFR_STATUS_CONDITION(status) == ENOENT)
-			&&  delete_in_backend)
-			{
+			if (WFR_STATUS_IS_NOT_FOUND(status) && delete_in_backend) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
@@ -299,8 +297,7 @@ WfsRenameHostKey(
 			WfsTreeFreeItem);
 
 		if (rename_in_backend
-		&&  (WFR_STATUS_SUCCESS(status)
-		||   (WFR_STATUS_CONDITION(status) == ENOENT)))
+		&&  (WFR_STATUS_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
 		{
 			status = backend_impl->RenameHostKey(backend, key_name, key_name_new);
 		}

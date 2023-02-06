@@ -52,6 +52,10 @@ WfsClearOptions(
 			status = backend_impl->ClearOptions(backend);
 		}
 
+		if (WFR_STATUS_IS_NOT_FOUND(status) && delete_in_backend) {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+
 		if (WFR_STATUS_SUCCESS(status)) {
 			status = WfrTreeClear(&backend_impl->tree_options, WfsTreeFreeItem);
 		}
@@ -104,9 +108,7 @@ WfsDeleteOption(
 			backend_impl->tree_options, NULL,
 			key, WFR_TREE_ITYPE_ANY, WfsTreeFreeItem);
 
-		if ((WFR_STATUS_CONDITION(status) == ENOENT)
-		&&  delete_in_backend)
-		{
+		if (WFR_STATUS_IS_NOT_FOUND(status) && delete_in_backend) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 
@@ -287,9 +289,7 @@ WfsGetOptionWithDefault(
 			backend, key, NULL, pvalue, pvalue_size, pvalue_type)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
-	} else if (WFR_STATUS_FAILURE(status)
-		&& (WFR_STATUS_CONDITION(status) == ENOENT))
-	{
+	} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
 		status = WfsSetOption(
 			backend, true, true, key, value_default,
 			value_default_size, value_default_type);
@@ -337,8 +337,7 @@ WfsRenameOption(
 			key_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
-		&&  (WFR_STATUS_SUCCESS(status)
-		||   (WFR_STATUS_CONDITION(status) == ENOENT)))
+		&&  (WFR_STATUS_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
 		{
 			if (WFR_STATUS_SUCCESS(status)) {
 				status = backend_impl->SaveOptions(backend, backend_impl->tree_options);
