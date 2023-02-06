@@ -57,14 +57,14 @@ WfPageantAddKey(
 	int		(*win_add_keyfile)(Filename *, bool)
 	)
 {
-	int 		option_persist;
+	int * 		option_persist;
 	WfrStatus	status;
 
 
 	if (win_add_keyfile(fn, encrypted) == PAGEANT_ACTION_OK) {
 		if (WFR_STATUS_SUCCESS(status = WfsGetOptionIntWithDefault(
 				WfsGetBackend(), PAGEANT_OPTION_PERSIST_KEYS, false, &option_persist))
-		&&  (option_persist == true))
+		&&  (*option_persist == true))
 		{
 			status = WfsAddPrivKeyList(WfsGetBackend(), fn->path);
 		}
@@ -83,7 +83,7 @@ WfPageantAddKeysFromCmdLine(
 {
 	WfsBackend		backend;
 	CommandLineKey *	clkey;
-	int			option_persist;
+	int *			option_persist;
 	char *			privkey_list = NULL;
 	WfrStatus		status;
 
@@ -102,7 +102,7 @@ WfPageantAddKeysFromCmdLine(
 		 * Add any keys provided on the command line.
 		 */
 
-		if (option_persist == true) {
+		if (*option_persist == true) {
 			status = WfsClearPrivKeyList(backend);
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "clearing Pageant private key list");
 		}
@@ -110,7 +110,7 @@ WfPageantAddKeysFromCmdLine(
 		for (size_t nclkey = 0; nclkey < nclkeys; nclkey++) {
 			clkey = &clkeys[nclkey];
 			if (win_add_keyfile(clkey->fn, clkey->add_encrypted) == PAGEANT_ACTION_OK) {
-				if (option_persist == true) {
+				if (*option_persist == true) {
 					status = WfsAddPrivKeyList(backend, clkey->fn->path);
 					WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
 						"Pageant", status,
@@ -120,7 +120,7 @@ WfPageantAddKeysFromCmdLine(
 			filename_free(clkey->fn);
 		}
 		sfree(clkeys);
-	} else if (option_persist == true) {
+	} else if (*option_persist == true) {
 		status = WfsGetEntriesPrivKeyList(backend, &privkey_list, NULL);
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting Pageant private key list");
 
@@ -195,7 +195,7 @@ WfPageantCommandLaunchAtStartup(
 	)
 {
 	WfsBackend	backend;
-	int		option;
+	int *		option;
 	WfrStatus	status;
 
 
@@ -205,16 +205,16 @@ WfPageantCommandLaunchAtStartup(
 	if (WFR_STATUS_SUCCESS(status = WfsGetOptionIntWithDefault(
 			WfsGetBackend(), PAGEANT_OPTION_LAUNCH_AT_STARTUP, false, &option)))
 	{
-		option = ((option == true) ? false : true);
+		*option = ((*option == true) ? false : true);
 		status = WfsSetOption(
-			backend, true, true, PAGEANT_OPTION_LAUNCH_AT_STARTUP,
-			&option, sizeof(option), WFR_TREE_ITYPE_INT);
+			backend, false, true, PAGEANT_OPTION_LAUNCH_AT_STARTUP,
+			option, sizeof(*option), WFR_TREE_ITYPE_INT);
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting/setting Pageant launch at startup option");
 
 	if (WFR_STATUS_SUCCESS(status)) {
-		switch (option) {
+		switch (*option) {
 		default:
 			status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 			break;
@@ -240,7 +240,7 @@ WfPageantCommandLaunchAtStartup(
 			(void)CheckMenuItem(
 				systray_menu, idm_launch_at_startup,
 				  MF_BYCOMMAND
-				| ((option == true) ? MF_CHECKED : MF_UNCHECKED));
+				| ((*option == true) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "creating/deleting Pageant launch at startup shortcut");
@@ -254,7 +254,7 @@ WfPageantCommandPersistKeys(
 	)
 {
 	WfsBackend	backend;
-	int		option;
+	int *		option;
 	WfrStatus	status;
 
 
@@ -264,14 +264,14 @@ WfPageantCommandPersistKeys(
 	if (WFR_STATUS_SUCCESS(status = WfsGetOptionIntWithDefault(
 			WfsGetBackend(), PAGEANT_OPTION_PERSIST_KEYS, false, &option)))
 	{
-		option = ((option == true) ? false : true);
+		*option = ((*option == true) ? false : true);
 		status = WfsSetOption(
-			backend, true, true, PAGEANT_OPTION_PERSIST_KEYS,
-			&option, sizeof(option), WFR_TREE_ITYPE_INT);
+			backend, false, true, PAGEANT_OPTION_PERSIST_KEYS,
+			option, sizeof(*option), WFR_TREE_ITYPE_INT);
 	}
 
 	if (WFR_STATUS_SUCCESS(status)) {
-		switch (option) {
+		switch (*option) {
 		default:
 			status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 			break;
@@ -285,7 +285,7 @@ WfPageantCommandPersistKeys(
 			(void)CheckMenuItem(
 				systray_menu, idm_persist_keys,
 				  MF_BYCOMMAND
-				| ((option == true) ? MF_CHECKED : MF_UNCHECKED));
+				| ((*option == true) ? MF_CHECKED : MF_UNCHECKED));
 		}
 	}
 
@@ -297,7 +297,7 @@ WfPageantDeleteAllKeys(
 	void	(*pageant_delete_all)(void)
 	)
 {
-	int		option;
+	int *		option;
 	WfrStatus	status;
 
 
@@ -305,7 +305,7 @@ WfPageantDeleteAllKeys(
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetOptionIntWithDefault(
 			WfsGetBackend(), PAGEANT_OPTION_PERSIST_KEYS, false, &option))
-	&&  (option == true))
+	&&  (*option == true))
 	{
 		status = WfsClearPrivKeyList(WfsGetBackend());
 	}
@@ -320,7 +320,7 @@ WfPageantDeleteKey(
 	const char *	(*pageant_get_nth_key_path)(int)
 	)
 {
-	int		option;
+	int *		option;
 	char *		path;
 	WfrStatus	status;
 
@@ -330,7 +330,7 @@ WfPageantDeleteKey(
 	} else if (pageant_delete_nth_key(nkey)) {
 		if (WFR_STATUS_SUCCESS(status = WfsGetOptionIntWithDefault(
 				WfsGetBackend(), PAGEANT_OPTION_PERSIST_KEYS, false, &option))
-		&&  (option == true))
+		&&  (*option == true))
 		{
 			status = WfsRemovePrivKeyList(WfsGetBackend(), path);
 		}
@@ -366,8 +366,8 @@ WfPageantInitSysTrayMenu(
 	UINT_PTR	idm_persist_keys
 	)
 {
-	int		option_launch_at_startup;
-	int		option_persist;
+	int *		option_launch_at_startup;
+	int *		option_persist;
 	WfrStatus	status;
 
 
@@ -389,39 +389,31 @@ WfPageantInitSysTrayMenu(
 	(void)AppendMenu(systray_menu, MF_ENABLED, idm_persist_keys, "&Persist keys");
 	(void)AppendMenu(systray_menu, MF_SEPARATOR, 0, 0);
 
-	switch (option_launch_at_startup) {
+	switch (*option_launch_at_startup) {
 	default:
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 		break;
 
 	case false:
-		(void)CheckMenuItem(
-			systray_menu, idm_launch_at_startup,
-			MF_BYCOMMAND | MF_UNCHECKED);
-		break;
-
 	case true:
 		(void)CheckMenuItem(
 			systray_menu, idm_launch_at_startup,
-			MF_BYCOMMAND | MF_CHECKED);
+			  MF_BYCOMMAND
+			| ((*option_launch_at_startup == true) ? MF_CHECKED : MF_UNCHECKED));
 		break;
 	}
 
-	switch (option_persist) {
+	switch (*option_persist) {
 	default:
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 		break;
 
 	case false:
-		(void)CheckMenuItem(
-			systray_menu, idm_persist_keys,
-			MF_BYCOMMAND | MF_UNCHECKED);
-		break;
-
 	case true:
 		(void)CheckMenuItem(
 			systray_menu, idm_persist_keys,
-			MF_BYCOMMAND | MF_CHECKED);
+			  MF_BYCOMMAND
+			| ((*option_persist == true) ? MF_CHECKED : MF_UNCHECKED));
 		break;
 	}
 }

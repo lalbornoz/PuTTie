@@ -251,7 +251,7 @@ WfsGetOptionIntWithDefault(
 	WfsBackend		backend,
 	const char *		key,
 	int			value_default,
-	int *			pvalue
+	int **			pvalue
 	)
 {
 	int *		option_value;
@@ -262,7 +262,7 @@ WfsGetOptionIntWithDefault(
 			backend, key, &value_default, sizeof(value_default),
 			WFR_TREE_ITYPE_INT, (void **)&option_value, NULL, NULL)))
 	{
-		*pvalue = *option_value;
+		*pvalue = option_value;
 	}
 
 	return status;
