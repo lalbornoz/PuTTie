@@ -54,7 +54,7 @@ WfsClearHostKeys(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfrTreeClear(&backend_impl->tree_host_key, WfrTreeFreeItem);
+			status = WfrTreeClear(&backend_impl->tree_host_key, WfsTreeFreeItem);
 		}
 	}
 
@@ -81,7 +81,7 @@ WfsDeleteHostKey(
 			status = WfrTreeDelete(
 				backend_impl->tree_host_key, NULL,
 				key_name, WFR_TREE_ITYPE_HOST_KEY,
-				WfrTreeFreeItem);
+				WfsTreeFreeItem);
 
 			if ((WFR_STATUS_CONDITION(status) == ENOENT)
 			&&  delete_in_backend)
@@ -296,7 +296,7 @@ WfsRenameHostKey(
 		status = WfrTreeRename(
 			backend_impl->tree_host_key, NULL, key_name,
 			WFR_TREE_ITYPE_HOST_KEY, key_name_new,
-			WfrTreeFreeItem);
+			WfsTreeFreeItem);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)
@@ -342,7 +342,7 @@ WfsSetHostKey(
 		status = WfrTreeSet(
 			backend_impl->tree_host_key, key_name,
 			WFR_TREE_ITYPE_HOST_KEY, (void *)key,
-			strlen(key) + 1, WfrTreeFreeItem);
+			strlen(key) + 1, WfsTreeFreeItem);
 	}
 
 	return status;

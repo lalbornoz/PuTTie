@@ -150,7 +150,7 @@ WfsTransformList(
 }
 
 WfrStatus
-WfrTreeCloneValue(
+WfsTreeCloneValue(
 	WfrTreeItem *	item,
 	void **		pvalue_new
 	)
@@ -190,7 +190,7 @@ WfrTreeCloneValue(
 }
 
 void
-WfrTreeFreeItem(
+WfsTreeFreeItem(
 	WfrTreeItem *	item
 	)
 {
@@ -220,7 +220,7 @@ WfrTreeFreeItem(
 
 	case WFR_TREE_ITYPE_SESSION:
 		session = (WfsSession *)item->value;
-		if (WFR_STATUS_FAILURE(WfrTreeClear(&session->tree, WfrTreeFreeItem))) {
+		if (WFR_STATUS_FAILURE(WfrTreeClear(&session->tree, WfsTreeFreeItem))) {
 			WFR_DEBUG_FAIL();
 		}
 		WFR_FREE_IF_NOTNULL(session->name);

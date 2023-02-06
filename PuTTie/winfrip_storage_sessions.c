@@ -47,7 +47,7 @@ WfsAddSession(
 			&&  WFR_STATUS_SUCCESS(status = WfrTreeSet(
 					backend_impl->tree_session, sessionname,
 					WFR_TREE_ITYPE_SESSION, session_new,
-					sizeof(*session_new), WfrTreeFreeItem)))
+					sizeof(*session_new), WfsTreeFreeItem)))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -95,7 +95,7 @@ WfsClearSession(
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (WFR_STATUS_SUCCESS(status = WfsGetSession(backend, true, sessionname, &session))) {
-			status = WfrTreeClear(&session->tree, WfrTreeFreeItem);
+			status = WfrTreeClear(&session->tree, WfsTreeFreeItem);
 		}
 	}
 
@@ -118,7 +118,7 @@ WfsClearSessions(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfrTreeClear(&backend_impl->tree_session, WfrTreeFreeItem);
+			status = WfrTreeClear(&backend_impl->tree_session, WfsTreeFreeItem);
 		}
 	}
 
@@ -167,7 +167,7 @@ WfsCopySession(
 
 		if (WFR_STATUS_SUCCESS(status)
 		&&  WFR_STATUS_SUCCESS(status = WfsAddSession(backend_to, sessionname, &session_to))
-		&&  WFR_STATUS_SUCCESS(status = WfrTreeCopy(session->tree, session_to->tree, WfrTreeCloneValue, WfrTreeFreeItem)))
+		&&  WFR_STATUS_SUCCESS(status = WfrTreeCopy(session->tree, session_to->tree, WfsTreeCloneValue, WfsTreeFreeItem)))
 		{
 			*psession = session_to;
 		}
@@ -196,7 +196,7 @@ WfsDeleteSession(
 			status = WfrTreeDelete(
 				backend_impl->tree_session, NULL,
 				sessionname, WFR_TREE_ITYPE_SESSION,
-				WfrTreeFreeItem);
+				WfsTreeFreeItem);
 
 			if ((WFR_STATUS_CONDITION(status) == ENOENT)
 			&&  delete_in_backend)
@@ -427,7 +427,7 @@ WfsRenameSession(
 		status = WfrTreeRename(
 			backend_impl->tree_session, NULL,
 			sessionname, WFR_TREE_ITYPE_SESSION,
-			sessionname_new, WfrTreeFreeItem);
+			sessionname_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)
@@ -469,7 +469,7 @@ WfsSetSessionKey(
 {
 	return WfrTreeSet(
 		session->tree, key, item_type,
-		value, value_size, WfrTreeFreeItem);
+		value, value_size, WfsTreeFreeItem);
 }
 
 /*
