@@ -94,7 +94,7 @@ store_host_key(
 		if (!(key_ = strdup(key))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
-			status = WfsSetHostKey(WfsGetBackend(), key_name, key_);
+			status = WfsSetHostKey(WfsGetBackend(), true, key_name, key_);
 			WFR_FREE(key_name);
 			if (WFR_STATUS_FAILURE(status)) {
 				WFR_FREE(key_);

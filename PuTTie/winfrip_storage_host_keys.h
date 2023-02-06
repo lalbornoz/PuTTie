@@ -20,7 +20,7 @@ WfrStatus	WfsGetHostKey(WfsBackend backend, bool cached, const char *key_name, c
 WfrStatus	WfsPrintHostKeyName(const char *hostname, int port, const char *keytype, char **pkey_name);
 WfrStatus	WfsRenameHostKey(WfsBackend backend, bool rename_in_backend, const char *key_name, const char *key_name_new);
 WfrStatus	WfsSaveHostKey(WfsBackend backend, const char *key_name, const char *key);
-WfrStatus	WfsSetHostKey(WfsBackend backend, const char *key_name, const char *key);
+WfrStatus	WfsSetHostKey(WfsBackend backend, bool set_in_backend, const char *key_name, const char *key);
 
 #endif // !PUTTY_WINFRIP_STORAGE_HOST_KEYS_H
 

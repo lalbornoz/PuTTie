@@ -464,7 +464,7 @@ WfspFileLoadHostKey(
 			WfsppFileExtHostKeys, key_name,
 			&key, NULL, NULL)))
 	{
-		if (WFR_STATUS_SUCCESS(status = WfsSetHostKey(backend, key_name, key))) {
+		if (WFR_STATUS_SUCCESS(status = WfsSetHostKey(backend, false, key_name, key))) {
 			*pkey = key;
 		} else {
 			WFR_FREE(key);

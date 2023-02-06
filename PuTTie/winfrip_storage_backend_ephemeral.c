@@ -181,7 +181,7 @@ WfspEphemeralLoadHostKey(
 			if (!(key_ = strdup(key))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
-				status = WfsSetHostKey(backend, key_name, key_);
+				status = WfsSetHostKey(backend, false, key_name, key_);
 				if (WFR_STATUS_SUCCESS(status)) {
 					*pkey = key_;
 				} else {
