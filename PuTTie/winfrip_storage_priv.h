@@ -89,8 +89,8 @@ typedef struct WfspBackend {
 
 WfrStatus	WfsGetBackendImpl(WfsBackend backend, void *pbackend);
 WfrStatus	WfsTransformList(bool addfl, bool delfl, char **plist, size_t *plist_size, const char *const trans_item);
-WfrStatus	WfrTreeCloneValue(WfrTreeItem *item, void **pvalue_new);
-void		WfrTreeFreeItem(WfrTreeItem *item);
+WfrStatus	WfsTreeCloneValue(WfrTreeItem *item, void **pvalue_new);
+void		WfsTreeFreeItem(WfrTreeItem *item);
 
 #endif // !PUTTY_WINFRIP_STORAGE_PRIV_H
 

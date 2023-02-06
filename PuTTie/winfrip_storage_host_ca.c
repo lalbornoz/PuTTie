@@ -65,7 +65,7 @@ WfsAddHostCA(
 			if (WFR_STATUS_SUCCESS(status = WfrTreeSet(
 					backend_impl->tree_host_ca, name,
 					WFR_TREE_ITYPE_HOST_CA, hca_new,
-					sizeof(*hca_new), WfrTreeFreeItem)))
+					sizeof(*hca_new), WfsTreeFreeItem)))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
@@ -118,7 +118,7 @@ WfsClearHostCAs(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfrTreeClear(&backend_impl->tree_host_ca, WfrTreeFreeItem);
+			status = WfrTreeClear(&backend_impl->tree_host_ca, WfsTreeFreeItem);
 		}
 	}
 
@@ -199,7 +199,7 @@ WfsDeleteHostCA(
 			status = WfrTreeDelete(
 				backend_impl->tree_host_ca,
 				NULL, name, WFR_TREE_ITYPE_HOST_CA,
-				WfrTreeFreeItem);
+				WfsTreeFreeItem);
 
 			if ((WFR_STATUS_CONDITION(status) == ENOENT)
 			&&  delete_in_backend)
@@ -392,7 +392,7 @@ WfsRenameHostCA(
 		status = WfrTreeRename(
 			backend_impl->tree_host_ca, NULL,
 			name, WFR_TREE_ITYPE_HOST_CA,
-			name_new, WfrTreeFreeItem);
+			name_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)

@@ -61,7 +61,6 @@ typedef void (*WfrTreeFreeItemFn)(WfrTreeItem *);
  */
 
 WfrStatus	WfrTreeClear(WfrTree **tree, WfrTreeFreeItemFn free_item_fn);
-WfrStatus	WfrTreeCloneValue(WfrTreeItem *item, void **pvalue_new);
 WfrStatus	WfrTreeCopy(WfrTree *tree_from, WfrTree *tree_to, WfrTreeCloneValueFn clone_value_fn, WfrTreeFreeItemFn free_item_fn);
 WfrStatus	WfrTreeDelete(WfrTree *tree, WfrTreeItem *item, const char *key, WfrTreeItemTypeBase type, WfrTreeFreeItemFn free_item_fn);
 WfrStatus	WfrTreeEnumerate(WfrTree *tree, bool initfl, bool *pdonefl, WfrTreeItem **pitem, void **pstate);

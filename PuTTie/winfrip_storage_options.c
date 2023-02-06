@@ -53,7 +53,7 @@ WfsClearOptions(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			status = WfrTreeClear(&backend_impl->tree_options, WfrTreeFreeItem);
+			status = WfrTreeClear(&backend_impl->tree_options, WfsTreeFreeItem);
 		}
 	}
 
@@ -102,7 +102,7 @@ WfsDeleteOption(
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = WfrTreeDelete(
 			backend_impl->tree_options, NULL,
-			key, WFR_TREE_ITYPE_ANY, WfrTreeFreeItem);
+			key, WFR_TREE_ITYPE_ANY, WfsTreeFreeItem);
 
 		if ((WFR_STATUS_CONDITION(status) == ENOENT)
 		&&  delete_in_backend)
@@ -272,7 +272,7 @@ WfsRenameOption(
 		status = WfrTreeRename(
 			backend_impl->tree_options, NULL,
 			key, WFR_TREE_ITYPE_ANY,
-			key_new, WfrTreeFreeItem);
+			key_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
 		&&  (WFR_STATUS_SUCCESS(status)
@@ -320,7 +320,7 @@ WfsSetOption(
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = WfrTreeSet(
 			backend_impl->tree_options, key, value_type,
-			(void *)value, value_size, WfrTreeFreeItem);
+			(void *)value, value_size, WfsTreeFreeItem);
 
 		if (WFR_STATUS_SUCCESS(status)
 		&&  set_in_backend)
