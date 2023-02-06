@@ -201,9 +201,7 @@ WfsDeleteHostCA(
 				NULL, name, WFR_TREE_ITYPE_HOST_CA,
 				WfsTreeFreeItem);
 
-			if ((WFR_STATUS_CONDITION(status) == ENOENT)
-			&&  delete_in_backend)
-			{
+			if (WFR_STATUS_IS_NOT_FOUND(status) && delete_in_backend) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
@@ -395,8 +393,7 @@ WfsRenameHostCA(
 			name_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
-		&&  (WFR_STATUS_SUCCESS(status)
-		||   (WFR_STATUS_CONDITION(status) == ENOENT)))
+		&&  (WFR_STATUS_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
 		{
 			status = backend_impl->RenameHostCA(
 				backend, name, name_new);

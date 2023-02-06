@@ -579,7 +579,7 @@ WfspRegistryLoadSession(
 	if (WFR_STATUS_SUCCESS(status)) {
 		status = WfsClearSession(backend, session, sessionname);
 		addedfl = false;
-	} else if (WFR_STATUS_CONDITION(status) == ENOENT) {
+	} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
 		status = WfsAddSession(backend, sessionname, &session);
 		addedfl = WFR_STATUS_SUCCESS(status);
 	}
@@ -674,9 +674,7 @@ WfspRegistryGetEntriesJumpList(
 		WfspRegistryValueJumpList,
 		NULL, pjump_list, &jump_list_size_);
 	if (WFR_STATUS_FAILURE(status)) {
-		if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
-		||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
-		{
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			if (!((*pjump_list = WFR_NEWN(2, char)))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
@@ -764,10 +762,7 @@ WfspRegistryCleanupPrivKeyList(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_FAILURE(status)
-	&&  ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
-	||   (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND)))
-	{
+	if (WFR_STATUS_IS_NOT_FOUND(status)) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 	if (hKey) {
@@ -800,9 +795,7 @@ WfspRegistryGetEntriesPrivKeyList(
 		WfspRegistryValuePrivKeyList,
 		NULL, pprivkey_list, &privkey_list_size_);
 	if (WFR_STATUS_FAILURE(status)) {
-		if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
-		||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
-		{
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			if (!((*pprivkey_list = WFR_NEWN(2, char)))) {
 				status = WFR_STATUS_FROM_ERRNO();
 			} else {
@@ -869,20 +862,14 @@ WfspRegistryCleanupContainer(
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		status = WFR_STATUS_BIND_LSTATUS(RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKey));
-		if (WFR_STATUS_FAILURE(status)
-		&&  ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
-		||   (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND)))
-		{
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	}
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		status = WFR_STATUS_BIND_LSTATUS(RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKeyParent));
-		if (WFR_STATUS_FAILURE(status)
-		&&  ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
-		||   (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND)))
-		{
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	}

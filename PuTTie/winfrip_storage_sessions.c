@@ -198,9 +198,7 @@ WfsDeleteSession(
 				sessionname, WFR_TREE_ITYPE_SESSION,
 				WfsTreeFreeItem);
 
-			if ((WFR_STATUS_CONDITION(status) == ENOENT)
-			&&  delete_in_backend)
-			{
+			if (WFR_STATUS_IS_NOT_FOUND(status) && delete_in_backend) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}
@@ -430,8 +428,7 @@ WfsRenameSession(
 			sessionname_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
-		&&  (WFR_STATUS_SUCCESS(status)
-		||   (WFR_STATUS_CONDITION(status) == ENOENT)))
+		&&  (WFR_STATUS_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
 		{
 			status = backend_impl->RenameSession(
 				backend, sessionname, sessionname_new);

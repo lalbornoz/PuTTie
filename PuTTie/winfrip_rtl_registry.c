@@ -90,10 +90,7 @@ WfrCleanupRegSubKey(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_FAILURE(status)
-	&&  ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
-	||   (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND)))
-	{
+	if (WFR_STATUS_IS_NOT_FOUND(status)) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 	if (hKey) {
@@ -246,9 +243,7 @@ WfrEnumerateRegInit(
 		if (WFR_STATUS_FAILURE(status = WfrOpenRegKeyRoV(
 				HKEY_CURRENT_USER, &(*pstate)->hKey, ap)))
 		{
-			if ((WFR_STATUS_CONDITION(status) == ERROR_FILE_NOT_FOUND)
-			||  (WFR_STATUS_CONDITION(status) == ERROR_PATH_NOT_FOUND))
-			{
+			if (WFR_STATUS_IS_NOT_FOUND(status)) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			} else {
 				WFR_FREE((*pstate));

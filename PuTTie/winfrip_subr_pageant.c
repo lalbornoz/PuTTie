@@ -221,9 +221,7 @@ WfPageantCommandLaunchAtStartup(
 
 		case false:
 			status = WfrDeleteShortcutStartup(PAGEANT_SHORTCUT_PATH_DEFAULT);
-			if (WFR_STATUS_FAILURE(status)
-			&&  (WFR_STATUS_CONDITION(status) == ENOENT))
-			{
+			if (WFR_STATUS_IS_NOT_FOUND(status)) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 
