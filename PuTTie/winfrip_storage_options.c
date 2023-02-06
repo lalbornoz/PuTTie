@@ -64,6 +64,7 @@ WfrStatus
 WfsCopyOption(
 	WfsBackend	backend_from,
 	WfsBackend	backend_to,
+	bool		save_in_backend,
 	const char *	key
 	)
 {
@@ -77,9 +78,11 @@ WfsCopyOption(
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
 	&&  WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl))
 	&&  WFR_STATUS_SUCCESS(status = WfsGetOption(backend_from, key, &option_value, &option_size, &option_type))
-	&&  WFR_STATUS_SUCCESS(status = WfsSetOption(backend_to, key, false, option_value, option_size, option_type)))
+	&&  WFR_STATUS_SUCCESS(status = WfsSetOption(backend_to, false, key, option_value, option_size, option_type)))
 	{
-		status = backend_to_impl->SaveOptions(backend_to, backend_to_impl->tree_options);
+		if (save_in_backend) {
+			status = backend_to_impl->SaveOptions(backend_to, backend_to_impl->tree_options);
+		}
 	}
 
 	return status;
@@ -164,6 +167,10 @@ WfsExportOptions(
 		return status;
 	}
 
+	if (WFR_STATUS_FAILURE(status = WfsLoadOptions(backend_from))) {
+		return status;
+	}
+
 	if (WFR_STATUS_SUCCESS(status) && clear_to) {
 		if (WFR_STATUS_FAILURE(status = WfsClearOptions(backend_to, true))) {
 			return status;
@@ -178,7 +185,7 @@ WfsExportOptions(
 			status = WfsEnumerateOptions(backend_from, false, &donefl, &key, &enum_state);
 
 			if (WFR_STATUS_SUCCESS(status) && key) {
-				status = WfsCopyOption(backend_from, backend_to, key);
+				status = WfsCopyOption(backend_from, backend_to, false, key);
 			}
 
 			if (WFR_STATUS_FAILURE(status)) {
