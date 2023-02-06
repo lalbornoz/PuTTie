@@ -23,6 +23,7 @@
 WfrStatus
 WfrDeleteDirectory(
 	const char *	path,
+	bool		continue_on_errorfl,
 	bool		noentfl,
 	bool		recursefl
 	)
@@ -63,11 +64,21 @@ WfrDeleteDirectory(
 					{
 						continue;
 					} else if (stat(dire->d_name, &statbuf) < 0) {
-						status = WFR_STATUS_FROM_ERRNO();
+						if (continue_on_errorfl) {
+							status = WFR_STATUS_CONDITION_SUCCESS;
+						} else {
+							status = WFR_STATUS_FROM_ERRNO();
+						}
 					} else if (statbuf.st_mode & S_IFDIR) {
-						status = WfrDeleteDirectory(dire->d_name, noentfl, recursefl);
+						status = WfrDeleteDirectory(
+							dire->d_name, continue_on_errorfl,
+							noentfl, recursefl);
 					} else if (unlink(dire->d_name) < 0) {
-						status = WFR_STATUS_FROM_ERRNO();
+						if (continue_on_errorfl) {
+							status = WFR_STATUS_CONDITION_SUCCESS;
+						} else {
+							status = WFR_STATUS_FROM_ERRNO();
+						}
 					}
 				}
 			}
@@ -77,7 +88,9 @@ WfrDeleteDirectory(
 				status = WFR_STATUS_FROM_ERRNO();
 			}
 
-			status = WfrDeleteDirectory(path, noentfl, false);
+			status = WfrDeleteDirectory(
+				path, continue_on_errorfl,
+				noentfl, false);
 		}
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
