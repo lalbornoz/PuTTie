@@ -171,7 +171,7 @@ WfspFileCleanupHostCAs(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfspFileClearHostCAs(backend))) {
-		status = WfrDeleteDirectory(WfsppFileDnameHostCAs, true, true);
+		status = WfrDeleteDirectory(WfsppFileDnameHostCAs, true, true, true);
 	}
 
 	return status;
@@ -388,7 +388,7 @@ WfspFileCleanupHostKeys(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfspFileClearHostKeys(backend))) {
-		status = WfrDeleteDirectory(WfsppFileDnameHostKeys, true, true);
+		status = WfrDeleteDirectory(WfsppFileDnameHostKeys, true, true, true);
 	}
 
 	return status;
@@ -562,7 +562,7 @@ WfspFileCleanupSessions(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfspFileClearSessions(backend))) {
-		status = WfrDeleteDirectory(WfsppFileDnameSessions, true, true);
+		status = WfrDeleteDirectory(WfsppFileDnameSessions, true, true, true);
 	}
 
 	return status;
@@ -908,7 +908,7 @@ WfspFileCleanupContainer(
 
 
 	(void)backend;
-	status = WfrDeleteDirectory(WfsppFileDname, true, true);
+	status = WfrDeleteDirectory(WfsppFileDname, true, true, true);
 	return status;
 }
 
