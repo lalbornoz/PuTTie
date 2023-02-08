@@ -198,7 +198,7 @@ WfsDeleteSession(
 				sessionname, WFR_TREE_ITYPE_SESSION,
 				WfsTreeFreeItem);
 
-			if (WFR_STATUS_IS_NOT_FOUND(status) && delete_in_backend) {
+			if (WFR_STATUS_IS_NOT_FOUND(status)) {
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 		}

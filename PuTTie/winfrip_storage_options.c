@@ -104,16 +104,18 @@ WfsDeleteOption(
 
 
 	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		status = WfrTreeDelete(
-			backend_impl->tree_options, NULL,
-			key, WFR_TREE_ITYPE_ANY, WfsTreeFreeItem);
-
-		if (WFR_STATUS_IS_NOT_FOUND(status) && delete_in_backend) {
-			status = WFR_STATUS_CONDITION_SUCCESS;
+		if (delete_in_backend) {
+			status = backend_impl->SaveOptions(backend, backend_impl->tree_options);
 		}
 
-		if (WFR_STATUS_SUCCESS(status) && delete_in_backend) {
-			status = backend_impl->SaveOptions(backend, backend_impl->tree_options);
+		if (WFR_STATUS_SUCCESS(status)) {
+			status = WfrTreeDelete(
+				backend_impl->tree_options, NULL,
+				key, WFR_TREE_ITYPE_ANY, WfsTreeFreeItem);
+
+			if (WFR_STATUS_IS_NOT_FOUND(status)) {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
 		}
 	}
 

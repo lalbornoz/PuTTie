@@ -568,7 +568,7 @@ del_settings(
 	WfrStatus	status;
 
 
-	status = WfsDeleteSession(WfsGetBackend(), false, sessionname);
+	status = WfsDeleteSession(WfsGetBackend(), true, sessionname);
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting session");
 }
 
