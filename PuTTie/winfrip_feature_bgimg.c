@@ -13,18 +13,13 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
-#include <bcrypt.h>
-#include <ntstatus.h>
-
-#include <gdiplus/gdiplus.h>
-#include <gdiplus/gdiplusflat.h>
-
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_bgimg.h"
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_rtl_file.h"
 #include "PuTTie/winfrip_rtl_gdi.h"
+#include "PuTTie/winfrip_rtl_random.h"
 
 /*
  * Private type definitions
@@ -63,19 +58,37 @@ typedef enum WffbpType {
  * Private variables
  */
 
+/*
+ * Absolute pathname to background images slideshow directory
+ */
 static char *			WffbpDname = NULL;
+static size_t			WffbpDnameLen = 0;
+
+/*
+ * Vector of background images filenames in background images slideshow directory
+ */
 static size_t			WffbpDnameFileC = 0;
 static char **			WffbpDnameFileV = NULL;
-static size_t			WffbpDnameLen = 0;
+
+/*
+ * Absolute pathname to single background image filename
+ */
 static char *			WffbpFname = NULL;
 
-static BCRYPT_ALG_HANDLE	WffbphAlgorithm = NULL;
-
+/*
+ * Current and old device context handles
+ */
 static HDC			WffbphDC = NULL;
 static HGDIOBJ			WffbphDCOld = NULL;
 
+/*
+ * Current state
+ */
 static WffbpState		WffbpStateCurrent = WFFBP_STATE_NONE;
 
+/*
+ * Slideshow timer context passed to WffbpSlideshowTimerFunction()
+ */
 static WffbpContext *		WffbpTimerContext = NULL;
 
 /*
@@ -279,23 +292,12 @@ WffbpGetFnameShuffle(
 	size_t		bg_fname_idx;
 	size_t		bg_fname_len;
 	size_t		bg_fname_size;
-	NTSTATUS	ntstatus;
 	WfrStatus	status;
 
 
 	if ((WffbpDnameFileC > 0) && (WffbpDnameFileV != NULL)) {
-		if ((WffbphAlgorithm == NULL)
-		&&  ((ntstatus = BCryptOpenAlgorithmProvider(
-				&WffbphAlgorithm,
-				BCRYPT_RNG_ALGORITHM, NULL, 0)) != STATUS_SUCCESS))
-		{
-			status = WFR_STATUS_FROM_WINDOWS_NT(ntstatus);
-		} else if ((ntstatus = BCryptGenRandom(
-				WffbphAlgorithm, (PUCHAR)&bg_fname_idx,
-				sizeof(bg_fname_idx), 0) != STATUS_SUCCESS))
-		{
-			status = WFR_STATUS_FROM_WINDOWS_NT(ntstatus);
-		} else {
+		if (WFR_STATUS_SUCCESS(status = WfrGenRandom(
+				(PUCHAR)&bg_fname_idx, sizeof(bg_fname_idx)))) {
 			bg_fname_idx %= WffbpDnameFileC;
 			bg_fname_len = strlen(
 				  WffbpDnameFileV[bg_fname_idx]

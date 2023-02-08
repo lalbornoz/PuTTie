@@ -43,7 +43,7 @@ WfrStatus	WfsCopySession(WfsBackend backend_from, WfsBackend backend_to, const c
 WfrStatus	WfsDeleteSession(WfsBackend backend, bool delete_in_backend, const char *sessionname);
 WfrStatus	WfsEnumerateSessions(WfsBackend backend, bool cached, bool initfl, bool *pdonefl, char **psessionname, void **pstate);
 WfrStatus	WfsExportSession(WfsBackend backend_from, WfsBackend backend_to, bool movefl, char *sessionname);
-WfrStatus	WfsExportSessions(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, void (*error_fn)(const char *, WfrStatus));
+WfrStatus	WfsExportSessions(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, WfsErrorFn error_fn);
 WfrStatus	WfsGetSession(WfsBackend backend, bool cached, const char *sessionname, WfsSession **psession);
 WfrStatus	WfsGetSessionKey(WfsSession *session, const char *key, WfrTreeItemType value_type, void **pvalue, size_t *pvalue_size);
 WfrStatus	WfsRenameSession(WfsBackend backend, bool rename_in_backend, const char *sessionname, const char *sessionname_new);

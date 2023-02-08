@@ -286,7 +286,7 @@ WfsExportHostCAs(
 	WfsBackend	backend_to,
 	bool		clear_to,
 	bool		continue_on_error,
-	void		(*error_fn)(const char *, WfrStatus)
+	WfsErrorFn	error_fn
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;

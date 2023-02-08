@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_options.h"
+#include "PuTTie/winfrip_storage_privkey_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
@@ -236,19 +237,10 @@ WfsSetBackend(
 	bool		reset
 	)
 {
-	void		(*error_fn_host_ca)(const char *, WfrStatus) =
+	WfsErrorFn	error_fn =
 			WFR_LAMBDA(void, (const char *name, WfrStatus status) {
-				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host CA %s", name);
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting %s", name);
 			});
-	void		(*error_fn_host_key)(const char *, WfrStatus) =
-			WFR_LAMBDA(void, (const char *key_name, WfrStatus status) {
-				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting host key %s", key_name);
-			});
-	void		(*error_fn_session)(const char *, WfrStatus) =
-			WFR_LAMBDA(void, (const char *sessionname, WfrStatus status) {
-				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting session %s", sessionname);
-			});
-
 	WfspBackend *	new_backend_impl;
 	WfrStatus	status;
 
@@ -259,10 +251,12 @@ WfsSetBackend(
 			if ((new_backend_from != new_backend)
 			&&  WFR_STATUS_SUCCESS(status))
 			{
-				if (WFR_STATUS_SUCCESS(status = WfsExportSessions(new_backend_from, new_backend, true, true, error_fn_session))
-				&&  WFR_STATUS_SUCCESS(status = WfsExportHostCAs(new_backend_from, new_backend, true, true, error_fn_host_ca))
-				&&  WFR_STATUS_SUCCESS(status = WfsExportHostKeys(new_backend_from, new_backend, true, true, error_fn_host_key))
-				&&  WFR_STATUS_SUCCESS(status = WfsExportJumpList(new_backend_from, new_backend, false)))
+				if (WFR_STATUS_SUCCESS(status = WfsExportHostCAs(new_backend_from, new_backend, true, true, error_fn))
+				&&  WFR_STATUS_SUCCESS(status = WfsExportHostKeys(new_backend_from, new_backend, true, true, error_fn))
+				&&  WFR_STATUS_SUCCESS(status = WfsExportJumpList(new_backend_from, new_backend, true, true, error_fn))
+				&&  WFR_STATUS_SUCCESS(status = WfsExportOptions(new_backend_from, new_backend, true, true, error_fn))
+				&&  WFR_STATUS_SUCCESS(status = WfsExportPrivKeyList(new_backend_from, new_backend, true, true, error_fn))
+				&&  WFR_STATUS_SUCCESS(status = WfsExportSessions(new_backend_from, new_backend, true, true, error_fn)))
 				{
 					status = WFR_STATUS_CONDITION_SUCCESS;
 				}

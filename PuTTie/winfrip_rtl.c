@@ -99,7 +99,6 @@ WfrpInitVersion(
 	}
 }
 
-
 /*
  * Public subroutines private to PuTTie/winfrip*.c
  */

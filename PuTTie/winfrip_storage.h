@@ -29,6 +29,9 @@ typedef enum WfrTreeItemType {
 	WFR_TREE_ITYPE_MAX		= WFR_TREE_ITYPE_SESSION,
 } WfrTreeItemType;
 
+
+typedef void (*WfsErrorFn)(const char *, WfrStatus);
+
 /*
  * Public macros private to PuTTie/winfrip_storage*.c
  */

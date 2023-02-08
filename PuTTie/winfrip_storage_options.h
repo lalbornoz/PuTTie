@@ -15,7 +15,7 @@ WfrStatus	WfsClearOptions(WfsBackend backend, bool delete_in_backend);
 WfrStatus	WfsCopyOption(WfsBackend backend_from, WfsBackend backend_to, bool save_in_backend, const char *key);
 WfrStatus	WfsDeleteOption(WfsBackend backend, bool delete_in_backend, const char *key);
 WfrStatus	WfsEnumerateOptions(WfsBackend backend, bool initfl, bool *pdonefl, char **pkey, void **pstate);
-WfrStatus	WfsExportOptions(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, void (*error_fn)(const char *, WfrStatus));
+WfrStatus	WfsExportOptions(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, WfsErrorFn error_fn);
 WfrStatus	WfsGetOption(WfsBackend backend, const char *key, WfrTreeItem **pitem, void **pvalue, size_t *pvalue_size, WfrTreeItemType *pvalue_type);
 WfrStatus	WfsGetOptionIntWithDefault(WfsBackend backend, const char *key, int value_default, int **pvalue);
 WfrStatus	WfsGetOptionWithDefault(WfsBackend backend, const char *key, void *value_default, size_t value_default_size, WfrTreeItemType value_default_type, void **pvalue, size_t *pvalue_size, WfrTreeItemType *pvalue_type);

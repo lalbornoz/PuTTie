@@ -71,7 +71,9 @@ WfrStatus
 WfsExportPrivKeyList(
 	WfsBackend	backend_from,
 	WfsBackend	backend_to,
-	bool		movefl
+	bool		clear_to,
+	bool		continue_on_error,
+	WfsErrorFn	error_fn
 	)
 {
 	WfspBackend *	backend_from_impl, *backend_to_impl;
@@ -79,6 +81,10 @@ WfsExportPrivKeyList(
 	size_t		privkey_list_size;
 	WfrStatus	status;
 
+
+	(void)clear_to;
+	(void)continue_on_error;
+	(void)error_fn;
 
 	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
 	||  WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
@@ -89,10 +95,6 @@ WfsExportPrivKeyList(
 	&&  WFR_STATUS_SUCCESS(status = backend_to_impl->SetEntriesPrivKeyList(privkey_list, privkey_list_size)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	if (WFR_STATUS_SUCCESS(status) && movefl) {
-		status = backend_from_impl->CleanupPrivKeyList();
 	}
 
 	WFR_FREE_IF_NOTNULL(privkey_list);
