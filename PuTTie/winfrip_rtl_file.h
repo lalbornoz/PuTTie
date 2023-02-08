@@ -77,6 +77,7 @@ WfrStatus	WfrPathNameToDirectory(char *pname, char **pdname);
 WfrStatus	WfrPathNameToDirectoryW(wchar_t *pname, wchar_t **pdname);
 WfrStatus	WfrRenameFile(bool escape_fnamefl, const char *dname, const char *ext, const char *fname, const char *fname_new);
 WfrStatus	WfrUnescapeFileName(char *fname, const char **pname);
+WfrStatus	WfrWatchDirectory(bool display_errorsfl, char **pdname, CRITICAL_SECTION *dname_cs, HWND hwnd, UINT window_msg, HANDLE *phEvent, HANDLE *phThread);
 
 #endif // !PUTTY_WINFRIP_RTL_FILE_H
 

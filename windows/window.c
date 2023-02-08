@@ -2222,14 +2222,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
     WinGuiSeat *wgs = (WinGuiSeat *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
     switch (message) {
+      /* {{{ winfrip */
       case WM_SHOWWINDOW:
-        /* {{{ winfrip */
         (void)WffBgImgOperation(WFF_BGIMG_OP_INIT, NULL, wgs->conf,
                                 NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
         (void)WffUrlsOperation(WFF_URLS_OP_INIT, wgs->conf, hwnd, -1,
                                NULL, NULL, -1, 0, 0);
-        /* winfrip }}} */
         break;
+      /* winfrip }}} */
+      /* {{{ winfrip */
+      case WFF_BGIMG_WM_CHANGEREQUEST:
+        (void)WffBgImgOperation(WFF_BGIMG_OP_DIRCHANGE, NULL, wgs->conf,
+                                NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
+        break;
+      /* winfrip }}} */
       case WM_CLOSE: {
         char *title, *msg, *additional = NULL;
         show_mouseptr(wgs, true);
