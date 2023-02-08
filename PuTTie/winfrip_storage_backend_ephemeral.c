@@ -400,6 +400,7 @@ WfspEphemeralGetEntriesJumpList(
 		if (!(jump_list_copy = WFR_NEWN(2, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
+			*pjump_list = jump_list_copy;
 			(*pjump_list)[0] = '\0';
 			(*pjump_list)[1] = '\0';
 			if (pjump_list_size) {
