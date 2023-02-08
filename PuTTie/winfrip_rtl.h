@@ -110,6 +110,8 @@
 			(size) = (size_new);						\
 			(status) = WFR_STATUS_CONDITION_SUCCESS;			\
 		}									\
+	} else {									\
+			(status) = WFR_STATUS_CONDITION_SUCCESS;			\
 	}										\
 											\
 	status;										\
