@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_adapter.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
@@ -150,7 +151,10 @@ open_settings_w(
 	if (WFR_STATUS_SUCCESS(status)) {
 		return (settings_w *)session;
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session");
+		if (WfsGetAdapterDisplayErrors()) {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session");
+		}
+
 		return NULL;
 	}
 }
@@ -318,7 +322,10 @@ close_settings_w(
 
 	session = (WfsSession *)handle;
 	status = WfsSaveSession(WfsGetBackend(), session);
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session");
+
+	if (WfsGetAdapterDisplayErrors()) {
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session");
+	}
 }
 
 /*
@@ -360,7 +367,10 @@ open_settings_r(
 	if (WFR_STATUS_SUCCESS(status)) {
 		return (settings_r *)session;
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session (read-only)");
+		if (WfsGetAdapterDisplayErrors()) {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session (read-only)");
+		}
+
 		return NULL;
 	}
 }
@@ -553,7 +563,9 @@ close_settings_r(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session (read-only)");
+	if (WfsGetAdapterDisplayErrors()) {
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session (read-only)");
+	}
 }
 
 /*
@@ -569,7 +581,10 @@ del_settings(
 
 
 	status = WfsDeleteSession(WfsGetBackend(), true, sessionname);
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting session");
+
+	if (WfsGetAdapterDisplayErrors()) {
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting session");
+	}
 }
 
 /*
@@ -591,7 +606,10 @@ enum_settings_start(
 	{
 		return handle;
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating sessions");
+		if (WfsGetAdapterDisplayErrors()) {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating sessions");
+		}
+
 		return NULL;
 	}
 }
@@ -613,9 +631,10 @@ enum_settings_next(
 		&donefl, &sessionname, (void **)&handle);
 
 	if (WFR_STATUS_FAILURE(status) || donefl) {
-		if (WFR_STATUS_FAILURE(status)) {
+		if (WfsGetAdapterDisplayErrors() && WFR_STATUS_FAILURE(status)) {
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating sessions");
 		}
+
 		return false;
 	} else {
 		sessionname_len = strlen(sessionname);

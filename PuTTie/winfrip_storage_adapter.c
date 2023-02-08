@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_adapter.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
@@ -21,6 +22,12 @@
 #include "PuTTie/winfrip_storage_privkey_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
+
+/*
+ * Private variables
+ */
+
+static bool	WfspDisplayErrors = true;
 
 /*
  * Public wrapped PuTTY storage.h type definitions and subroutines
@@ -82,6 +89,49 @@ remove_session_from_jumplist(
 	)
 {
 	WfsRemoveJumpList(WfsGetBackend(), sessionname);
+}
+
+/*
+ * Public subroutines private to PuTTie/winfrip_storage*.c
+ */
+
+bool
+WfsDisableAdapterDisplayErrors(
+	void
+	)
+{
+	bool	old_fl = WfspDisplayErrors;
+
+
+	WfspDisplayErrors = false;
+	return old_fl;
+}
+
+bool
+WfsEnableAdapterDisplayErrors(
+	void
+	)
+{
+	bool	old_fl = WfspDisplayErrors;
+
+
+	WfspDisplayErrors = true;
+	return old_fl;
+}
+
+bool
+WfsGetAdapterDisplayErrors(
+	void
+	)
+{
+	return WfspDisplayErrors;
+}
+void
+WfsSetAdapterDisplayErrors(
+	bool	display_errorsfl
+	)
+{
+	WfspDisplayErrors = display_errorsfl;
 }
 
 /*

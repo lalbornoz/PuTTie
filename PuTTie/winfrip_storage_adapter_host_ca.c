@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_adapter.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
@@ -46,7 +47,10 @@ enum_host_ca_start(
 	{
 		return handle;
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating host CAs");
+		if (WfsGetAdapterDisplayErrors()) {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating host CAs");
+		}
+
 		return NULL;
 	}
 }
@@ -68,9 +72,10 @@ enum_host_ca_next(
 		&donefl, &name, (void **)&handle);
 
 	if (WFR_STATUS_FAILURE(status) || donefl) {
-		if (WFR_STATUS_FAILURE(status)) {
+		if (WfsGetAdapterDisplayErrors() && WFR_STATUS_FAILURE(status)) {
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating host CAs");
 		}
+
 		return false;
 	} else {
 		name_len = strlen(name);
@@ -131,7 +136,10 @@ host_ca_load(
 			}
 		}
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "loading host CA");
+		if (WfsGetAdapterDisplayErrors() && WFR_STATUS_FAILURE(status)) {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "loading host CA");
+		}
+
 		return NULL;
 	}
 }
