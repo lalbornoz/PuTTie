@@ -28,6 +28,8 @@
 /* {{{ winfrip */
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_adapter.h"
+#include "PuTTie/winfrip_storage_sessions.h"
 /* winfrip }}} */
 
 #define MAX_JUMPLIST_ITEMS 30 /* PuTTY will never show more items in
@@ -416,12 +418,18 @@ static IShellLink *make_shell_link(const char *appname,
 
     /* Check if this is a valid session, otherwise don't add. */
     if (sessionname) {
+        /* {{{ winfrip */
+        bool display_errorsfl = WfsDisableAdapterDisplayErrors();
+        /* winfrip }}} */
         settings_r *psettings_tmp = open_settings_r(sessionname);
         if (!psettings_tmp) {
             sfree(app_path);
             return NULL;
         }
         close_settings_r(psettings_tmp);
+        /* {{{ winfrip */
+        WfsSetAdapterDisplayErrors(display_errorsfl);
+        /* winfrip }}} */
     }
 
     /* Create the new item. */

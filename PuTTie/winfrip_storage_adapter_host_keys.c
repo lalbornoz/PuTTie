@@ -14,6 +14,7 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_adapter.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
 #include "PuTTie/winfrip_storage_jump_list.h"
@@ -63,7 +64,10 @@ check_stored_host_key(
 			return 1;
 		}
 	} else {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "checking stored host key");
+		if (WfsGetAdapterDisplayErrors()) {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "checking stored host key");
+		}
+
 		return 1;
 	}
 }
@@ -102,7 +106,9 @@ store_host_key(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "storing host key");
+	if (WfsGetAdapterDisplayErrors()) {
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "storing host key");
+	}
 }
 
 /*
