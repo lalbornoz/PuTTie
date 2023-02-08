@@ -16,6 +16,7 @@
 #define	WFF_BGIMG_DEFAULT_SLIDESHOW_FREQ	3600
 #define	WFF_BGIMG_DEFAULT_STYLE			0
 #define	WFF_BGIMG_DEFAULT_TYPE			0
+#define WFF_BGIMG_WM_CHANGEREQUEST		1127
 
 #define WFF_BGIMG_FILTER_IMAGE_FILES (										\
 	"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
@@ -43,10 +44,11 @@ void		WffBgImgConfigPanel(struct controlbox *b);
  */
 
 typedef enum WffBgImgOp {
-	WFF_BGIMG_OP_DRAW	= 1,
-	WFF_BGIMG_OP_INIT	= 2,
-	WFF_BGIMG_OP_RECONF	= 3,
-	WFF_BGIMG_OP_SIZE	= 4,
+	WFF_BGIMG_OP_DIRCHANGE	= 1,
+	WFF_BGIMG_OP_DRAW	= 2,
+	WFF_BGIMG_OP_INIT	= 3,
+	WFF_BGIMG_OP_RECONF	= 4,
+	WFF_BGIMG_OP_SIZE	= 5,
 } WffBgImgOp;
 
 WfReturn	WffBgImgOperation(WffBgImgOp op, bool *pbgfl, Conf *conf, HDC hdc_in, HWND hwnd, int char_width, int font_height, int len, int nbg, int rc_width, int x, int y);

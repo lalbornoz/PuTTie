@@ -17,6 +17,140 @@
 #include "PuTTie/winfrip_rtl_file.h"
 
 /*
+ * Private types
+ */
+
+typedef struct WfrWatchDirectoryContext {
+	bool			display_errorsfl;
+	char **			pdname;
+	CRITICAL_SECTION *	dname_cs;
+	HANDLE			dname_event;
+	HWND			hwnd;
+	UINT			window_msg;
+} WfrWatchDirectoryContext;
+#define WFR_WATCH_DIRECTORY_CONTEXT_EMPTY {					\
+	.display_errorsfl = false,						\
+	.pdname = NULL,								\
+	.dname_cs = NULL,							\
+	.dname_event = NULL,							\
+	.hwnd = NULL,								\
+	.window_msg = 0,							\
+}
+#define WFR_WATCH_DIRECTORY_CONTEXT_INIT(ctx) ({				\
+	(ctx) = (WfrWatchDirectoryContext)WFR_WATCH_DIRECTORY_CONTEXT_EMPTY;	\
+	WFR_STATUS_CONDITION_SUCCESS;						\
+})
+#define WFR_WATCH_DIRECTORY_CONTEXT_INIT1(ctx, display_errorsfl_, pdname_,	\
+					  dname_cs_, dname_event_, hwnd_,	\
+					  window_msg_) ({			\
+	(ctx) = (WfrWatchDirectoryContext)WFR_WATCH_DIRECTORY_CONTEXT_EMPTY;	\
+	(ctx).display_errorsfl = (display_errorsfl_);				\
+	(ctx).pdname = (pdname_);						\
+	(ctx).dname_cs = (dname_cs_);						\
+	(ctx).dname_event = (dname_event_);					\
+	(ctx).hwnd = (hwnd_);							\
+	(ctx).window_msg = (window_msg_);					\
+	WFR_STATUS_CONDITION_SUCCESS;						\
+})
+
+/*
+ * Private subroutines
+ */
+
+static DWORD WINAPI
+WfrpWatchDirectoryThreadProc(
+	LPVOID	lpParameter
+	)
+{
+	HANDLE				dwChangeHandle = NULL;
+	HANDLE				dwHandles[2];
+	HANDLE				hDummyEvent;
+	WfrStatus			status;
+	WfrWatchDirectoryContext *	ctx;
+
+
+	ctx = (WfrWatchDirectoryContext *)lpParameter;
+
+	if (!(hDummyEvent = CreateEvent(NULL, FALSE, FALSE, NULL))) {
+		status = WFR_STATUS_FROM_WINDOWS();
+		if (ctx->display_errorsfl) {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "creating event");
+		}
+		return FALSE;
+	} else {
+		dwHandles[0] = ctx->dname_event;
+		dwHandles[1] = hDummyEvent;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	do {
+		switch (WaitForMultipleObjects(2, dwHandles, FALSE, INFINITE)) {
+		case WAIT_ABANDONED_0:
+		case WAIT_ABANDONED_0 + 1:
+		case WAIT_TIMEOUT:
+			break;
+
+		case WAIT_FAILED:
+		default:
+			status = WFR_STATUS_FROM_WINDOWS();
+			break;
+
+		case WAIT_OBJECT_0:
+			EnterCriticalSection(ctx->dname_cs);
+
+			if (dwChangeHandle != NULL) {
+				(void)FindCloseChangeNotification(dwChangeHandle);
+				dwChangeHandle = NULL;
+			}
+
+			if (*(ctx->pdname)) {
+				dwChangeHandle = FindFirstChangeNotification(
+					*(ctx->pdname), FALSE, FILE_NOTIFY_CHANGE_FILE_NAME);
+				if ((dwChangeHandle == INVALID_HANDLE_VALUE)
+				||  (dwChangeHandle == NULL))
+				{
+					if (ctx->display_errorsfl) {
+						status = WFR_STATUS_FROM_WINDOWS();
+						WFR_IF_STATUS_FAILURE_MESSAGEBOX(
+							status, "finding first change notification for %s", *(ctx->pdname));
+					}
+					status = WFR_STATUS_CONDITION_SUCCESS;
+				} else {
+					dwHandles[1] = dwChangeHandle;
+					status = WFR_STATUS_CONDITION_SUCCESS;
+				}
+			}
+
+			LeaveCriticalSection(ctx->dname_cs);
+			break;
+
+		case WAIT_OBJECT_0 + 1:
+			if (dwHandles[1] != hDummyEvent) {
+				EnterCriticalSection(ctx->dname_cs);
+				if (FindNextChangeNotification(dwChangeHandle) == FALSE) {
+					if (ctx->display_errorsfl) {
+						status = WFR_STATUS_FROM_WINDOWS();
+						WFR_IF_STATUS_FAILURE_MESSAGEBOX(status,
+							"finding next change notification", *(ctx->pdname));
+						status = WFR_STATUS_CONDITION_SUCCESS;
+					}
+
+					(void)FindCloseChangeNotification(dwChangeHandle);
+					dwChangeHandle = NULL;
+					dwHandles[1] = hDummyEvent;
+				}
+				LeaveCriticalSection(ctx->dname_cs);
+
+				(void)SendMessage(ctx->hwnd, ctx->window_msg, 0, 0);
+			}
+			break;
+		}
+	} while (WFR_STATUS_SUCCESS(status));
+
+	return (WFR_STATUS_SUCCESS(status) ? TRUE : FALSE);
+}
+
+/*
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
@@ -603,15 +737,23 @@ WfrPathNameToDirectory(
 	size_t		dname_len;
 	char *		dname_end;
 	size_t		pname_len;
+	struct stat	statbuf;
 	WfrStatus	status;
 
 
 	if ((pname_len = strlen(pname))) {
-		for (dname_end = &pname[pname_len - 1];
-		     (dname_end > pname) && (*dname_end != '/') && (*dname_end != '\\');
-		     dname_end--);
+		if ((stat(pname, &statbuf) == 0)
+		&&  (statbuf.st_mode & S_IFDIR))
+		{
+			dname_len = pname_len;
+		} else {
+			for (dname_end = &pname[pname_len - 1];
+			     (dname_end > pname) && (*dname_end != '/') && (*dname_end != '\\');
+			     dname_end--);
 
-		dname_len = (dname_end > pname) ? (dname_end - pname) : 1;
+			dname_len = (dname_end > pname) ? (dname_end - pname) : 1;
+		}
+
 		if (!(dname = WFR_NEWN(dname_len + 1, char))) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else {
@@ -637,10 +779,23 @@ WfrPathNameToDirectoryW(
 	size_t		dname_len;
 	wchar_t *	dname_end;
 	size_t		pname_len;
+	struct _stat64	statbuf;
 	WfrStatus	status;
 
 
 	if ((pname_len = wcslen(pname))) {
+		if ((_wstat64(pname, &statbuf) == 0)
+		&&  (statbuf.st_mode & S_IFDIR))
+		{
+			dname_len = pname_len;
+		} else {
+			for (dname_end = &pname[pname_len - 1];
+			     (dname_end > pname) && (*dname_end != '/') && (*dname_end != '\\');
+			     dname_end--);
+
+			dname_len = (dname_end > pname) ? (dname_end - pname) : 1;
+		}
+
 		for (dname_end = &pname[pname_len - 1];
 		     (dname_end > pname) && (*dname_end != L'/') && (*dname_end != L'\\');
 		     dname_end--);
@@ -754,6 +909,52 @@ WfrUnescapeFileName(
 			*pname = name;
 		} else {
 			WFR_FREE(name);
+		}
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrWatchDirectory(
+	bool			display_errorsfl,
+	char **			pdname,
+	CRITICAL_SECTION *	dname_cs,
+	HWND			hwnd,
+	UINT			window_msg,
+	HANDLE *		phEvent,
+	HANDLE *		phThread
+	)
+{
+	WfrWatchDirectoryContext *	ctx = NULL;
+	HANDLE				hEvent = NULL;
+	HANDLE				hThread;
+	WfrStatus			status;
+
+
+	InitializeCriticalSection(dname_cs);
+
+	if (!(hEvent = CreateEvent(NULL, FALSE, FALSE, NULL))) {
+		status = WFR_STATUS_FROM_WINDOWS();
+	} else if (!(ctx = WFR_NEW(WfrWatchDirectoryContext))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (WFR_STATUS_SUCCESS(status = WFR_WATCH_DIRECTORY_CONTEXT_INIT1(
+				*ctx, display_errorsfl, pdname,
+				dname_cs, hEvent, hwnd, window_msg)))
+	{
+		if (!(hThread = CreateThread(NULL, 0, WfrpWatchDirectoryThreadProc, ctx, 0, NULL))) {
+			status = WFR_STATUS_FROM_WINDOWS();
+		} else {
+			*phEvent = hEvent;
+			*phThread = hThread;
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+	}
+
+	if (WFR_STATUS_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(ctx);
+		if (hEvent) {
+			(void)CloseHandle(hEvent);
 		}
 	}
 

@@ -48,7 +48,7 @@ you should use PuTTie:
 
 1. **Background {BMP,EMF,GIF,ICO,JPEG,PNG,TIFF,WMF}[[10](#r10)] images**, similarly to[[6](#r6)]  
    Absolute positioning, centered, fit w/ optional padding, scaled, or tiled, with configurable opacity  
-   Melbourne shuffle slideshow with configurable frequency
+   Melbourne shuffle slideshow with configurable frequency, updated automatically on file changes in images directory
 2. **Trans-arency**, similarly to the mintty[[7](#r7)] implementation  
    Optionally in conjunction with background images, configurable opacity on {focus,focus loss} behaviour
 3. **Clickable URLs**, similarly to the mintty[[7](#r7)] implementation  

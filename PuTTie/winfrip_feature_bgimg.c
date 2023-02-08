@@ -60,36 +60,33 @@ typedef enum WffbpType {
 
 /*
  * Absolute pathname to background images slideshow directory
+ * Vector of background images filenames in background images slideshow directory
+ * Absolute pathname to single background image filename
  */
 static char *			WffbpDname = NULL;
 static size_t			WffbpDnameLen = 0;
-
-/*
- * Vector of background images filenames in background images slideshow directory
- */
 static size_t			WffbpDnameFileC = 0;
 static char **			WffbpDnameFileV = NULL;
-
-/*
- * Absolute pathname to single background image filename
- */
 static char *			WffbpFname = NULL;
 
 /*
+ * Critical section serialising access to WffbpDname, event handle both used by the
+ * slideshow directory change notification thread and the thread handle to the latter
+ */
+static CRITICAL_SECTION		WffbpDnameCriticalSection;
+static HANDLE			WffbpDnameEvent;
+static HANDLE			WffbpDnameWatchThread;
+
+/*
  * Current and old device context handles
+ * Current background image state
+ * Current slideshow timer context passed to WffbpSlideshowTimerFunction()
  */
 static HDC			WffbphDC = NULL;
 static HGDIOBJ			WffbphDCOld = NULL;
-
-/*
- * Current state
- */
 static WffbpState		WffbpStateCurrent = WFFBP_STATE_NONE;
-
-/*
- * Slideshow timer context passed to WffbpSlideshowTimerFunction()
- */
 static WffbpContext *		WffbpTimerContext = NULL;
+static int			WffbpSlideshowFrequency = -1;
 
 /*
  * External subroutine prototypes
@@ -107,10 +104,20 @@ static void		WffbpConfigPanelStyle(dlgcontrol *ctrl, dlgparam *dlg, void *data, 
 static void		WffbpConfigPanelType(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
 static WfrStatus	WffbpGetFname(Conf *conf, bool reshuffle, wchar_t **pbg_bmp_fname_w);
-static WfrStatus	WffbpGetFnameShuffle(void);
+static WfrStatus	WffbpGetFnameShuffle(Conf *conf, bool reshuffle, wchar_t **pbg_bmp_fname_w);
+static WfrStatus	WffbpGetFnameSingle(Conf *conf, bool reshuffle, wchar_t **pbg_bmp_fname_w);
 static WfrStatus	WffbpSet(Conf *conf, HDC hdc, bool force, bool reshuffle, bool shutupfl);
+
 static WfrStatus	WffbpSlideshowReconf(Conf *conf, HWND hWnd);
+static WfrStatus	WffbpSlideshowReconfShuffle(Conf *conf, HWND hWnd);
+static WfrStatus	WffbpSlideshowReconfSingle(Conf *conf, HWND hWnd);
 static void		WffbpSlideshowTimerFunction(void *ctx, unsigned long now);
+
+static WfReturn		WffbpOpDirChange(Conf *conf, HWND hwnd);
+static WfReturn		WffbpOpDraw(int char_width, Conf *conf, HDC hdc, int font_height, int len, int nbg, bool *pbgfl, int rc_width, int x, int y);
+static WfReturn		WffbpOpInit(Conf *conf, HWND hwnd);
+static WfReturn		WffbpOpReconf(Conf *conf, HDC hdc, HWND hwnd);
+static WfReturn		WffbpOpSize(Conf *conf, HDC hdc);
 
 /*
  * Private subroutines
@@ -242,8 +249,92 @@ WffbpConfigPanelType(
 	}
 }
 
+
 static WfrStatus
 WffbpGetFname(
+	Conf *		conf,
+	bool		reshuffle,
+	wchar_t **	pbg_fname_w
+	)
+{
+	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
+	default:
+		return WFR_STATUS_FROM_ERRNO1(EINVAL);
+
+	case WFFBP_SLIDESHOW_SINGLE_IMAGE:
+		return WffbpGetFnameSingle(conf, reshuffle, pbg_fname_w);
+
+	case WFFBP_SLIDESHOW_SHUFFLE:
+		return WffbpGetFnameShuffle(conf, reshuffle, pbg_fname_w);
+	}
+}
+
+static WfrStatus
+WffbpGetFnameShuffle(
+	Conf *		conf,
+	bool		reshuffle,
+	wchar_t **	pbg_fname_w
+	)
+{
+	char *		bg_fname;
+	size_t		bg_fname_idx;
+	size_t		bg_fname_len;
+	size_t		bg_fname_size;
+	WfrStatus	status;
+
+
+	(void)conf;
+
+	if (!reshuffle && WffbpFname) {
+		bg_fname = WffbpFname;
+		bg_fname_len = strlen(bg_fname);
+		status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
+	} else if ((WffbpDnameFileC > 0) && (WffbpDnameFileV != NULL)) {
+		if (WFR_STATUS_SUCCESS(status = WfrGenRandom(
+			(PUCHAR)&bg_fname_idx, sizeof(bg_fname_idx))))
+		{
+			bg_fname_idx %= WffbpDnameFileC;
+			bg_fname_len = strlen(
+				  WffbpDnameFileV[bg_fname_idx]
+				? WffbpDnameFileV[bg_fname_idx]
+				: "");
+			bg_fname_size = WffbpDnameLen + 1 + bg_fname_len + 1;
+
+			if ((WffbpDnameLen == 0)
+			||  (WffbpDnameFileV[bg_fname_idx] == NULL)
+			||  (bg_fname_len == 0))
+			{
+				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+			} else if (!(bg_fname = WFR_NEWN(bg_fname_size, char))) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				EnterCriticalSection(&WffbpDnameCriticalSection);
+				WFR_SNPRINTF(
+					bg_fname, bg_fname_size, "%*.*s\\%s",
+					(int)WffbpDnameLen, (int)WffbpDnameLen, WffbpDname,
+					WffbpDnameFileV[bg_fname_idx]);
+				LeaveCriticalSection(&WffbpDnameCriticalSection);
+
+				bg_fname_len = strlen(bg_fname);
+				status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
+				if (WFR_STATUS_FAILURE(status)) {
+					WFR_FREE(bg_fname);
+				} else {
+					WFR_FREE_IF_NOTNULL(WffbpFname);
+					WffbpFname = bg_fname;
+				}
+			}
+		}
+	} else {
+		pbg_fname_w = NULL;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	return status;
+}
+
+static WfrStatus
+WffbpGetFnameSingle(
 	Conf *		conf,
 	bool		reshuffle,
 	wchar_t **	pbg_fname_w
@@ -255,78 +346,15 @@ WffbpGetFname(
 	WfrStatus	status;
 
 
-	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
-	default:
-		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-		break;
+	(void)reshuffle;
 
-	case WFFBP_SLIDESHOW_SINGLE_IMAGE:
-		bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
-		bg_fname = bg_fname_conf->path;
-		status = WFR_STATUS_CONDITION_SUCCESS;
-		break;
-
-	case WFFBP_SLIDESHOW_SHUFFLE:
-		if ((!reshuffle && WffbpFname)
-		||  (WFR_STATUS_SUCCESS(status = WffbpGetFnameShuffle())))
-		{
-			bg_fname = WffbpFname;
-		}
-		break;
-	}
+	bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
+	bg_fname = bg_fname_conf->path;
+	status = WFR_STATUS_CONDITION_SUCCESS;
 
 	if (WFR_STATUS_SUCCESS(status)) {
 		bg_fname_len = strlen(bg_fname);
 		status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
-	}
-
-	return status;
-}
-
-static WfrStatus
-WffbpGetFnameShuffle(
-	void
-	)
-{
-	char *		bg_fname = NULL;
-	size_t		bg_fname_idx;
-	size_t		bg_fname_len;
-	size_t		bg_fname_size;
-	WfrStatus	status;
-
-
-	if ((WffbpDnameFileC > 0) && (WffbpDnameFileV != NULL)) {
-		if (WFR_STATUS_SUCCESS(status = WfrGenRandom(
-				(PUCHAR)&bg_fname_idx, sizeof(bg_fname_idx)))) {
-			bg_fname_idx %= WffbpDnameFileC;
-			bg_fname_len = strlen(
-				  WffbpDnameFileV[bg_fname_idx]
-				? WffbpDnameFileV[bg_fname_idx]
-				: "");
-
-			if ((WffbpDnameLen == 0)
-			||  (WffbpDnameFileV[bg_fname_idx] == NULL)
-			||  (bg_fname_len == 0))
-			{
-				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-			} else if (!(bg_fname = WFR_NEWN(
-					bg_fname_size = (WffbpDnameLen + 1 + bg_fname_len + 1),
-					char)))
-			{
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				WFR_SNPRINTF(
-					bg_fname, bg_fname_size, "%*.*s\\%s",
-					(int)WffbpDnameLen, (int)WffbpDnameLen, WffbpDname,
-					WffbpDnameFileV[bg_fname_idx]);
-
-				WFR_FREE_IF_NOTNULL(WffbpFname);
-				WffbpFname = bg_fname;
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
-		}
-	} else {
-		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 	}
 
 	return status;
@@ -352,54 +380,54 @@ WffbpSet(
 	switch (WffbpStateCurrent) {
 	default:
 		break;
-
 	case WFFBP_STATE_NONE:
 		break;
 
 	case WFFBP_STATE_FAILED:
 		if (!force) {
 			return WFR_STATUS_FROM_ERRNO1(EINVAL);
-		} else {
-			break;
 		}
+		break;
 
 	case WFFBP_STATE_INIT:
 		if (!force) {
 			return WFR_STATUS_CONDITION_SUCCESS;
-		} else {
-			break;
 		}
+		break;
 	}
 
 
 	(void)WfrFreeBitmapDC(&WffbphDC, &WffbphDCOld);
 
 	if (WFR_STATUS_SUCCESS(status = WffbpGetFname(conf, reshuffle, &bg_bmp_fname_w))
-	&&  WFR_STATUS_SUCCESS(status = WfrLoadImage(
-			&bg_hdc, &bg_hdc_old, &bg_height,
-			&bg_width, &bmp_src, bg_bmp_fname_w, hdc))
-	&&  WFR_STATUS_SUCCESS(status = WfrTransferImage(
-			bg_hdc, bg_height, bg_width, bmp_src,
-			hdc, conf_get_int(conf, CONF_frip_bgimg_padding),
-			conf_get_int(conf, CONF_frip_bgimg_style)))
-	&&  WFR_STATUS_SUCCESS(status = WfrBlendImage(
-			bg_hdc, bg_height, bg_width,
-			conf_get_int(conf, CONF_frip_bgimg_opacity))))
+	&&  bg_bmp_fname_w)
 	{
-		(void)DeleteObject(bmp_src);
-
-		WffbphDC = bg_hdc;
-		WffbphDCOld = bg_hdc_old;
-		WffbpStateCurrent = WFFBP_STATE_INIT;
-		WFR_FREE(bg_bmp_fname_w);
-	} else {
-		(void)WfrFreeBitmapDC(&bg_hdc, &bg_hdc_old);
-		if (bmp_src) {
+		if (WFR_STATUS_SUCCESS(status = WfrLoadImage(
+				&bg_hdc, &bg_hdc_old, &bg_height,
+				&bg_width, &bmp_src, bg_bmp_fname_w, hdc))
+		&&  WFR_STATUS_SUCCESS(status = WfrTransferImage(
+				bg_hdc, bg_height, bg_width, bmp_src,
+				hdc, conf_get_int(conf, CONF_frip_bgimg_padding),
+				conf_get_int(conf, CONF_frip_bgimg_style)))
+		&&  WFR_STATUS_SUCCESS(status = WfrBlendImage(
+				bg_hdc, bg_height, bg_width,
+				conf_get_int(conf, CONF_frip_bgimg_opacity))))
+		{
 			(void)DeleteObject(bmp_src);
-		}
 
-		WffbpStateCurrent = WFFBP_STATE_FAILED;
-		WFR_FREE_IF_NOTNULL(bg_bmp_fname_w);
+			WffbphDC = bg_hdc;
+			WffbphDCOld = bg_hdc_old;
+			WffbpStateCurrent = WFFBP_STATE_INIT;
+			WFR_FREE(bg_bmp_fname_w);
+		} else {
+			(void)WfrFreeBitmapDC(&bg_hdc, &bg_hdc_old);
+			if (bmp_src) {
+				(void)DeleteObject(bmp_src);
+			}
+
+			WffbpStateCurrent = WFFBP_STATE_FAILED;
+			WFR_FREE_IF_NOTNULL(bg_bmp_fname_w);
+		}
 	}
 
 	if (!shutupfl) {
@@ -409,97 +437,139 @@ WffbpSet(
 	return status;
 }
 
+
 static WfrStatus
 WffbpSlideshowReconf(
 	Conf *	conf,
 	HWND	hWnd
 	)
 {
+	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
+	default:
+		return WFR_STATUS_FROM_ERRNO1(EINVAL);
+
+	case WFFBP_SLIDESHOW_SHUFFLE:
+		return WffbpSlideshowReconfShuffle(conf, hWnd);
+
+	case WFFBP_SLIDESHOW_SINGLE_IMAGE:
+		return WffbpSlideshowReconfSingle(conf, hWnd);
+	}
+}
+
+static WfrStatus
+WffbpSlideshowReconfShuffle(
+	Conf *	conf,
+	HWND	hWnd
+	)
+{
 	char *			bg_dname;
 	Filename *		bg_dname_conf;
-	char *			bg_fname;
-	Filename *		bg_fname_conf;
 	size_t			dname_filec_new = 0;
 	char **			dname_filev_new = NULL;
 	char *			dname_new = NULL;
-	struct stat		statbuf;
+	int			freq_new;
 	WfrStatus		status;
 	WffbpContext *		timer_ctx_new = NULL;
 
 
-	switch (conf_get_int(conf, CONF_frip_bgimg_slideshow)) {
-	default:
-		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-		break;
+	bg_dname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
+	bg_dname = bg_dname_conf->path;
 
-	case WFFBP_SLIDESHOW_SINGLE_IMAGE:
-		bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
-		bg_fname = bg_fname_conf->path;
+	if (!(timer_ctx_new = WFR_NEW(WffbpContext))) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (WFR_STATUS_SUCCESS(status = WfrPathNameToDirectory(bg_dname, &dname_new))
+		&& WFR_STATUS_SUCCESS(status = WfrEnumerateFilesV(
+			dname_new, NULL, &dname_filec_new, &dname_filev_new)))
+	{
+		EnterCriticalSection(&WffbpDnameCriticalSection);
+		WFR_FREE_IF_NOTNULL(WffbpDname);
+		WffbpDname = dname_new;
+		LeaveCriticalSection(&WffbpDnameCriticalSection);
 
-		if (stat(bg_fname, &statbuf) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else {
-			WFR_FREE_IF_NOTNULL(WffbpDname);
-			WffbpDnameLen = 0;
-			WFR_FREE_IF_NOTNULL(WffbpFname);
-			WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
+		WffbpDnameLen = strlen(WffbpDname);
+		WFR_FREE_IF_NOTNULL(WffbpFname);
+		WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
+		WffbpDnameFileC = dname_filec_new;
+		WffbpDnameFileV = dname_filev_new;
 
-			if (WffbpTimerContext) {
-				expire_timer_context(WffbpTimerContext);
-				WFR_FREE(WffbpTimerContext);
-			}
+		(void)SetEvent(WffbpDnameEvent);
 
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-
-		break;
-
-	case WFFBP_SLIDESHOW_SHUFFLE:
-		bg_dname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
-		bg_dname = bg_dname_conf->path;
-
-		if (!(timer_ctx_new = WFR_NEW(WffbpContext))) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (WFR_STATUS_SUCCESS(status = WfrPathNameToDirectory(bg_dname, &dname_new))
-			&& WFR_STATUS_SUCCESS(status = WfrEnumerateFilesV(
-				dname_new, NULL, &dname_filec_new, &dname_filev_new)))
+		freq_new = conf_get_int(conf, CONF_frip_bgimg_slideshow_freq) * 1000;
+		if ((WffbpSlideshowFrequency != freq_new)
+		||  !WffbpTimerContext)
 		{
-			WFR_FREE_IF_NOTNULL(WffbpDname);
-			WFR_FREE_IF_NOTNULL(WffbpFname);
-			WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
-
-			WffbpDname = dname_new;
-			WffbpDnameLen = strlen(WffbpDname);
-			WffbpDnameFileC = dname_filec_new;
-			WffbpDnameFileV = dname_filev_new;
-
 			if (WffbpTimerContext) {
 				expire_timer_context(WffbpTimerContext);
 				WFR_FREE(WffbpTimerContext);
 			}
 			WFFBP_CONTEXT_INIT(*timer_ctx_new);
 			timer_ctx_new->wgs = (WinGuiSeat *)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+
+			WffbpSlideshowFrequency = freq_new;
 			WffbpTimerContext = timer_ctx_new;
 
 			(void)schedule_timer(
-				conf_get_int(conf, CONF_frip_bgimg_slideshow_freq) * 1000,
-				WffbpSlideshowTimerFunction, (void *)WffbpTimerContext);
+				WffbpSlideshowFrequency,
+				WffbpSlideshowTimerFunction,
+				(void *)WffbpTimerContext);
 		}
+	} else {
+		WFR_FREE_IF_NOTNULL(dname_new);
+		WFR_FREE(timer_ctx_new);
 
-		if (WFR_STATUS_FAILURE(status)) {
-			WFR_FREE_IF_NOTNULL(dname_new);
-			WFR_FREE(timer_ctx_new);
+		EnterCriticalSection(&WffbpDnameCriticalSection);
+		WFR_FREE_IF_NOTNULL(WffbpDname);
+		LeaveCriticalSection(&WffbpDnameCriticalSection);
 
-			WFR_FREE_IF_NOTNULL(WffbpDname);
-			WffbpDnameLen = 0;
-			WFR_FREE_IF_NOTNULL(WffbpFname);
-			WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
-		}
-
-		break;
+		WffbpDnameLen = 0;
+		WFR_FREE_IF_NOTNULL(WffbpFname);
+		WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
 	}
 
-	// FIXME TODO XXX doesnt show up
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "configuring background image");
+
+	return status;
+}
+
+static WfrStatus
+WffbpSlideshowReconfSingle(
+	Conf *	conf,
+	HWND	hWnd
+	)
+{
+	char *		bg_fname;
+	Filename *	bg_fname_conf;
+	struct stat	statbuf;
+	WfrStatus	status;
+
+
+	(void)hWnd;
+
+	bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
+	bg_fname = bg_fname_conf->path;
+
+	if (stat(bg_fname, &statbuf) < 0) {
+		status = WFR_STATUS_FROM_ERRNO();
+	} else if (!(statbuf.st_mode & S_IFDIR)) {
+		EnterCriticalSection(&WffbpDnameCriticalSection);
+		WFR_FREE_IF_NOTNULL(WffbpDname);
+		LeaveCriticalSection(&WffbpDnameCriticalSection);
+
+		WffbpDnameLen = 0;
+		WFR_FREE_IF_NOTNULL(WffbpFname);
+		WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
+
+		WffbpSlideshowFrequency = -1;
+		if (WffbpTimerContext) {
+			expire_timer_context(WffbpTimerContext);
+			WFR_FREE(WffbpTimerContext);
+		}
+
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	} else {
+		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+	}
+
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "configuring background image");
 
 	return status;
@@ -528,6 +598,129 @@ WffbpSlideshowTimerFunction(
 		conf_get_int(context->wgs->conf,
 		CONF_frip_bgimg_slideshow_freq) * 1000,
 		WffbpSlideshowTimerFunction, ctx);
+}
+
+
+static WfReturn
+WffbpOpDirChange(
+	Conf *	conf,
+	HWND	hwnd
+	)
+{
+	(void)WffbpSlideshowReconf(conf, hwnd);
+	return WF_RETURN_CONTINUE;
+}
+
+static WfReturn
+WffbpOpDraw(
+	int	char_width,
+	Conf *	conf,
+	HDC	hdc,
+	int	font_height,
+	int	len,
+	int	nbg,
+	bool *	pbgfl,
+	int	rc_width,
+	int	x,
+	int	y
+	)
+{
+	WfReturn	rc;
+	BOOL		rc_windows;
+
+
+	if ((nbg != 258) && (nbg != 259)) {
+		rc = WF_RETURN_CONTINUE;
+	} else if (!WffbphDC
+		|| !WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, false, true, true)))
+	{
+		rc = WF_RETURN_FAILURE;
+	} else {
+		if (rc_width > 0) {
+			rc_windows = BitBlt(
+				hdc, x, y, rc_width, font_height,
+				WffbphDC, x, y, SRCCOPY);
+		} else {
+			rc_windows = BitBlt(
+				hdc, x, y, char_width * len,
+				font_height, WffbphDC, x, y, SRCCOPY);
+		}
+
+		if (rc_windows > 0) {
+			*pbgfl = true;
+			rc = WF_RETURN_CONTINUE;
+		} else {
+			*pbgfl = false;
+			rc = WF_RETURN_FAILURE;
+		}
+	}
+
+	return rc;
+}
+
+static WfReturn
+WffbpOpInit(
+	Conf *	conf,
+	HWND	hwnd
+	)
+{
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_FAILURE(status = WfrWatchDirectory(
+			false, &WffbpDname, &WffbpDnameCriticalSection,
+			hwnd, WFF_BGIMG_WM_CHANGEREQUEST, &WffbpDnameEvent,
+			&WffbpDnameWatchThread)))
+	{
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(
+			status, "creating background image directory change notification thread");
+		exit(1);
+	} else {
+		(void)WffbpSlideshowReconf(conf, hwnd);
+		return WF_RETURN_CONTINUE;
+	}
+}
+
+static WfReturn
+WffbpOpReconf(
+	Conf *	conf,
+	HDC	hdc,
+	HWND	hwnd
+	)
+{
+	if (WFR_STATUS_SUCCESS(WffbpSlideshowReconf(conf, hwnd))
+	&&  WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, true, true, false)))
+	{
+		return WF_RETURN_CONTINUE;
+	} else {
+		return WF_RETURN_FAILURE;
+	}
+}
+
+static WfReturn
+WffbpOpSize(
+	Conf *	conf,
+	HDC	hdc
+	)
+{
+	switch (conf_get_int(conf, CONF_frip_bgimg_style)) {
+	default:
+		return WF_RETURN_FAILURE;
+
+	case WFR_TI_STYLE_ABSOLUTE:
+	case WFR_TI_STYLE_TILE:
+		return WF_RETURN_CONTINUE;
+
+	case WFR_TI_STYLE_CENTER:
+	case WFR_TI_STYLE_FIT:
+	case WFR_TI_STYLE_STRETCH:
+		if (WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, true, false, true))) {
+			return WF_RETURN_CONTINUE;
+		} else {
+			return WF_RETURN_FAILURE;
+		}
+		break;
+	}
 }
 
 /*
@@ -608,99 +801,37 @@ WffBgImgOperation(
 	WfReturn	rc;
 
 
-	if (conf_get_int(conf, CONF_frip_bgimg_type) != WFFBP_TYPE_IMAGE) {
+	if ((conf_get_int(conf, CONF_frip_bgimg_type) != WFFBP_TYPE_IMAGE)
+	||  !(bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename))
+	||  (!bg_fname_conf->path || (strlen(bg_fname_conf->path) == 0)))
+	{
 		return WF_RETURN_CONTINUE;
-	}
-	if (!(bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename))) {
-		return WF_RETURN_CONTINUE;
-	} else if (!bg_fname_conf->path || (strlen(bg_fname_conf->path) == 0)) {
-		return WF_RETURN_CONTINUE;
-	}
-
-	if (hdc_in) {
-		hdc = hdc_in;
-	} else if (!hdc_in) {
-		hdc = GetDC(hwnd);
+	} else {
+		hdc = hdc_in ? hdc_in : GetDC(hwnd);
 	}
 
 	switch (op) {
 	default:
 		rc = WF_RETURN_FAILURE;
-		goto out;
-
-	case WFF_BGIMG_OP_DRAW:
-		if ((nbg == 258) || (nbg == 259)) {
-			if (WffbphDC
-			||  WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, false, true, true)))
-			{
-				if (rc_width > 0) {
-					rc = BitBlt(
-						hdc, x, y, rc_width, font_height,
-						WffbphDC, x, y, SRCCOPY) > 0;
-				} else {
-					rc = BitBlt(
-						hdc, x, y, char_width * len,
-						font_height, WffbphDC, x, y, SRCCOPY) > 0;
-				}
-				if (rc) {
-					*pbgfl = true;
-					rc = WF_RETURN_CONTINUE;
-					goto out;
-				} else {
-					*pbgfl = false;
-					rc = WF_RETURN_FAILURE;
-					goto out;
-				}
-			} else {
-				rc = WF_RETURN_FAILURE;
-				goto out;
-			}
-		} else {
-			rc = WF_RETURN_CONTINUE;
-			goto out;
-		}
-
-	case WFF_BGIMG_OP_INIT:
-		(void)WffbpSlideshowReconf(conf, hwnd);
-		rc = WF_RETURN_CONTINUE;
 		break;
 
+	case WFF_BGIMG_OP_DIRCHANGE:
+		rc = WffbpOpDirChange(conf, hwnd);
+		break;
+	case WFF_BGIMG_OP_DRAW:
+		rc = WffbpOpDraw(char_width, conf, hdc, font_height, len, nbg, pbgfl, rc_width, x, y);
+		break;
+	case WFF_BGIMG_OP_INIT:
+		rc = WffbpOpInit(conf, hwnd);
+		break;
 	case WFF_BGIMG_OP_RECONF:
-		if (WFR_STATUS_SUCCESS(WffbpSlideshowReconf(conf, hwnd))
-		&&  WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, true, true, false)))
-		{
-			rc = WF_RETURN_CONTINUE;
-			goto out;
-		} else {
-			rc = WF_RETURN_FAILURE;
-			goto out;
-		}
-
+		rc = WffbpOpReconf(conf, hdc, hwnd);
+		break;
 	case WFF_BGIMG_OP_SIZE:
-		switch (conf_get_int(conf, CONF_frip_bgimg_style)) {
-		default:
-			rc = WF_RETURN_FAILURE;
-			goto out;
-
-		case WFR_TI_STYLE_ABSOLUTE:
-		case WFR_TI_STYLE_TILE:
-			rc = WF_RETURN_CONTINUE;
-			goto out;
-
-		case WFR_TI_STYLE_CENTER:
-		case WFR_TI_STYLE_FIT:
-		case WFR_TI_STYLE_STRETCH:
-			if (WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, true, false, true))) {
-				rc = WF_RETURN_CONTINUE;
-				goto out;
-			} else {
-				rc = WF_RETURN_FAILURE;
-				goto out;
-			}
-		}
+		rc = WffbpOpSize(conf, hdc);
+		break;
 	}
 
-out:
 	if (!hdc_in) {
 		(void)ReleaseDC(hwnd, hdc);
 	}
