@@ -13,7 +13,7 @@
 void		WfsAddJumpList(WfsBackend backend, const char *const sessionname);
 WfrStatus	WfsCleanupJumpList(WfsBackend backend);
 void		WfsClearJumpList(WfsBackend backend);
-WfrStatus	WfsExportJumpList(WfsBackend backend_from, WfsBackend backend_to, bool movefl);
+WfrStatus	WfsExportJumpList(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, WfsErrorFn error_fn);
 char *		WfsGetEntriesJumpList(WfsBackend backend);
 void		WfsRemoveJumpList(WfsBackend backend, const char *const sessionname);
 

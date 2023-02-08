@@ -23,27 +23,58 @@
 #include "PuTTie/winfrip_storage_priv.h"
 
 /*
- * Private types
+ * Private types and variables
  */
 
+/*
+ * N.B.		WFFSP_ITEM_CONTAINER must remain the highest index item type
+ */
 typedef enum WffspConfigItem {
-	WFFSP_ITEM_CONTAINER		= 0,
-	WFFSP_ITEM_HOST_CAS		= 1,
-	WFFSP_ITEM_HOST_KEYS		= 2,
-	WFFSP_ITEM_SESSIONS		= 3,
-	WFFSP_ITEM_JUMP_LIST		= 4,
-	WFFSP_ITEM_PRIVKEY_LIST		= 5,
-	WFFSP_ITEM_OPTIONS		= 6,
+	WFFSP_ITEM_HOST_CAS		= 0,
+	WFFSP_ITEM_HOST_KEYS		= 1,
+	WFFSP_ITEM_SESSIONS		= 2,
+	WFFSP_ITEM_JUMP_LIST		= 3,
+	WFFSP_ITEM_PRIVKEY_LIST		= 4,
+	WFFSP_ITEM_OPTIONS		= 5,
+	WFFSP_ITEM_CONTAINER		= 6,
 
-	WFFSP_ITEM_MAX			= WFFSP_ITEM_OPTIONS,
+	WFFSP_ITEM_MIN			= WFFSP_ITEM_HOST_CAS,
+	WFFSP_ITEM_MAX			= WFFSP_ITEM_CONTAINER,
 } WffspConfigItem;
-#define WFFSP_ITEM_CONTAINER_NAME	"(Container)"
-#define WFFSP_ITEM_HOST_CAS_NAME	"Host CAs"
-#define WFFSP_ITEM_HOST_KEYS_NAME	"Host keys"
-#define WFFSP_ITEM_SESSIONS_NAME	"Sessions"
-#define WFFSP_ITEM_JUMP_LIST_NAME	"Jump list"
-#define WFFSP_ITEM_PRIVKEY_LIST_NAME	"Pageant private key list"
-#define WFFSP_ITEM_OPTIONS_NAME		"Global options"
+
+
+static const char *			WffspConfigItemNames[WFFSP_ITEM_MAX + 1] = {
+	[WFFSP_ITEM_HOST_CAS]		= "Host CAs",
+	[WFFSP_ITEM_HOST_KEYS]		= "Host keys",
+	[WFFSP_ITEM_SESSIONS]		= "Sessions",
+	[WFFSP_ITEM_JUMP_LIST]		= "Jump list",
+	[WFFSP_ITEM_PRIVKEY_LIST]	= "Pageant private key list",
+	[WFFSP_ITEM_OPTIONS]		= "Global options",
+	[WFFSP_ITEM_CONTAINER]		= "(Container)",
+};
+
+typedef WfrStatus (*WffspConfigItemCleanupFn)(WfsBackend);
+static WffspConfigItemCleanupFn		WffspConfigItemCleanupFnList[WFFSP_ITEM_MAX + 1] = {
+	[WFFSP_ITEM_HOST_CAS]		= WfsCleanupHostCAs,
+	[WFFSP_ITEM_HOST_KEYS]		= WfsCleanupHostKeys,
+	[WFFSP_ITEM_SESSIONS]		= WfsCleanupSessions,
+	[WFFSP_ITEM_JUMP_LIST]		= WfsCleanupJumpList,
+	[WFFSP_ITEM_PRIVKEY_LIST]	= WfsCleanupPrivKeyList,
+	[WFFSP_ITEM_OPTIONS]		= WfsCleanupOptions,
+	[WFFSP_ITEM_CONTAINER]		= WfsCleanupContainer,
+};
+
+typedef WfrStatus (*WffspConfigItemExportFn)(WfsBackend, WfsBackend, bool, bool, WfsErrorFn);
+static WffspConfigItemExportFn		WffspConfigItemExportFnList[WFFSP_ITEM_MAX + 1] = {
+	[WFFSP_ITEM_HOST_CAS]		= WfsExportHostCAs,
+	[WFFSP_ITEM_HOST_KEYS]		= WfsExportHostKeys,
+	[WFFSP_ITEM_SESSIONS]		= WfsExportSessions,
+	[WFFSP_ITEM_JUMP_LIST]		= WfsExportJumpList,
+	[WFFSP_ITEM_PRIVKEY_LIST]	= WfsExportPrivKeyList,
+	[WFFSP_ITEM_OPTIONS]		= WfsExportOptions,
+	[WFFSP_ITEM_CONTAINER]		= NULL,
+};
+
 
 typedef struct WffspConfigContext {
 	dlgcontrol *	droplist_from;
@@ -68,15 +99,72 @@ typedef struct WffspConfigContext {
  * Private macros
  */
 
+/*
+ * Get from/source backend from item selected in from/source droplist
+ */
 #define WFFSP_CONFIG_GET_BACKEND_FROM(ctx, dlg)		\
 	(WfsBackend)dlg_listbox_getid(			\
 			(ctx)->droplist_from, (dlg),	\
 			dlg_listbox_index((ctx)->droplist_from, (dlg)));
 
+/*
+ * Get to/destination backend from item selected in to/destination droplist
+ */
 #define WFFSP_CONFIG_GET_BACKEND_TO(ctx, dlg)		\
 	(WfsBackend)dlg_listbox_getid(			\
 			(ctx)->droplist_to, (dlg),	\
 			dlg_listbox_index((ctx)->droplist_to, (dlg)));
+
+
+/*
+ * Check if any items are selected in vector of selected items
+ * initialised from item type listbox
+ */
+#define WFFSP_CONFIG_IF_SELECTV_NONE(selectv) ({					\
+	size_t	item = WFFSP_ITEM_MIN;							\
+											\
+	do {										\
+		if ((selectv)[item]) {							\
+			true;								\
+		}									\
+	} while ((++item) <= WFFSP_ITEM_MAX);						\
+											\
+	false;										\
+})
+
+/*
+ * Initialise vector of selected items in item type listbox
+ */
+#define WFFSP_CONFIG_INIT_SELECTV(ctx, dlg, selectv) ({					\
+	size_t	item = WFFSP_ITEM_MIN;							\
+											\
+	do {										\
+		(selectv)[item] = dlg_listbox_issel((ctx)->listbox, (dlg), item);	\
+	} while ((++item) <= WFFSP_ITEM_MAX);						\
+})
+
+/*
+ * Display message box with appended \n-separated list of item type names
+ */
+#define WFFSP_CONFIG_MESSAGEBOX_SELECTV(selectv, uType, fmt, ...)						\
+	WfrMessageBoxF(												\
+			"PuTTie", (uType),									\
+			fmt "%s%s%s%s%s%s%s%s%s%s%s%s%s%s",							\
+			##__VA_ARGS__,										\
+			selectv[WFFSP_ITEM_HOST_CAS] ? WffspConfigItemNames[WFFSP_ITEM_HOST_CAS] : "",		\
+			selectv[WFFSP_ITEM_HOST_CAS] ? "\n" : "",						\
+			selectv[WFFSP_ITEM_HOST_KEYS] ? WffspConfigItemNames[WFFSP_ITEM_HOST_KEYS] : "",	\
+			selectv[WFFSP_ITEM_HOST_KEYS] ? "\n" : "",						\
+			selectv[WFFSP_ITEM_SESSIONS] ? WffspConfigItemNames[WFFSP_ITEM_SESSIONS] : "",		\
+			selectv[WFFSP_ITEM_SESSIONS] ? "\n" : "",						\
+			selectv[WFFSP_ITEM_JUMP_LIST] ? WffspConfigItemNames[WFFSP_ITEM_JUMP_LIST] : "",	\
+			selectv[WFFSP_ITEM_JUMP_LIST] ? "\n" : "",						\
+			selectv[WFFSP_ITEM_PRIVKEY_LIST] ? WffspConfigItemNames[WFFSP_ITEM_PRIVKEY_LIST] : "",	\
+			selectv[WFFSP_ITEM_PRIVKEY_LIST] ? "\n" : "",						\
+			selectv[WFFSP_ITEM_OPTIONS] ? WffspConfigItemNames[WFFSP_ITEM_OPTIONS] : "",		\
+			selectv[WFFSP_ITEM_OPTIONS] ? "\n" : "",						\
+			selectv[WFFSP_ITEM_CONTAINER] ? WffspConfigItemNames[WFFSP_ITEM_CONTAINER] : "",	\
+			selectv[WFFSP_ITEM_CONTAINER] ? "\n" : "")
 
 /*
  * Private subroutine prototypes
@@ -99,6 +187,7 @@ WffspConfigGeneralHandler(
 	)
 {
 	WffspConfigContext *	ctx = (WffspConfigContext *)ctrl->context.p;
+	size_t			item;
 
 
 	(void)data;
@@ -126,13 +215,10 @@ WffspConfigGeneralHandler(
 			dlg_update_start(ctrl, dlg);
 			dlg_listbox_clear(ctrl, dlg);
 
-			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_CONTAINER_NAME, WFFSP_ITEM_CONTAINER);
-			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_HOST_CAS_NAME, WFFSP_ITEM_HOST_CAS);
-			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_HOST_KEYS_NAME, WFFSP_ITEM_HOST_KEYS);
-			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_SESSIONS_NAME, WFFSP_ITEM_SESSIONS);
-			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_JUMP_LIST_NAME, WFFSP_ITEM_JUMP_LIST);
-			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_PRIVKEY_LIST_NAME, WFFSP_ITEM_PRIVKEY_LIST);
-			dlg_listbox_addwithid(ctrl, dlg, WFFSP_ITEM_OPTIONS_NAME, WFFSP_ITEM_OPTIONS);
+			item = WFFSP_ITEM_MIN;
+			do {
+				dlg_listbox_addwithid(ctrl, dlg, WffspConfigItemNames[item], item);
+			} while ((++item) <= WFFSP_ITEM_MAX);
 
 			dlg_update_done(ctrl, dlg);
 		}
@@ -156,6 +242,7 @@ WffspConfigGeneralCleanupHandler(
 	const char *		backend_from_name;
 	bool			confirmfl;
 	WffspConfigContext *	ctx = (WffspConfigContext *)ctrl->context.p;
+	size_t			item;
 	bool			selectv[WFFSP_ITEM_MAX + 1];
 	WfrStatus		status;
 
@@ -163,40 +250,20 @@ WffspConfigGeneralCleanupHandler(
 	(void)data;
 	(void)event;
 	backend_from = WFFSP_CONFIG_GET_BACKEND_FROM(ctx, dlg);
-	selectv[WFFSP_ITEM_CONTAINER] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_CONTAINER);
-	selectv[WFFSP_ITEM_HOST_CAS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_HOST_CAS);
-	selectv[WFFSP_ITEM_HOST_KEYS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_HOST_KEYS);
-	selectv[WFFSP_ITEM_SESSIONS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_SESSIONS);
-	selectv[WFFSP_ITEM_JUMP_LIST] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_JUMP_LIST);
-	selectv[WFFSP_ITEM_PRIVKEY_LIST] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_PRIVKEY_LIST);
-	selectv[WFFSP_ITEM_OPTIONS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_OPTIONS);
+	WFFSP_CONFIG_INIT_SELECTV(ctx, dlg, selectv);
 
-	if (!selectv[WFFSP_ITEM_CONTAINER]
-	&&  !selectv[WFFSP_ITEM_HOST_CAS]
-	&&  !selectv[WFFSP_ITEM_HOST_KEYS]
-	&&  !selectv[WFFSP_ITEM_SESSIONS]
-	&&  !selectv[WFFSP_ITEM_JUMP_LIST]
-	&&  !selectv[WFFSP_ITEM_PRIVKEY_LIST]
-	&&  !selectv[WFFSP_ITEM_OPTIONS])
-	{
+	if (WFFSP_CONFIG_IF_SELECTV_NONE(selectv)) {
 		return;
 	} else if (WFR_STATUS_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))) {
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
 		return;
 	}
 
-	switch (WfrMessageBoxF(
-			"PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
-			"Clean up the following items in %s backend?\n"
-			"%s%s%s%s%s%s%s",
-			backend_from_name,
-			selectv[WFFSP_ITEM_CONTAINER] ? "(container)\n" : "",
-			selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
-			selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
-			selectv[WFFSP_ITEM_SESSIONS] ? "sessions\n" : "",
-			selectv[WFFSP_ITEM_JUMP_LIST] ? "jump list\n" : "",
-			selectv[WFFSP_ITEM_PRIVKEY_LIST] ? "Pageant private key list\n" : "",
-			selectv[WFFSP_ITEM_OPTIONS] ? "global options\n" : ""))
+	switch (WFFSP_CONFIG_MESSAGEBOX_SELECTV(
+			selectv,
+			MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
+			"Clean up the following items in %s backend?\n",
+			backend_from_name))
 	{
 	case IDYES:
 		confirmfl = true; break;
@@ -207,54 +274,20 @@ WffspConfigGeneralCleanupHandler(
 	if (confirmfl) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 
-		if (selectv[WFFSP_ITEM_HOST_CAS]) {
-			status = WfsCleanupHostCAs(backend_from);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up host CAs");
-		}
-
-		if (selectv[WFFSP_ITEM_HOST_KEYS]) {
-			status = WfsCleanupHostKeys(backend_from);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up host keys");
-		}
-
-		if (selectv[WFFSP_ITEM_SESSIONS]) {
-			status = WfsCleanupSessions(backend_from);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up sessions");
-		}
-
-		if (selectv[WFFSP_ITEM_JUMP_LIST]) {
-			status = WfsCleanupJumpList(backend_from);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up jump list");
-		}
-
-		if (selectv[WFFSP_ITEM_PRIVKEY_LIST]) {
-			status = WfsCleanupPrivKeyList(backend_from);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up Pageant private key list");
-		}
-
-		if (selectv[WFFSP_ITEM_OPTIONS]) {
-			status = WfsCleanupOptions(backend_from);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up global options");
-		}
-
-		if (selectv[WFFSP_ITEM_CONTAINER]) {
-			status = WfsCleanupContainer(backend_from);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up container");
-		}
+		item = WFFSP_ITEM_MIN;
+		do {
+			if (selectv[item]) {
+				status = WffspConfigItemCleanupFnList[item](backend_from);
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up %s", WffspConfigItemNames[item]);
+			}
+		} while ((++item) <= WFFSP_ITEM_MAX);
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			WfrMessageBoxF(
-				"PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
-				"Successfully cleaned up items in %s backend:\n"
-				"%s%s%s%s%s%s",
-				backend_from_name,
-				selectv[WFFSP_ITEM_CONTAINER] ? "(container)\n" : "",
-				selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
-				selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
-				selectv[WFFSP_ITEM_SESSIONS] ? "sessions\n" : "",
-				selectv[WFFSP_ITEM_JUMP_LIST] ? "jump list\n" : "",
-				selectv[WFFSP_ITEM_PRIVKEY_LIST] ? "Pageant private key list\n" : "",
-				selectv[WFFSP_ITEM_OPTIONS] ? "global options" : "");
+			(void)WFFSP_CONFIG_MESSAGEBOX_SELECTV(
+				selectv,
+				MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
+				"Successfully cleaned up items in %s backend:\n",
+				backend_from_name);
 		}
 	}
 }
@@ -271,22 +304,11 @@ WffspConfigGeneralMigrateHandler(
 	const char *		backend_from_name, *backend_to_name;
 	bool			confirmfl;
 	WffspConfigContext *	ctx = (WffspConfigContext *)ctrl->context.p;
-	void			(*error_fn_host_ca)(const char *, WfrStatus) =
+	WfsErrorFn		error_fn =
 				WFR_LAMBDA(void, (const char *name, WfrStatus status) {
-					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating host CA %s", name);
+					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating %s", name);
 				});
-	void			(*error_fn_host_key)(const char *, WfrStatus) =
-				WFR_LAMBDA(void, (const char *key_name, WfrStatus status) {
-					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating host key %s", key_name);
-				});
-	void			(*error_fn_option)(const char *, WfrStatus) =
-				WFR_LAMBDA(void, (const char *key, WfrStatus status) {
-					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating option %s", key);
-				});
-	void			(*error_fn_session)(const char *, WfrStatus) =
-				WFR_LAMBDA(void, (const char *sessionname, WfrStatus status) {
-					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating session %s", sessionname);
-				});
+	size_t			item;
 	bool			movefl;
 	bool			selectv[WFFSP_ITEM_MAX + 1];
 	WfrStatus		status;
@@ -297,23 +319,11 @@ WffspConfigGeneralMigrateHandler(
 	backend_from = WFFSP_CONFIG_GET_BACKEND_FROM(ctx, dlg);
 	backend_to = WFFSP_CONFIG_GET_BACKEND_TO(ctx, dlg);
 	movefl = ((ctrl == ctx->button_copy_all) ? false : true);
-	selectv[WFFSP_ITEM_CONTAINER] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_CONTAINER);
-	selectv[WFFSP_ITEM_HOST_CAS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_HOST_CAS);
-	selectv[WFFSP_ITEM_HOST_KEYS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_HOST_KEYS);
-	selectv[WFFSP_ITEM_SESSIONS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_SESSIONS);
-	selectv[WFFSP_ITEM_JUMP_LIST] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_JUMP_LIST);
-	selectv[WFFSP_ITEM_PRIVKEY_LIST] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_PRIVKEY_LIST);
-	selectv[WFFSP_ITEM_OPTIONS] = dlg_listbox_issel(ctx->listbox, dlg, WFFSP_ITEM_OPTIONS);
+	WFFSP_CONFIG_INIT_SELECTV(ctx, dlg, selectv);
 
 	if (backend_from == backend_to) {
 		return;
-	} else if (!selectv[WFFSP_ITEM_HOST_KEYS]
-		&& !selectv[WFFSP_ITEM_HOST_CAS]
-		&& !selectv[WFFSP_ITEM_SESSIONS]
-		&& !selectv[WFFSP_ITEM_JUMP_LIST]
-		&& !selectv[WFFSP_ITEM_PRIVKEY_LIST]
-		&& !selectv[WFFSP_ITEM_OPTIONS])
-	{
+	} else if (WFFSP_CONFIG_IF_SELECTV_NONE(selectv)) {
 		return;
 	} else if (WFR_STATUS_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))
 		|| WFR_STATUS_FAILURE(status = WfsGetBackendName(backend_to, &backend_to_name)))
@@ -322,18 +332,12 @@ WffspConfigGeneralMigrateHandler(
 		return;
 	}
 
-	switch (WfrMessageBoxF(
-			"PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
-			"%s the following items from %s to %s backend?\n"
-			"%s%s%s%s%s",
+	switch (WFFSP_CONFIG_MESSAGEBOX_SELECTV(
+			selectv,
+			MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
+			"%s the following items from %s to %s backend?\n",
 			movefl ? "Move" : "Copy",
-			backend_from_name, backend_to_name,
-			selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
-			selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
-			selectv[WFFSP_ITEM_SESSIONS] ? "sessions\n" : "",
-			selectv[WFFSP_ITEM_JUMP_LIST] ? "jump list\n" : "",
-			selectv[WFFSP_ITEM_PRIVKEY_LIST] ? "Pageant private key list\n" : "",
-			selectv[WFFSP_ITEM_OPTIONS] ? "global options" : ""))
+			backend_from_name, backend_to_name))
 	{
 	case IDYES:
 		confirmfl = true; break;
@@ -344,59 +348,19 @@ WffspConfigGeneralMigrateHandler(
 	if (confirmfl) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 
-		if (selectv[WFFSP_ITEM_HOST_CAS]) {
-			if (WFR_STATUS_SUCCESS(status = WfsExportHostCAs(backend_from, backend_to, true, true, error_fn_host_ca))) {
-				if (movefl) {
-					status = WfsCleanupHostCAs(backend_from);
+		item = WFFSP_ITEM_MIN;
+		do {
+			if ((item != WFFSP_ITEM_CONTAINER) && selectv[item]) {
+				if (WFR_STATUS_SUCCESS(status = WffspConfigItemExportFnList[item](
+						backend_from, backend_to, true, true, error_fn)))
+				{
+					if (movefl) {
+						status = WffspConfigItemCleanupFnList[item](backend_from);
+					}
 				}
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating %s", WffspConfigItemNames[item]);
 			}
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating host CAs");
-		}
-
-		if (selectv[WFFSP_ITEM_HOST_KEYS]) {
-			if (WFR_STATUS_SUCCESS(status = WfsExportHostKeys(backend_from, backend_to, true, true, error_fn_host_key))) {
-				if (movefl) {
-					status = WfsCleanupHostKeys(backend_from);
-				}
-			}
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating host keys");
-		}
-
-		if (selectv[WFFSP_ITEM_SESSIONS]) {
-			if (WFR_STATUS_SUCCESS(status = WfsExportSessions(backend_from, backend_to, true, true, error_fn_session))) {
-				if (movefl) {
-					status = WfsCleanupSessions(backend_from);
-				}
-			}
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating sessions");
-		}
-
-		if (selectv[WFFSP_ITEM_JUMP_LIST]) {
-			if (WFR_STATUS_SUCCESS(status = WfsExportJumpList(backend_from, backend_to, movefl))) {
-				if (movefl) {
-					status = WfsCleanupJumpList(backend_from);
-				}
-			}
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating jump list");
-		}
-
-		if (selectv[WFFSP_ITEM_PRIVKEY_LIST]) {
-			if (WFR_STATUS_SUCCESS(status = WfsExportPrivKeyList(backend_from, backend_to, movefl))) {
-				if (movefl) {
-					status = WfsCleanupPrivKeyList(backend_from);
-				}
-			}
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating Pageant private key list");
-		}
-
-		if (selectv[WFFSP_ITEM_OPTIONS]) {
-			if (WFR_STATUS_SUCCESS(status = WfsExportOptions(backend_from, backend_to, true, true, error_fn_option))) {
-				if (movefl) {
-					status = WfsCleanupOptions(backend_from);
-				}
-			}
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating global options");
-		}
+		} while ((++item) <= WFFSP_ITEM_MAX);
 
 		if (movefl && WFR_STATUS_SUCCESS(status)) {
 			status = WfsCleanupContainer(backend_from);
@@ -404,18 +368,12 @@ WffspConfigGeneralMigrateHandler(
 		}
 
 		if (WFR_STATUS_SUCCESS(status)) {
-			WfrMessageBoxF(
-				"PuTTie", MB_ICONQUESTION | MB_OK | MB_DEFBUTTON1,
-				"Successfully %s the following items from %s to %s backend:\n"
-				"%s%s%s%s%s",
+			(void)WFFSP_CONFIG_MESSAGEBOX_SELECTV(
+				selectv,
+				MB_ICONQUESTION | MB_OK | MB_DEFBUTTON1,
+				"Successfully %s the following items from %s to %s backend:\n",
 				movefl ? "moved" : "copied",
-				backend_from_name, backend_to_name,
-				selectv[WFFSP_ITEM_HOST_KEYS] ? "host keys\n" : "",
-				selectv[WFFSP_ITEM_HOST_CAS] ? "host CAs\n" : "",
-				selectv[WFFSP_ITEM_SESSIONS] ? "sessions\n" : "",
-				selectv[WFFSP_ITEM_JUMP_LIST] ? "jump list\n" : "",
-				selectv[WFFSP_ITEM_PRIVKEY_LIST] ? "Pageant private key list\n" : "",
-				selectv[WFFSP_ITEM_OPTIONS] ? "global options\n" : "");
+				backend_from_name, backend_to_name);
 		}
 	}
 }

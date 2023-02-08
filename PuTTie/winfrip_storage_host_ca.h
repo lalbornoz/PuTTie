@@ -50,7 +50,7 @@ WfrStatus	WfsCopyHostCA(WfsBackend backend_from, WfsBackend backend_to, const ch
 WfrStatus	WfsDeleteHostCA(WfsBackend backend, bool delete_in_backend, const char *name);
 WfrStatus	WfsEnumerateHostCAs(WfsBackend backend, bool cached, bool initfl, bool *pdonefl, char **pname, void **pstate);
 WfrStatus	WfsExportHostCA(WfsBackend backend_from, WfsBackend backend_to, bool movefl, char *name);
-WfrStatus	WfsExportHostCAs(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, void (*error_fn)(const char *, WfrStatus));
+WfrStatus	WfsExportHostCAs(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, WfsErrorFn error_fn);
 WfrStatus	WfsGetHostCA(WfsBackend backend, bool cached, const char *name, WfsHostCA **phca);
 WfrStatus	WfsRenameHostCA(WfsBackend backend, bool rename_in_backend, const char *name, const char *name_new);
 WfrStatus	WfsSaveHostCA(WfsBackend backend, WfsHostCA *hca);

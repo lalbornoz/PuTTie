@@ -13,7 +13,7 @@
 WfrStatus	WfsAddPrivKeyList(WfsBackend backend, const char *const privkey_name);
 WfrStatus	WfsCleanupPrivKeyList(WfsBackend backend);
 WfrStatus	WfsClearPrivKeyList(WfsBackend backend);
-WfrStatus	WfsExportPrivKeyList(WfsBackend backend_from, WfsBackend backend_to, bool movefl);
+WfrStatus	WfsExportPrivKeyList(WfsBackend backend_from, WfsBackend backend_to, bool clear_to, bool continue_on_error, WfsErrorFn error_fn);
 WfrStatus	WfsGetEntriesPrivKeyList(WfsBackend backend, char **pprivkey_list, size_t *pprivkey_list_size);
 WfrStatus	WfsRemovePrivKeyList(WfsBackend backend, const char *const privkey_name);
 
