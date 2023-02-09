@@ -578,10 +578,17 @@ del_settings(
 	const char *	sessionname
 	)
 {
+	bool		defaultfl;
 	WfrStatus	status;
 
 
+	defaultfl = WFS_SESSION_NAME_DEFAULT(sessionname);
+
 	status = WfsDeleteSession(WfsGetBackend(), true, sessionname);
+
+	if (WFR_STATUS_IS_NOT_FOUND(status) && defaultfl) {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
 
 	if (WfsGetAdapterDisplayErrors()) {
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting session");

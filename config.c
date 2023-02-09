@@ -905,7 +905,15 @@ static void sessionsaver_handler(dlgcontrol *ctrl, dlgparam *dlg,
         } else if (!ssd->midsession &&
                    ssd->delbutton && ctrl == ssd->delbutton) {
             int i = dlg_listbox_index(ssd->listbox, dlg);
+            /* {{{ winfrip */
+        #if 1
+            if (i < 0) {
+        #else
+            /* winfrip }}} */
             if (i <= 0) {
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
                 dlg_beep(dlg);
             } else {
                 del_settings(ssd->sesslist.sessions[i]);
