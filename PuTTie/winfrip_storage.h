@@ -36,10 +36,20 @@ typedef void (*WfsErrorFn)(const char *, WfrStatus);
  * Public macros private to PuTTie/winfrip_storage*.c
  */
 
-#define WFS_SESSION_NAME_DEFAULT(name)			\
-	if(!(name) || !((name)[0])) {			\
-		(name) = "Default Settings";		\
-	}
+#define WFS_SESSION_NAME_DEFAULT(name) ({			\
+	bool	defaultfl;					\
+								\
+	if(!(name) || !((name)[0])) {				\
+		(name) = "Default Settings";			\
+		defaultfl = true;				\
+	} else if (strcmp((name), "Default Settings") == 0) {	\
+		defaultfl = true;				\
+	} else {						\
+		defaultfl = false;				\
+	}							\
+								\
+	defaultfl;						\
+})
 
 /*
  * Public storage backend subroutine prototypes private to PuTTie/winfrip_storage*.c
