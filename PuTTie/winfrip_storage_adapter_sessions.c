@@ -354,11 +354,7 @@ open_settings_r(
 	WfrStatus	status;
 
 
-	if (!sessionname || !sessionname[0]
-	||  (strcmp(sessionname, "Default Settings") == 0))
-	{
-		return NULL;
-	}
+	WFS_SESSION_NAME_DEFAULT(sessionname);
 
 	status = WfsGetSession(
 		WfsGetBackend(), false,

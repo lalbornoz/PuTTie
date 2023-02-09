@@ -1306,10 +1306,7 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
 bool do_defaults(const char *session, Conf *conf)
 {
     /* {{{ winfrip */
-    bool display_errorsfl;
-    if (session) {
-        WfsDisableAdapterDisplayErrors();
-    }
+    bool display_errorsfl = WfsDisableAdapterDisplayErrors();
 #if 1
     bool rc = load_settings(session, conf);
 #else
@@ -1317,9 +1314,7 @@ bool do_defaults(const char *session, Conf *conf)
     return load_settings(session, conf);
     /* {{{ winfrip */
 #endif
-    if (session) {
-        WfsSetAdapterDisplayErrors(display_errorsfl);
-    }
+    WfsSetAdapterDisplayErrors(display_errorsfl);
     return rc;
     /* winfrip }}} */
 }
