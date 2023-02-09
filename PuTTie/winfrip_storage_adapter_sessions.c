@@ -350,11 +350,12 @@ open_settings_r(
 	const char *	sessionname
 	)
 {
+	bool		defaultfl;
 	WfsSession *	session;
 	WfrStatus	status;
 
 
-	WFS_SESSION_NAME_DEFAULT(sessionname);
+	defaultfl = WFS_SESSION_NAME_DEFAULT(sessionname);
 
 	status = WfsGetSession(
 		WfsGetBackend(), false,
@@ -363,6 +364,10 @@ open_settings_r(
 	if (WFR_STATUS_SUCCESS(status)) {
 		return (settings_r *)session;
 	} else {
+		if (WFR_STATUS_IS_NOT_FOUND(status) && defaultfl) {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+
 		if (WfsGetAdapterDisplayErrors()) {
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session (read-only)");
 		}
