@@ -416,21 +416,21 @@ static IShellLink *make_shell_link(const char *appname,
         app_path = dupstr(putty_path);
     }
 
+    /* {{{ winfrip */
+#if 0
+    /* winfrip }}} */
     /* Check if this is a valid session, otherwise don't add. */
     if (sessionname) {
-        /* {{{ winfrip */
-        bool display_errorsfl = WfsDisableAdapterDisplayErrors();
-        /* winfrip }}} */
         settings_r *psettings_tmp = open_settings_r(sessionname);
         if (!psettings_tmp) {
             sfree(app_path);
             return NULL;
         }
         close_settings_r(psettings_tmp);
-        /* {{{ winfrip */
-        WfsSetAdapterDisplayErrors(display_errorsfl);
-        /* winfrip }}} */
     }
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 
     /* Create the new item. */
     if (!SUCCEEDED(CoCreateInstance(&CLSID_ShellLink, NULL,
