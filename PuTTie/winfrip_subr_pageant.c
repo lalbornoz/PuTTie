@@ -47,6 +47,49 @@ const char *	pageant_get_nth_ssh1_key_path(int idx);
 const char *	pageant_get_nth_ssh2_key_path(int idx);
 
 /*
+ * Private subroutine prototypes
+ */
+
+WfrStatus	WfpPageantCommandLaunchAtStartup(int option);
+
+/*
+ * Private subroutines
+ */
+
+WfrStatus
+WfpPageantCommandLaunchAtStartup(
+	int	option
+	)
+{
+	WfrStatus	status;
+
+
+	switch (option) {
+	default:
+		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+		break;
+
+	case false:
+		status = WfrDeleteShortcutStartup(PAGEANT_SHORTCUT_PATH_DEFAULT);
+		if (WFR_STATUS_IS_NOT_FOUND(status)) {
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		}
+
+		break;
+
+	case true:
+		status = WfrCreateShortcutStartup(
+			NULL, PAGEANT_SHORTCUT_DESCRIPTION,
+			PAGEANT_SHORTCUT_PATH_DEFAULT, PAGEANT_PATH_DEFAULT, NULL);
+		break;
+	}
+
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "creating/deleting Pageant launch at startup shortcut");
+
+	return status;
+}
+
+/*
  * Public subroutines private to windows/pageant.c
  */
 
@@ -214,34 +257,13 @@ WfPageantCommandLaunchAtStartup(
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting/setting Pageant launch at startup option");
 
 	if (WFR_STATUS_SUCCESS(status)) {
-		switch (*option) {
-		default:
-			status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-			break;
-
-		case false:
-			status = WfrDeleteShortcutStartup(PAGEANT_SHORTCUT_PATH_DEFAULT);
-			if (WFR_STATUS_IS_NOT_FOUND(status)) {
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
-
-			break;
-
-		case true:
-			status = WfrCreateShortcutStartup(
-				NULL, PAGEANT_SHORTCUT_DESCRIPTION,
-				PAGEANT_SHORTCUT_PATH_DEFAULT, PAGEANT_PATH_DEFAULT, NULL);
-			break;
-		}
-
+		status = WfpPageantCommandLaunchAtStartup(*option);
 		if (WFR_STATUS_SUCCESS(status)) {
 			(void)CheckMenuItem(
 				systray_menu, idm_launch_at_startup,
 				  MF_BYCOMMAND
 				| ((*option == true) ? MF_CHECKED : MF_UNCHECKED));
 		}
-
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "creating/deleting Pageant launch at startup shortcut");
 	}
 }
 
@@ -387,18 +409,12 @@ WfPageantInitSysTrayMenu(
 	(void)AppendMenu(systray_menu, MF_ENABLED, idm_persist_keys, "&Persist keys");
 	(void)AppendMenu(systray_menu, MF_SEPARATOR, 0, 0);
 
-	switch (*option_launch_at_startup) {
-	default:
-		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-		break;
-
-	case false:
-	case true:
+	status = WfpPageantCommandLaunchAtStartup(*option_launch_at_startup);
+	if (WFR_STATUS_SUCCESS(status)) {
 		(void)CheckMenuItem(
 			systray_menu, idm_launch_at_startup,
 			  MF_BYCOMMAND
 			| ((*option_launch_at_startup == true) ? MF_CHECKED : MF_UNCHECKED));
-		break;
 	}
 
 	switch (*option_persist) {
