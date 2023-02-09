@@ -13,6 +13,7 @@
 #endif
 
 /* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_bgimg.h"
 #include "PuTTie/winfrip_feature_general.h"
@@ -23,6 +24,8 @@
 #include "PuTTie/winfrip_feature_trans.h"
 #include "PuTTie/winfrip_feature_urls.h"
 #include "PuTTie/winfrip_putty_settings.h"
+#include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_adapter.h"
 /* winfrip }}} */
 
 /* The cipher order given here is the default order. */
@@ -1302,7 +1305,23 @@ void load_open_settings(settings_r *sesskey, Conf *conf)
 
 bool do_defaults(const char *session, Conf *conf)
 {
+    /* {{{ winfrip */
+    bool display_errorsfl;
+    if (session) {
+        WfsDisableAdapterDisplayErrors();
+    }
+#if 1
+    bool rc = load_settings(session, conf);
+#else
+    /* winfrip }}} */
     return load_settings(session, conf);
+    /* {{{ winfrip */
+#endif
+    if (session) {
+        WfsSetAdapterDisplayErrors(display_errorsfl);
+    }
+    return rc;
+    /* winfrip }}} */
 }
 
 static int sessioncmp(const void *av, const void *bv)
