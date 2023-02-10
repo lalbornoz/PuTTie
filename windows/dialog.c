@@ -349,17 +349,10 @@ static INT_PTR CALLBACK LicenceProc(HWND hwnd, UINT msg,
 {
     switch (msg) {
       case WM_INITDIALOG: {
-        /* {{{ winfrip */
-    #if 1
-    #else
-        /* winfrip }}} */
         char *str = dupprintf("%s Licence", appname);
         SetWindowText(hwnd, str);
         sfree(str);
         SetDlgItemText(hwnd, IDA_TEXT, LICENCE_TEXT("\r\n\r\n"));
-        /* {{{ winfrip */
-    #endif
-        /* winfrip }}} */
         return 1;
       }
       case WM_COMMAND:
