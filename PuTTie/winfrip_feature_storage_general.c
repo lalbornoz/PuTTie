@@ -83,16 +83,22 @@ typedef struct WffspConfigContext {
 	dlgcontrol *	button_copy_all;
 	dlgcontrol *	button_move_all;
 	dlgcontrol *	droplist_to;
+
+	dlgcontrol *	droplist_purge_jump_list;
+	dlgcontrol *	button_purge_jump_list;
 } WffspConfigContext;
-#define WFFSP_CONFIG_CONTEXT_EMPTY {	\
-	.droplist_from = NULL,		\
-	.listbox = NULL,		\
-	.button_cleanup = NULL,		\
-	.button_copy_all = NULL,	\
-	.button_move_all = NULL,	\
-	.droplist_to = NULL,		\
+#define WFFSP_CONFIG_CONTEXT_EMPTY {		\
+	.droplist_from = NULL,			\
+	.listbox = NULL,			\
+	.button_cleanup = NULL,			\
+	.button_copy_all = NULL,		\
+	.button_move_all = NULL,		\
+	.droplist_to = NULL,			\
+						\
+	.droplist_purge_jump_list = NULL,	\
+	.button_purge_jump_list = NULL,		\
 }
-#define WFFSP_CONFIG_CONTEXT_INIT(ctx)	\
+#define WFFSP_CONFIG_CONTEXT_INIT(ctx)		\
 	(ctx) = (WffspConfigContext)WFFSP_CONFIG_CONTEXT_EMPTY
 
 /*
@@ -105,7 +111,7 @@ typedef struct WffspConfigContext {
 #define WFFSP_CONFIG_GET_BACKEND_FROM(ctx, dlg)		\
 	(WfsBackend)dlg_listbox_getid(			\
 			(ctx)->droplist_from, (dlg),	\
-			dlg_listbox_index((ctx)->droplist_from, (dlg)));
+			dlg_listbox_index((ctx)->droplist_from, (dlg)))
 
 /*
  * Get to/destination backend from item selected in to/destination droplist
@@ -113,7 +119,18 @@ typedef struct WffspConfigContext {
 #define WFFSP_CONFIG_GET_BACKEND_TO(ctx, dlg)		\
 	(WfsBackend)dlg_listbox_getid(			\
 			(ctx)->droplist_to, (dlg),	\
-			dlg_listbox_index((ctx)->droplist_to, (dlg)));
+			dlg_listbox_index((ctx)->droplist_to, (dlg)))
+
+
+/*
+ * Get backend from item selected in purge jump list backend droplist
+ */
+#define WFFSP_CONFIG_GET_BACKEND_PURGE_JUMP_LIST(ctx, dlg)			\
+	(WfsBackend)dlg_listbox_getid(						\
+			(ctx)->droplist_purge_jump_list,			\
+			(dlg),							\
+			dlg_listbox_index((ctx)->droplist_purge_jump_list,	\
+			(dlg)))
 
 
 /*
@@ -174,6 +191,8 @@ static void	WffspConfigGeneralHandler(dlgcontrol *ctrl, dlgparam *dlg, void *dat
 static void	WffspConfigGeneralCleanupHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 static void	WffspConfigGeneralMigrateHandler(dlgcontrol *ctrl, dlgparam *dlg, void *data, int event);
 
+static void	WffspPurgeJumpList(WfsBackend backend);
+
 /*
  * Private subroutines
  */
@@ -202,6 +221,10 @@ WffspConfigGeneralHandler(
 		{
 			WffspConfigGeneralMigrateHandler(ctrl, dlg, data, event);
 		}
+		else if (ctrl == ctx->button_purge_jump_list) {
+			WffspPurgeJumpList(
+				WFFSP_CONFIG_GET_BACKEND_PURGE_JUMP_LIST(ctx, dlg));
+		}
 		break;
 
 	case EVENT_REFRESH:
@@ -210,6 +233,10 @@ WffspConfigGeneralHandler(
 		{
 			dlg_update_start(ctrl, dlg);
 			(void)WffsRefreshBackends(ctrl, dlg, (ctrl == ctx->droplist_from));
+			dlg_update_done(ctrl, dlg);
+		} else if (ctrl == ctx->droplist_purge_jump_list) {
+			dlg_update_start(ctrl, dlg);
+			(void)WffsRefreshBackends(ctrl, dlg, true);
 			dlg_update_done(ctrl, dlg);
 		} else if (ctrl == ctx->listbox) {
 			dlg_update_start(ctrl, dlg);
@@ -378,6 +405,46 @@ WffspConfigGeneralMigrateHandler(
 	}
 }
 
+
+static void
+WffspPurgeJumpList(
+	WfsBackend	backend
+	)
+{
+	const char *	backend_name;
+	bool		confirmfl;
+	size_t		purge_count;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_FAILURE(status = WfsGetBackendName(backend, &backend_name))) {
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
+		return;
+	}
+
+	switch (WfrMessageBoxF(
+			"PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
+			"Purge jump list in %s backend?", backend_name))
+	{
+	case IDYES:
+		confirmfl = true; break;
+	case IDNO: default:
+		confirmfl = false; break;
+	}
+
+	if (confirmfl) {
+		status = WfsPurgeJumpList(backend, &purge_count);
+		if (WFR_STATUS_SUCCESS(status)) {
+			WfrMessageBoxF(
+				"PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
+				"Purged %u items in jump list in %s backend.",
+				purge_count, backend_name);
+		} else {
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "purging jump list");
+		}
+	}
+}
+
 /*
  * Public subroutines private to PuTTie/winfrip*.c
  */
@@ -401,6 +468,7 @@ WffsGeneralConfigPanel(
 	ctx = WFR_NEW(WffspConfigContext);
 	WFFSP_CONFIG_CONTEXT_INIT(*ctx);
 
+
 	s = ctrl_getset(b, "Frippery/Storage", "frip_storage_migrate_cleanup", "Clean up / migrate");
 	ctx->droplist_from = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WFP_HELP_CTX, WffspConfigGeneralHandler, P(ctx));
 	ctx->listbox = ctrl_listbox(s, NULL, NO_SHORTCUT, WFP_HELP_CTX, WffspConfigGeneralHandler, P(ctx));
@@ -414,6 +482,11 @@ WffsGeneralConfigPanel(
 	ctx->button_move_all->column = 1;
 	ctrl_columns(s, 1, 100);
 	ctx->droplist_to = ctrl_droplist(s, "To:", NO_SHORTCUT, 100, WFP_HELP_CTX, WffspConfigGeneralHandler, P(ctx));
+
+
+	s = ctrl_getset(b, "Frippery/Storage", "frip_storage_purge_jump_list", "Purge jump list");
+	ctx->droplist_purge_jump_list = ctrl_droplist(s, NULL, NO_SHORTCUT, 100, WFP_HELP_CTX, WffspConfigGeneralHandler, P(ctx));
+	ctx->button_purge_jump_list = ctrl_pushbutton(s, "Purge...", 'p', WFP_HELP_CTX, WffspConfigGeneralHandler, P(ctx));
 }
 
 /*
