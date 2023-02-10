@@ -297,3 +297,9 @@ endif()
 # winfrip }}}
 
 configure_file(cmake/cmake.h.in ${GENERATED_SOURCES_DIR}/cmake.h)
+
+# {{{ winfrip
+#
+# vim:expandtab sw=4 ts=4
+#
+# winfrip }}}

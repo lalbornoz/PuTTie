@@ -37,3 +37,9 @@ file(WRITE "${OUTPUT_FILE}" "\
 
 #define SHORT_COPYRIGHT_DETAILS \"${COPYRIGHT_NOTICE}\"
 ")
+
+# {{{ winfrip
+#
+# vim:expandtab sw=4 ts=4
+#
+# winfrip }}}
