@@ -21,6 +21,10 @@
 #include <commdlg.h>
 #include <shellapi.h>
 
+/* {{{ winfrip */
+#include "../PuTTie/winfrip_rtl.h"
+/* winfrip }}} */
+
 #ifdef MSVC4
 #define TVINSERTSTRUCT  TV_INSERTSTRUCT
 #define TVITEM          TV_ITEM
@@ -375,23 +379,30 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
         SetWindowText(hwnd, str);
         sfree(str);
         char *buildinfo_text = buildinfo("\r\n");
-        char *text = dupprintf(
-            "%s\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s\r\n%s",
-            appname, ver, buildinfo_text,
         /* {{{ winfrip */
-        #if 1
+    #if 1
+        wchar_t textW[512];
+        WFR_SNWPRINTF(textW, WFR_SIZEOF_WSTRING(textW),
+            L"%s💚\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s\r\n%s",
+            appname, ver, buildinfo_text,
             "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.",
             "\251 2018, 2022, 2023 Lucia Andrea Illanes Albornoz. All rights reserved.");
-        #else
-        /* winfrip }}} */
-            "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
-        /* {{{ winfrip */
-        #endif
-        /* winfrip }}} */
         sfree(buildinfo_text);
+        SetDlgItemTextW(hwnd, IDA_TEXT, textW);
+        MakeDlgItemBorderless(hwnd, IDA_TEXT);
+    #else
+        /* winfrip }}} */
+        char *text = dupprintf(
+            "%s\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
+            appname, ver, buildinfo_text,
+            "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
+        sfree(buildinfo_ext);
         SetDlgItemText(hwnd, IDA_TEXT, text);
         MakeDlgItemBorderless(hwnd, IDA_TEXT);
         sfree(text);
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         return 1;
       }
       case WM_COMMAND:
