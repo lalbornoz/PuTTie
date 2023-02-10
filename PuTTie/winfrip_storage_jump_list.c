@@ -3,11 +3,19 @@
  * Copyright (c) 2018, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#include "putty.h"
+#include "storage.h"
+#pragma GCC diagnostic pop
+
 #include <stdlib.h>
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_storage_adapter.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
+#include "PuTTie/winfrip_storage_jump_list.h"
 #include "PuTTie/winfrip_storage_sessions.h"
 #include "PuTTie/winfrip_storage_priv.h"
 #include "PuTTie/winfrip_storage_backend_ephemeral.h"
@@ -120,6 +128,55 @@ WfsGetEntriesJumpList(
 	}
 
 	return jump_list;
+}
+
+WfrStatus
+WfsPurgeJumpList(
+	WfsBackend	backend,
+	size_t *	ppurge_count
+	)
+{
+	WfspBackend *	backend_impl;
+	bool		display_errorsfl;
+	char *		jump_list = NULL;
+	size_t		jump_list_size;
+	size_t		purge_count;
+	settings_r *	settings_tmp;
+	WfrStatus	status;
+
+
+	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend, &backend_impl))) {
+		return status;
+	}
+
+	if (WFR_STATUS_SUCCESS(status = backend_impl->GetEntriesJumpList(&jump_list, &jump_list_size))) {
+		display_errorsfl = WfsDisableAdapterDisplayErrors();
+		purge_count = 0;
+
+		for (char *item = jump_list, *item_next = NULL;
+		     item && *item; item = item_next)
+		{
+			if ((item_next = strchr(item, '\0'))) {
+				item_next++;
+
+				settings_tmp = open_settings_r(item);
+				if (!settings_tmp) {
+					WfsRemoveJumpList(backend, item);
+					purge_count++;
+				}
+				close_settings_r(settings_tmp);
+			}
+		}
+
+		WfsSetAdapterDisplayErrors(display_errorsfl);
+		if (ppurge_count) {
+			*ppurge_count = purge_count;
+		}
+	}
+
+	WFR_FREE_IF_NOTNULL(jump_list);
+
+	return status;
 }
 
 void
