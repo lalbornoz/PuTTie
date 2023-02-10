@@ -22,7 +22,14 @@ BEGIN
     DEFPUSHBUTTON "&Close", IDOK, 216, 118, 48, 14
     PUSHBUTTON "View &Licence", IDA_LICENCE, 6, 118, 70, 14
     PUSHBUTTON "Visit &Web Site", IDA_WEB, 140, 118, 70, 14
+    /* {{{ winfrip */
+#if 1
+#else
+    /* winfrip }}} */
     EDITTEXT IDA_TEXT, 10, 6, 250, 110, ES_READONLY | ES_MULTILINE | ES_CENTER, WS_EX_STATICEDGE
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 END
 
 /* Accelerators used: aco */
@@ -96,3 +103,9 @@ BEGIN
 END
 
 #include "version.rc2"
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4 filetype=rc
+ */
+/* winfrip }}} */
