@@ -48,22 +48,18 @@ WfrSaveListToFile(
 		pname_tmp, sizeof(pname_tmp),
 		"%s/%s", dname_tmp, fname_tmp);
 
-	if ((fd = mkstemp(pname_tmp)) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (!(file = fdopen(fd, "wb"))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (list_size > 0) {
-		if ((nwritten = fwrite(list, list_size, 1, file)) != 1) {
-			if (ferror(file) < 0) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				status = WFR_STATUS_FROM_ERRNO1(EPIPE);
-			}
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		}
-	} else {
+	if (WFR_SUCCESS_POSIX(status, (fd = mkstemp(pname_tmp)) > 0)
+	&&  WFR_SUCCESS_POSIX(status, (file = fdopen(fd, "wb")))
+	&&  (list_size > 0)
+	&&  WFR_SUCCESS_POSIX(status, (nwritten = fwrite(list, list_size, 1, file)) == 1))
+	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
+	} else if (WFR_FAILURE(status) && file) {
+		if (ferror(file) < 0) {
+			status = WFR_STATUS_FROM_ERRNO();
+		} else {
+			status = WFR_STATUS_FROM_ERRNO1(EPIPE);
+		}
 	}
 
 	if (file) {
@@ -73,12 +69,12 @@ WfrSaveListToFile(
 		(void)close(fd);
 	}
 
-	if (WFR_STATUS_SUCCESS(status)
-	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
-			pname_tmp, fname, MOVEFILE_REPLACE_EXISTING))))
+	if (WFR_SUCCESS(status)
+	&&  WFR_FAILURE_WINDOWS(status, MoveFileEx(
+			pname_tmp, fname, MOVEFILE_REPLACE_EXISTING)))
 	{
 		(void)unlink(pname_tmp);
-	} else if (WFR_STATUS_FAILURE(status)) {
+	} else if (WFR_FAILURE(status)) {
 		(void)unlink(pname_tmp);
 	}
 
@@ -105,14 +101,13 @@ WfrSaveRawFile(
 	WfrStatus	status;
 
 
-	if (stat(dname, &statbuf) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
+	if (WFR_FAILURE_POSIX(status, (stat(dname, &statbuf) == 0))) {
 		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			if (recreate_dnamefl) {
 				status = WfrMakeDirectory(dname, true);
 			}
 		}
-		if (WFR_STATUS_FAILURE(status)) {
+		if (WFR_FAILURE(status)) {
 			return status;
 		}
 	}
@@ -123,10 +118,10 @@ WfrSaveRawFile(
 	}
 
 	if (escape_fnamefl) {
-		if (WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
+		if (WFR_SUCCESS(status = WfrEscapeFileName(
 				dname, ext, fname, false,
 				pname, sizeof(pname)))
-		&&  WFR_STATUS_SUCCESS(status = WfrEscapeFileName(
+		&&  WFR_SUCCESS(status = WfrEscapeFileName(
 				dname_tmp, ext, fname, true,
 				pname_tmp, sizeof(pname_tmp))))
 		{
@@ -138,23 +133,20 @@ WfrSaveRawFile(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		if ((fd = mkstemp(pname_tmp)) < 0) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (!(file = fdopen(fd, "wb"))) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (data_size > 0) {
-			if ((nwritten = fwrite(data, data_size, 1, file)) != 1) {
-				if (ferror(file) < 0) {
-					status = WFR_STATUS_FROM_ERRNO();
-				} else {
-					status = WFR_STATUS_FROM_ERRNO1(EPIPE);
-				}
-			} else {
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
-		} else {
+	if (WFR_SUCCESS(status)) {
+		if (WFR_SUCCESS_POSIX(status, (fd = mkstemp(pname_tmp)) > 0)
+		&&  WFR_SUCCESS_POSIX(status, (file = fdopen(fd, "wb")))
+		&&  (data_size > 0)
+		&&  WFR_SUCCESS_POSIX(status, ((nwritten = fwrite(data, data_size, 1, file)) == 1)))
+		{
 			status = WFR_STATUS_CONDITION_SUCCESS;
+		} else if (WFR_FAILURE(status) && file)
+		{
+			if (ferror(file) < 0) {
+				status = WFR_STATUS_FROM_ERRNO();
+			} else {
+				status = WFR_STATUS_FROM_ERRNO1(EPIPE);
+			}
 		}
 
 		if (file) {
@@ -165,12 +157,12 @@ WfrSaveRawFile(
 		}
 	}
 
-	if (WFR_STATUS_SUCCESS(status)
-	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
-			pname_tmp, pname, MOVEFILE_REPLACE_EXISTING))))
+	if (WFR_SUCCESS(status)
+	&&  WFR_FAILURE_WINDOWS(status, MoveFileEx(
+			pname_tmp, pname, MOVEFILE_REPLACE_EXISTING)))
 	{
 		(void)unlink(pname_tmp);
-	} else if (WFR_STATUS_FAILURE(status)) {
+	} else if (WFR_FAILURE(status)) {
 		(void)unlink(pname_tmp);
 	}
 
@@ -200,12 +192,11 @@ WfrSaveToFileV(
 	const char *		value;
 
 
-	if (dname && (stat(dname, &statbuf) < 0)) {
-		status = WFR_STATUS_FROM_ERRNO();
+	if (dname && WFR_FAILURE_POSIX(status, (stat(dname, &statbuf) == 0))) {
 		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WfrMakeDirectory(dname, true);
 		}
-		if (WFR_STATUS_FAILURE(status)) {
+		if (WFR_FAILURE(status)) {
 			return status;
 		}
 	}
@@ -216,9 +207,9 @@ WfrSaveToFileV(
 	}
 
 	if (escape_fnamefl) {
-		if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+		if (WFR_FAILURE(status = WfrEscapeFileName(
 				dname, ext, fname, false, fname_full, sizeof(fname_full)))
-		||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+		||  WFR_FAILURE(status = WfrEscapeFileName(
 				dname_tmp, ext, fname, true, fname_tmp, sizeof(fname_tmp))))
 		{
 			return status;
@@ -228,15 +219,11 @@ WfrSaveToFileV(
 		WFR_SNPRINTF_PNAME_TMP(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
 	}
 
-	if ((fd = mkstemp(fname_tmp)) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (!(file = fdopen(fd, "wb"))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
-
+	if (WFR_SUCCESS_POSIX(status, (fd = mkstemp(fname_tmp)) > 0)
+	&&  WFR_SUCCESS_POSIX(status, (file = fdopen(fd, "wb"))))
+	{
 		va_start(ap, fname);
-		while (WFR_STATUS_SUCCESS(status)) {
+		while (WFR_SUCCESS(status)) {
 			if (!(key = va_arg(ap, const char *))) {
 				break;
 			} else {
@@ -250,17 +237,13 @@ WfrSaveToFileV(
 				break;
 
 			case WFR_TREE_ITYPE_INT:
-				rc = fprintf(file, "%s=int:%d\r\n", key, *(int *)value);
-				if (rc < 0) {
-					status = WFR_STATUS_FROM_ERRNO1(rc);
-				}
+				WFR_STATUS_BIND_POSIX(status,
+					(rc = fprintf(file, "%s=int:%d\r\n", key, *(int *)value)) >= 0);
 				break;
 
 			case WFR_TREE_ITYPE_STRING:
-				rc = fprintf(file, "%s=string:%s\r\n", key, (const char *)value);
-				if (rc < 0) {
-					status = WFR_STATUS_FROM_ERRNO1(rc);
-				}
+				WFR_STATUS_BIND_POSIX(status,
+					(rc = fprintf(file, "%s=string:%s\r\n", key, (const char *)value)) >= 0);
 				break;
 			}
 		}
@@ -274,12 +257,12 @@ WfrSaveToFileV(
 		(void)close(fd);
 	}
 
-	if (WFR_STATUS_SUCCESS(status)
-	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
-			fname_tmp, fname_full, MOVEFILE_REPLACE_EXISTING))))
+	if (WFR_SUCCESS(status)
+	&&  WFR_FAILURE_WINDOWS(status, MoveFileEx(
+			fname_tmp, fname_full, MOVEFILE_REPLACE_EXISTING)))
 	{
 		(void)unlink(fname_tmp);
-	} else if (WFR_STATUS_FAILURE(status)) {
+	} else if (WFR_FAILURE(status)) {
 		(void)unlink(fname_tmp);
 	}
 
@@ -302,15 +285,15 @@ WfrSaveToRegSubKeyV(
 	const char *	value;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
-	&&  WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRo(
+	if (WFR_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
+	&&  WFR_SUCCESS(status = WfrOpenRegKeyRo(
 			HKEY_CURRENT_USER, &hKey,
 			key_name, subkey_escaped)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 
 		va_start(ap, subkey);
-		while (WFR_STATUS_SUCCESS(status)) {
+		while (WFR_SUCCESS(status)) {
 			if (!(key = va_arg(ap, const char *))) {
 				break;
 			} else {
@@ -324,13 +307,13 @@ WfrSaveToRegSubKeyV(
 				break;
 
 			case WFR_TREE_ITYPE_INT:
-				status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+				WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
 					hKey, key, 0, REG_DWORD,
 					(const BYTE *)value, sizeof(int)));
 				break;
 
 			case WFR_TREE_ITYPE_STRING:
-				status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+				WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
 					hKey, key, 0, REG_SZ,
 					(const BYTE *)value, strlen(value)));
 				break;
@@ -342,7 +325,7 @@ WfrSaveToRegSubKeyV(
 	if (hKey != NULL) {
 		(void)RegCloseKey(hKey);
 	}
-	if (WFR_STATUS_FAILURE(status)) {
+	if (WFR_FAILURE(status)) {
 		(void)RegDeleteTree(hKey, subkey_escaped);
 	}
 
@@ -371,12 +354,11 @@ WfrSaveTreeToFile(
 	WfrStatus	status;
 
 
-	if (dname && (stat(dname, &statbuf) < 0)) {
-		status = WFR_STATUS_FROM_ERRNO();
+	if (dname && WFR_FAILURE_POSIX(status, (stat(dname, &statbuf) == 0))) {
 		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WfrMakeDirectory(dname, true);
 		}
-		if (WFR_STATUS_FAILURE(status)) {
+		if (WFR_FAILURE(status)) {
 			return status;
 		}
 	}
@@ -387,9 +369,9 @@ WfrSaveTreeToFile(
 	}
 
 	if (escape_fnamefl) {
-		if (WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+		if (WFR_FAILURE(status = WfrEscapeFileName(
 				dname, ext, fname, false, fname_full, sizeof(fname_full)))
-		||  WFR_STATUS_FAILURE(status = WfrEscapeFileName(
+		||  WFR_FAILURE(status = WfrEscapeFileName(
 				dname_tmp, ext, fname, true, fname_tmp, sizeof(fname_tmp))))
 		{
 			return status;
@@ -399,12 +381,9 @@ WfrSaveTreeToFile(
 		WFR_SNPRINTF_PNAME_TMP(fname_tmp, sizeof(fname_tmp), dname_tmp, ext, fname);
 	}
 
-	if ((fd = mkstemp(fname_tmp)) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (!(file = fdopen(fd, "wb"))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		status = WFR_STATUS_CONDITION_SUCCESS;
+	if (WFR_SUCCESS_POSIX(status, ((fd = mkstemp(fname_tmp)) > 0))
+	&&  WFR_SUCCESS_POSIX(status, (file = fdopen(fd, "wb"))))
+	{
 		WFR_TREE234_FOREACH(status, tree, idx, item) {
 			switch (item->type) {
 			default:
@@ -437,12 +416,12 @@ WfrSaveTreeToFile(
 		(void)close(fd);
 	}
 
-	if (WFR_STATUS_SUCCESS(status)
-	&&  WFR_STATUS_FAILURE(status = WFR_STATUS_BIND_WINDOWS_BOOL(MoveFileEx(
-			fname_tmp, fname_full, MOVEFILE_REPLACE_EXISTING))))
+	if (WFR_SUCCESS(status)
+	&&  WFR_FAILURE_WINDOWS(status, MoveFileEx(
+			fname_tmp, fname_full, MOVEFILE_REPLACE_EXISTING)))
 	{
 		(void)unlink(fname_tmp);
-	} else if (WFR_STATUS_FAILURE(status)) {
+	} else if (WFR_FAILURE(status)) {
 		(void)unlink(fname_tmp);
 	}
 
@@ -462,9 +441,9 @@ WfrSaveTreeToRegSubKey(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))) {
+	if (WFR_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))) {
 		(void)RegDeleteTree(hKey, subkey_escaped);
-		if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(
+		if (WFR_SUCCESS(status = WfrCreateRegKey(
 				HKEY_CURRENT_USER, &hKey,
 				key_name, subkey_escaped)))
 		{
@@ -475,13 +454,13 @@ WfrSaveTreeToRegSubKey(
 					break;
 
 				case WFR_TREE_ITYPE_INT:
-					status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+					WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
 						hKey, item->key, 0, REG_DWORD,
 						(const BYTE *)item->value, item->value_size));
 					break;
 
 				case WFR_TREE_ITYPE_STRING:
-					status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+					WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
 						hKey, item->key, 0, REG_SZ,
 						(const BYTE *)item->value, item->value_size));
 					break;
@@ -489,7 +468,7 @@ WfrSaveTreeToRegSubKey(
 			}
 		}
 
-		if (WFR_STATUS_FAILURE(status)) {
+		if (WFR_FAILURE(status)) {
 			(void)RegDeleteTree(hKey, subkey_escaped);
 		}
 	}

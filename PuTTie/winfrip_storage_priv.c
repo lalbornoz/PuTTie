@@ -79,20 +79,15 @@ WfsTransformList(
 	if (addfl || delfl) {
 		trans_item_len = strlen(trans_item);
 
-		if (*plist == NULL) {
-			if (!(*plist = WFR_NEWN(2, char))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				(*plist)[0] = '\0'; (*plist)[1] = '\0';
-				*plist_size = 1;
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
+		if ((*plist == NULL)
+		&&  WFR_SUCCESS_POSIX(status, (*plist = WFR_NEWN(2, char))))
+		{
+			(*plist)[0] = '\0'; (*plist)[1] = '\0';
+			*plist_size = 1;
 		}
 
 		list_new_size = trans_item_len + 1 + *plist_size;
-		if (!(list_new = WFR_NEWN(list_new_size, char))) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else {
+		if (WFR_SUCCESS_POSIX(status, (list_new = WFR_NEWN(list_new_size, char)))) {
 			memset(list_new, '\0', list_new_size);
 			list_new_last = list_new;
 
@@ -121,7 +116,7 @@ WfsTransformList(
 				list_new_delta = (&list_new[list_new_size - 1] - &list_new_last[0]);
 				if ((list_new_size - list_new_delta) < 2) {
 					status = WFR_RESIZE(list_new, list_new_size, 2, char);
-					if (WFR_STATUS_SUCCESS(status)) {
+					if (WFR_SUCCESS(status)) {
 						list_new[0] = '\0';
 						list_new[1] = '\0';
 					}
@@ -134,7 +129,7 @@ WfsTransformList(
 				status = WFR_STATUS_CONDITION_SUCCESS;
 			}
 
-			if (WFR_STATUS_SUCCESS(status)) {
+			if (WFR_SUCCESS(status)) {
 				WFR_FREE(*plist);
 				*plist = list_new;
 				*plist_size = list_new_size;
@@ -142,7 +137,7 @@ WfsTransformList(
 		}
 	}
 
-	if (WFR_STATUS_FAILURE(status)) {
+	if (WFR_FAILURE(status)) {
 		WFR_FREE_IF_NOTNULL(list_new);
 	}
 
@@ -165,23 +160,17 @@ WfsTreeCloneValue(
 		break;
 
 	case WFR_TREE_ITYPE_INT:
-		if ((value_new = WFR_NEWN(item->value_size, uint8_t))) {
+		if (WFR_SUCCESS_POSIX(status, (value_new = WFR_NEWN(item->value_size, uint8_t)))) {
 			*(int *)value_new = *(int *)item->value;
 			*pvalue_new = value_new;
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		} else {
-			status = WFR_STATUS_FROM_ERRNO();
 		}
 		break;
 
 	case WFR_TREE_ITYPE_HOST_KEY:
 	case WFR_TREE_ITYPE_STRING:
-		if ((value_new = WFR_NEWN(item->value_size, char))) {
+		if (WFR_SUCCESS_POSIX(status, (value_new = WFR_NEWN(item->value_size, char)))) {
 			memcpy(value_new, item->value, item->value_size);
 			*(char **)pvalue_new = (char *)value_new;
-			status = WFR_STATUS_CONDITION_SUCCESS;
-		} else {
-			status = WFR_STATUS_FROM_ERRNO();
 		}
 		break;
 	}
@@ -220,7 +209,7 @@ WfsTreeFreeItem(
 
 	case WFR_TREE_ITYPE_SESSION:
 		session = (WfsSession *)item->value;
-		if (WFR_STATUS_FAILURE(WfrTreeClear(&session->tree, WfsTreeFreeItem))) {
+		if (WFR_FAILURE(WfrTreeClear(&session->tree, WfsTreeFreeItem))) {
 			WFR_DEBUG_FAIL();
 		}
 		WFR_FREE_IF_NOTNULL(session->name);

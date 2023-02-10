@@ -251,14 +251,14 @@ WfrCreateShortcut(
 	LPWSTR			working_dname_full = NULL;
 
 
-	if (WFR_STATUS_FAILURE(status = WfrPathNameToAbsoluteW(shortcut_pname, &shortcut_pname_abs))
-	||  WFR_STATUS_FAILURE(status = WfrPathNameToAbsoluteW(target_pname, &target_pname_abs)))
+	if (WFR_FAILURE(status = WfrPathNameToAbsoluteW(shortcut_pname, &shortcut_pname_abs))
+	||  WFR_FAILURE(status = WfrPathNameToAbsoluteW(target_pname, &target_pname_abs)))
 	{
 		goto out;
 	}
 	if (working_dname) {
 		working_dname_full = (LPWSTR)working_dname;
-	} else if (WFR_STATUS_FAILURE(status = WfrPathNameToDirectoryW(
+	} else if (WFR_FAILURE(status = WfrPathNameToDirectoryW(
 			target_pname_abs, &working_dname_full)))
 	{
 		goto out;

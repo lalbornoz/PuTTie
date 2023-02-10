@@ -43,7 +43,7 @@ WfsAddJumpList(
 		return;
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		backend_impl->AddJumpList(sessionname);
 	}
 }
@@ -57,7 +57,7 @@ WfsCleanupJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->CleanupJumpList();
 	}
 
@@ -73,7 +73,7 @@ WfsClearJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		backend_impl->ClearJumpList();
 	}
 }
@@ -97,13 +97,13 @@ WfsExportJumpList(
 	(void)continue_on_error;
 	(void)error_fn;
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	||  WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
+	if (WFR_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	||  WFR_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
 		return status;
 	}
 
-	if (WFR_STATUS_SUCCESS(status = backend_from_impl->GetEntriesJumpList(&jump_list, &jump_list_size))
-	&&  WFR_STATUS_SUCCESS(status = backend_to_impl->SetEntriesJumpList(jump_list, jump_list_size)))
+	if (WFR_SUCCESS(status = backend_from_impl->GetEntriesJumpList(&jump_list, &jump_list_size))
+	&&  WFR_SUCCESS(status = backend_to_impl->SetEntriesJumpList(jump_list, jump_list_size)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -123,7 +123,7 @@ WfsGetEntriesJumpList(
 	size_t		jump_list_size;
 
 
-	if (WFR_STATUS_SUCCESS(WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(WfsGetBackendImpl(backend, &backend_impl))) {
 		(void)backend_impl->GetEntriesJumpList(&jump_list, &jump_list_size);
 	}
 
@@ -145,11 +145,11 @@ WfsPurgeJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_FAILURE(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		return status;
 	}
 
-	if (WFR_STATUS_SUCCESS(status = backend_impl->GetEntriesJumpList(&jump_list, &jump_list_size))) {
+	if (WFR_SUCCESS(status = backend_impl->GetEntriesJumpList(&jump_list, &jump_list_size))) {
 		display_errorsfl = WfsDisableAdapterDisplayErrors();
 		purge_count = 0;
 
@@ -196,7 +196,7 @@ WfsRemoveJumpList(
 		return;
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		backend_impl->RemoveJumpList(sessionname);
 	}
 }

@@ -54,33 +54,115 @@ typedef struct WfrStatus {
 	WFR_STATUS1(NULL, 0, WFR_STATUS_FACILITY_NONE, WFR_STATUS_SEVERITY_SUCCESS, WFR_STATUS_SEVERITY_SUCCESS)
 
 /*
- * Bind {LSTATUS,bool} expression to WfrStatus
+ * Bind LSTATUS expression to WfrStatus and evaluate to WFR_STATUS_SUCCESS() thereof
  */
+#define WFR_STATUS_BIND_LSTATUS(status, ...) ({				\
+	LSTATUS		lstatus;					\
+	WfrStatus	status_;					\
+									\
+	lstatus = (__VA_ARGS__);					\
+	if (lstatus == ERROR_SUCCESS) {					\
+		status_ = WFR_STATUS_CONDITION_SUCCESS;			\
+	} else {							\
+		status_ = WFR_STATUS(					\
+				WFR_STATUS_FACILITY_WINDOWS,		\
+				WFR_STATUS_SEVERITY_ERROR,		\
+				lstatus);				\
+	}								\
+									\
+	(status) = status_;						\
+	WFR_STATUS_SUCCESS((status));					\
+})
+#define WFR_STATUS_SUCCESS_LSTATUS(...)					\
+	WFR_STATUS_BIND_LSTATUS(__VA_ARGS__)
+#define WFR_STATUS_FAILURE_LSTATUS(...)					\
+	!WFR_STATUS_BIND_LSTATUS(__VA_ARGS__)
+#define WFR_SUCCESS_LSTATUS(...)					\
+	WFR_STATUS_BIND_LSTATUS(__VA_ARGS__)
+#define WFR_FAILURE_LSTATUS(...)					\
+	!WFR_STATUS_BIND_LSTATUS(__VA_ARGS__)
 
-#define WFR_STATUS_BIND_LSTATUS(...) ({										\
-	LSTATUS		lstatus;										\
-	WfrStatus	status;											\
-														\
-	lstatus = __VA_ARGS__;											\
-	if (lstatus == ERROR_SUCCESS) {										\
-		status = WFR_STATUS_CONDITION_SUCCESS;								\
-	} else {												\
-		status = WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, lstatus);		\
-	}													\
-														\
-	status;													\
+/*
+ * Bind POSIX expression to WfrStatus and evaluate to WFR_STATUS_SUCCESS() thereof
+ */
+#define WFR_STATUS_BIND_POSIX(status, ...) ({				\
+	bool		result;						\
+	WfrStatus	status_;					\
+									\
+	result = ((__VA_ARGS__));					\
+	if (result) {							\
+		status_ = WFR_STATUS_CONDITION_SUCCESS;			\
+	} else {							\
+		status_ = WFR_STATUS_FROM_ERRNO();			\
+	}								\
+									\
+	(status) = status_;						\
+	WFR_STATUS_SUCCESS((status));					\
 })
-#define WFR_STATUS_BIND_WINDOWS_BOOL(...) ({									\
-	bool	result = __VA_ARGS__;										\
-														\
-	if (result == TRUE) {											\
-		status = WFR_STATUS_CONDITION_SUCCESS;								\
-	} else {												\
-		status = WFR_STATUS(WFR_STATUS_FACILITY_WINDOWS, WFR_STATUS_SEVERITY_ERROR, GetLastError());	\
-	}													\
-														\
-	status;													\
+#define WFR_STATUS_SUCCESS_POSIX(...)					\
+	WFR_STATUS_BIND_POSIX(__VA_ARGS__)
+#define WFR_STATUS_FAILURE_POSIX(...)					\
+	!WFR_STATUS_BIND_POSIX(__VA_ARGS__)
+#define WFR_SUCCESS_POSIX(...)						\
+	WFR_STATUS_BIND_POSIX(__VA_ARGS__)
+#define WFR_FAILURE_POSIX(...)						\
+	!WFR_STATUS_BIND_POSIX(__VA_ARGS__)
+
+/*
+ * Bind Windows expression to WfrStatus and evaluate to WFR_STATUS_SUCCESS() thereof
+ */
+#define WFR_STATUS_BIND_WINDOWS(status, ...) ({				\
+	DWORD		dwLastError;					\
+	bool		result;						\
+	WfrStatus	status_;					\
+									\
+	result = (__VA_ARGS__);						\
+	if (result == TRUE) {						\
+		status_ = WFR_STATUS_CONDITION_SUCCESS;			\
+	} else {							\
+		dwLastError = GetLastError();				\
+		status_ = WFR_STATUS(					\
+				WFR_STATUS_FACILITY_WINDOWS,		\
+				WFR_STATUS_SEVERITY_ERROR,		\
+				dwLastError);				\
+	}								\
+									\
+	(status) = status_;						\
+	WFR_STATUS_SUCCESS((status));					\
 })
+#define WFR_STATUS_SUCCESS_WINDOWS(...)					\
+	WFR_STATUS_BIND_WINDOWS(__VA_ARGS__)
+#define WFR_STATUS_FAILURE_WINDOWS(...)					\
+	!WFR_STATUS_BIND_WINDOWS(__VA_ARGS__)
+#define WFR_SUCCESS_WINDOWS(...)					\
+	WFR_STATUS_BIND_WINDOWS(__VA_ARGS__)
+#define WFR_FAILURE_WINDOWS(...)					\
+	!WFR_STATUS_BIND_WINDOWS(__VA_ARGS__)
+
+/*
+ * Bind expression to WfrStatus and evaluate to WFR_STATUS_SUCCESS() thereof
+ * with optional explicit errno value on failure
+ */
+#define WFR_STATUS_BIND_ERRNO1(status, errno1, ...) ({			\
+	WfrStatus	status_;					\
+									\
+	if ((__VA_ARGS__)) {						\
+		status_ = WFR_STATUS_CONDITION_SUCCESS;			\
+	} else {							\
+		status_ = WFR_STATUS_FROM_ERRNO1((errno1));		\
+	}								\
+									\
+	(status) = status_;						\
+	WFR_STATUS_SUCCESS(status);					\
+})
+#define WFR_STATUS_SUCCESS_ERRNO1(...)					\
+	WFR_STATUS_BIND_ERRNO1(__VA_ARGS__)
+#define WFR_STATUS_FAILURE_ERRNO1(...)					\
+	!WFR_STATUS_BIND_ERRNO1(__VA_ARGS__)
+#define WFR_SUCCESS_ERRNO1(...)						\
+	WFR_STATUS_BIND_ERRNO1(__VA_ARGS__)
+#define WFR_FAILURE_ERRNO1(...)						\
+	!WFR_STATUS_BIND_ERRNO1(__VA_ARGS__)
 
 /*
  * WfrStatus constructors from POSIX errno, GDI+ return codes, Windows results,
@@ -134,10 +216,16 @@ typedef struct WfrStatus {
 	(status).facility
 #define WFR_STATUS_SEVERITY(status)	\
 	(status).severity
+
 #define WFR_STATUS_FAILURE(status)	\
 	((WFR_STATUS_SEVERITY(status) & 0x1) == 0)
+#define WFR_FAILURE(status)		\
+	WFR_STATUS_FAILURE(status)
+
 #define WFR_STATUS_SUCCESS(status)	\
 	((WFR_STATUS_SEVERITY(status) & 0x1) == 1)
+#define WFR_SUCCESS(status)		\
+	WFR_STATUS_SUCCESS(status)
 
 #endif // !PUTTY_WINFRIP_RTL_STATUS_H
 

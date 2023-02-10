@@ -281,7 +281,7 @@ WffspConfigGeneralCleanupHandler(
 
 	if (WFFSP_CONFIG_IF_SELECTV_NONE(selectv)) {
 		return;
-	} else if (WFR_STATUS_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))) {
+	} else if (WFR_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))) {
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
 		return;
 	}
@@ -309,7 +309,7 @@ WffspConfigGeneralCleanupHandler(
 			}
 		} while ((++item) <= WFFSP_ITEM_MAX);
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			(void)WFFSP_CONFIG_MESSAGEBOX_SELECTV(
 				selectv,
 				MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
@@ -352,8 +352,8 @@ WffspConfigGeneralMigrateHandler(
 		return;
 	} else if (WFFSP_CONFIG_IF_SELECTV_NONE(selectv)) {
 		return;
-	} else if (WFR_STATUS_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))
-		|| WFR_STATUS_FAILURE(status = WfsGetBackendName(backend_to, &backend_to_name)))
+	} else if (WFR_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))
+		|| WFR_FAILURE(status = WfsGetBackendName(backend_to, &backend_to_name)))
 	{
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
 		return;
@@ -378,7 +378,7 @@ WffspConfigGeneralMigrateHandler(
 		item = WFFSP_ITEM_MIN;
 		do {
 			if ((item != WFFSP_ITEM_CONTAINER) && selectv[item]) {
-				if (WFR_STATUS_SUCCESS(status = WffspConfigItemExportFnList[item](
+				if (WFR_SUCCESS(status = WffspConfigItemExportFnList[item](
 						backend_from, backend_to, true, true, error_fn)))
 				{
 					if (movefl) {
@@ -389,12 +389,12 @@ WffspConfigGeneralMigrateHandler(
 			}
 		} while ((++item) <= WFFSP_ITEM_MAX);
 
-		if (movefl && WFR_STATUS_SUCCESS(status)) {
+		if (movefl && WFR_SUCCESS(status)) {
 			status = WfsCleanupContainer(backend_from);
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up container");
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			(void)WFFSP_CONFIG_MESSAGEBOX_SELECTV(
 				selectv,
 				MB_ICONQUESTION | MB_OK | MB_DEFBUTTON1,
@@ -417,7 +417,7 @@ WffspPurgeJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendName(backend, &backend_name))) {
+	if (WFR_FAILURE(status = WfsGetBackendName(backend, &backend_name))) {
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
 		return;
 	}
@@ -434,7 +434,7 @@ WffspPurgeJumpList(
 
 	if (confirmfl) {
 		status = WfsPurgeJumpList(backend, &purge_count);
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			WfrMessageBoxF(
 				"PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
 				"Purged %u items in jump list in %s backend.",

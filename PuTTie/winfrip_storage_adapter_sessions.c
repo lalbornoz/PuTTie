@@ -72,21 +72,25 @@ WfspExpandFontSpecKeys(
 	size_t		key_size;
 	WfrStatus	status;
 
+
 	key_size = strlen(key) + 1;
-	*pkey_charset = *pkey_height = *pkey_isbold = NULL;
-	if (((*pkey_charset) = WFR_NEWN(key_size + (sizeof("CharSet") - 1), char))
-	&&  ((*pkey_height) = WFR_NEWN(key_size + (sizeof("Height") - 1), char))
-	&&  ((*pkey_isbold) = WFR_NEWN(key_size + (sizeof("IsBold") - 1), char)))
+	*pkey_charset = NULL;
+	*pkey_height = NULL;
+	*pkey_isbold = NULL;
+
+	if (WFR_SUCCESS_POSIX(status, ((*pkey_charset) = WFR_NEWN(key_size + (sizeof("CharSet") - 1), char)))
+	&&  WFR_SUCCESS_POSIX(status, ((*pkey_height) = WFR_NEWN(key_size + (sizeof("Height") - 1), char)))
+	&&  WFR_SUCCESS_POSIX(status, ((*pkey_isbold) = WFR_NEWN(key_size + (sizeof("IsBold") - 1), char))))
 	{
 		WFR_SNPRINTF(*pkey_charset, key_size + (sizeof("CharSet") - 1), "%sCharSet", key);
 		WFR_SNPRINTF(*pkey_height, key_size + (sizeof("Height") - 1), "%sHeight", key);
 		WFR_SNPRINTF(*pkey_isbold, key_size + (sizeof("IsBold") - 1), "%sIsBold", key);
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	} else {
+	}
+
+	if (WFR_FAILURE(status)) {
 		WFR_FREE_IF_NOTNULL(*pkey_charset);
 		WFR_FREE_IF_NOTNULL(*pkey_height);
 		WFR_FREE_IF_NOTNULL(*pkey_isbold);
-		status = WFR_STATUS_FROM_ERRNO();
 	}
 
 	return status;
@@ -148,7 +152,7 @@ open_settings_w(
 	if (WFR_STATUS_CONDITION(status) == EEXIST) {
 		status = WfsClearSession(backend, session, NULL);
 	}
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		return (settings_w *)session;
 	} else {
 		if (WfsGetAdapterDisplayErrors()) {
@@ -178,7 +182,7 @@ write_setting_s(
 		WFR_DEBUG_FAIL();
 	} else {
 		value_new_size = strlen(value_new) + 1;
-		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
+		if (WFR_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, value_new_size,
 				WFR_TREE_ITYPE_STRING)))
 		{
@@ -206,7 +210,7 @@ write_setting_i(
 		WFR_DEBUG_FAIL();
 	} else {
 		*value_new = value;
-		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
+		if (WFR_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, sizeof(*value_new),
 				WFR_TREE_ITYPE_INT)))
 		{
@@ -235,7 +239,7 @@ write_setting_filename(
 		WFR_DEBUG_FAIL();
 	} else {
 		value_new_size = strlen(value_new) + 1;
-		if (WFR_STATUS_FAILURE(status = WfsSetSessionKey(
+		if (WFR_FAILURE(status = WfsSetSessionKey(
 				session, key, value_new, value_new_size,
 				WFR_TREE_ITYPE_STRING)))
 		{
@@ -262,7 +266,7 @@ write_setting_fontspec(
 
 	session = (WfsSession *)handle;
 
-	if (WFR_STATUS_SUCCESS(status = WfspExpandFontSpecKeys(
+	if (WFR_SUCCESS(status = WfspExpandFontSpecKeys(
 			key, &key_charset, &key_height, &key_isbold)))
 	{
 		val_name_size = strlen(font->name) + 1;
@@ -279,16 +283,16 @@ write_setting_fontspec(
 			*val_isbold = font->isbold;
 			strcpy(val_name, font->name);
 
-			if (WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
+			if (WFR_SUCCESS(status = WfsSetSessionKey(
 					session, key_charset, val_charset,
 					sizeof(*val_charset), WFR_TREE_ITYPE_INT))
-			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
+			&&  WFR_SUCCESS(status = WfsSetSessionKey(
 					session, key_height, val_height,
 					sizeof(*val_height), WFR_TREE_ITYPE_INT))
-			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
+			&&  WFR_SUCCESS(status = WfsSetSessionKey(
 					session, key_isbold, val_isbold,
 					sizeof(*val_isbold), WFR_TREE_ITYPE_INT))
-			&&  WFR_STATUS_SUCCESS(status = WfsSetSessionKey(
+			&&  WFR_SUCCESS(status = WfsSetSessionKey(
 					session, key, val_name, val_name_size,
 					WFR_TREE_ITYPE_STRING)))
 			{
@@ -300,7 +304,7 @@ write_setting_fontspec(
 		WFR_FREE_IF_NOTNULL(key_height);
 		WFR_FREE_IF_NOTNULL(key_isbold);
 
-		if (WFR_STATUS_FAILURE(status)) {
+		if (WFR_FAILURE(status)) {
 			WFR_FREE_IF_NOTNULL(val_charset);
 			WFR_FREE_IF_NOTNULL(val_height);
 			WFR_FREE_IF_NOTNULL(val_isbold);
@@ -361,7 +365,7 @@ open_settings_r(
 		WfsGetBackend(), false,
 		sessionname, &session);
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		return (settings_r *)session;
 	} else {
 		if (WFR_STATUS_IS_NOT_FOUND(status) && defaultfl) {
@@ -392,7 +396,7 @@ read_setting_s(
 		return NULL;
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
+	if (WFR_SUCCESS(status = WfsGetSessionKey(
 			session, key, WFR_TREE_ITYPE_STRING,
 			&value, NULL)))
 	{
@@ -429,7 +433,7 @@ read_setting_i(
 	if (!session) {
 		return defvalue;
 	}
-	if (WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
+	if (WFR_SUCCESS(status = WfsGetSessionKey(
 			session, key, WFR_TREE_ITYPE_INT,
 			(void *)&value, NULL)))
 	{
@@ -466,15 +470,15 @@ read_setting_filename(
 		return NULL;
 	}
 
-	if (!(value = WFR_NEW(Filename))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
-		status = WfsGetSessionKey(
+	if (WFR_SUCCESS_POSIX(status, (value = WFR_NEW(Filename)))
+	&&  WFR_SUCCESS(status = WfsGetSessionKey(
 			session, key, WFR_TREE_ITYPE_STRING,
-			(void *)&value->path, NULL);
+			(void *)&value->path, NULL)))
+	{
+		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		if (!(value->path = strdup(value->path))) {
 			WFR_DEBUG_FAIL();
 			WFR_FREE(value);
@@ -495,7 +499,9 @@ read_setting_fontspec(
 	const char *	key
 	)
 {
-	char *		key_charset = NULL, *key_height = NULL, *key_isbold = NULL;
+	char *		key_charset = NULL;
+	char *		key_height = NULL;
+	char *		key_isbold = NULL;
 	WfsSession *	session;
 	WfrStatus	status;
 	FontSpec *	value;
@@ -506,30 +512,25 @@ read_setting_fontspec(
 		return NULL;
 	}
 
-	if (!(value = WFR_NEW(FontSpec))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
+	if (WFR_SUCCESS_POSIX(status, (value = WFR_NEW(FontSpec)))) {
 		value->name = NULL;
-		if (WFR_STATUS_SUCCESS(status = WfspExpandFontSpecKeys(
+		if (WFR_SUCCESS(status = WfspExpandFontSpecKeys(
 				key, &key_charset, &key_height, &key_isbold))
-		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
+		&&  WFR_SUCCESS(status = WfsGetSessionKey(
 				session, key_charset, WFR_TREE_ITYPE_INT,
 				(void **)&value->charset, NULL))
-		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
+		&&  WFR_SUCCESS(status = WfsGetSessionKey(
 				session, key_height, WFR_TREE_ITYPE_INT,
 				(void **)&value->height, NULL))
-		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
+		&&  WFR_SUCCESS(status = WfsGetSessionKey(
 				session, key_isbold, WFR_TREE_ITYPE_INT,
 				(void **)&value->isbold, NULL))
-		&&  WFR_STATUS_SUCCESS(status = WfsGetSessionKey(
+		&&  WFR_SUCCESS(status = WfsGetSessionKey(
 				session, key, WFR_TREE_ITYPE_STRING,
-				(void **)&value->name, NULL)))
+				(void **)&value->name, NULL))
+		&&  WFR_SUCCESS_POSIX(status, (value->name = strdup(value->name))))
 		{
-			if (!(value->name = strdup(value->name))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
+			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	}
 
@@ -537,7 +538,7 @@ read_setting_fontspec(
 	WFR_FREE_IF_NOTNULL(key_height);
 	WFR_FREE_IF_NOTNULL(key_isbold);
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		return value;
 	} else {
 		if (value) {
@@ -608,7 +609,7 @@ enum_settings_start(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsEnumerateSessions(
+	if (WFR_SUCCESS(status = WfsEnumerateSessions(
 			WfsGetBackend(), false, true,
 			NULL, NULL, &handle)))
 	{
@@ -638,8 +639,8 @@ enum_settings_next(
 		WfsGetBackend(), false, false,
 		&donefl, &sessionname, (void **)&handle);
 
-	if (WFR_STATUS_FAILURE(status) || donefl) {
-		if (WfsGetAdapterDisplayErrors() && WFR_STATUS_FAILURE(status)) {
+	if (WFR_FAILURE(status) || donefl) {
+		if (WfsGetAdapterDisplayErrors() && WFR_FAILURE(status)) {
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating sessions");
 		}
 

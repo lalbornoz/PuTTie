@@ -41,8 +41,8 @@ WffsClearItems(
 	backend_from = WFFS_GET_BACKEND(ctx, WFFS_DIR_FROM, dlg);
 	backend_to = WFFS_GET_BACKEND(ctx, WFFS_DIR_TO, dlg);
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendName(backend, &backend_name))
-	&&  WFR_STATUS_SUCCESS(status = WfrSnDuprintf(
+	if (WFR_SUCCESS(status = WfsGetBackendName(backend, &backend_name))
+	&&  WFR_SUCCESS(status = WfrSnDuprintf(
 			&lpText, NULL, "Clear all %s in the %s backend?",
 			items_title, backend_name)))
 	{
@@ -57,14 +57,14 @@ WffsClearItems(
 		}
 
 		if (confirmfl) {
-			if (WFR_STATUS_SUCCESS(status = clear_items_fn(backend, true)))
+			if (WFR_SUCCESS(status = clear_items_fn(backend, true)))
 			{
 				if (backend_from == backend_to) {
-					if (WFR_STATUS_SUCCESS(status = WffsUpdateItemList(
+					if (WFR_SUCCESS(status = WffsUpdateItemList(
 							backend_from, ctx->listbox[WFFS_DIR_FROM],
 							dlg, &ctx->itemc[WFFS_DIR_FROM],
 							&ctx->itemv[WFFS_DIR_FROM], update_fn, true))
-					&&  WFR_STATUS_SUCCESS(status = WffsUpdateItemList(
+					&&  WFR_SUCCESS(status = WffsUpdateItemList(
 							backend_to, ctx->listbox[WFFS_DIR_TO],
 							dlg, &ctx->itemc[WFFS_DIR_TO],
 							&ctx->itemv[WFFS_DIR_TO], update_fn, true)))
@@ -109,16 +109,16 @@ WffsDeleteItem(
 	backend_from = WFFS_GET_BACKEND(ctx, WFFS_DIR_FROM, dlg);
 	backend_to = WFFS_GET_BACKEND(ctx, WFFS_DIR_TO, dlg);
 
-	if (WFR_STATUS_SUCCESS(status = WFFS_GET_ITEM(ctx, dir, dlg, nitem))) {
+	if (WFR_SUCCESS(status = WFFS_GET_ITEM(ctx, dir, dlg, nitem))) {
 		name = ctx->itemv[dir][nitem];
 		status = delete_item_fn(backend, true, name);
 
 		if (backend_from == backend_to) {
-			if (WFR_STATUS_SUCCESS(status_ = WffsUpdateItemList(
+			if (WFR_SUCCESS(status_ = WffsUpdateItemList(
 					backend_from, ctx->listbox[WFFS_DIR_FROM], dlg,
 					&ctx->itemc[WFFS_DIR_FROM], &ctx->itemv[WFFS_DIR_FROM],
 					update_fn, true))
-			&&  WFR_STATUS_SUCCESS(status_ = WffsUpdateItemList(
+			&&  WFR_SUCCESS(status_ = WffsUpdateItemList(
 					backend_to, ctx->listbox[WFFS_DIR_TO], dlg,
 					&ctx->itemc[WFFS_DIR_TO], &ctx->itemv[WFFS_DIR_TO],
 					update_fn, true)))
@@ -171,14 +171,14 @@ WffsExportItem(
 				name = ctx->itemv[WFFS_DIR_FROM][nitem];
 
 				status = export_item_fn(backend_from, backend_to, movefl, name);
-				if (WFR_STATUS_FAILURE(status)) {
+				if (WFR_FAILURE(status)) {
 					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting item %s", name);
 					status = WFR_STATUS_CONDITION_SUCCESS;
 				}
 			}
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			if (movefl) {
 				status = WffsUpdateItemList(
 					backend_from, ctx->listbox[WFFS_DIR_FROM], dlg,
@@ -186,7 +186,7 @@ WffsExportItem(
 					update_fn, true);
 
 			}
-			if (WFR_STATUS_SUCCESS(status)) {
+			if (WFR_SUCCESS(status)) {
 				status = WffsUpdateItemList(
 					backend_to, ctx->listbox[WFFS_DIR_TO], dlg,
 					&ctx->itemc[WFFS_DIR_TO], &ctx->itemv[WFFS_DIR_TO],
@@ -301,19 +301,19 @@ WffsRenameItem(
 	backend_to = WFFS_GET_BACKEND(ctx, WFFS_DIR_TO, dlg);
 	name_new = dlg_editbox_get(ctx->editbox[dir], dlg);
 
-	if (WFR_STATUS_SUCCESS(status = WFFS_GET_ITEM(ctx, dir, dlg, nitem))) {
+	if (WFR_SUCCESS(status = WFFS_GET_ITEM(ctx, dir, dlg, nitem))) {
 		name = ctx->itemv[dir][nitem];
 
 		status = rename_item_fn(backend, true, name, name_new);
-		if (WFR_STATUS_FAILURE(status)) {
+		if (WFR_FAILURE(status)) {
 			WFR_FREE(name_new);
 		} else {
 			if (backend_from == backend_to) {
-				if (WFR_STATUS_SUCCESS(status = WffsUpdateItemList(
+				if (WFR_SUCCESS(status = WffsUpdateItemList(
 						backend_from, ctx->listbox[WFFS_DIR_FROM], dlg,
 						&ctx->itemc[WFFS_DIR_FROM], &ctx->itemv[WFFS_DIR_FROM],
 						update_fn, true))
-				&&  WFR_STATUS_SUCCESS(status = WffsUpdateItemList(
+				&&  WFR_SUCCESS(status = WffsUpdateItemList(
 						backend_to, ctx->listbox[WFFS_DIR_TO], dlg,
 						&ctx->itemc[WFFS_DIR_TO], &ctx->itemv[WFFS_DIR_TO],
 						update_fn, true)))
@@ -355,7 +355,7 @@ WffsRefreshBackends(
 
 	backend = WFS_BACKEND_MIN;
 	do {
-		if (WFR_STATUS_SUCCESS(status = WfsGetBackendName(backend, &backend_name))) {
+		if (WFR_SUCCESS(status = WfsGetBackendName(backend, &backend_name))) {
 			dlg_listbox_addwithid(ctrl, dlg, backend_name, backend);
 		}
 	} while (WfsGetBackendNext(&backend));
@@ -389,7 +389,7 @@ WffsRefreshItems(
 	{
 		dlg_update_start(ctrl, dlg);
 
-		if (WFR_STATUS_SUCCESS(status = WffsRefreshBackends(
+		if (WFR_SUCCESS(status = WffsRefreshBackends(
 				ctrl, dlg, (ctrl == ctx->droplist[WFFS_DIR_FROM]))))
 		{
 			dir = ((ctrl == ctx->droplist[WFFS_DIR_FROM]) ? WFFS_DIR_FROM : WFFS_DIR_TO);
@@ -455,7 +455,7 @@ WffsSelectItem(
 
 		nitem = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
 		if (nitem >= 0) {
-			if (WFR_STATUS_SUCCESS(status = WFFS_GET_ITEM(ctx, dir, dlg, nitem))) {
+			if (WFR_SUCCESS(status = WFFS_GET_ITEM(ctx, dir, dlg, nitem))) {
 				dlg_editbox_set(ctx->editbox[dir], dlg, ctx->itemv[dir][nitem]);
 			}
 		} else {
@@ -491,7 +491,7 @@ WffsUpdateItemList(
 
 	donefl = false;
 
-	if (WFR_STATUS_SUCCESS(status = update_fn(
+	if (WFR_SUCCESS(status = update_fn(
 			backend, false, true,
 			NULL, NULL, &enum_state)))
 	{
@@ -500,16 +500,16 @@ WffsUpdateItemList(
 				backend, false, false,
 				&donefl, &item_name, &enum_state);
 
-			if (WFR_STATUS_SUCCESS(status) && !donefl) {
-				if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
+			if (WFR_SUCCESS(status) && !donefl) {
+				if (WFR_SUCCESS(status = WFR_RESIZE(
 						itemv_new, itemc_new, itemc_new + 1, char *)))
 				{
 					itemv_new[itemc_new - 1] = item_name;
 				}
 			}
-		} while (WFR_STATUS_SUCCESS(status) && !donefl);
+		} while (WFR_SUCCESS(status) && !donefl);
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			for (size_t nitem = 0; nitem < (*pitemc); nitem++) {
 				WFR_FREE_IF_NOTNULL((*pitemv)[nitem]);
 			}

@@ -89,12 +89,12 @@ WfrpInitRegex(
 				WfrpRegex.error_message,
 				WFR_SIZEOF_WSTRING(WfrpRegex.error_message));
 			status = WFR_STATUS_FROM_PCRE2(WfrpRegex.errorcode, WFR_STATUS_SEVERITY_ERROR);
-		} else if (!(WfrpRegex.md = pcre2_match_data_create(WfrpRegex.ovecsize, NULL))) {
-			pcre2_code_free(WfrpRegex.code); WfrpRegex.code = NULL;
-			status = WFR_STATUS_FROM_ERRNO1(ENOMEM);
-		} else {
-			status = WFR_STATUS_CONDITION_SUCCESS;
+		} else if (WFR_SUCCESS_ERRNO1(status, ENOMEM,
+			(WfrpRegex.md = pcre2_match_data_create(WfrpRegex.ovecsize, NULL))))
+		{
 			WfrpRegexInitialised = true;
+		} else {
+			pcre2_code_free(WfrpRegex.code); WfrpRegex.code = NULL;
 		}
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
@@ -139,20 +139,12 @@ WfrLoadListFromFile(
 	WfrStatus	status;
 
 
-	if (stat(fname, &statbuf) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if ((list_size = statbuf.st_size) < 2) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else if (!(file = fopen(fname, "rb"))
-		|| !(list = WFR_NEWN(list_size = statbuf.st_size, char)))
+	if (WFR_SUCCESS_POSIX(status, (stat(fname, &statbuf) == 0))
+	&&  WFR_SUCCESS_ERRNO1(status, ENOENT, ((list_size = statbuf.st_size) >= 2))
+	&&  WFR_SUCCESS_POSIX(status, (file = fopen(fname, "rb")))
+	&&  WFR_SUCCESS_POSIX(status, (list = WFR_NEWN(list_size = statbuf.st_size, char)))
+	&&  WFR_SUCCESS_POSIX(status, (fread(list, statbuf.st_size, 1, file) == 1)))
 	{
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (fread(list, statbuf.st_size, 1, file) != 1) {
-		status = WFR_STATUS_FROM_ERRNO();
-		if (feof(file)) {
-			status = WFR_STATUS_FROM_ERRNO1(ENODATA);
-		}
-	} else {
 		list[list_size - 2] = '\0';
 		list[list_size - 1] = '\0';
 
@@ -160,15 +152,15 @@ WfrLoadListFromFile(
 		if (plist_size) {
 			*plist_size = list_size;
 		}
-
-		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (file != NULL) {
+
+	if (file) {
+		WFR_STATUS_BIND_ERRNO1(status, ENODATA, !feof(file));
 		fclose(file);
 	}
 
-	if (WFR_STATUS_FAILURE(status)) {
+	if (WFR_FAILURE(status)) {
 		WFR_FREE_IF_NOTNULL(list);
 	}
 
@@ -202,9 +194,9 @@ WfrLoadParse(
 	size_t			value_size;
 
 
-	if (data_size == 0) {
-		return WFR_STATUS_FROM_ERRNO1(EINVAL);
-	} else if (WFR_STATUS_FAILURE(status = WfrpInitRegex())) {
+	if (WFR_FAILURE_ERRNO1(status, EINVAL, (data_size > 0))
+	||  WFR_FAILURE(status = WfrpInitRegex()))
+	{
 		return status;
 	}
 
@@ -230,7 +222,7 @@ WfrLoadParse(
 		{
 			nmatches = 0;
 
-			if (WFR_STATUS_SUCCESS(status = WfrToWcsDup(line, line_len + 1, &line_w))
+			if (WFR_SUCCESS(status = WfrToWcsDup(line, line_len + 1, &line_w))
 			&&  ((nmatches = pcre2_match(
 					WfrpRegex.code, line_w, line_len,
 					0, 0, WfrpRegex.md, NULL)) == nmatches_count))
@@ -239,11 +231,11 @@ WfrLoadParse(
 				type_string = NULL; type_string_size = 0;
 				value = NULL; value_size = 0;
 
-				if (WFR_STATUS_SUCCESS(status = Wfp2GetMatch(
+				if (WFR_SUCCESS(status = Wfp2GetMatch(
 						&WfrpRegex, true, WFRP_RMO_KEY,
 						WFP2_RTYPE_STRING, line_w, &key,
 						&key_size))
-				&&  WFR_STATUS_SUCCESS(status = Wfp2GetMatch(
+				&&  WFR_SUCCESS(status = Wfp2GetMatch(
 						&WfrpRegex, true, WFRP_RMO_VALUE_TYPE,
 						WFP2_RTYPE_STRING, line_w, &type_string,
 						&type_string_size)))
@@ -264,14 +256,14 @@ WfrLoadParse(
 
 					WFR_FREE(type_string);
 
-					if (WFR_STATUS_SUCCESS(status)
-					&&  WFR_STATUS_SUCCESS(WfrpMapPcre2TypeToTreeType(type, &tree_item_type)))
+					if (WFR_SUCCESS(status)
+					&&  WFR_SUCCESS(WfrpMapPcre2TypeToTreeType(type, &tree_item_type)))
 					{
 						status = item_fn(param1, param2, key, tree_item_type, value, value_size);
 					}
 
 					WFR_FREE(key);
-					if (WFR_STATUS_FAILURE(status)) {
+					if (WFR_FAILURE(status)) {
 						WFR_FREE_IF_NOTNULL(value);
 					}
 				}
@@ -285,7 +277,7 @@ WfrLoadParse(
 
 			WFR_FREE_IF_NOTNULL(line_w);
 		}
-	} while (WFR_STATUS_SUCCESS(status)
+	} while (WFR_SUCCESS(status)
 	      && line_sep
 	      && (p < &data[data_size]));
 
@@ -320,22 +312,19 @@ WfrLoadRawFile(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		if ((stat(pname, &statbuf) < 0)
-		||  (!(file = fopen(pname, "rb")))
-		||  (!(data = WFR_NEWN(data_size = (statbuf.st_size + 1), char)))) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (fread(data, statbuf.st_size, 1, file) != 1) {
-			if (statbuf.st_size == 0) {
-				status = WFR_STATUS_FROM_ERRNO1(ENODATA);
-			} else {
-				status = WFR_STATUS_FROM_ERRNO();
-				if (feof(file)) {
-					status = WFR_STATUS_FROM_ERRNO1(ENODATA);
-				}
-			}
-		} else {
+	if (WFR_SUCCESS(status)) {
+		if (WFR_SUCCESS_POSIX(status, (stat(pname, &statbuf) == 0))
+		&&  WFR_SUCCESS_POSIX(status, (file = fopen(pname, "rb")))
+		&&  WFR_SUCCESS_POSIX(status, (data = WFR_NEWN(data_size = (statbuf.st_size + 1), char)))
+		&&  WFR_SUCCESS_POSIX(status, (fread(data, statbuf.st_size, 1, file) == 1)))
+		{
 			data[statbuf.st_size] = '\0';
+		} else {
+			if ((statbuf.st_size == 0)
+			||  (file ? (feof(file)) : false))
+			{
+				status = WFR_STATUS_FROM_ERRNO1(ENODATA);
+			}
 		}
 
 		if (file) {
@@ -343,7 +332,7 @@ WfrLoadRawFile(
 		}
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		*pdata = data;
 		if (pdata_size) {
 			*pdata_size = data_size;
@@ -378,14 +367,14 @@ WfrLoadRegSubKey(
 	size_t			value_len;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
-	&&  WFR_STATUS_SUCCESS(status = WfrEnumerateRegInit(
+	if (WFR_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
+	&&  WFR_SUCCESS(status = WfrEnumerateRegInit(
 			&enum_state, key_name, subkey_escaped, NULL)))
 	{
 		donefl = false;
 
-		while (WFR_STATUS_SUCCESS(status) && !donefl) {
-			if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegValues(
+		while (WFR_SUCCESS(status) && !donefl) {
+			if (WFR_SUCCESS(status = WfrEnumerateRegValues(
 					&donefl, &value, &value_len,
 					&name, &type_registry, &enum_state)) && !donefl)
 			{
@@ -398,12 +387,12 @@ WfrLoadRegSubKey(
 					type = WFR_TREE_ITYPE_STRING; break;
 				}
 
-				if (WFR_STATUS_SUCCESS(status)) {
+				if (WFR_SUCCESS(status)) {
 					status = item_fn(param1, param2, name, type, value, value_len);
 				}
 
 				WFR_FREE(name);
-				if (WFR_STATUS_FAILURE(status)) {
+				if (WFR_FAILURE(status)) {
 					WFR_FREE(value);
 				}
 			}

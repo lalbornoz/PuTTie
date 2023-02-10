@@ -39,7 +39,7 @@
 #define WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, fmt, ...)				\
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("PuTTie", (status), fmt, ## __VA_ARGS__)
 #define WFR_IF_STATUS_FAILURE_MESSAGEBOX1(caption, status, fmt, ...)			\
-	if (WFR_STATUS_FAILURE((status))) {						\
+	if (WFR_FAILURE((status))) {							\
 		(void)WfrMessageBoxF(							\
 				(caption), MB_ICONERROR | MB_OK | MB_DEFBUTTON1,	\
 				fmt ": %s",	## __VA_ARGS__,				\

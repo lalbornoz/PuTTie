@@ -56,7 +56,7 @@ WfrGetTermLine(
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
 	} else {
 		line_w_len = term->cols;
-		if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
+		if (WFR_FAILURE(status = WFR_RESIZE(
 				line_w, line_w_len, line_w_len + 1, wchar_t)))
 		{
 			return status;
@@ -177,11 +177,11 @@ WfrGetTermLines(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 
 		for (int y = begin.y; y <= end.y; y++) {
-			if (WFR_STATUS_FAILURE(status = WfrGetTermLine(
+			if (WFR_FAILURE(status = WfrGetTermLine(
 					term, y, &line_new_w, &line_new_w_len)))
 			{
 				break;
-			} else if (WFR_STATUS_FAILURE(status = WFR_RESIZE(
+			} else if (WFR_FAILURE(status = WFR_RESIZE(
 					line_w, line_w_size,
 					line_w_size ? (line_w_size + line_new_w_len) : (line_new_w_len + 1),
 					wchar_t)))
@@ -200,7 +200,7 @@ WfrGetTermLines(
 		}
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		*pline_w = line_w;
 	} else {
 		WFR_FREE_IF_NOTNULL(line_w);
@@ -235,7 +235,7 @@ WfrGetTermLinesURLW(
 
 	if (!WfrpReCode || !WfrpReMd) {
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
-	} else if (WFR_STATUS_SUCCESS(status = WfrGetTermLines(
+	} else if (WFR_SUCCESS(status = WfrGetTermLines(
 			term, begin, end, &line_w)))
 	{
 		Wfp2Init(
@@ -253,7 +253,7 @@ WfrGetTermLinesURLW(
 	 */
 
 	donefl = false;
-	while (WFR_STATUS_SUCCESS(status) && !donefl) {
+	while (WFR_SUCCESS(status) && !donefl) {
 		switch (WFR_STATUS_CONDITION(status = Wfp2MatchGlobal(
 				&pcre2_state, &match_begin, &match_end)))
 		{
@@ -280,9 +280,9 @@ WfrGetTermLinesURLW(
 				match_len = match_end - match_begin;
 				if (match_len > 0) {
 					WFR_DEBUGF("URL `%*.*S' matches regular expression", match_len, match_len, &line_w[match_begin]);
-					if (!(*phover_url_w = WfrWcsNDup(&line_w[match_begin], match_len))) {
-						status = WFR_STATUS_FROM_ERRNO();
-					} else {
+					if (WFR_SUCCESS_POSIX(status,
+						(*phover_url_w = WfrWcsNDup(&line_w[match_begin], match_len))))
+					{
 						pbegin->x = match_begin;
 						if (pbegin->x > term->cols) {
 							pbegin->y = begin.y + (pbegin->x / term->cols);

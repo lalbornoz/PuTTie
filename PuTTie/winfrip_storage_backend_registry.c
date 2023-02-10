@@ -82,31 +82,27 @@ WfsppRegistryGetList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(
+	if (WFR_SUCCESS(status = WfrCreateRegKey(
 			HKEY_CURRENT_USER, &hKey, subkey))
-	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegGetValue(
+	&&  WFR_SUCCESS_LSTATUS(status, RegGetValue(
 			hKey, NULL, value_name, RRF_RT_REG_MULTI_SZ,
-			NULL, NULL, &list_size))))
+			NULL, NULL, &list_size))
+	&&  WFR_SUCCESS_ERRNO1(status, ENOENT, (list_size >= 2))
+	&&  WFR_SUCCESS_POSIX(status, (list = WFR_NEWN(list_size, char)))
+	&&  WFR_SUCCESS_LSTATUS(status, RegGetValue(
+			hKey, NULL, value_name, RRF_RT_REG_MULTI_SZ,
+			NULL, list, &list_size)))
 	{
-		if (list_size < 2) {
-			status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-		} else if (!(list = WFR_NEWN(list_size, char))) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else if (WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegGetValue(
-				hKey, NULL, value_name, RRF_RT_REG_MULTI_SZ,
-				NULL, list, &list_size))))
-		{
-			list[list_size - 2] = '\0';
-			list[list_size - 1] = '\0';
+		list[list_size - 2] = '\0';
+		list[list_size - 1] = '\0';
 
-			*plist = list;
-			if (plist_size) {
-				*plist_size = list_size;
-			}
+		*plist = list;
+		if (plist_size) {
+			*plist_size = list_size;
 		}
 	}
 
-	if (WFR_STATUS_FAILURE(status)) {
+	if (WFR_FAILURE(status)) {
 		WFR_FREE_IF_NOTNULL(list);
 	}
 
@@ -138,7 +134,7 @@ WfsppRegistryTransformList(
 
 
 	if (addfl || delfl) {
-		if (WFR_STATUS_FAILURE(status = WfsppRegistryGetList(
+		if (WFR_FAILURE(status = WfsppRegistryGetList(
 				subkey, value_name, &hKey, &list, &list_size)))
 		{
 			list = NULL;
@@ -147,10 +143,10 @@ WfsppRegistryTransformList(
 			list_size_ = list_size;
 		}
 
-		if (WFR_STATUS_SUCCESS(status = WfsTransformList(
+		if (WFR_SUCCESS(status = WfsTransformList(
 				addfl, delfl, &list, &list_size_, trans_item)))
 		{
-			status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+			WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
 				hKey, value_name, 0, REG_MULTI_SZ,
 				(const BYTE *)list, (DWORD)list_size_));
 		}
@@ -217,7 +213,7 @@ WfspRegistryEnumerateHostKeys(
 			WfspRegistrySubKeyHostKeys, NULL);
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegValues(
+	if (WFR_SUCCESS(status = WfrEnumerateRegValues(
 			pdonefl, NULL, NULL, &item_name,
 			NULL, (WfrEnumerateRegState **)pstate)))
 	{
@@ -239,7 +235,7 @@ WfspRegistryLoadHostKey(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrLoadRegValue(
+	if (WFR_SUCCESS(status = WfrLoadRegValue(
 			WfspRegistrySubKeyHostKeys, key_name, (char **)pkey, NULL)))
 	{
 		status = WfsSetHostKey(backend, false, key_name, *pkey);
@@ -329,7 +325,7 @@ WfspRegistryEnumerateHostCAs(
 			WfspRegistrySubKeyHostCAs, NULL);
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegKeys(
+	if (WFR_SUCCESS(status = WfrEnumerateRegKeys(
 			pdonefl, &item_name, (WfrEnumerateRegState **)pstate)))
 	{
 		if (!(*pdonefl)) {
@@ -397,7 +393,7 @@ WfspRegistryLoadHostCA(
 
 		}));
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		if (bits !=
 		    ( WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY
 		    | WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA1
@@ -414,11 +410,11 @@ WfspRegistryLoadHostCA(
 		}
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		if (phca) {
 			*phca = hca;
 		}
-	} else if (WFR_STATUS_FAILURE(status)) {
+	} else if (WFR_FAILURE(status)) {
 		WFR_FREE_IF_NOTNULL(hca_tmpl.public_key);
 		WFR_FREE_IF_NOTNULL(hca_tmpl.name);
 		WFR_FREE_IF_NOTNULL(hca_tmpl.validity);
@@ -552,7 +548,7 @@ WfspRegistryEnumerateSessions(
 			WfspRegistrySubKeySessions, NULL);
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfrEnumerateRegKeys(
+	if (WFR_SUCCESS(status = WfrEnumerateRegKeys(
 			pdonefl, &item_name, (WfrEnumerateRegState **)pstate)))
 	{
 		if (!(*pdonefl)) {
@@ -576,15 +572,15 @@ WfspRegistryLoadSession(
 
 
 	status = WfsGetSession(backend, true, sessionname, &session);
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		status = WfsClearSession(backend, session, sessionname);
 		addedfl = false;
 	} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
 		status = WfsAddSession(backend, sessionname, &session);
-		addedfl = WFR_STATUS_SUCCESS(status);
+		addedfl = WFR_SUCCESS(status);
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		status = WfrLoadRegSubKey(
 			WfspRegistrySubKeySessions, sessionname, session, NULL,
 			WFR_LAMBDA(WfrStatus, (void *param1, void *param2, const char *key, int type, const void *value, size_t value_len) {
@@ -593,9 +589,9 @@ WfspRegistryLoadSession(
 			}));
 	}
 
-	if (WFR_STATUS_SUCCESS(status) && psession) {
+	if (WFR_SUCCESS(status) && psession) {
 		*psession = session;
-	} else if (WFR_STATUS_FAILURE(status) && addedfl && session) {
+	} else if (WFR_FAILURE(status) && addedfl && session) {
 		(void)WfsDeleteSession(backend, false, sessionname);
 	}
 
@@ -632,7 +628,7 @@ WfspRegistryAddJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsppRegistryTransformList(
+	if (WFR_SUCCESS(status = WfsppRegistryTransformList(
 			true, false, WfspRegistrySubKeyJumpList,
 			sessionname, WfspRegistryValueJumpList)))
 	{
@@ -673,17 +669,14 @@ WfspRegistryGetEntriesJumpList(
 		WfspRegistrySubKeyJumpList,
 		WfspRegistryValueJumpList,
 		NULL, pjump_list, &jump_list_size_);
-	if (WFR_STATUS_FAILURE(status)) {
-		if (WFR_STATUS_IS_NOT_FOUND(status)) {
-			if (!((*pjump_list = WFR_NEWN(2, char)))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				(*pjump_list)[0] = '\0';
-				(*pjump_list)[1] = '\0';
-				if (pjump_list_size) {
-					*pjump_list_size = 2;
-				}
-				status = WFR_STATUS_CONDITION_SUCCESS;
+	if (WFR_FAILURE(status)) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)
+		&&  WFR_SUCCESS_POSIX(status, ((*pjump_list) = WFR_NEWN(2, char))))
+		{
+			(*pjump_list)[0] = '\0';
+			(*pjump_list)[1] = '\0';
+			if (pjump_list_size) {
+				*pjump_list_size = 2;
 			}
 		}
 	} else {
@@ -703,7 +696,7 @@ WfspRegistryRemoveJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsppRegistryTransformList(
+	if (WFR_SUCCESS(status = WfsppRegistryTransformList(
 			false, true, WfspRegistrySubKeyJumpList,
 			sessionname, WfspRegistryValueJumpList))) {
 		update_jumplist();
@@ -724,11 +717,11 @@ WfspRegistrySetEntriesJumpList(
 
 
 	(void)jump_list_size;
-	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyJumpList))
-	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+	if (WFR_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyJumpList))
+	&&  WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
 			hKey, WfspRegistryValueJumpList, 0,
 			REG_MULTI_SZ, (const BYTE *)jump_list,
-			jump_list_size))))
+			jump_list_size)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -756,8 +749,8 @@ WfspRegistryCleanupPrivKeyList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, WfspRegistryKey))
-	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegDeleteTree(hKey, WfspRegistrySubKeyPrivKeyListName))))
+	if (WFR_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, WfspRegistryKey))
+	&&  WFR_SUCCESS_LSTATUS(status, RegDeleteTree(hKey, WfspRegistrySubKeyPrivKeyListName)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -794,17 +787,14 @@ WfspRegistryGetEntriesPrivKeyList(
 		WfspRegistrySubKeyPrivKeyList,
 		WfspRegistryValuePrivKeyList,
 		NULL, pprivkey_list, &privkey_list_size_);
-	if (WFR_STATUS_FAILURE(status)) {
-		if (WFR_STATUS_IS_NOT_FOUND(status)) {
-			if (!((*pprivkey_list = WFR_NEWN(2, char)))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				(*pprivkey_list)[0] = '\0';
-				(*pprivkey_list)[1] = '\0';
-				if (pprivkey_list_size) {
-					*pprivkey_list_size = 2;
-				}
-				status = WFR_STATUS_CONDITION_SUCCESS;
+	if (WFR_FAILURE(status)) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)
+		&&  WFR_SUCCESS_POSIX(status, ((*pprivkey_list) = WFR_NEWN(2, char))))
+		{
+			(*pprivkey_list)[0] = '\0';
+			(*pprivkey_list)[1] = '\0';
+			if (pprivkey_list_size) {
+				*pprivkey_list_size = 2;
 			}
 		}
 	} else {
@@ -837,11 +827,11 @@ WfspRegistrySetEntriesPrivKeyList(
 
 
 	(void)privkey_list_size;
-	if (WFR_STATUS_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyPrivKeyList))
-	&&  WFR_STATUS_SUCCESS(status = WFR_STATUS_BIND_LSTATUS(RegSetValueEx(
+	if (WFR_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyPrivKeyList))
+	&&  WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
 			hKey, WfspRegistryValuePrivKeyList, 0,
 			REG_MULTI_SZ, (const BYTE *)privkey_list,
-			privkey_list_size))))
+			privkey_list_size)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -860,15 +850,15 @@ WfspRegistryCleanupContainer(
 
 	(void)backend;
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		status = WFR_STATUS_BIND_LSTATUS(RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKey));
+	if (WFR_SUCCESS(status)) {
+		WFR_SUCCESS_LSTATUS(status, RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKey));
 		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		status = WFR_STATUS_BIND_LSTATUS(RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKeyParent));
+	if (WFR_SUCCESS(status)) {
+		WFR_SUCCESS_LSTATUS(status, RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKeyParent));
 		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
@@ -904,9 +894,9 @@ WfspRegistrySetBackend(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsClearHostCAs(backend_new, false))
-	&&  WFR_STATUS_SUCCESS(status = WfsClearHostKeys(backend_new, false))
-	&&  WFR_STATUS_SUCCESS(status = WfsClearSessions(backend_new, false)))
+	if (WFR_SUCCESS(status = WfsClearHostCAs(backend_new, false))
+	&&  WFR_SUCCESS(status = WfsClearHostKeys(backend_new, false))
+	&&  WFR_SUCCESS(status = WfsClearSessions(backend_new, false)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}

@@ -74,7 +74,7 @@ WinMain(
 			PUTTIE_APP_USER_MODEL_ID, PUTTIE_SHORTCUT_DESCRIPTION,
 			shortcut_path, puttie_path, NULL);
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			(void)WfrMessageBoxFW(
 				L"PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
 				L"Successfully created shortcut to %S as %S",
@@ -89,7 +89,7 @@ WinMain(
 		WFR_FREE_IF_NOTNULL(shortcut_path);
 	}
 
-	return WFR_STATUS_SUCCESS(status) ? EXIT_SUCCESS : EXIT_FAILURE;
+	return WFR_SUCCESS(status) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 /*

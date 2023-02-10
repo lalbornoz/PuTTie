@@ -133,7 +133,7 @@ WfrpLoadImageNonBmp(
 		GdiplusShutdown(gdip_token);
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		*pbg_hdc = bg_hdc; *pbg_hdc_old = bg_hdc_old;
 		*pbg_height = bg_height; *pbg_width = bg_width;
 		*psrc = src;
