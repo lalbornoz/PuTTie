@@ -139,14 +139,15 @@ typedef struct WffspConfigContext {
  */
 #define WFFSP_CONFIG_IF_SELECTV_NONE(selectv) ({					\
 	size_t	item = WFFSP_ITEM_MIN;							\
+	bool	rc = true;								\
 											\
 	do {										\
 		if ((selectv)[item]) {							\
-			true;								\
+			rc = false; break;						\
 		}									\
 	} while ((++item) <= WFFSP_ITEM_MAX);						\
 											\
-	false;										\
+	rc;										\
 })
 
 /*
