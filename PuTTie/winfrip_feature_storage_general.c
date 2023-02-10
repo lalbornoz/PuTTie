@@ -149,6 +149,22 @@ typedef struct WffspConfigContext {
 											\
 	rc;										\
 })
+#define WFFSP_CONFIG_IF_SELECTV_NONE_EXCLUDE_CONTAINER(selectv) ({			\
+	size_t	item = WFFSP_ITEM_MIN;							\
+	bool	rc = true;								\
+											\
+	do {										\
+		if (item == WFFSP_ITEM_CONTAINER) {					\
+			continue;							\
+		}									\
+		if ((selectv)[item]) {							\
+			rc = false; break;						\
+		}									\
+	} while ((++item) <= WFFSP_ITEM_MAX);						\
+											\
+	rc;										\
+})
+
 
 /*
  * Initialise vector of selected items in item type listbox
@@ -351,7 +367,7 @@ WffspConfigGeneralMigrateHandler(
 
 	if (backend_from == backend_to) {
 		return;
-	} else if (WFFSP_CONFIG_IF_SELECTV_NONE(selectv)) {
+	} else if (WFFSP_CONFIG_IF_SELECTV_NONE_EXCLUDE_CONTAINER(selectv)) {
 		return;
 	} else if (WFR_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))
 		|| WFR_FAILURE(status = WfsGetBackendName(backend_to, &backend_to_name)))
@@ -359,6 +375,8 @@ WffspConfigGeneralMigrateHandler(
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
 		return;
 	}
+
+	selectv[WFFSP_ITEM_CONTAINER] = false;
 
 	switch (WFFSP_CONFIG_MESSAGEBOX_SELECTV(
 			selectv,
