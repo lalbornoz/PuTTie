@@ -22,6 +22,8 @@
 #include <shellapi.h>
 
 /* {{{ winfrip */
+#include <richedit.h>
+
 #include "../PuTTie/winfrip_rtl.h"
 /* winfrip }}} */
 
@@ -347,10 +349,17 @@ static INT_PTR CALLBACK LicenceProc(HWND hwnd, UINT msg,
 {
     switch (msg) {
       case WM_INITDIALOG: {
+        /* {{{ winfrip */
+    #if 1
+    #else
+        /* winfrip }}} */
         char *str = dupprintf("%s Licence", appname);
         SetWindowText(hwnd, str);
         sfree(str);
         SetDlgItemText(hwnd, IDA_TEXT, LICENCE_TEXT("\r\n\r\n"));
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         return 1;
       }
       case WM_COMMAND:
@@ -378,25 +387,65 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
         str = dupprintf("About %s", appname);
         SetWindowText(hwnd, str);
         sfree(str);
-        char *buildinfo_text = buildinfo("\r\n");
         /* {{{ winfrip */
     #if 1
-        wchar_t textW[512];
-        WFR_SNWPRINTF(textW, WFR_SIZEOF_WSTRING(textW),
-            L"%s💚\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s\r\n%s",
-            appname, ver, buildinfo_text,
-            "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.",
-            "\251 2018, 2022, 2023 Lucia Andrea Illanes Albornoz. All rights reserved.");
+        char        appname_rtf[32];
+        char *      buildinfo_text = buildinfo("\\par ");
+        char        buildinfo_text_rtf[256];
+        HWND        hEdit;
+        SETTEXTEX   settextex;
+        char        text[1024];
+        char        ver_rtf[64];
+
+
+        (void)LoadLibraryW(L"Msftedit.dll");
+        hEdit = CreateWindowExW(
+            0, MSFTEDIT_CLASS, L"",
+              ES_CENTER | ES_READONLY | ES_MULTILINE
+            | WS_CHILD | WS_TABSTOP | WS_VISIBLE,
+            10, 6, 375, 175, hwnd, NULL, hinst, NULL);
+        (void)SendMessage(
+            hEdit, EM_SETBKGNDCOLOR, 0, RGB(240, 240, 240));
+
+        strcpy(appname_rtf, appname);
+        strcpy(buildinfo_text_rtf, buildinfo_text);
+        strcpy(ver_rtf, ver);
+
+        WFR_SNPRINTF(
+               text, sizeof(text),
+               "{\\rtf1\\deff1"
+               "{\\colortbl;\\red0\\green0\\blue0;\\red56\\green187\\blue56;}"
+               "{\\fonttbl{\\f0\\fnil\\fcharset0 Tahoma;}}"
+               "{\\lang1033"
+               "{\\ltrch"
+               "{\\f0"
+               "{\\fs16"
+               "{\\cf1 %s {\\cf2 💚\\par\\par"
+               "{\\cf1 %s \\par\\par"
+               " %s \\par\\par"
+               " %s \\par"
+               " %s",
+               appname_rtf,
+               ver_rtf,
+               buildinfo_text_rtf,
+               "© " SHORT_COPYRIGHT_DETAILS ". All rights reserved.",
+               "© 2018, 2022, 2023 Lucía Andrea Illanes Albornoz. All rights reserved."
+               );
+
+        settextex.flags = ST_DEFAULT;
+        settextex.codepage = CP_UTF8;
+        (void)SendMessage(hEdit, EM_SETTEXTMODE, (WPARAM)TM_RICHTEXT, (LPARAM)NULL);
+        (void)SendMessage(hEdit, EM_SETTEXTEX, (WPARAM)&settextex, (LPARAM)text);
+
         sfree(buildinfo_text);
-        SetDlgItemTextW(hwnd, IDA_TEXT, textW);
-        MakeDlgItemBorderless(hwnd, IDA_TEXT);
     #else
         /* winfrip }}} */
+        char *buildinfo_text = buildinfo("\r\n");
         char *text = dupprintf(
             "%s\r\n\r\n%s\r\n\r\n%s\r\n\r\n%s",
             appname, ver, buildinfo_text,
             "\251 " SHORT_COPYRIGHT_DETAILS ". All rights reserved.");
-        sfree(buildinfo_ext);
+        sfree(buildinfo_text);
         SetDlgItemText(hwnd, IDA_TEXT, text);
         MakeDlgItemBorderless(hwnd, IDA_TEXT);
         sfree(text);
