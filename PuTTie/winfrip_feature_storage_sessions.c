@@ -114,7 +114,7 @@ WffsSessionsConfigPanelDroplistBackendHandler(
 
 		backend = WFS_BACKEND_MIN;
 		do {
-			if (WFR_STATUS_SUCCESS(status = WfsGetBackendName(backend, &backend_name))) {
+			if (WFR_SUCCESS(status = WfsGetBackendName(backend, &backend_name))) {
 				dlg_listbox_addwithid(ctrl, dlg, backend_name, backend);
 			}
 		} while (WfsGetBackendNext(&backend));

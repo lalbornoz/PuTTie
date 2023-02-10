@@ -13,7 +13,7 @@
  */
 
 #define WFR_TREE234_FOREACH(status, tree, idx, item)	\
-	for (int (idx) = 0; WFR_STATUS_SUCCESS(status)	\
+	for (int (idx) = 0; WFR_SUCCESS(status)		\
 	  && ((item) = index234((tree), (idx))); (idx)++)
 
 /*

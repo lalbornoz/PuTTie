@@ -30,7 +30,7 @@ WfsCleanupOptions(
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = WfsClearOptions(backend, true);
 	}
 
@@ -47,7 +47,7 @@ WfsClearOptions(
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (delete_in_backend) {
 			status = backend_impl->ClearOptions(backend);
 		}
@@ -56,7 +56,7 @@ WfsClearOptions(
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			status = WfrTreeClear(&backend_impl->tree_options, WfsTreeFreeItem);
 		}
 	}
@@ -79,10 +79,10 @@ WfsCopyOption(
 	WfrStatus		status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	&&  WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl))
-	&&  WFR_STATUS_SUCCESS(status = WfsGetOption(backend_from, key, NULL, &option_value, &option_size, &option_type))
-	&&  WFR_STATUS_SUCCESS(status = WfsSetOption(backend_to, true, false, key, option_value, option_size, option_type)))
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	&&  WFR_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl))
+	&&  WFR_SUCCESS(status = WfsGetOption(backend_from, key, NULL, &option_value, &option_size, &option_type))
+	&&  WFR_SUCCESS(status = WfsSetOption(backend_to, true, false, key, option_value, option_size, option_type)))
 	{
 		if (save_in_backend) {
 			status = backend_to_impl->SaveOptions(backend_to, backend_to_impl->tree_options);
@@ -103,12 +103,12 @@ WfsDeleteOption(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (delete_in_backend) {
 			status = backend_impl->SaveOptions(backend, backend_impl->tree_options);
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			status = WfrTreeDelete(
 				backend_impl->tree_options, NULL,
 				key, WFR_TREE_ITYPE_ANY, WfsTreeFreeItem);
@@ -136,14 +136,12 @@ WfsEnumerateOptions(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = WfrTreeEnumerate(
 			backend_impl->tree_options, initfl,
 			pdonefl, &item, pstate);
-		if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
-			if (!(*pkey = strdup(item->key))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			}
+		if (!initfl && WFR_SUCCESS(status) && !(*pdonefl)) {
+			WFR_STATUS_BIND_POSIX(status, (*pkey = strdup(item->key)));
 		}
 	}
 
@@ -166,43 +164,43 @@ WfsExportOptions(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	||  WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
+	if (WFR_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	||  WFR_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
 		return status;
 	}
 
-	if (WFR_STATUS_FAILURE(status = WfsLoadOptions(backend_from))) {
+	if (WFR_FAILURE(status = WfsLoadOptions(backend_from))) {
 		return status;
 	}
 
-	if (WFR_STATUS_SUCCESS(status) && clear_to) {
-		if (WFR_STATUS_FAILURE(status = WfsClearOptions(backend_to, true))) {
+	if (WFR_SUCCESS(status) && clear_to) {
+		if (WFR_FAILURE(status = WfsClearOptions(backend_to, true))) {
 			return status;
 		}
 	}
 
 	status = WfsEnumerateOptions(backend_from, true, &donefl, &key, &enum_state);
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		do {
 			key = NULL;
 			status = WfsEnumerateOptions(backend_from, false, &donefl, &key, &enum_state);
 
-			if (WFR_STATUS_SUCCESS(status) && key) {
+			if (WFR_SUCCESS(status) && key) {
 				status = WfsCopyOption(backend_from, backend_to, false, key);
 			}
 
-			if (WFR_STATUS_FAILURE(status)) {
+			if (WFR_FAILURE(status)) {
 				error_fn(key, status);
 			}
-		} while (!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
+		} while (!donefl && (WFR_SUCCESS(status) || continue_on_error));
 	}
 
-	if (WFR_STATUS_FAILURE(status) && continue_on_error) {
+	if (WFR_FAILURE(status) && continue_on_error) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		status = backend_to_impl->SaveOptions(backend_to, backend_to_impl->tree_options);
 	} else {
 		(void)WfsClearOptions(backend_to, true);
@@ -226,12 +224,12 @@ WfsGetOption(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = WfrTreeGet(
 			backend_impl->tree_options, key,
 			WFR_TREE_ITYPE_ANY, &item);
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			if (pitem) {
 				*pitem = item;
 			}
@@ -262,7 +260,7 @@ WfsGetOptionIntWithDefault(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetOptionWithDefault(
+	if (WFR_SUCCESS(status = WfsGetOptionWithDefault(
 			backend, key, &value_default, sizeof(value_default),
 			WFR_TREE_ITYPE_INT, (void **)&option_value, NULL, NULL)))
 	{
@@ -287,7 +285,7 @@ WfsGetOptionWithDefault(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetOption(
+	if (WFR_SUCCESS(status = WfsGetOption(
 			backend, key, NULL, pvalue, pvalue_size, pvalue_type)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
@@ -296,7 +294,7 @@ WfsGetOptionWithDefault(
 			backend, true, true, key, value_default,
 			value_default_size, value_default_type);
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			status = WfsGetOption(backend, key, NULL, pvalue, pvalue_size, pvalue_type);
 		}
 	}
@@ -313,7 +311,7 @@ WfsLoadOptions(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->LoadOptions(backend);
 	}
 
@@ -332,16 +330,16 @@ WfsRenameOption(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = WfrTreeRename(
 			backend_impl->tree_options, NULL,
 			key, WFR_TREE_ITYPE_ANY,
 			key_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
-		&&  (WFR_STATUS_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
+		&&  (WFR_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
 		{
-			if (WFR_STATUS_SUCCESS(status)) {
+			if (WFR_SUCCESS(status)) {
 				status = backend_impl->SaveOptions(backend, backend_impl->tree_options);
 			}
 		}
@@ -359,7 +357,7 @@ WfsSaveOptions(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->SaveOptions(backend, backend_impl->tree_options);
 	}
 
@@ -383,7 +381,7 @@ WfsSetOption(
 	void *		value_ptr;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (clone_value) {
 			WFR_TREE_ITEM_INIT(item_clone);
 			item_clone.type = value_type;
@@ -396,13 +394,13 @@ WfsSetOption(
 			value_ptr = (void *)value;
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			status = WfrTreeSet(
 				backend_impl->tree_options, key, value_type,
 				(void *)value_ptr, value_size, WfsTreeFreeItem);
 		}
 
-		if (WFR_STATUS_SUCCESS(status)
+		if (WFR_SUCCESS(status)
 		&&  set_in_backend)
 		{
 			status = backend_impl->SaveOptions(backend, backend_impl->tree_options);

@@ -22,6 +22,17 @@
 #include "PuTTie/winfrip_storage_priv.h"
 
 /*
+ * Private macros
+ */
+
+#define WFSP_PUTTY_HOST_CA_INIT(hca) ({		\
+	(hca).name = NULL;			\
+	(hca).ca_public_key = NULL;		\
+	(hca).validity_expression = NULL;	\
+	WFR_STATUS_CONDITION_SUCCESS;		\
+})
+
+/*
  * Public wrapped PuTTY storage.h type definitions and subroutines
  */
 
@@ -41,7 +52,7 @@ enum_host_ca_start(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsEnumerateHostCAs(
+	if (WFR_SUCCESS(status = WfsEnumerateHostCAs(
 			WfsGetBackend(), false, true,
 			NULL, NULL, &handle)))
 	{
@@ -71,8 +82,8 @@ enum_host_ca_next(
 		WfsGetBackend(), false, false,
 		&donefl, &name, (void **)&handle);
 
-	if (WFR_STATUS_FAILURE(status) || donefl) {
-		if (WfsGetAdapterDisplayErrors() && WFR_STATUS_FAILURE(status)) {
+	if (WFR_FAILURE(status) || donefl) {
+		if (WfsGetAdapterDisplayErrors() && WFR_FAILURE(status)) {
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating host CAs");
 		}
 
@@ -101,47 +112,38 @@ host_ca_load(
 	)
 {
 	WfsHostCA *	hca;
-	host_ca *	hca_out;
+	host_ca *	hca_out = NULL;
 	WfrStatus	status;
 
 
-	status = WfsGetHostCA(WfsGetBackend(), false, name, &hca);
+	if (WFR_SUCCESS(status = WfsGetHostCA(WfsGetBackend(), false, name, &hca))
+	&&  WFR_SUCCESS_POSIX(status, (hca_out = WFR_NEW(host_ca)))
+	&&  WFR_SUCCESS(status = WFSP_PUTTY_HOST_CA_INIT(*hca_out))
+	&&  WFR_SUCCESS_POSIX(status, (hca_out->name = strdup(hca->name)))
+	&&  WFR_SUCCESS_POSIX(status, (hca_out->ca_public_key = strbuf_dup(make_ptrlen(hca->public_key, strlen(hca->public_key)))))
+	&&  WFR_SUCCESS_POSIX(status, (hca_out->validity_expression = strdup(hca->validity))))
+	{
+		hca_out->opts.permit_rsa_sha1 = hca->permit_rsa_sha1 ? 1 : 0;
+		hca_out->opts.permit_rsa_sha256 = hca->permit_rsa_sha256 ? 1 : 0;
+		hca_out->opts.permit_rsa_sha512 = hca->permit_rsa_sha512 ? 1 : 0;
+	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
-		if (!(hca_out = WFR_NEW(host_ca))) {
-			status = WFR_STATUS_FROM_ERRNO();
-			return NULL;
-		} else {
-			hca_out->name = NULL;
-			hca_out->ca_public_key = NULL;
-			hca_out->validity_expression = NULL;
-
-			if (!(hca_out->name = strdup(hca->name))
-			||  !(hca_out->ca_public_key = strbuf_dup(make_ptrlen(hca->public_key, strlen(hca->public_key))))
-			||  !(hca_out->validity_expression = strdup(hca->validity)))
-			{
-				status = WFR_STATUS_FROM_ERRNO();
-				WFR_FREE_IF_NOTNULL(hca_out->name);
-				if (hca_out->ca_public_key) {
-					strbuf_free(hca_out->ca_public_key);
-				}
-				WFR_FREE_IF_NOTNULL(hca_out->validity_expression);
-				WFR_FREE(hca_out);
-				return NULL;
-			} else {
-				hca_out->opts.permit_rsa_sha1 = hca->permit_rsa_sha1 ? 1 : 0;
-				hca_out->opts.permit_rsa_sha256 = hca->permit_rsa_sha256 ? 1 : 0;
-				hca_out->opts.permit_rsa_sha512 = hca->permit_rsa_sha512 ? 1 : 0;
-				return hca_out;
+	if (WFR_FAILURE(status)) {
+		if (hca_out) {
+			WFR_FREE_IF_NOTNULL(hca_out->name);
+			if (hca_out->ca_public_key) {
+				strbuf_free(hca_out->ca_public_key);
 			}
+			WFR_FREE_IF_NOTNULL(hca_out->validity_expression);
+			WFR_FREE(hca_out);
 		}
-	} else {
-		if (WfsGetAdapterDisplayErrors() && WFR_STATUS_FAILURE(status)) {
+
+		if (WfsGetAdapterDisplayErrors()) {
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "loading host CA");
 		}
-
-		return NULL;
 	}
+
+	return hca_out;
 }
 
 char *
@@ -163,7 +165,7 @@ host_ca_save(
 
 	status = WfsSaveHostCA(WfsGetBackend(), &hca_storage);
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		return NULL;
 	} else {
 		return strdup(WfrStatusToErrorMessage(status));
@@ -180,7 +182,7 @@ host_ca_delete(
 
 	status = WfsDeleteHostCA(WfsGetBackend(), false, name);
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		return NULL;
 	} else {
 		return strdup(WfrStatusToErrorMessage(status));

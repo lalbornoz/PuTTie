@@ -290,7 +290,7 @@ WffbpGetFnameShuffle(
 		bg_fname_len = strlen(bg_fname);
 		status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
 	} else if ((WffbpDnameFileC > 0) && (WffbpDnameFileV != NULL)) {
-		if (WFR_STATUS_SUCCESS(status = WfrGenRandom(
+		if (WFR_SUCCESS(status = WfrGenRandom(
 			(PUCHAR)&bg_fname_idx, sizeof(bg_fname_idx))))
 		{
 			bg_fname_idx %= WffbpDnameFileC;
@@ -305,9 +305,9 @@ WffbpGetFnameShuffle(
 			||  (bg_fname_len == 0))
 			{
 				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-			} else if (!(bg_fname = WFR_NEWN(bg_fname_size, char))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
+			} else if (WFR_SUCCESS_POSIX(status,
+				(bg_fname = WFR_NEWN(bg_fname_size, char))))
+			{
 				EnterCriticalSection(&WffbpDnameCriticalSection);
 				WFR_SNPRINTF(
 					bg_fname, bg_fname_size, "%*.*s\\%s",
@@ -317,7 +317,7 @@ WffbpGetFnameShuffle(
 
 				bg_fname_len = strlen(bg_fname);
 				status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
-				if (WFR_STATUS_FAILURE(status)) {
+				if (WFR_FAILURE(status)) {
 					WFR_FREE(bg_fname);
 				} else {
 					WFR_FREE_IF_NOTNULL(WffbpFname);
@@ -352,7 +352,7 @@ WffbpGetFnameSingle(
 	bg_fname = bg_fname_conf->path;
 	status = WFR_STATUS_CONDITION_SUCCESS;
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		bg_fname_len = strlen(bg_fname);
 		status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
 	}
@@ -399,17 +399,17 @@ WffbpSet(
 
 	(void)WfrFreeBitmapDC(&WffbphDC, &WffbphDCOld);
 
-	if (WFR_STATUS_SUCCESS(status = WffbpGetFname(conf, reshuffle, &bg_bmp_fname_w))
+	if (WFR_SUCCESS(status = WffbpGetFname(conf, reshuffle, &bg_bmp_fname_w))
 	&&  bg_bmp_fname_w)
 	{
-		if (WFR_STATUS_SUCCESS(status = WfrLoadImage(
+		if (WFR_SUCCESS(status = WfrLoadImage(
 				&bg_hdc, &bg_hdc_old, &bg_height,
 				&bg_width, &bmp_src, bg_bmp_fname_w, hdc))
-		&&  WFR_STATUS_SUCCESS(status = WfrTransferImage(
+		&&  WFR_SUCCESS(status = WfrTransferImage(
 				bg_hdc, bg_height, bg_width, bmp_src,
 				hdc, conf_get_int(conf, CONF_frip_bgimg_padding),
 				conf_get_int(conf, CONF_frip_bgimg_style)))
-		&&  WFR_STATUS_SUCCESS(status = WfrBlendImage(
+		&&  WFR_SUCCESS(status = WfrBlendImage(
 				bg_hdc, bg_height, bg_width,
 				conf_get_int(conf, CONF_frip_bgimg_opacity))))
 		{
@@ -475,10 +475,9 @@ WffbpSlideshowReconfShuffle(
 	bg_dname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
 	bg_dname = bg_dname_conf->path;
 
-	if (!(timer_ctx_new = WFR_NEW(WffbpContext))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (WFR_STATUS_SUCCESS(status = WfrPathNameToDirectory(bg_dname, &dname_new))
-		&& WFR_STATUS_SUCCESS(status = WfrEnumerateFilesV(
+	if (WFR_SUCCESS_POSIX(status, (timer_ctx_new = WFR_NEW(WffbpContext)))
+	&&  WFR_SUCCESS(status = WfrPathNameToDirectory(bg_dname, &dname_new))
+	&&  WFR_SUCCESS(status = WfrEnumerateFilesV(
 			dname_new, NULL, &dname_filec_new, &dname_filev_new)))
 	{
 		EnterCriticalSection(&WffbpDnameCriticalSection);
@@ -548,9 +547,9 @@ WffbpSlideshowReconfSingle(
 	bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
 	bg_fname = bg_fname_conf->path;
 
-	if (stat(bg_fname, &statbuf) < 0) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else if (!(statbuf.st_mode & S_IFDIR)) {
+	if (WFR_SUCCESS_POSIX(status, (stat(bg_fname, &statbuf) == 0))
+	&&  WFR_SUCCESS_ERRNO1(status, EINVAL, !(statbuf.st_mode & S_IFDIR)))
+	{
 		EnterCriticalSection(&WffbpDnameCriticalSection);
 		WFR_FREE_IF_NOTNULL(WffbpDname);
 		LeaveCriticalSection(&WffbpDnameCriticalSection);
@@ -564,10 +563,6 @@ WffbpSlideshowReconfSingle(
 			expire_timer_context(WffbpTimerContext);
 			WFR_FREE(WffbpTimerContext);
 		}
-
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	} else {
-		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "configuring background image");
@@ -632,7 +627,7 @@ WffbpOpDraw(
 	if ((nbg != 258) && (nbg != 259)) {
 		rc = WF_RETURN_CONTINUE;
 	} else if (!WffbphDC
-		|| !WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, false, true, true)))
+		|| !WFR_SUCCESS(WffbpSet(conf, hdc, false, true, true)))
 	{
 		rc = WF_RETURN_FAILURE;
 	} else {
@@ -667,7 +662,7 @@ WffbpOpInit(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_FAILURE(status = WfrWatchDirectory(
+	if (WFR_FAILURE(status = WfrWatchDirectory(
 			false, &WffbpDname, &WffbpDnameCriticalSection,
 			hwnd, WFF_BGIMG_WM_CHANGEREQUEST, &WffbpDnameEvent,
 			&WffbpDnameWatchThread)))
@@ -688,8 +683,8 @@ WffbpOpReconf(
 	HWND	hwnd
 	)
 {
-	if (WFR_STATUS_SUCCESS(WffbpSlideshowReconf(conf, hwnd))
-	&&  WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, true, true, false)))
+	if (WFR_SUCCESS(WffbpSlideshowReconf(conf, hwnd))
+	&&  WFR_SUCCESS(WffbpSet(conf, hdc, true, true, false)))
 	{
 		return WF_RETURN_CONTINUE;
 	} else {
@@ -714,7 +709,7 @@ WffbpOpSize(
 	case WFR_TI_STYLE_CENTER:
 	case WFR_TI_STYLE_FIT:
 	case WFR_TI_STYLE_STRETCH:
-		if (WFR_STATUS_SUCCESS(WffbpSet(conf, hdc, true, false, true))) {
+		if (WFR_SUCCESS(WffbpSet(conf, hdc, true, false, true))) {
 			return WF_RETURN_CONTINUE;
 		} else {
 			return WF_RETURN_FAILURE;

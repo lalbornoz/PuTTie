@@ -41,44 +41,39 @@ WfsAddHostCA(
 	const char *	validity_new = NULL;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		if (!(public_key_new = strdup(public_key))
-		||  !(hca_new = WFR_NEW(WfsHostCA))
-		||  !(name_new = strdup(name))
-		||  !(validity_new = strdup(validity)))
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))
+	&&  WFR_SUCCESS_POSIX(status, (public_key_new = strdup(public_key)))
+	&&  WFR_SUCCESS_POSIX(status, (hca_new = WFR_NEW(WfsHostCA)))
+	&&  WFR_SUCCESS_POSIX(status, (name_new = strdup(name)))
+	&&  WFR_SUCCESS_POSIX(status, (validity_new = strdup(validity))))
+	{
+		WFS_HOST_CA_INIT(*hca_new);
+		hca_new->public_key = public_key_new;
+		hca_new->mtime = mtime;
+		hca_new->name = name_new;
+		hca_new->permit_rsa_sha1 = permit_rsa_sha1;
+		hca_new->permit_rsa_sha256 = permit_rsa_sha256;
+		hca_new->permit_rsa_sha512 = permit_rsa_sha512;
+		hca_new->validity = validity_new;
+
+		if (WFR_SUCCESS(status = WfrTreeSet(
+				backend_impl->tree_host_ca, name,
+				WFR_TREE_ITYPE_HOST_CA, hca_new,
+				sizeof(*hca_new), WfsTreeFreeItem)))
 		{
-			WFR_FREE_IF_NOTNULL(public_key_new);
-			WFR_FREE_IF_NOTNULL(hca_new);
-			WFR_FREE_IF_NOTNULL(name_new);
-			WFR_FREE_IF_NOTNULL(validity_new);
-			status = WFR_STATUS_FROM_ERRNO();
-		} else {
-			WFS_HOST_CA_INIT(*hca_new);
-			hca_new->public_key = public_key_new;
-			hca_new->mtime = mtime;
-			hca_new->name = name_new;
-			hca_new->permit_rsa_sha1 = permit_rsa_sha1;
-			hca_new->permit_rsa_sha256 = permit_rsa_sha256;
-			hca_new->permit_rsa_sha512 = permit_rsa_sha512;
-			hca_new->validity = validity_new;
-
-			if (WFR_STATUS_SUCCESS(status = WfrTreeSet(
-					backend_impl->tree_host_ca, name,
-					WFR_TREE_ITYPE_HOST_CA, hca_new,
-					sizeof(*hca_new), WfsTreeFreeItem)))
-			{
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
-
-			if (WFR_STATUS_SUCCESS(status)) {
-				*phca = hca_new;
-			} else {
-				WFR_FREE(hca_new);
-				WFR_FREE(public_key_new);
-				WFR_FREE(name_new);
-				WFR_FREE(validity_new);
-			}
+			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
+
+		if (WFR_SUCCESS(status)) {
+			*phca = hca_new;
+		}
+	}
+
+	if (WFR_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(hca_new);
+		WFR_FREE_IF_NOTNULL(name_new);
+		WFR_FREE_IF_NOTNULL(public_key_new);
+		WFR_FREE_IF_NOTNULL(validity_new);
 	}
 
 	return status;
@@ -93,8 +88,8 @@ WfsCleanupHostCAs(
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		if (WFR_STATUS_SUCCESS(status = WfsClearHostCAs(backend, false))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+		if (WFR_SUCCESS(status = WfsClearHostCAs(backend, false))) {
 			status = backend_impl->CleanupHostCAs(backend);
 		}
 	}
@@ -112,12 +107,12 @@ WfsClearHostCAs(
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (delete_in_backend) {
 			status = backend_impl->ClearHostCAs(backend);
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			status = WfrTreeClear(&backend_impl->tree_host_ca, WfsTreeFreeItem);
 		}
 	}
@@ -135,7 +130,7 @@ WfsCloseHostCA(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->CloseHostCA(backend, hca);
 	}
 
@@ -156,8 +151,8 @@ WfsCopyHostCA(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	&&  WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl)))
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	&&  WFR_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl)))
 	{
 		if (!hca) {
 			status = WfsGetHostCA(backend_from, true, name, &hca);
@@ -165,8 +160,8 @@ WfsCopyHostCA(
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 
-		if (WFR_STATUS_SUCCESS(status)
-		&&  WFR_STATUS_SUCCESS(status = WfsAddHostCA(
+		if (WFR_SUCCESS(status)
+		&&  WFR_SUCCESS(status = WfsAddHostCA(
 				backend_to, hca->public_key, hca->mtime, name,
 				hca->permit_rsa_sha1, hca->permit_rsa_sha256,
 				hca->permit_rsa_sha512, hca->validity,
@@ -190,12 +185,12 @@ WfsDeleteHostCA(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (delete_in_backend) {
 			status = backend_impl->DeleteHostCA(backend, name);
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			status = WfrTreeDelete(
 				backend_impl->tree_host_ca,
 				NULL, name, WFR_TREE_ITYPE_HOST_CA,
@@ -225,16 +220,15 @@ WfsEnumerateHostCAs(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
 			status = WfrTreeEnumerate(
 				backend_impl->tree_host_ca, initfl,
 				pdonefl, &item, pstate);
-			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
-				if (!(*pname = strdup(item->key))) {
-					status = WFR_STATUS_FROM_ERRNO();
-				}
+			if (!initfl && WFR_SUCCESS(status) && !(*pdonefl)) {
+				WFR_STATUS_BIND_POSIX(status,
+					(*pname = strdup(item->key)));
 			}
 			break;
 
@@ -262,18 +256,18 @@ WfsExportHostCA(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	||  WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
+	if (WFR_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	||  WFR_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
 		return status;
 	}
 
-	if (WFR_STATUS_SUCCESS(status = backend_from_impl->LoadHostCA(backend_to, name, &hca))
-	&&  WFR_STATUS_SUCCESS(status = backend_to_impl->SaveHostCA(backend_to, hca)))
+	if (WFR_SUCCESS(status = backend_from_impl->LoadHostCA(backend_to, name, &hca))
+	&&  WFR_SUCCESS(status = backend_to_impl->SaveHostCA(backend_to, hca)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_SUCCESS(status) && movefl) {
+	if (WFR_SUCCESS(status) && movefl) {
 		status = WfsDeleteHostCA(backend_from, true, name);
 	}
 
@@ -296,13 +290,13 @@ WfsExportHostCAs(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	||  WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
+	if (WFR_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	||  WFR_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
 		return status;
 	}
 
-	if (WFR_STATUS_SUCCESS(status) && clear_to) {
-		if (WFR_STATUS_FAILURE(status = WfsClearHostCAs(backend_to, true))) {
+	if (WFR_SUCCESS(status) && clear_to) {
+		if (WFR_FAILURE(status = WfsClearHostCAs(backend_to, true))) {
 			return status;
 		}
 	}
@@ -311,30 +305,30 @@ WfsExportHostCAs(
 		backend_from, false, true,
 		&donefl, &name, &enum_state);
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		do {
 			name = NULL;
 			status = WfsEnumerateHostCAs(
 				backend_from, false, false,
 				&donefl, &name, &enum_state);
 
-			if (WFR_STATUS_SUCCESS(status) && name) {
+			if (WFR_SUCCESS(status) && name) {
 				status = WfsExportHostCA(
 					backend_from, backend_to,
 					false, name);
 			}
 
-			if (WFR_STATUS_FAILURE(status)) {
+			if (WFR_FAILURE(status)) {
 				error_fn(name, status);
 			}
-		} while (!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
+		} while (!donefl && (WFR_SUCCESS(status) || continue_on_error));
 	}
 
-	if (WFR_STATUS_FAILURE(status) && continue_on_error) {
+	if (WFR_FAILURE(status) && continue_on_error) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_FAILURE(status)) {
+	if (WFR_FAILURE(status)) {
 		(void)WfsClearHostCAs(backend_to, true);
 	}
 
@@ -354,13 +348,13 @@ WfsGetHostCA(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
 			status = WfrTreeGet(
 				backend_impl->tree_host_ca, name,
 				WFR_TREE_ITYPE_HOST_CA, &item);
-			if (WFR_STATUS_SUCCESS(status)) {
+			if (WFR_SUCCESS(status)) {
 				*phca = item->value;
 			}
 			break;
@@ -386,14 +380,14 @@ WfsRenameHostCA(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = WfrTreeRename(
 			backend_impl->tree_host_ca, NULL,
 			name, WFR_TREE_ITYPE_HOST_CA,
 			name_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
-		&&  (WFR_STATUS_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
+		&&  (WFR_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
 		{
 			status = backend_impl->RenameHostCA(
 				backend, name, name_new);
@@ -413,7 +407,7 @@ WfsSaveHostCA(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->SaveHostCA(backend, hca);
 	}
 

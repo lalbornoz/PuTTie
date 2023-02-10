@@ -29,36 +29,34 @@ WfsAddSession(
 {
 	WfspBackend *	backend_impl;
 	WfsSession *	session_new = NULL;
-	const char *	sessionname_new;
+	const char *	sessionname_new = NULL;
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		if (!(session_new = WFR_NEW(WfsSession))
-		||  !(sessionname_new = strdup(sessionname)))
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))
+	&&  WFR_SUCCESS_POSIX(status, (session_new = WFR_NEW(WfsSession)))
+	&&  WFR_SUCCESS_POSIX(status, (sessionname_new = strdup(sessionname))))
+	{
+		WFS_SESSION_INIT(*session_new);
+		session_new->name = sessionname_new;
+
+		if (WFR_SUCCESS(status = WfrTreeInit(&session_new->tree))
+		&&  WFR_SUCCESS(status = WfrTreeSet(
+				backend_impl->tree_session, sessionname,
+				WFR_TREE_ITYPE_SESSION, session_new,
+				sizeof(*session_new), WfsTreeFreeItem)))
 		{
-			WFR_FREE_IF_NOTNULL(session_new);
-			status = WFR_STATUS_FROM_ERRNO();
-		} else {
-			WFS_SESSION_INIT(*session_new);
-			session_new->name = sessionname_new;
-
-			if (WFR_STATUS_SUCCESS(status = WfrTreeInit(&session_new->tree))
-			&&  WFR_STATUS_SUCCESS(status = WfrTreeSet(
-					backend_impl->tree_session, sessionname,
-					WFR_TREE_ITYPE_SESSION, session_new,
-					sizeof(*session_new), WfsTreeFreeItem)))
-			{
-				status = WFR_STATUS_CONDITION_SUCCESS;
-			}
-
-			if (WFR_STATUS_SUCCESS(status)) {
-				*psession = session_new;
-			} else {
-				WFR_FREE(session_new);
-				WFR_FREE(sessionname_new);
-			}
+			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
+
+		if (WFR_SUCCESS(status)) {
+			*psession = session_new;
+		}
+	}
+
+	if (WFR_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(session_new);
+		WFR_FREE_IF_NOTNULL(sessionname_new);
 	}
 
 	return status;
@@ -73,8 +71,8 @@ WfsCleanupSessions(
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		if (WFR_STATUS_SUCCESS(status = WfsClearSessions(backend, false))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+		if (WFR_SUCCESS(status = WfsClearSessions(backend, false))) {
 			status = backend_impl->CleanupSessions(backend);
 		}
 	}
@@ -93,8 +91,8 @@ WfsClearSession(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
-		if (WFR_STATUS_SUCCESS(status = WfsGetSession(backend, true, sessionname, &session))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+		if (WFR_SUCCESS(status = WfsGetSession(backend, true, sessionname, &session))) {
 			status = WfrTreeClear(&session->tree, WfsTreeFreeItem);
 		}
 	}
@@ -112,12 +110,12 @@ WfsClearSessions(
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (delete_in_backend) {
 			status = backend_impl->ClearSessions(backend);
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			status = WfrTreeClear(&backend_impl->tree_session, WfsTreeFreeItem);
 		}
 	}
@@ -135,7 +133,7 @@ WfsCloseSession(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->CloseSession(backend, session);
 	}
 
@@ -156,8 +154,8 @@ WfsCopySession(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	&&  WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl)))
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	&&  WFR_SUCCESS(status = WfsGetBackendImpl(backend_to, &backend_to_impl)))
 	{
 		if (!session) {
 			status = WfsGetSession(backend_from, true, sessionname, &session);
@@ -165,9 +163,9 @@ WfsCopySession(
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 
-		if (WFR_STATUS_SUCCESS(status)
-		&&  WFR_STATUS_SUCCESS(status = WfsAddSession(backend_to, sessionname, &session_to))
-		&&  WFR_STATUS_SUCCESS(status = WfrTreeCopy(session->tree, session_to->tree, WfsTreeCloneValue, WfsTreeFreeItem)))
+		if (WFR_SUCCESS(status)
+		&&  WFR_SUCCESS(status = WfsAddSession(backend_to, sessionname, &session_to))
+		&&  WFR_SUCCESS(status = WfrTreeCopy(session->tree, session_to->tree, WfsTreeCloneValue, WfsTreeFreeItem)))
 		{
 			*psession = session_to;
 		}
@@ -187,12 +185,12 @@ WfsDeleteSession(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		if (delete_in_backend) {
 			status = backend_impl->DeleteSession(backend, sessionname);
 		}
 
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			status = WfrTreeDelete(
 				backend_impl->tree_session, NULL,
 				sessionname, WFR_TREE_ITYPE_SESSION,
@@ -222,16 +220,15 @@ WfsEnumerateSessions(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
 			status = WfrTreeEnumerate(
 				backend_impl->tree_session, initfl,
 				pdonefl, &item, pstate);
-			if (!initfl && WFR_STATUS_SUCCESS(status) && !(*pdonefl)) {
-				if (!(*psessionname = strdup(item->key))) {
-					status = WFR_STATUS_FROM_ERRNO();
-				}
+			if (!initfl && WFR_SUCCESS(status) && !(*pdonefl)) {
+				WFR_STATUS_BIND_POSIX(status,
+					(*psessionname = strdup(item->key)));
 			}
 			break;
 
@@ -259,18 +256,18 @@ WfsExportSession(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	||  WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
+	if (WFR_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	||  WFR_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
 		return status;
 	}
 
-	if (WFR_STATUS_SUCCESS(status = backend_from_impl->LoadSession(backend_to, sessionname, &session))
-	&&  WFR_STATUS_SUCCESS(status = backend_to_impl->SaveSession(backend_to, session)))
+	if (WFR_SUCCESS(status = backend_from_impl->LoadSession(backend_to, sessionname, &session))
+	&&  WFR_SUCCESS(status = backend_to_impl->SaveSession(backend_to, session)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_SUCCESS(status) && movefl) {
+	if (WFR_SUCCESS(status) && movefl) {
 		status = WfsDeleteSession(backend_from, true, sessionname);
 	}
 
@@ -293,13 +290,13 @@ WfsExportSessions(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	||  WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
+	if (WFR_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	||  WFR_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
 		return status;
 	}
 
-	if (WFR_STATUS_SUCCESS(status) && clear_to) {
-		if (WFR_STATUS_FAILURE(status = WfsClearSessions(backend_to, true))) {
+	if (WFR_SUCCESS(status) && clear_to) {
+		if (WFR_FAILURE(status = WfsClearSessions(backend_to, true))) {
 			return status;
 		}
 	}
@@ -308,30 +305,30 @@ WfsExportSessions(
 		backend_from, false, true,
 		&donefl, &sessionname, &enum_state);
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		do {
 			sessionname = NULL;
 			status = WfsEnumerateSessions(
 				backend_from, false, false,
 				&donefl, &sessionname, &enum_state);
 
-			if (WFR_STATUS_SUCCESS(status) && sessionname) {
+			if (WFR_SUCCESS(status) && sessionname) {
 				status = WfsExportSession(
 					backend_from, backend_to,
 					false, sessionname);
 			}
 
-			if (WFR_STATUS_FAILURE(status)) {
+			if (WFR_FAILURE(status)) {
 				error_fn(sessionname, status);
 			}
-		} while (!donefl && (WFR_STATUS_SUCCESS(status) || continue_on_error));
+		} while (!donefl && (WFR_SUCCESS(status) || continue_on_error));
 	}
 
-	if (WFR_STATUS_FAILURE(status) && continue_on_error) {
+	if (WFR_FAILURE(status) && continue_on_error) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_STATUS_FAILURE(status)) {
+	if (WFR_FAILURE(status)) {
 		(void)WfsClearSessions(backend_to, true);
 	}
 
@@ -351,13 +348,13 @@ WfsGetSession(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		switch (cached) {
 		case true:
 			status = WfrTreeGet(
 				backend_impl->tree_session, sessionname,
 				WFR_TREE_ITYPE_SESSION, &item);
-			if (WFR_STATUS_SUCCESS(status)) {
+			if (WFR_SUCCESS(status)) {
 				*psession = item->value;
 			}
 			break;
@@ -385,7 +382,7 @@ WfsGetSessionKey(
 
 
 	status = WfrTreeGet(session->tree, key, item_type, &item);
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		switch (item->type) {
 		default:
 			status = WFR_STATUS_FROM_ERRNO1(EINVAL); break;
@@ -421,14 +418,14 @@ WfsRenameSession(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = WfrTreeRename(
 			backend_impl->tree_session, NULL,
 			sessionname, WFR_TREE_ITYPE_SESSION,
 			sessionname_new, WfsTreeFreeItem);
 
 		if (rename_in_backend
-		&&  (WFR_STATUS_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
+		&&  (WFR_SUCCESS(status) || WFR_STATUS_IS_NOT_FOUND(status)))
 		{
 			status = backend_impl->RenameSession(
 				backend, sessionname, sessionname_new);
@@ -448,7 +445,7 @@ WfsSaveSession(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->SaveSession(backend, session);
 	}
 

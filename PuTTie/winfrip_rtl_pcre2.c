@@ -33,15 +33,13 @@ Wfp2GetMatch(
 
 
 	match_offset *= 2;
-	if ((match_offset >= regex->ovecsize)
-	||  ((match_offset + 1) >= regex->ovecsize)) {
-		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-	} else if (((int)regex->ovec[match_offset] == -1)
-		&& ((int)regex->ovec[match_offset + 1] == -1))
+	if (WFR_SUCCESS_ERRNO1(status, EINVAL,
+		   (match_offset < regex->ovecsize)
+		|| ((match_offset + 1) < regex->ovecsize))
+	&&  WFR_SUCCESS_ERRNO1(status, ENOENT,
+		   ((int)regex->ovec[match_offset] != -1)
+		&& ((int)regex->ovec[match_offset + 1] != -1)))
 	{
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	}
-	else {
 		match_begin = &subject[regex->ovec[match_offset]];
 		match_end = &subject[regex->ovec[match_offset + 1]];
 		match_size = match_end - match_begin;
@@ -63,63 +61,43 @@ Wfp2GetMatch(
 					break;
 
 				case WFP2_RTYPE_BOOL:
-					if (alloc_value) {
-						if ((value_new = WFR_NEW(bool))) {
-							*(bool *)value_new = wcstol(int_string_buf, NULL, 10);
-							*(bool **)pvalue = value_new;
-							status = WFR_STATUS_CONDITION_SUCCESS;
-						} else {
-							status = WFR_STATUS_FROM_ERRNO();
-						}
-					} else {
+					if (alloc_value && WFR_SUCCESS_POSIX(status, (value_new = WFR_NEW(bool)))) {
+						*(bool *)value_new = wcstol(int_string_buf, NULL, 10);
+						*(bool **)pvalue = value_new;
+					} else if (!alloc_value) {
 						*(bool *)pvalue = wcstol(int_string_buf, NULL, 10);
 						status = WFR_STATUS_CONDITION_SUCCESS;
 					}
 
-					if (WFR_STATUS_SUCCESS(status) && pvalue_size)
-					{
+					if (WFR_SUCCESS(status) && pvalue_size) {
 						*pvalue_size = sizeof(bool);
 					}
 					break;
 
 				case WFP2_RTYPE_SINT:
-					if (alloc_value) {
-						if ((value_new = WFR_NEW(signed int))) {
-							*(signed int *)value_new = wcstol(int_string_buf, NULL, 10);
-							*(signed int **)pvalue = value_new;
-							status = WFR_STATUS_CONDITION_SUCCESS;
-						} else {
-							status = WFR_STATUS_FROM_ERRNO();
-						}
-					} else {
+					if (alloc_value && WFR_SUCCESS_POSIX(status, (value_new = WFR_NEW(signed int)))) {
+						*(signed int *)value_new = wcstol(int_string_buf, NULL, 10);
+						*(signed int **)pvalue = value_new;
+					} else if (!alloc_value) {
 						*(signed int *)pvalue = wcstol(int_string_buf, NULL, 10);
 						status = WFR_STATUS_CONDITION_SUCCESS;
 					}
 
-					if (WFR_STATUS_SUCCESS(status)
-					&&  pvalue_size)
-					{
+					if (WFR_SUCCESS(status) && pvalue_size) {
 						*pvalue_size = sizeof(signed int);
 					}
 					break;
 
 				case WFP2_RTYPE_UINT:
-					if (alloc_value) {
-						if ((value_new = WFR_NEW(unsigned int))) {
-							*(unsigned int *)value_new = wcstoul(int_string_buf, NULL, 10);
-							*(unsigned int **)pvalue = value_new;
-							status = WFR_STATUS_CONDITION_SUCCESS;
-						} else {
-							status = WFR_STATUS_FROM_ERRNO();
-						}
-					} else {
+					if (alloc_value && WFR_SUCCESS_POSIX(status, (value_new = WFR_NEW(unsigned int)))) {
+						*(unsigned int *)value_new = wcstoul(int_string_buf, NULL, 10);
+						*(unsigned int **)pvalue = value_new;
+					} else if (!alloc_value) {
 						*(unsigned int *)pvalue = wcstoul(int_string_buf, NULL, 10);
 						status = WFR_STATUS_CONDITION_SUCCESS;
 					}
 
-					if (WFR_STATUS_SUCCESS(status)
-					&&  pvalue_size)
-					{
+					if (WFR_SUCCESS(status) && pvalue_size) {
 						*pvalue_size = sizeof(unsigned int);
 					}
 					break;
@@ -130,27 +108,22 @@ Wfp2GetMatch(
 			break;
 
 		case WFP2_RTYPE_STRING:
-			if (alloc_value) {
-				value_new_size = match_size + 1;
-				if ((value_new = WFR_NEWN(value_new_size + 1, char))) {
+			value_new_size = match_size + 1;
+			if (WFR_SUCCESS_ERRNO1(status, EINVAL, (alloc_value))
+			&&  WFR_SUCCESS_POSIX(status, (value_new = WFR_NEWN(value_new_size + 1, char))))
+			{
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
-					snprintf(
-						value_new, value_new_size, "%*.*S",
-						(int)(match_end - match_begin),
-						(int)(match_end - match_begin),
-						match_begin);
+				snprintf(
+					value_new, value_new_size, "%*.*S",
+					(int)(match_end - match_begin),
+					(int)(match_end - match_begin),
+					match_begin);
 #pragma GCC diagnostic pop
-					*(char **)pvalue = value_new;
-					if (pvalue_size) {
-						*pvalue_size = value_new_size;
-					}
-					status = WFR_STATUS_CONDITION_SUCCESS;
-				} else {
-					status = WFR_STATUS_FROM_ERRNO();
+				*(char **)pvalue = value_new;
+				if (pvalue_size) {
+					*pvalue_size = value_new_size;
 				}
-			} else {
-				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 			}
 			break;
 		}

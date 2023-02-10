@@ -28,7 +28,7 @@ WfsAddPrivKeyList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->AddPrivKeyList(privkey_name);
 	}
 
@@ -44,7 +44,7 @@ WfsCleanupPrivKeyList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->CleanupPrivKeyList();
 	}
 
@@ -60,7 +60,7 @@ WfsClearPrivKeyList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->ClearPrivKeyList();
 	}
 
@@ -86,13 +86,13 @@ WfsExportPrivKeyList(
 	(void)continue_on_error;
 	(void)error_fn;
 
-	if (WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
-	||  WFR_STATUS_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
+	if (WFR_FAILURE(status = WfsGetBackendImpl(backend_from, &backend_from_impl))
+	||  WFR_FAILURE(status = WfsGetBackendImpl(backend_to, &backend_to_impl))) {
 		return status;
 	}
 
-	if (WFR_STATUS_SUCCESS(status = backend_from_impl->GetEntriesPrivKeyList(&privkey_list, &privkey_list_size))
-	&&  WFR_STATUS_SUCCESS(status = backend_to_impl->SetEntriesPrivKeyList(privkey_list, privkey_list_size)))
+	if (WFR_SUCCESS(status = backend_from_impl->GetEntriesPrivKeyList(&privkey_list, &privkey_list_size))
+	&&  WFR_SUCCESS(status = backend_to_impl->SetEntriesPrivKeyList(privkey_list, privkey_list_size)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -113,7 +113,7 @@ WfsGetEntriesPrivKeyList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->GetEntriesPrivKeyList(pprivkey_list, pprivkey_list_size);
 	}
 
@@ -130,7 +130,7 @@ WfsRemovePrivKeyList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
+	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))) {
 		status = backend_impl->RemovePrivKeyList(privkey_name);
 	}
 

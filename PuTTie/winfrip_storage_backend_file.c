@@ -85,9 +85,7 @@ WfsppFileInitAppDataSubdir(
 	WfrStatus	status;
 
 
-	if (!(appdata = getenv("APPDATA"))) {
-		status = WFR_STATUS_FROM_ERRNO1(ENOENT);
-	} else {
+	if (WFR_SUCCESS_ERRNO1(status, ENOENT, (appdata = getenv("APPDATA")))) {
 		WfsppFileAppData = appdata;
 		WFR_SNPRINTF(
 			WfsppFileDname, sizeof(WfsppFileDname),
@@ -116,8 +114,6 @@ WfsppFileInitAppDataSubdir(
 		WFR_SNPRINTF(
 			WfsppFileFnamePrivKeyListTmp, sizeof(WfsppFileFnamePrivKeyListTmp),
 			"privkey.list.XXXXXX");
-
-		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
 	return status;
@@ -138,14 +134,14 @@ WfsppFileTransformList(
 
 
 	if (addfl || delfl) {
-		if (WFR_STATUS_FAILURE(status = WfrLoadListFromFile(
+		if (WFR_FAILURE(status = WfrLoadListFromFile(
 				fname, &list, &list_size)))
 		{
 			list = NULL;
 			list_size = 0;
 		}
 
-		if (WFR_STATUS_SUCCESS(status = WfsTransformList(
+		if (WFR_SUCCESS(status = WfsTransformList(
 				addfl, delfl, &list,
 				&list_size, trans_item)))
 		{
@@ -170,7 +166,7 @@ WfspFileCleanupHostCAs(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfspFileClearHostCAs(backend))) {
+	if (WFR_SUCCESS(status = WfspFileClearHostCAs(backend))) {
 		status = WfrDeleteDirectory(WfsppFileDnameHostCAs, true, true, true);
 	}
 
@@ -231,7 +227,7 @@ WfspFileEnumerateHostCAs(
 			(WfrEnumerateFilesState **)pstate);
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
+	if (WFR_SUCCESS(status = WfrEnumerateFiles(
 			WfsppFileExtHostCAs, pdonefl,
 			&name, (WfrEnumerateFilesState **)pstate)))
 	{
@@ -268,11 +264,11 @@ WfspFileLoadHostCA(
 
 
 	WFS_HOST_CA_INIT(hca_tmpl);
-	if (WFR_STATUS_SUCCESS(status = WfrLoadRawFile(
+	if (WFR_SUCCESS(status = WfrLoadRawFile(
 			true, WfsppFileDnameHostCAs, WfsppFileExtHostCAs,
 			name, &hca_data, &hca_data_size, &mtime)))
 	{
-		if (WFR_STATUS_SUCCESS(status = WfsGetHostCA(backend, true, name, &hca))) {
+		if (WFR_SUCCESS(status = WfsGetHostCA(backend, true, name, &hca))) {
 			if (hca->mtime == mtime) {
 				goto out;
 			} else {
@@ -315,7 +311,7 @@ WfspFileLoadHostCA(
 	}
 
 out:
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		if (bits !=
 		    ( WFSP_FILE_LHCA_BIT_CA_PUBLIC_KEY
 		    | WFSP_FILE_LHCA_BIT_PERMIT_RSA_SHA1
@@ -332,11 +328,11 @@ out:
 		}
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		if (phca) {
 			*phca = hca;
 		}
-	} else if (WFR_STATUS_FAILURE(status)) {
+	} else if (WFR_FAILURE(status)) {
 		WFR_FREE_IF_NOTNULL(hca_tmpl.public_key);
 		WFR_FREE_IF_NOTNULL(hca_tmpl.name);
 		WFR_FREE_IF_NOTNULL(hca_tmpl.validity);
@@ -387,7 +383,7 @@ WfspFileCleanupHostKeys(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfspFileClearHostKeys(backend))) {
+	if (WFR_SUCCESS(status = WfspFileClearHostKeys(backend))) {
 		status = WfrDeleteDirectory(WfsppFileDnameHostKeys, true, true, true);
 	}
 
@@ -436,7 +432,7 @@ WfspFileEnumerateHostKeys(
 			(WfrEnumerateFilesState **)pstate);
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
+	if (WFR_SUCCESS(status = WfrEnumerateFiles(
 			WfsppFileExtHostKeys, pdonefl,
 			&name, (WfrEnumerateFilesState **)pstate)))
 	{
@@ -459,12 +455,12 @@ WfspFileLoadHostKey(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrLoadRawFile(
+	if (WFR_SUCCESS(status = WfrLoadRawFile(
 			true, WfsppFileDnameHostKeys,
 			WfsppFileExtHostKeys, key_name,
 			&key, NULL, NULL)))
 	{
-		if (WFR_STATUS_SUCCESS(status = WfsSetHostKey(backend, false, key_name, key))) {
+		if (WFR_SUCCESS(status = WfsSetHostKey(backend, false, key_name, key))) {
 			*pkey = key;
 		} else {
 			WFR_FREE(key);
@@ -521,8 +517,8 @@ WfspFileLoadOptions(
 	WfrStatus		status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsClearOptions(backend, false))) {
-		if (WFR_STATUS_SUCCESS(status = WfrLoadRawFile(
+	if (WFR_SUCCESS(status = WfsClearOptions(backend, false))) {
+		if (WFR_SUCCESS(status = WfrLoadRawFile(
 				false, WfsppFileDname, NULL, WfsppFileFnameOptions,
 				&options_data, &options_data_size, NULL)))
 		{
@@ -561,7 +557,7 @@ WfspFileCleanupSessions(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfspFileClearSessions(backend))) {
+	if (WFR_SUCCESS(status = WfspFileClearSessions(backend))) {
 		status = WfrDeleteDirectory(WfsppFileDnameSessions, true, true, true);
 	}
 
@@ -622,7 +618,7 @@ WfspFileEnumerateSessions(
 			(WfrEnumerateFilesState **)pstate);
 	}
 
-	if (WFR_STATUS_SUCCESS(status = WfrEnumerateFiles(
+	if (WFR_SUCCESS(status = WfrEnumerateFiles(
 			WfsppFileExtSessions, pdonefl,
 			&name, (WfrEnumerateFilesState **)pstate)))
 	{
@@ -649,12 +645,12 @@ WfspFileLoadSession(
 	WfrStatus		status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfrLoadRawFile(
+	if (WFR_SUCCESS(status = WfrLoadRawFile(
 			true, WfsppFileDnameSessions, WfsppFileExtSessions,
 			sessionname, &session_data, &session_data_size, &mtime)))
 	{
 		status = WfsGetSession(backend, true, sessionname, &session);
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			if (session->mtime == mtime) {
 				goto out;
 			} else {
@@ -664,7 +660,7 @@ WfspFileLoadSession(
 			}
 		} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WfsAddSession(backend, sessionname, &session);
-			addedfl = WFR_STATUS_SUCCESS(status);
+			addedfl = WFR_SUCCESS(status);
 		}
 
 		status = WfrLoadParse(
@@ -676,9 +672,9 @@ WfspFileLoadSession(
 	}
 
 out:
-	if (WFR_STATUS_SUCCESS(status) && psession) {
+	if (WFR_SUCCESS(status) && psession) {
 		*psession = session;
-	} else if (WFR_STATUS_FAILURE(status) && addedfl && session) {
+	} else if (WFR_FAILURE(status) && addedfl && session) {
 		(void)WfsDeleteSession(backend, false, sessionname);
 	}
 
@@ -721,7 +717,7 @@ WfspFileAddJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileTransformList(
+	if (WFR_SUCCESS(status = WfsppFileTransformList(
 			true, false, WfsppFileFnameJumpList,
 			WfsppFileFnameJumpListTmp, sessionname)))
 	{
@@ -761,17 +757,14 @@ WfspFileGetEntriesJumpList(
 	status = WfrLoadListFromFile(
 		WfsppFileFnameJumpList,
 		pjump_list, &jump_list_size);
-	if (WFR_STATUS_FAILURE(status)) {
-		if (WFR_STATUS_IS_NOT_FOUND(status)) {
-			if (!((*pjump_list = WFR_NEWN(2, char)))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				(*pjump_list)[0] = '\0';
-				(*pjump_list)[1] = '\0';
-				if (pjump_list_size) {
-					*pjump_list_size = 2;
-				}
-				status = WFR_STATUS_CONDITION_SUCCESS;
+	if (WFR_FAILURE(status)) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)
+		&&  WFR_SUCCESS_POSIX(status, ((*pjump_list = WFR_NEWN(2, char)))))
+		{
+			(*pjump_list)[0] = '\0';
+			(*pjump_list)[1] = '\0';
+			if (pjump_list_size) {
+				*pjump_list_size = 2;
 			}
 		}
 	} else {
@@ -791,7 +784,7 @@ WfspFileRemoveJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileTransformList(
+	if (WFR_SUCCESS(status = WfsppFileTransformList(
 			false, true, WfsppFileFnameJumpList,
 			WfsppFileFnameJumpListTmp, sessionname)))
 	{
@@ -854,17 +847,14 @@ WfspFileGetEntriesPrivKeyList(
 	status = WfrLoadListFromFile(
 		WfsppFileFnamePrivKeyList,
 		pprivkey_list, &privkey_list_size);
-	if (WFR_STATUS_FAILURE(status)) {
-		if (WFR_STATUS_IS_NOT_FOUND(status)) {
-			if (!((*pprivkey_list = WFR_NEWN(2, char)))) {
-				status = WFR_STATUS_FROM_ERRNO();
-			} else {
-				(*pprivkey_list)[0] = '\0';
-				(*pprivkey_list)[1] = '\0';
-				if (pprivkey_list_size) {
-					*pprivkey_list_size = 2;
-				}
-				status = WFR_STATUS_CONDITION_SUCCESS;
+	if (WFR_FAILURE(status)) {
+		if (WFR_STATUS_IS_NOT_FOUND(status)
+		&&  WFR_SUCCESS_POSIX(status, ((*pprivkey_list) = WFR_NEWN(2, char))))
+		{
+			(*pprivkey_list)[0] = '\0';
+			(*pprivkey_list)[1] = '\0';
+			if (pprivkey_list_size) {
+				*pprivkey_list_size = 2;
 			}
 		}
 	} else {
@@ -931,7 +921,7 @@ WfspFileInit(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsppFileInitAppDataSubdir())) {
+	if (WFR_SUCCESS(status = WfsppFileInitAppDataSubdir())) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -946,9 +936,9 @@ WfspFileSetBackend(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsClearHostCAs(backend_new, false))
-	&&  WFR_STATUS_SUCCESS(status = WfsClearHostKeys(backend_new, false))
-	&&  WFR_STATUS_SUCCESS(status = WfsClearSessions(backend_new, false)))
+	if (WFR_SUCCESS(status = WfsClearHostCAs(backend_new, false))
+	&&  WFR_SUCCESS(status = WfsClearHostKeys(backend_new, false))
+	&&  WFR_SUCCESS(status = WfsClearSessions(backend_new, false)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}

@@ -149,7 +149,7 @@ WffupConfigPanelBrowserVerbHandler(
 		browser_verb_len = strlen(browser_verb);
 		conf_set_str(conf, CONF_frip_urls_browser_pname_verb, browser_verb);
 
-		if (WFR_STATUS_SUCCESS(status = WfrToWcsDup(
+		if (WFR_SUCCESS(status = WfrToWcsDup(
 				browser_verb, browser_verb_len + 1, &browser_verb_w)))
 		{
 			WFR_FREE(browser_verb);
@@ -325,12 +325,12 @@ WffupReconfig(
 		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 		snprintf(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
 		goto fail;
-	} else if (WFR_STATUS_FAILURE(WfrToWcsDup(spec, spec_len + 1, &spec_w))) {
+	} else if (WFR_FAILURE(WfrToWcsDup(spec, spec_len + 1, &spec_w))) {
 		WFR_DEBUG_FAIL();
 		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
 		goto fail;
-	} else if (WFR_STATUS_SUCCESS(WfrInitTermLinesURLWRegex(
+	} else if (WFR_SUCCESS(WfrInitTermLinesURLWRegex(
 			spec_w, &re_errorcode, &re_erroroffset)))
 	{
 		WFR_FREE(spec_w);
@@ -547,7 +547,7 @@ WffupOpSelect(
 	 ? WfrIsVKeyDown(WffupModifierShiftState)
 	 : true))
 	{
-		if (WFR_STATUS_SUCCESS(status = WfrGetTermLinesURLW(
+		if (WFR_SUCCESS(status = WfrGetTermLinesURLW(
 				term, &WffupMatchBegin, &WffupMatchEnd,
 				&WffupBufW, &WffupBufW_size,
 				(pos){.x=x, .y=y}, (pos){.x=x, .y=y})))
@@ -586,7 +586,7 @@ WffupOpSelectExtendShrink(
 			WffupSelectEnd.y--;
 		}
 
-		if (WFR_STATUS_SUCCESS(status = WfrGetTermLinesURLW(
+		if (WFR_SUCCESS(status = WfrGetTermLinesURLW(
 				term, &WffupMatchBegin, &WffupMatchEnd,
 				&buf_w_new, &WffupBufW_size,
 				WffupSelectBegin, WffupSelectEnd)))

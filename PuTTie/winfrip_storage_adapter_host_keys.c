@@ -48,12 +48,12 @@ check_stored_host_key(
 	WfrStatus	status;
 
 
-	if (WFR_STATUS_SUCCESS(status = WfsPrintHostKeyName(
+	if (WFR_SUCCESS(status = WfsPrintHostKeyName(
 			hostname, port, keytype, &key_name)))
 	{
 		status = WfsGetHostKey(WfsGetBackend(), false, key_name, &key_);
 		WFR_FREE(key_name);
-		if (WFR_STATUS_SUCCESS(status)) {
+		if (WFR_SUCCESS(status)) {
 			if (strcmp(key, key_) == 0) {
 				return 0;
 			} else {
@@ -92,21 +92,18 @@ store_host_key(
 
 	(void)seat;
 
-	if (WFR_STATUS_SUCCESS(status = WfsPrintHostKeyName(
-			hostname, port, keytype, &key_name)))
+	if (WFR_SUCCESS(status = WfsPrintHostKeyName(
+			hostname, port, keytype, &key_name))
+	&&  WFR_SUCCESS_POSIX(status, (key_ = strdup(key))))
 	{
-		if (!(key_ = strdup(key))) {
-			status = WFR_STATUS_FROM_ERRNO();
-		} else {
-			status = WfsSetHostKey(WfsGetBackend(), true, key_name, key_);
-			WFR_FREE(key_name);
-			if (WFR_STATUS_FAILURE(status)) {
-				WFR_FREE(key_);
-			}
+		status = WfsSetHostKey(WfsGetBackend(), true, key_name, key_);
+		WFR_FREE(key_name);
+		if (WFR_FAILURE(status)) {
+			WFR_FREE(key_);
 		}
 	}
 
-	if (WfsGetAdapterDisplayErrors()) {
+	if (WFR_FAILURE(status) && WfsGetAdapterDisplayErrors()) {
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "storing host key");
 	}
 }

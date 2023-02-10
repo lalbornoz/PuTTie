@@ -188,9 +188,7 @@ WfrSnDuprintf(
 	size_t		s_size;
 
 
-	if (!(s = WFR_NEWN(1, char))) {
-		status = WFR_STATUS_FROM_ERRNO();
-	} else {
+	if (WFR_SUCCESS_POSIX(status, (s = WFR_NEWN(1, char)))) {
 		s_size = 1;
 		va_start(ap, format);
 		s_len = vsnprintf(s, s_size, format, ap);
@@ -200,7 +198,7 @@ WfrSnDuprintf(
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (s_len == 0) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
-		} else if (WFR_STATUS_SUCCESS(status = WFR_RESIZE(
+		} else if (WFR_SUCCESS(status = WFR_RESIZE(
 				s, s_size, (size_t)s_len + 1, char)))
 		{
 			va_start(ap, format);
@@ -212,7 +210,7 @@ WfrSnDuprintf(
 		}
 	}
 
-	if (WFR_STATUS_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)) {
 		*ps = s;
 		if (pn) {
 			*pn = s_size;
