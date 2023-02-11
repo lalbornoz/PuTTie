@@ -501,12 +501,10 @@ WffsUpdateItemList(
 				backend, false, false,
 				&donefl, &item_name, &enum_state);
 
-			if (WFR_SUCCESS(status) && !donefl) {
-				if (WFR_SUCCESS(status = WFR_RESIZE(
-						itemv_new, itemc_new, itemc_new + 1, char *)))
-				{
-					itemv_new[itemc_new - 1] = item_name;
-				}
+			if (WFR_SUCCESS(status) && !donefl
+			&&  WFR_RESIZE(status, itemv_new, itemc_new, itemc_new + 1, char *))
+			{
+				itemv_new[itemc_new - 1] = item_name;
 			}
 		} while (WFR_SUCCESS(status) && !donefl);
 

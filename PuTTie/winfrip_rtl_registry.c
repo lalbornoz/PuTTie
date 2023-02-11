@@ -44,9 +44,7 @@ WfrpEnumerateRegKey(
 				break;
 
 			case ERROR_MORE_DATA:
-				if (WFR_FAILURE(status = WFR_RESIZE(
-						lpName, lpName_size, lpName_size + 64, char)))
-				{
+				if (!WFR_RESIZE(status, lpName, lpName_size, lpName_size + 64, char)) {
 					donefl = true;
 				}
 				break;
@@ -125,9 +123,7 @@ WfrClearRegSubKey(
 					&donefl, NULL, NULL, &key_name, NULL, &enum_state))
 			&&  !donefl)
 			{
-				if (WFR_FAILURE(status = WFR_RESIZE(
-						itemv, itemc, itemc + 1, char *)))
-				{
+				if (!WFR_RESIZE(status, itemv, itemc, itemc + 1, char *)) {
 					WFR_FREE(key_name);
 				} else if (WFR_SUCCESS(status = WfrEscapeRegKey(
 						(char *)key_name, &key_name_escaped)))
@@ -348,8 +344,8 @@ WfrEnumerateRegValues(
 
 			case ERROR_MORE_DATA:
 				item_data_len++;
-				status = WFR_RESIZE_IF_NEQ_SIZE(
-					item_data, item_data_size,
+				(void)WFR_RESIZE_IF_NEQ_SIZE(
+					status, item_data, item_data_size,
 					item_data_len, char);
 				break;
 
@@ -439,9 +435,9 @@ WfrEscapeRegKey(
 			||  (*key == '?') || (*key == '%') || (*key < ' ')
 			||  (*key > '~') || ((*key == '.') && !dotfl))
 			{
-				if (WFR_SUCCESS(status = WFR_RESIZE(
+				if (WFR_RESIZE(status,
 						key_escaped, key_escaped_size,
-						key_escaped_size + 2, char)))
+						key_escaped_size + 2, char))
 				{
 					key_escaped[npos++] = '%';
 					key_escaped[npos++] = hex_digits[((unsigned char)*key) >> 4];

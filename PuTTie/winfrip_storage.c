@@ -314,9 +314,7 @@ WfsSetBackendFromArgV(
 		}
 
 		if (WFR_SUCCESS(status)) {
-			if (WFR_FAILURE(status = WFR_RESIZE_IF_NEQ_SIZE(
-					argv_new, argc_new_, argc_new, char *)))
-			{
+			if (!WFR_RESIZE_IF_NEQ_SIZE(status, argv_new, argc_new_, argc_new, char *)) {
 				WFR_FREE(argv_new);
 			} else if (WFR_FAILURE(status = WfsSetBackend(backend, backend_from, true))) {
 				WFR_FREE(argv_new);

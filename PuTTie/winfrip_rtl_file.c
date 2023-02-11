@@ -508,9 +508,7 @@ WfrEnumerateFilesV(
 		while (WFR_SUCCESS(status = WfrEnumerateFiles(
 				ext, &donefl, &fname, &state)) && !donefl)
 		{
-			if (WFR_FAILURE(status = WFR_RESIZE(
-					filev_new, filec_new,
-					filec_new + 1, char *))
+			if (!WFR_RESIZE(status, filev_new, filec_new, filec_new + 1, char *)
 			||  !WFR_SUCCESS_POSIX(status, (fname_new = strdup(fname))))
 			{
 				(void)WfrEnumerateFilesCancel(&state);
@@ -558,10 +556,8 @@ WfrEscapeFileName(
 				||  (*p == '<') || (*p == '>') || (*p == '?')
 				||  (*p == '|') || (*p == '/') || (*p == '\\'))
 				{
-					if (WFR_SUCCESS(status = WFR_RESIZE(
-							name_escaped, name_escaped_size,
-							name_escaped_size + (sizeof("%00") - 1),
-							char)))
+					if (WFR_RESIZE(status, name_escaped, name_escaped_size,
+							name_escaped_size + (sizeof("%00") - 1), char))
 					{
 						strncat(name_escaped, name, p - name);
 						name_escaped_len = strlen(name_escaped);
@@ -851,9 +847,7 @@ WfrUnescapeFileName(
 					seq[0] = p[1]; seq[1] = p[2]; seq[2] = '\0';
 					ch = (char)strtoul(seq, NULL, 16);
 
-					if (WFR_SUCCESS(status = WFR_RESIZE(
-							name, name_size, name_size + 1, char)))
-					{
+					if (WFR_RESIZE(status, name, name_size, name_size + 1, char)) {
 						strncat(name, fname, p - fname);
 						name_len = strlen(name);
 						WFR_SNPRINTF(
