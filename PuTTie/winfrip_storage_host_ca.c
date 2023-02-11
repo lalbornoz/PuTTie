@@ -43,7 +43,7 @@ WfsAddHostCA(
 
 	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))
 	&&  WFR_SUCCESS_POSIX(status, (public_key_new = strdup(public_key)))
-	&&  WFR_SUCCESS_POSIX(status, (hca_new = WFR_NEW(WfsHostCA)))
+	&&  WFR_NEW(status, hca_new, WfsHostCA)
 	&&  WFR_SUCCESS_POSIX(status, (name_new = strdup(name)))
 	&&  WFR_SUCCESS_POSIX(status, (validity_new = strdup(validity))))
 	{

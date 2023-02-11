@@ -34,7 +34,7 @@ WfrpEnumerateRegKey(
 	LONG		status_registry;
 
 
-	if (WFR_SUCCESS_POSIX(status, (lpName = WFR_NEWN(MAX_PATH + 1, char)))) {
+	if (WFR_NEWN(status, lpName, MAX_PATH + 1, char)) {
 		donefl = false;
 		while (!donefl) {
 			switch (status_registry = RegEnumKey(hKey, dwIndex, lpName, lpName_size)) {
@@ -233,7 +233,7 @@ WfrEnumerateRegInit(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS_POSIX(status, (((*pstate) = WFR_NEW(WfrEnumerateRegState))))) {
+	if (WFR_NEW(status, (*pstate), WfrEnumerateRegState)) {
 		WFR_ENUMERATE_REG_STATE_INIT((**pstate));
 		va_start(ap, pstate);
 		if (WFR_FAILURE(status = WfrOpenRegKeyRoV(
@@ -331,7 +331,7 @@ WfrEnumerateRegValues(
 		return WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_SUCCESS_POSIX(status, (item_data = WFR_NEWN(1, char)))) {
+	if (WFR_NEWN(status, item_data, 1, char)) {
 		item_data_size = 1;
 
 		do {
@@ -433,7 +433,7 @@ WfrEscapeRegKey(
 	key_escaped_size = key_len + 1;
 	npos = 0;
 
-	if (WFR_SUCCESS_POSIX(status, (key_escaped = WFR_NEWN(key_escaped_size, char)))) {
+	if (WFR_NEWN(status, key_escaped, key_escaped_size, char)) {
 		while (*key) {
 			if ((*key == ' ') || (*key == '\\') || (*key == '*')
 			||  (*key == '?') || (*key == '%') || (*key < ' ')
@@ -487,7 +487,7 @@ WfrLoadRegValue(
 	&&  WFR_SUCCESS(status = WfrOpenRegKeyRo(HKEY_CURRENT_USER, &hKey, key_name))
 	&&  WFR_SUCCESS_LSTATUS(status, RegGetValue(
 			hKey, NULL, subkey_escaped, RRF_RT_REG_SZ, NULL, NULL, &value_size))
-	&&  WFR_SUCCESS_POSIX(status, (value = WFR_NEWN(value_size, char)))
+	&&  WFR_NEWN(status, value, value_size, char)
 	&&  WFR_SUCCESS_LSTATUS(status, RegGetValue(
 			hKey, NULL, subkey_escaped, RRF_RT_REG_SZ, NULL, value, &value_size)))
 	{
@@ -706,7 +706,7 @@ WfrUnescapeRegKey(
 	key_escaped_len = strlen(key_escaped);
 	npos = 0;
 
-	if (WFR_SUCCESS_POSIX(status, (key = WFR_NEWN(key_escaped_len + 1, char)))) {
+	if (WFR_NEWN(status, key, key_escaped_len + 1, char)) {
 		while (*key_escaped) {
 			if ((key_escaped[0] == '%')
 			&&  (((key_escaped[1] >= '0') && (key_escaped[1] <= '9'))

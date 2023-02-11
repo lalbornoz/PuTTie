@@ -305,9 +305,7 @@ WffbpGetFnameShuffle(
 			||  (bg_fname_len == 0))
 			{
 				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-			} else if (WFR_SUCCESS_POSIX(status,
-				(bg_fname = WFR_NEWN(bg_fname_size, char))))
-			{
+			} else if (WFR_NEWN(status, bg_fname, bg_fname_size, char)) {
 				EnterCriticalSection(&WffbpDnameCriticalSection);
 				WFR_SNPRINTF(
 					bg_fname, bg_fname_size, "%*.*s\\%s",
@@ -475,7 +473,7 @@ WffbpSlideshowReconfShuffle(
 	bg_dname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
 	bg_dname = bg_dname_conf->path;
 
-	if (WFR_SUCCESS_POSIX(status, (timer_ctx_new = WFR_NEW(WffbpContext)))
+	if (WFR_NEW(status, timer_ctx_new, WffbpContext)
 	&&  WFR_SUCCESS(status = WfrPathNameToDirectory(bg_dname, &dname_new))
 	&&  WFR_SUCCESS(status = WfrEnumerateFilesV(
 			dname_new, NULL, &dname_filec_new, &dname_filev_new)))

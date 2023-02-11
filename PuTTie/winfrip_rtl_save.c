@@ -329,7 +329,7 @@ WfrSaveToRegSubKeyV(
 		(void)RegDeleteTree(hKey, subkey_escaped);
 	}
 
-	WFR_FREE_IF_NOTNULL(subkey_escaped)
+	WFR_FREE_IF_NOTNULL(subkey_escaped);
 
 	return status;
 }

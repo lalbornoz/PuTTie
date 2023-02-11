@@ -468,7 +468,7 @@ WfrEnumerateFilesInit(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS_POSIX(status, ((*pstate) = WFR_NEW(WfrEnumerateFilesState)))
+	if (WFR_NEW(status, (*pstate), WfrEnumerateFilesState)
 	&&  WFR_SUCCESS(status = WFR_ENUMERATE_FILES_STATE_INIT(**pstate))
 	&&  WFR_SUCCESS_POSIX(status, ((*pstate)->path = strdup(dname)))
 	&&  (WFR_SUCCESS_POSIX(status, (stat(dname, &statbuf) == 0))
@@ -549,7 +549,7 @@ WfrEscapeFileName(
 
 
 	name_escaped_size = strlen(name) + 1;
-	if (WFR_SUCCESS_POSIX(status, (name_escaped = WFR_NEWN(name_escaped_size, char)))) {
+	if (WFR_NEWN(status, name_escaped, name_escaped_size, char)) {
 		memset(name_escaped, 0, name_escaped_size);
 
 		do {
@@ -693,7 +693,7 @@ WfrPathNameToAbsoluteW(
 	if (WFR_IS_ABSOLUTE_PATHW(pname)) {
 		WFR_SUCCESS_POSIX(status, (*ppname_abs = wcsdup(pname)));
 	} else if (WFR_SUCCESS_WINDOWS(status, ((path_abs_size = GetFullPathNameW(pname, 0, NULL, NULL)) > 0))
-		&& WFR_SUCCESS_POSIX(status, (path_abs = WFR_NEWN(path_abs_size * sizeof(path_abs[0]), WCHAR)))
+		&& WFR_NEWN(status, path_abs, path_abs_size * sizeof(path_abs[0]), WCHAR)
 		&& WFR_SUCCESS_WINDOWS(status, (GetFullPathNameW(pname, path_abs_size, path_abs, NULL) > 0)))
 	{
 		*ppname_abs = path_abs;
@@ -731,9 +731,7 @@ WfrPathNameToDirectory(
 			dname_len = (dname_end > pname) ? (dname_end - pname) : 1;
 		}
 
-		if (WFR_SUCCESS_POSIX(status,
-			(dname = WFR_NEWN(dname_len + 1, char))))
-		{
+		if (WFR_NEWN(status, dname, dname_len + 1, char)) {
 			memcpy(dname, pname, dname_len);
 			dname[dname_len] = '\0';
 			*pdname = dname;
@@ -777,9 +775,7 @@ WfrPathNameToDirectoryW(
 		     dname_end--);
 
 		dname_len = (dname_end > pname) ? (dname_end - pname) : 1;
-		if (WFR_SUCCESS_POSIX(status,
-			(dname = WFR_NEWN((dname_len + 1) * sizeof(dname[0]), wchar_t))))
-		{
+		if (WFR_NEWN(status, dname, (dname_len + 1) * sizeof(dname[0]), wchar_t)) {
 			memcpy(dname, pname, dname_len * sizeof(dname[0]));
 			dname[dname_len] = L'\0';
 			*pdname = dname;
@@ -843,7 +839,7 @@ WfrUnescapeFileName(
 
 
 	name_size = strlen(fname) + 1;
-	if (WFR_SUCCESS_POSIX(status, (name = WFR_NEWN(name_size, char)))) {
+	if (WFR_NEWN(status, name, name_size, char)) {
 		memset(name, 0, name_size);
 
 		do {
@@ -906,7 +902,7 @@ WfrWatchDirectory(
 	InitializeCriticalSection(dname_cs);
 
 	if (WFR_SUCCESS_WINDOWS(status, (hEvent = CreateEvent(NULL, FALSE, FALSE, NULL)))
-	&&  WFR_SUCCESS_POSIX(status, (ctx = WFR_NEW(WfrWatchDirectoryContext)))
+	&&  WFR_NEW(status, ctx, WfrWatchDirectoryContext)
 	&&  WFR_SUCCESS(status = WFR_WATCH_DIRECTORY_CONTEXT_INIT1(
 		*ctx, display_errorsfl, pdname, dname_cs, hEvent, hwnd, window_msg))
 	&&  WFR_SUCCESS_WINDOWS(status,

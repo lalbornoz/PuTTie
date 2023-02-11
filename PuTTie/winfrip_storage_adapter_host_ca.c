@@ -117,7 +117,7 @@ host_ca_load(
 
 
 	if (WFR_SUCCESS(status = WfsGetHostCA(WfsGetBackend(), false, name, &hca))
-	&&  WFR_SUCCESS_POSIX(status, (hca_out = WFR_NEW(host_ca)))
+	&&  WFR_NEW(status, hca_out, host_ca)
 	&&  WFR_SUCCESS(status = WFSP_PUTTY_HOST_CA_INIT(*hca_out))
 	&&  WFR_SUCCESS_POSIX(status, (hca_out->name = strdup(hca->name)))
 	&&  WFR_SUCCESS_POSIX(status, (hca_out->ca_public_key = strbuf_dup(make_ptrlen(hca->public_key, strlen(hca->public_key)))))

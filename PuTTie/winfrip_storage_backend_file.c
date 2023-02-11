@@ -759,7 +759,7 @@ WfspFileGetEntriesJumpList(
 		pjump_list, &jump_list_size);
 	if (WFR_FAILURE(status)) {
 		if (WFR_STATUS_IS_NOT_FOUND(status)
-		&&  WFR_SUCCESS_POSIX(status, ((*pjump_list = WFR_NEWN(2, char)))))
+		&&  WFR_NEWN(status, *pjump_list, 2, char))
 		{
 			(*pjump_list)[0] = '\0';
 			(*pjump_list)[1] = '\0';
@@ -849,7 +849,7 @@ WfspFileGetEntriesPrivKeyList(
 		pprivkey_list, &privkey_list_size);
 	if (WFR_FAILURE(status)) {
 		if (WFR_STATUS_IS_NOT_FOUND(status)
-		&&  WFR_SUCCESS_POSIX(status, ((*pprivkey_list) = WFR_NEWN(2, char))))
+		&&  WFR_NEWN(status, (*pprivkey_list), 2, char))
 		{
 			(*pprivkey_list)[0] = '\0';
 			(*pprivkey_list)[1] = '\0';

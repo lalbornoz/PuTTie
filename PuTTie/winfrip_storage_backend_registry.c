@@ -88,7 +88,7 @@ WfsppRegistryGetList(
 			hKey, NULL, value_name, RRF_RT_REG_MULTI_SZ,
 			NULL, NULL, &list_size))
 	&&  WFR_SUCCESS_ERRNO1(status, ENOENT, (list_size >= 2))
-	&&  WFR_SUCCESS_POSIX(status, (list = WFR_NEWN(list_size, char)))
+	&&  WFR_NEWN(status, list, list_size, char)
 	&&  WFR_SUCCESS_LSTATUS(status, RegGetValue(
 			hKey, NULL, value_name, RRF_RT_REG_MULTI_SZ,
 			NULL, list, &list_size)))
@@ -671,7 +671,7 @@ WfspRegistryGetEntriesJumpList(
 		NULL, pjump_list, &jump_list_size_);
 	if (WFR_FAILURE(status)) {
 		if (WFR_STATUS_IS_NOT_FOUND(status)
-		&&  WFR_SUCCESS_POSIX(status, ((*pjump_list) = WFR_NEWN(2, char))))
+		&&  WFR_NEWN(status, (*pjump_list), 2, char))
 		{
 			(*pjump_list)[0] = '\0';
 			(*pjump_list)[1] = '\0';
@@ -789,7 +789,7 @@ WfspRegistryGetEntriesPrivKeyList(
 		NULL, pprivkey_list, &privkey_list_size_);
 	if (WFR_FAILURE(status)) {
 		if (WFR_STATUS_IS_NOT_FOUND(status)
-		&&  WFR_SUCCESS_POSIX(status, ((*pprivkey_list) = WFR_NEWN(2, char))))
+		&&  WFR_NEWN(status, (*pprivkey_list), 2, char))
 		{
 			(*pprivkey_list)[0] = '\0';
 			(*pprivkey_list)[1] = '\0';
