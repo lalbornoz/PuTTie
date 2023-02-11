@@ -34,7 +34,7 @@ WfsAddSession(
 
 
 	if (WFR_SUCCESS(status = WfsGetBackendImpl(backend, &backend_impl))
-	&&  WFR_SUCCESS_POSIX(status, (session_new = WFR_NEW(WfsSession)))
+	&&  WFR_NEW(status, session_new, WfsSession)
 	&&  WFR_SUCCESS_POSIX(status, (sessionname_new = strdup(sessionname))))
 	{
 		WFS_SESSION_INIT(*session_new);

@@ -61,7 +61,7 @@ Wfp2GetMatch(
 					break;
 
 				case WFP2_RTYPE_BOOL:
-					if (alloc_value && WFR_SUCCESS_POSIX(status, (value_new = WFR_NEW(bool)))) {
+					if (alloc_value && WFR_NEW(status, value_new, bool)) {
 						*(bool *)value_new = wcstol(int_string_buf, NULL, 10);
 						*(bool **)pvalue = value_new;
 					} else if (!alloc_value) {
@@ -75,7 +75,7 @@ Wfp2GetMatch(
 					break;
 
 				case WFP2_RTYPE_SINT:
-					if (alloc_value && WFR_SUCCESS_POSIX(status, (value_new = WFR_NEW(signed int)))) {
+					if (alloc_value && WFR_NEW(status, value_new, signed int)) {
 						*(signed int *)value_new = wcstol(int_string_buf, NULL, 10);
 						*(signed int **)pvalue = value_new;
 					} else if (!alloc_value) {
@@ -89,7 +89,7 @@ Wfp2GetMatch(
 					break;
 
 				case WFP2_RTYPE_UINT:
-					if (alloc_value && WFR_SUCCESS_POSIX(status, (value_new = WFR_NEW(unsigned int)))) {
+					if (alloc_value && WFR_NEW(status, value_new, unsigned int)) {
 						*(unsigned int *)value_new = wcstoul(int_string_buf, NULL, 10);
 						*(unsigned int **)pvalue = value_new;
 					} else if (!alloc_value) {
@@ -110,7 +110,7 @@ Wfp2GetMatch(
 		case WFP2_RTYPE_STRING:
 			value_new_size = match_size + 1;
 			if (WFR_SUCCESS_ERRNO1(status, EINVAL, (alloc_value))
-			&&  WFR_SUCCESS_POSIX(status, (value_new = WFR_NEWN(value_new_size + 1, char))))
+			&&  WFR_NEWN(status, value_new, value_new_size + 1, char))
 			{
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="

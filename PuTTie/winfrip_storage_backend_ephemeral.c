@@ -384,7 +384,7 @@ WfspEphemeralGetEntriesJumpList(
 
 
 	if (WfspEphemeralJumpListSize > 0) {
-		if (WFR_SUCCESS_POSIX(status, (jump_list_copy = WFR_NEWN(WfspEphemeralJumpListSize, char)))) {
+		if (WFR_NEWN(status, jump_list_copy, WfspEphemeralJumpListSize, char)) {
 			memcpy(jump_list_copy, WfspEphemeralJumpList, WfspEphemeralJumpListSize);
 			*pjump_list = jump_list_copy;
 			if (pjump_list_size) {
@@ -392,7 +392,7 @@ WfspEphemeralGetEntriesJumpList(
 			}
 		}
 	} else {
-		if (WFR_SUCCESS_POSIX(status, (jump_list_copy = WFR_NEWN(2, char)))) {
+		if (WFR_NEWN(status, jump_list_copy, 2, char)) {
 			*pjump_list = jump_list_copy;
 			(*pjump_list)[0] = '\0';
 			(*pjump_list)[1] = '\0';
@@ -425,7 +425,7 @@ WfspEphemeralSetEntriesJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS_POSIX(status, (jump_list_new = WFR_NEWN(jump_list_size, char)))) {
+	if (WFR_NEWN(status, jump_list_new, jump_list_size, char)) {
 		memcpy(jump_list_new, jump_list, jump_list_size);
 		WFR_FREE_IF_NOTNULL(WfspEphemeralJumpList);
 		WfspEphemeralJumpList = jump_list_new;
@@ -476,7 +476,7 @@ WfspEphemeralGetEntriesPrivKeyList(
 
 
 	if (WfspEphemeralPrivKeyListSize > 0) {
-		if (WFR_SUCCESS_POSIX(status, (privkey_list_copy = WFR_NEWN(WfspEphemeralPrivKeyListSize, char)))) {
+		if (WFR_NEWN(status, privkey_list_copy, WfspEphemeralPrivKeyListSize, char)) {
 			memcpy(privkey_list_copy, WfspEphemeralPrivKeyList, WfspEphemeralPrivKeyListSize);
 			*pprivkey_list = privkey_list_copy;
 			if (pprivkey_list_size) {
@@ -484,7 +484,7 @@ WfspEphemeralGetEntriesPrivKeyList(
 			}
 		}
 	} else {
-		if (WFR_SUCCESS_POSIX(status, (privkey_list_copy = WFR_NEWN(2, char)))) {
+		if (WFR_NEWN(status, privkey_list_copy, 2, char)) {
 			*pprivkey_list = privkey_list_copy;
 			(*pprivkey_list)[0] = '\0';
 			(*pprivkey_list)[1] = '\0';
@@ -517,7 +517,7 @@ WfspEphemeralSetEntriesPrivKeyList(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS_POSIX(status, (privkey_list_new = WFR_NEWN(privkey_list_size, char)))) {
+	if (WFR_NEWN(status, privkey_list_new, privkey_list_size, char)) {
 		memcpy(privkey_list_new, privkey_list, privkey_list_size);
 		WFR_FREE_IF_NOTNULL(WfspEphemeralPrivKeyList);
 		WfspEphemeralPrivKeyList = privkey_list_new;

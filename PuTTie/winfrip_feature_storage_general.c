@@ -484,7 +484,7 @@ WffsGeneralConfigPanel(
 	ctrl_settitle(b, "Frippery/Storage", "Configure pointless frippery: storage");
 
 
-	ctx = WFR_NEW(WffspConfigContext);
+	(void)WFR_NEW1(ctx, WffspConfigContext);
 	WFFSP_CONFIG_CONTEXT_INIT(*ctx);
 
 

@@ -142,7 +142,7 @@ WfrLoadListFromFile(
 	if (WFR_SUCCESS_POSIX(status, (stat(fname, &statbuf) == 0))
 	&&  WFR_SUCCESS_ERRNO1(status, ENOENT, ((list_size = statbuf.st_size) >= 2))
 	&&  WFR_SUCCESS_POSIX(status, (file = fopen(fname, "rb")))
-	&&  WFR_SUCCESS_POSIX(status, (list = WFR_NEWN(list_size = statbuf.st_size, char)))
+	&&  WFR_NEWN(status, list, list_size = statbuf.st_size, char)
 	&&  WFR_SUCCESS_POSIX(status, (fread(list, statbuf.st_size, 1, file) == 1)))
 	{
 		list[list_size - 2] = '\0';
@@ -315,7 +315,7 @@ WfrLoadRawFile(
 	if (WFR_SUCCESS(status)) {
 		if (WFR_SUCCESS_POSIX(status, (stat(pname, &statbuf) == 0))
 		&&  WFR_SUCCESS_POSIX(status, (file = fopen(pname, "rb")))
-		&&  WFR_SUCCESS_POSIX(status, (data = WFR_NEWN(data_size = (statbuf.st_size + 1), char)))
+		&&  WFR_NEWN(status, data, data_size = (statbuf.st_size + 1), char)
 		&&  WFR_SUCCESS_POSIX(status, (fread(data, statbuf.st_size, 1, file) == 1)))
 		{
 			data[statbuf.st_size] = '\0';

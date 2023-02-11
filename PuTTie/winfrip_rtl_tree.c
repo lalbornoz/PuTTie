@@ -136,7 +136,7 @@ WfrTreeEnumerate(
 
 
 	if (initfl) {
-		if (WFR_SUCCESS_POSIX(status, ((*(int **)pstate) = WFR_NEW(int)))) {
+		if (WFR_NEW(status, (*(int **)pstate), int)) {
 			**(int **)pstate = 0;
 		}
 
@@ -232,7 +232,7 @@ WfrTreeRename(
 
 	if (WFR_SUCCESS(status)) {
 		key_new__size = strlen(key_new) + 1;
-		if (WFR_SUCCESS_POSIX(status, (key_new_ = WFR_NEWN(key_new__size, char)))) {
+		if (WFR_NEWN(status, key_new_, key_new__size, char)) {
 			status = WfrTreeGet(tree, key_new, -1, &item_old);
 			if (WFR_SUCCESS(status)) {
 				status = WfrTreeDelete(tree, item_old, NULL, item_old->type, free_item_fn);
@@ -289,8 +289,8 @@ WfrTreeSet(
 		item->type = type;
 		item->value_size = value_size;
 	} else if (WFR_STATUS_IS_NOT_FOUND(status)) {
-		if (WFR_SUCCESS_POSIX(status, (item = WFR_NEW(WfrTreeItem)))
-		&&  WFR_SUCCESS_POSIX(status, (key_new = WFR_NEWN(strlen(key) + 1, char))))
+		if (WFR_NEW(status, item, WfrTreeItem)
+		&&  WFR_NEWN(status, key_new, strlen(key) + 1, char))
 		{
 			WFR_TREE_ITEM_INIT(*item);
 			strcpy(key_new, key);

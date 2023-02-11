@@ -188,7 +188,7 @@ WfrSnDuprintf(
 	size_t		s_size;
 
 
-	if (WFR_SUCCESS_POSIX(status, (s = WFR_NEWN(1, char)))) {
+	if (WFR_NEWN(status, s, 1, char)) {
 		s_size = 1;
 		va_start(ap, format);
 		s_len = vsnprintf(s, s_size, format, ap);
@@ -380,18 +380,19 @@ WfrToWcsDup(
 
 
 	out_w_len = MultiByteToWideChar(CP_ACP, 0, in, in_size, NULL, 0);
-	if (out_w_len > 0) {
-		out_w_size = out_w_len * sizeof(*out_w);
-		out_w = WFR_NEWN(out_w_size, wchar_t);
+	out_w_size = out_w_len * sizeof(*out_w);
+
+	if (WFR_SUCCESS_WINDOWS(status, (out_w_len > 0))
+	&&  WFR_NEWN(status, out_w, out_w_size, wchar_t))
+	{
 		ZeroMemory(out_w, out_w_size);
-		if (MultiByteToWideChar(CP_ACP, 0, in, in_size, out_w, out_w_size) == out_w_len) {
+		if (WFR_SUCCESS_WINDOWS(status, (MultiByteToWideChar(
+				CP_ACP, 0, in, in_size, out_w, out_w_size) == out_w_len)))
+		{
 			*pout_w = out_w;
-			status = WFR_STATUS_CONDITION_SUCCESS;
 		} else {
-			status = WFR_STATUS_FROM_WINDOWS();
+			WFR_FREE(out_w);
 		}
-	} else {
-		status = WFR_STATUS_FROM_WINDOWS();
 	}
 
 	return status;
@@ -403,12 +404,12 @@ WfrWcsNDup(
 	size_t			in_w_len
 	)
 {
-	wchar_t *	out_w;
+	wchar_t *	out_w = NULL;
 	size_t		out_w_size;
 
 
 	out_w_size = in_w_len + 1;
-	if ((out_w = WFR_NEWN(out_w_size, wchar_t))) {
+	if (WFR_NEWN1(out_w, out_w_size, wchar_t)) {
 		memset(out_w, 0, out_w_size * sizeof(wchar_t));
 		wcsncpy(out_w, in_w, in_w_len);
 		out_w[in_w_len] = L'\0';

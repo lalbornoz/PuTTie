@@ -215,10 +215,11 @@ WffsInitPanel(
 {
 	WffsContext *		ctx;
 	struct controlset *	s;
+	WfrStatus		status;
 
 
-	if (!(ctx = WFR_NEW(WffsContext))) {
-		return WFR_STATUS_FROM_ERRNO();
+	if (!WFR_NEW(status, ctx, WffsContext)) {
+		return status;
 	} else {
 		WFFS_CONTEXT_INIT(*ctx);
 		ctrl_settitle(b, path, title);

@@ -80,14 +80,14 @@ WfsTransformList(
 		trans_item_len = strlen(trans_item);
 
 		if ((*plist == NULL)
-		&&  WFR_SUCCESS_POSIX(status, (*plist = WFR_NEWN(2, char))))
+		&&  WFR_NEWN(status, *plist, 2, char))
 		{
 			(*plist)[0] = '\0'; (*plist)[1] = '\0';
 			*plist_size = 1;
 		}
 
 		list_new_size = trans_item_len + 1 + *plist_size;
-		if (WFR_SUCCESS_POSIX(status, (list_new = WFR_NEWN(list_new_size, char)))) {
+		if (WFR_NEWN(status, list_new, list_new_size, char)) {
 			memset(list_new, '\0', list_new_size);
 			list_new_last = list_new;
 
@@ -160,7 +160,7 @@ WfsTreeCloneValue(
 		break;
 
 	case WFR_TREE_ITYPE_INT:
-		if (WFR_SUCCESS_POSIX(status, (value_new = WFR_NEWN(item->value_size, uint8_t)))) {
+		if (WFR_NEWN(status, value_new, item->value_size, uint8_t)) {
 			*(int *)value_new = *(int *)item->value;
 			*pvalue_new = value_new;
 		}
@@ -168,7 +168,7 @@ WfsTreeCloneValue(
 
 	case WFR_TREE_ITYPE_HOST_KEY:
 	case WFR_TREE_ITYPE_STRING:
-		if (WFR_SUCCESS_POSIX(status, (value_new = WFR_NEWN(item->value_size, char)))) {
+		if (WFR_NEWN(status, value_new, item->value_size, char)) {
 			memcpy(value_new, item->value, item->value_size);
 			*(char **)pvalue_new = (char *)value_new;
 		}

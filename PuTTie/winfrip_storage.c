@@ -296,7 +296,7 @@ WfsSetBackendFromArgV(
 
 
 	argc_new_ = *pargc;
-	if (WFR_SUCCESS_POSIX(status, (argv_new = WFR_NEWN(argc_new_, char *)))) {
+	if (WFR_NEWN(status, argv_new, argc_new_, char *)) {
 		memset(argv_new, 0, argc_new_ * sizeof(*argv_new));
 		for (narg = 0, narg_new = 0, setfl = false;
 			 (narg < (*pargc)) && WFR_SUCCESS(status);
@@ -354,7 +354,7 @@ WfsSetBackendFromCmdLine(
 		arg_next = strchr(arg, ' ');
 		arg_len = (arg_next ? (size_t)(arg_next - arg) : strlen(arg));
 
-		if (WFR_SUCCESS_POSIX(status, (arg_ = WFR_NEWN(arg_len + 1, char)))) {
+		if (WFR_NEWN(status, arg_, arg_len + 1, char)) {
 			memcpy(arg_, arg, arg_len); arg_[arg_len] = '\0';
 			status = WfspSetBackendFromArg(arg_, &setfl, &backend, &backend_from);
 			WFR_FREE(arg_);
