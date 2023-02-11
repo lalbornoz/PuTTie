@@ -56,9 +56,7 @@ WfrGetTermLine(
 		return WFR_STATUS_FROM_ERRNO1(EINVAL);
 	} else {
 		line_w_len = term->cols;
-		if (WFR_FAILURE(status = WFR_RESIZE(
-				line_w, line_w_len, line_w_len + 1, wchar_t)))
-		{
+		if (!WFR_RESIZE(status, line_w, line_w_len, line_w_len + 1, wchar_t)) {
 			return status;
 		} else {
 			line = term->disptext[y];
@@ -181,10 +179,9 @@ WfrGetTermLines(
 					term, y, &line_new_w, &line_new_w_len)))
 			{
 				break;
-			} else if (WFR_FAILURE(status = WFR_RESIZE(
-					line_w, line_w_size,
+			} else if (!WFR_RESIZE(status, line_w, line_w_size,
 					line_w_size ? (line_w_size + line_new_w_len) : (line_new_w_len + 1),
-					wchar_t)))
+					wchar_t))
 			{
 				WFR_FREE(line_new_w);
 				break;

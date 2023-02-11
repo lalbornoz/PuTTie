@@ -78,38 +78,40 @@
 		(void)(p)->lpVtbl->Release((p)); (p) = NULL;				\
 	}
 
-#define WFR_RESIZE(p, size, size_new, type) ({						\
+#define WFR_RESIZE(status, p, size, size_new, type) ({					\
 	typeof (p)	_p;								\
-	WfrStatus	status;								\
+	WfrStatus	_status;							\
 											\
 	if (!(_p = (type *)realloc((p), (size_new) * sizeof(type)))) {			\
-		status = WFR_STATUS_FROM_ERRNO();					\
+		_status = WFR_STATUS_FROM_ERRNO();					\
 	} else {									\
 		(p) = _p;								\
 		(size) = (size_new);							\
-		status = WFR_STATUS_CONDITION_SUCCESS;					\
+		_status = WFR_STATUS_CONDITION_SUCCESS;					\
 	}										\
 											\
-	status;										\
+	(status) = _status;								\
+	WFR_STATUS_SUCCESS((status));							\
 })
 
-#define WFR_RESIZE_IF_NEQ_SIZE(p, size, size_new, type) ({				\
+#define WFR_RESIZE_IF_NEQ_SIZE(status, p, size, size_new, type) ({			\
 	typeof (p)	_p;								\
-	WfrStatus	status;								\
+	WfrStatus	_status;							\
 											\
 	if ((size) != (size_new)) {							\
 		if (!(_p = realloc((p), (size_new) * sizeof(type)))) {			\
-			status = WFR_STATUS_FROM_ERRNO();				\
+			_status = WFR_STATUS_FROM_ERRNO();				\
 		} else {								\
 			(p) = _p;							\
 			(size) = (size_new);						\
-			status = WFR_STATUS_CONDITION_SUCCESS;				\
+			_status = WFR_STATUS_CONDITION_SUCCESS;				\
 		}									\
 	} else {									\
-			status = WFR_STATUS_CONDITION_SUCCESS;				\
+			_status = WFR_STATUS_CONDITION_SUCCESS;				\
 	}										\
 											\
-	status;										\
+	(status) = _status;								\
+	WFR_STATUS_SUCCESS((status));							\
 })
 
 #define WFR_SIZEOF_WSTRING(wstring)							\

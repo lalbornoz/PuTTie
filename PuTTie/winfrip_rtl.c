@@ -198,9 +198,7 @@ WfrSnDuprintf(
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (s_len == 0) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
-		} else if (WFR_SUCCESS(status = WFR_RESIZE(
-				s, s_size, (size_t)s_len + 1, char)))
-		{
+		} else if (WFR_RESIZE(status, s, s_size, (size_t)s_len + 1, char)) {
 			va_start(ap, format);
 			s_len = vsnprintf(s, s_size, format, ap);
 			va_end(ap);
