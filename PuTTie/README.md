@@ -109,6 +109,10 @@ tool is provided for this purpose. Follow the following steps in order to create
 
 3. The shortcut created in 2. may now be pinned to the Start menu via the context menu.
 
+## Thanks to
+
+Thanks to <a href="https://github.com/gtwy">James Watt</a> for helping fixing lots of bugs!
+
 ## Built with & tested on
 
 1. MinGW w/ GCC v11.3.0 & cmake v3.23.2 on Cygwin v3.4.2-1 & Windows 8.1 x64, resp.
