@@ -27,7 +27,7 @@ build_clang_compile_cmds() {
 
 	for _pname in $(					\
 		cd "${0%/*}/.." && find .			\
-			-not -path "./PuTTie/pcre2@master/\*"	\
+			-not -path "./PuTTie/pcre2/\*"		\
 			-not -path "./PuTTie/PuTTie-\*-\*/\*"	\
 			-not -path "\*/CMake\*/\*"		\
 			-iname \*.c);
@@ -71,14 +71,14 @@ build_clean() {
 
 	if [ "${_cflag:-0}" -eq 1 ]; then
 		rm -fr	\
-			CMakeCache.txt				\
-			CMakeFiles/				\
-			windows/CMakeCache.txt			\
-			windows/CMakeFiles/			\
-			PuTTie/pcre2@master/CMakeCache.txt	\
-			PuTTie/pcre2@master/CMakeFiles/		\
-			PuTTie/pcre2@master/libpcre2-16.a	\
-			PuTTie/pcre2@master/libpcre2-16d.a	\
+			CMakeCache.txt			\
+			CMakeFiles/			\
+			windows/CMakeCache.txt		\
+			windows/CMakeFiles/		\
+			PuTTie/pcre2/CMakeCache.txt	\
+			PuTTie/pcre2/CMakeFiles/	\
+			PuTTie/pcre2/libpcre2-16.a	\
+			PuTTie/pcre2/libpcre2-16d.a	\
 			;
 		if [ "${_iflag:-0}" -eq 1 ]\
 		&& [ -e "PuTTie/${_install_dname}" ]; then
@@ -95,15 +95,17 @@ build_configure() {
 	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
 		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
 		_tflag="${9}"							\
-		_git_branch="" _git_commit="" _version_ssh="" _version_text="";
+		_git_branch="" _git_commit="" _git_pcre2_commit="pcre2-10.42"	\
+		_version_ssh="" _version_text="";
 
 	_git_branch="$(git branch --show-current)" || exit 2;
 	_git_commit="$(git rev-parse --short HEAD)" || exit 2;
 	_version_text="PuTTie ${_build_type} build (Git commit ${_git_commit} on branch ${_git_branch})";
 
-	if ! [ -e PuTTie/pcre2@master/CMakeCache.txt ]\
-	|| ! [ -e PuTTie/pcre2@master/CMakeFiles/ ]; then
-		cd PuTTie/pcre2@master;
+	if ! [ -e PuTTie/pcre2/CMakeCache.txt ]\
+	|| ! [ -e PuTTie/pcre2/CMakeFiles/ ]; then
+		cd PuTTie/pcre2;
+		git checkout "${_git_pcre2_commit}" || exit 2;
 		"${CMAKE}" . \
 			-DCMAKE_BUILD_TYPE="${_build_type}"				\
 			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -g3 -O0"				\
@@ -153,7 +155,7 @@ build_make() {
 		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
 		_tflag="${9}";
 
-	cd PuTTie/pcre2@master;
+	cd PuTTie/pcre2;
 	"${CMAKE}" --build . --parallel "${_jflag:-1}";
 	if [ "x${_build_type}" = "xDebug" ]; then
 		ln -fs "libpcre2-16d.a" "libpcre2-16.a";
