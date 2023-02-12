@@ -195,7 +195,7 @@ be_list(plink Plink SSH SERIAL OTHERBACKENDS)
 target_link_libraries(plink
   eventloop noterminal console sshclient otherbackends settings network crypto
   utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   ${platform_libraries})
 installed_program(plink)
 
@@ -233,7 +233,7 @@ endif()
 be_list(pscp PSCP SSH)
 target_link_libraries(pscp
   sftpclient eventloop console sshclient settings network crypto utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   ${platform_libraries})
 installed_program(pscp)
 
@@ -271,7 +271,7 @@ endif()
 be_list(psftp PSFTP SSH)
 target_link_libraries(psftp
   sftpclient eventloop console sshclient settings network crypto utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   ${platform_libraries})
 installed_program(psftp)
 
