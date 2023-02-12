@@ -170,7 +170,7 @@ endif()
 add_dependencies(pageant generated_licence_h)
 target_link_libraries(pageant
   guimisc eventloop agent network crypto utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   # {{{ winfrip
   shlwapi.lib
   # winfrip }}}
@@ -244,7 +244,7 @@ add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
   guiterminal guimisc eventloop sshclient otherbackends settings network crypto
   utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   gdiplus.lib msimg32.lib
   bcrypt.lib
   ${platform_libraries})
@@ -314,7 +314,7 @@ be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel
   guiterminal guimisc eventloop otherbackends settings network utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   gdiplus.lib msimg32.lib
   bcrypt.lib
   ${platform_libraries})
@@ -342,7 +342,7 @@ add_executable(puttygen
 add_dependencies(puttygen generated_licence_h)
 target_link_libraries(puttygen
   keygen guimisc crypto utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2@master/libpcre2-16.a
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   ${platform_libraries})
 if (MINGW)
   target_link_options(puttygen PRIVATE
