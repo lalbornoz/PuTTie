@@ -176,11 +176,12 @@ build_install() {
 			mkdir -p "PuTTie/${_install_dname}";
 		fi;
 		IFS="
-";		for _fname in $(find .				\
-				-maxdepth 1			\
-				-mindepth 1			\
-				-name \*.exe			\
-				\( -not -name test\* \)		\
+";		for _fname in $(find .					\
+				-maxdepth 1				\
+				-mindepth 1				\
+				-iname \*.exe				\
+				\( -not -iname \*test\* \)		\
+				\( -not -iname bidi_gettype.exe \)	\
 				-type f);
 		do
 			_fname="${_fname#./}";
