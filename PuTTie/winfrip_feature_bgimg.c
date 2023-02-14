@@ -20,6 +20,7 @@
 #include "PuTTie/winfrip_rtl_file.h"
 #include "PuTTie/winfrip_rtl_gdi.h"
 #include "PuTTie/winfrip_rtl_random.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 
 /*
  * Private type definitions
@@ -288,7 +289,7 @@ WffbpGetFnameShuffle(
 	if (!reshuffle && WffbpFname) {
 		bg_fname = WffbpFname;
 		bg_fname_len = strlen(bg_fname);
-		status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
+		status = WfrConvertUtf8ToUtf16String(bg_fname, bg_fname_len, pbg_fname_w);
 	} else if ((WffbpDnameFileC > 0) && (WffbpDnameFileV != NULL)) {
 		if (WFR_SUCCESS(status = WfrGenRandom(
 			(PUCHAR)&bg_fname_idx, sizeof(bg_fname_idx))))
@@ -314,7 +315,7 @@ WffbpGetFnameShuffle(
 				LeaveCriticalSection(&WffbpDnameCriticalSection);
 
 				bg_fname_len = strlen(bg_fname);
-				status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
+				status = WfrConvertUtf8ToUtf16String(bg_fname, bg_fname_len, pbg_fname_w);
 				if (WFR_FAILURE(status)) {
 					WFR_FREE(bg_fname);
 				} else {
@@ -352,7 +353,7 @@ WffbpGetFnameSingle(
 
 	if (WFR_SUCCESS(status)) {
 		bg_fname_len = strlen(bg_fname);
-		status = WfrToWcsDup(bg_fname, bg_fname_len + 1, pbg_fname_w);
+		status = WfrConvertUtf8ToUtf16String(bg_fname, bg_fname_len, pbg_fname_w);
 	}
 
 	return status;
@@ -429,7 +430,7 @@ WffbpSet(
 	}
 
 	if (!shutupfl) {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "setting background image");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "setting background image");
 	}
 
 	return status;
@@ -523,7 +524,7 @@ WffbpSlideshowReconfShuffle(
 		WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "configuring background image");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "configuring background image");
 
 	return status;
 }
@@ -535,8 +536,9 @@ WffbpSlideshowReconfSingle(
 	)
 {
 	char *		bg_fname;
+	wchar_t *	bg_fnameW = NULL;
 	Filename *	bg_fname_conf;
-	struct stat	statbuf;
+	struct _stat64	statbuf;
 	WfrStatus	status;
 
 
@@ -545,7 +547,8 @@ WffbpSlideshowReconfSingle(
 	bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
 	bg_fname = bg_fname_conf->path;
 
-	if (WFR_SUCCESS_POSIX(status, (stat(bg_fname, &statbuf) == 0))
+	if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(bg_fname, strlen(bg_fname), &bg_fnameW))
+	&&  WFR_SUCCESS_POSIX(status, (_wstat64(bg_fnameW, &statbuf) == 0))
 	&&  WFR_SUCCESS_ERRNO1(status, EINVAL, !(statbuf.st_mode & S_IFDIR)))
 	{
 		EnterCriticalSection(&WffbpDnameCriticalSection);
@@ -563,7 +566,9 @@ WffbpSlideshowReconfSingle(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "configuring background image");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "configuring background image");
+
+	WFR_FREE_IF_NOTNULL(bg_fnameW);
 
 	return status;
 }
@@ -666,7 +671,8 @@ WffbpOpInit(
 			&WffbpDnameWatchThread)))
 	{
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(
-			status, "creating background image directory change notification thread");
+			status, NULL,
+			"creating background image directory change notification thread");
 		exit(1);
 	} else {
 		(void)WffbpSlideshowReconf(conf, hwnd);
@@ -742,8 +748,8 @@ WffBgImgConfigPanel(
 	s_bgimg_settings = ctrl_getset(b, "Frippery/Background", "frip_bgimg_settings", "Background image settings");
 	c = ctrl_filesel(
 		s_bgimg_settings, "Image file/directory:", 'i',
-		 WFF_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
-		 WFP_HELP_CTX, conf_filesel_handler, I(CONF_frip_bgimg_filename));
+		WFF_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
+		WFP_HELP_CTX, conf_filesel_handler, I(CONF_frip_bgimg_filename));
 	c->fileselect.just_button = false;
 	ctrl_text(
 		s_bgimg_settings,

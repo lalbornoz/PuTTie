@@ -10,11 +10,13 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <wchar.h>
 
 #include <windows.h>
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_file.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 
 /*
  * Private types
@@ -62,6 +64,7 @@ WfrpWatchDirectoryThreadProc(
 	LPVOID	lpParameter
 	)
 {
+	wchar_t *			dnameW;
 	HANDLE				dwChangeHandle = NULL;
 	HANDLE				dwHandles[2];
 	HANDLE				hDummyEvent;
@@ -74,7 +77,7 @@ WfrpWatchDirectoryThreadProc(
 	if (!(hDummyEvent = CreateEvent(NULL, FALSE, FALSE, NULL))) {
 		status = WFR_STATUS_FROM_WINDOWS();
 		if (ctx->display_errorsfl) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "creating event");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "creating event");
 		}
 		return FALSE;
 	} else {
@@ -104,15 +107,23 @@ WfrpWatchDirectoryThreadProc(
 			}
 
 			if (*(ctx->pdname)) {
-				dwChangeHandle = FindFirstChangeNotification(
-					*(ctx->pdname), FALSE, FILE_NOTIFY_CHANGE_FILE_NAME);
+				if (WFR_FAILURE(status = WfrConvertUtf8ToUtf16String(
+						*(ctx->pdname), strlen(*(ctx->pdname)), &dnameW)))
+				{
+					LeaveCriticalSection(ctx->dname_cs);
+					break;
+				}
+
+				dwChangeHandle = FindFirstChangeNotificationW(
+					dnameW, FALSE, FILE_NOTIFY_CHANGE_FILE_NAME);
+				WFR_FREE(dnameW);
 				if ((dwChangeHandle == INVALID_HANDLE_VALUE)
 				||  (dwChangeHandle == NULL))
 				{
 					if (ctx->display_errorsfl) {
 						status = WFR_STATUS_FROM_WINDOWS();
-						WFR_IF_STATUS_FAILURE_MESSAGEBOX(
-							status, "finding first change notification for %s", *(ctx->pdname));
+						WFR_IF_STATUS_FAILURE_MESSAGEBOX(status,
+							NULL, "finding first change notification for %s", *(ctx->pdname));
 					}
 					status = WFR_STATUS_CONDITION_SUCCESS;
 				} else {
@@ -127,10 +138,11 @@ WfrpWatchDirectoryThreadProc(
 		case WAIT_OBJECT_0 + 1:
 			if (dwHandles[1] != hDummyEvent) {
 				EnterCriticalSection(ctx->dname_cs);
+
 				if (FindNextChangeNotification(dwChangeHandle) == FALSE) {
 					if (ctx->display_errorsfl) {
 						status = WFR_STATUS_FROM_WINDOWS();
-						WFR_IF_STATUS_FAILURE_MESSAGEBOX(status,
+						WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL,
 							"finding next change notification", *(ctx->pdname));
 						status = WFR_STATUS_CONDITION_SUCCESS;
 					}
@@ -162,14 +174,21 @@ WfrDeleteDirectory(
 	bool		recursefl
 	)
 {
-	struct dirent *		dire;
-	DIR *			dirp = NULL;
-	char			path_cwd[PATH_MAX + 1];
-	struct stat		statbuf;
+	struct _wdirent *	dire;
+	_WDIR *			dirp = NULL;
+	char *			dname;
+	char *			path_;
+	wchar_t			path_cwdW[PATH_MAX + 1];
+	wchar_t *		pathW = NULL;
+	struct _stat64		statbuf;
 	WfrStatus		status;
 
 
-	if (!WFR_SUCCESS_POSIX(status, (rmdir(path) == 0))
+	if (WFR_FAILURE(status = WfrConvertUtf8ToUtf16String(path, strlen(path), &pathW))) {
+		return status;
+	}
+
+	if (!WFR_SUCCESS_POSIX(status, (_wrmdir(pathW) == 0))
 	&&  WFR_STATUS_IS_NOT_FOUND(status))
 	{
 		if (noentfl) {
@@ -180,33 +199,37 @@ WfrDeleteDirectory(
 		||   (WFR_STATUS_CONDITION(status) == ENOTEMPTY))
 		&&   recursefl))
 	{
-		if (WFR_SUCCESS_POSIX(status, (dirp = opendir(path)))
-		&&  WFR_SUCCESS_POSIX(status, (getcwd(path_cwd, sizeof(path_cwd))))
-		&&  WFR_SUCCESS_POSIX(status, (chdir(path) == 0)))
+		if (WFR_SUCCESS_POSIX(status, (dirp = _wopendir(pathW)))
+		&&  WFR_SUCCESS_POSIX(status, (_wgetcwd(path_cwdW, WFR_SIZEOF_WSTRING(path_cwdW))))
+		&&  WFR_SUCCESS_POSIX(status, (_wchdir(pathW) == 0)))
 		{
 			errno = 0;
-			while (WFR_SUCCESS(status) && (dire = readdir(dirp))) {
-				if ((dire->d_name[0] == '.')
-				&&  (dire->d_name[1] == '\0'))
+			while (WFR_SUCCESS(status) && (dire = _wreaddir(dirp))) {
+				if ((dire->d_name[0] == L'.')
+				&&  (dire->d_name[1] == L'\0'))
 				{
 					goto next;
-				} else if ((dire->d_name[0] == '.')
-					&& (dire->d_name[1] == '.')
-					&& (dire->d_name[2] == '\0'))
+				} else if ((dire->d_name[0] == L'.')
+					&& (dire->d_name[1] == L'.')
+					&& (dire->d_name[2] == L'\0'))
 				{
 					goto next;
 				} else if (!WFR_SUCCESS_POSIX(status,
-					(stat(dire->d_name, &statbuf) == 0)))
+					(_wstat64(dire->d_name, &statbuf) == 0)))
 				{
 					if (continue_on_errorfl) {
 						status = WFR_STATUS_CONDITION_SUCCESS;
 					}
 				} else if (statbuf.st_mode & S_IFDIR) {
-					status = WfrDeleteDirectory(
-						dire->d_name, continue_on_errorfl,
-						noentfl, recursefl);
+					if (WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(
+							dire->d_name, wcslen(dire->d_name), &dname)))
+					{
+						status = WfrDeleteDirectory(
+							dname, continue_on_errorfl, noentfl, recursefl);
+						WFR_FREE(dname);
+					}
 				} else if (!WFR_SUCCESS_POSIX(status,
-					(unlink(dire->d_name) == 0)))
+					(_wunlink(dire->d_name) == 0)))
 				{
 					if (continue_on_errorfl) {
 						status = WFR_STATUS_CONDITION_SUCCESS;
@@ -222,11 +245,17 @@ WfrDeleteDirectory(
 			}
 		}
 
-		(void)closedir(dirp);
-		WFR_SUCCESS_POSIX(status, (chdir(path_cwd) == 0));
-		status = WfrDeleteDirectory(
-			path, continue_on_errorfl,
-			noentfl, false);
+		(void)_wclosedir(dirp);
+		WFR_SUCCESS_POSIX(status, (_wchdir(path_cwdW) == 0));
+
+		if (WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(
+				pathW, wcslen(pathW), &path_)))
+		{
+			status = WfrDeleteDirectory(
+				path_, continue_on_errorfl,
+				noentfl, false);
+			WFR_FREE(path_);
+		}
 	}
 
 	return status;
@@ -241,7 +270,7 @@ WfrDeleteFile(
 	)
 {
 	char		pname[MAX_PATH + 1];
-	struct stat	statbuf;
+	wchar_t *	pnameW = NULL;
 	WfrStatus	status;
 
 
@@ -256,11 +285,13 @@ WfrDeleteFile(
 		WFR_SNPRINTF_PNAME(pname, sizeof(pname), dname, ext, fname);
 	}
 
-	if (WFR_SUCCESS_POSIX(status, (stat(pname, &statbuf) == 0))
-	&&  WFR_SUCCESS_POSIX(status, (unlink(pname) == 0)))
+	if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(pname, strlen(pname), &pnameW))
+	&&  WFR_SUCCESS_POSIX(status, (_wunlink(pnameW) == 0)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
+
+	WFR_FREE_IF_NOTNULL(pnameW);
 
 	return status;
 }
@@ -272,17 +303,11 @@ WfrDeleteFileW(
 	)
 {
 	wchar_t		pname[MAX_PATH + 1];
-	struct _stat64	statbuf;
 	WfrStatus	status;
 
 
 	WFR_SNPRINTF_PNAMEW(pname, WFR_SIZEOF_WSTRING(pname), dname, fname);
-
-	if (WFR_SUCCESS_POSIX(status, (_wstat64(pname, &statbuf) == 0))
-	&&  WFR_SUCCESS_POSIX(status, (_wunlink(pname) == 0)))
-	{
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
+	(void)WFR_STATUS_BIND_POSIX(status, (_wunlink(pname) == 0));
 
 	return status;
 }
@@ -293,54 +318,64 @@ WfrDeleteFiles(
 	const char *	ext
 	)
 {
-	struct dirent *		dire;
-	DIR *			dirp = NULL;
-	size_t			ext_len;
-	char			fname[PATH_MAX + 1];
-	char			path_cwd[PATH_MAX + 1];
-	char *			pext;
-	struct stat		statbuf;
+	struct _wdirent *	dire;
+	_WDIR *			dirp = NULL;
+	wchar_t *		dnameW = NULL;
+	wchar_t *		extW = NULL;
+	size_t			extW_len;
+	wchar_t			fnameW[PATH_MAX + 1];
+	wchar_t			path_cwdW[PATH_MAX + 1];
+	wchar_t *		pext;
+	struct _stat64		statbuf;
 	WfrStatus		status;
 
 
-	ext_len = strlen(ext);
+	if (WFR_FAILURE(status = WfrConvertUtf8ToUtf16String(dname, strlen(dname), &dnameW))
+	||  WFR_FAILURE(status = WfrConvertUtf8ToUtf16String(ext, strlen(ext), &extW)))
+	{
+		WFR_FREE_IF_NOTNULL(dnameW);
+		WFR_FREE_IF_NOTNULL(extW);
+		return status;
+	}
 
-	if (!WFR_SUCCESS_POSIX(status, (stat(dname, &statbuf) == 0))) {
+	extW_len = wcslen(extW);
+
+	if (!WFR_SUCCESS_POSIX(status, (_wstat64(dnameW, &statbuf) == 0))) {
 		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 		return status;
 	}
 
-	if (WFR_SUCCESS_POSIX(status, (dirp = opendir(dname)))
-	&&  WFR_SUCCESS_POSIX(status, (getcwd(path_cwd, sizeof(path_cwd)))))
+	if (WFR_SUCCESS_POSIX(status, (dirp = _wopendir(dnameW)))
+	&&  WFR_SUCCESS_POSIX(status, (_wgetcwd(path_cwdW, sizeof(path_cwdW)))))
 	{
 		errno = 0;
-		while (WFR_SUCCESS(status) && (dire = readdir(dirp))) {
-			if (!WFR_SUCCESS_POSIX(status, (chdir(dname) == 0))
-			||  !WFR_SUCCESS_POSIX(status, (stat(dire->d_name, &statbuf) == 0)))
+		while (WFR_SUCCESS(status) && (dire = _wreaddir(dirp))) {
+			if (!WFR_SUCCESS_POSIX(status, (_wchdir(dnameW) == 0))
+			||  !WFR_SUCCESS_POSIX(status, (_wstat64(dire->d_name, &statbuf) == 0)))
 			{
 				goto next;
 			} else if (!(statbuf.st_mode & S_IFREG)) {
 				goto next;
-			} else if ((dire->d_name[0] == '.')
-				&& (dire->d_name[1] == '\0'))
+			} else if ((dire->d_name[0] == L'.')
+				&& (dire->d_name[1] == L'\0'))
 			{
 				goto next;
-			} else if ((dire->d_name[0] == '.')
-				&& (dire->d_name[1] == '.')
-				&& (dire->d_name[2] == '\0'))
+			} else if ((dire->d_name[0] == L'.')
+				&& (dire->d_name[1] == L'.')
+				&& (dire->d_name[2] == L'\0'))
 			{
 				goto next;
-			} else if ((pext = strstr(dire->d_name, ext))
-				&& (pext[ext_len] == '\0'))
+			} else if ((pext = wcsstr(dire->d_name, extW))
+				&& (pext[extW_len] == L'\0'))
 			{
-				WFR_SNPRINTF(fname, sizeof(fname), "%s/%s", dname, dire->d_name);
-				WFR_SUCCESS_POSIX(status, (unlink(fname) == 0));
+				WFR_SNWPRINTF(fnameW, WFR_SIZEOF_WSTRING(fnameW), L"%S\\%S", dnameW, dire->d_name);
+				WFR_SUCCESS_POSIX(status, (_wunlink(fnameW) == 0));
 			}
 
 		next:
-			(void)chdir(path_cwd);
+			(void)_wchdir(path_cwdW);
 			errno = 0;
 		}
 
@@ -350,8 +385,11 @@ WfrDeleteFiles(
 	}
 
 	if (dirp) {
-		(void)closedir(dirp);
+		(void)_wclosedir(dirp);
 	}
+
+	WFR_FREE_IF_NOTNULL(dnameW);
+	WFR_FREE_IF_NOTNULL(extW);
 
 	return status;
 }
@@ -364,10 +402,12 @@ WfrEnumerateFiles(
 	WfrEnumerateFilesState **	pstate
 	)
 {
-	size_t		ext_len = 0;
-	char *		fname, *fname_ext;
-	char		path_cwd[PATH_MAX + 1];
-	struct stat	statbuf;
+	wchar_t *	extW = NULL;
+	size_t		extW_len = 0;
+	wchar_t *	fnameW;
+	wchar_t *	fname_extW;
+	wchar_t		path_cwdW[PATH_MAX + 1];
+	struct _stat64	statbuf;
 	WfrStatus	status;
 
 
@@ -379,58 +419,63 @@ WfrEnumerateFiles(
 	}
 
 	if (!WFR_SUCCESS_POSIX(status,
-		(getcwd(path_cwd, sizeof(path_cwd)))))
+		(_wgetcwd(path_cwdW, sizeof(path_cwdW)))))
 	{
 		return status;
 	}
 
 	if (ext) {
-		ext_len = strlen(ext);
+		if (WFR_FAILURE(status = WfrConvertUtf8ToUtf16String(ext, strlen(ext), &extW))) {
+			return status;
+		} else {
+			extW_len = wcslen(extW);
+		}
 	}
 
 	errno = 0;
 	status = WFR_STATUS_CONDITION_SUCCESS;
 
 	while (WFR_SUCCESS(status)
-	&&     ((*pstate)->dire = readdir((*pstate)->dirp)))
+	&&     ((*pstate)->dire = _wreaddir((*pstate)->dirp)))
 	{
-		if (!WFR_SUCCESS_POSIX(status, (chdir((*pstate)->path) == 0))
-		||  !WFR_SUCCESS_POSIX(status, (stat((*pstate)->dire->d_name, &statbuf) == 0)))
+		if (!WFR_SUCCESS_POSIX(status, (_wchdir((*pstate)->path) == 0))
+		||  !WFR_SUCCESS_POSIX(status, (_wstat64((*pstate)->dire->d_name, &statbuf) == 0)))
 		{
 			goto next;
 		} else if (!(statbuf.st_mode & S_IFREG)) {
 			goto next;
-		} else if (((*pstate)->dire->d_name[0] == '.')
-			&& ((*pstate)->dire->d_name[1] == '\0'))
+		} else if (((*pstate)->dire->d_name[0] == L'.')
+			&& ((*pstate)->dire->d_name[1] == L'\0'))
 		{
 			goto next;
-		} else if (((*pstate)->dire->d_name[0] == '.')
-			&& ((*pstate)->dire->d_name[1] == '.')
-			&& ((*pstate)->dire->d_name[2] == '\0'))
+		} else if (((*pstate)->dire->d_name[0] == L'.')
+			&& ((*pstate)->dire->d_name[1] == L'.')
+			&& ((*pstate)->dire->d_name[2] == L'\0'))
 		{
 			goto next;
 		} else {
-			fname = (*pstate)->dire->d_name;
-			fname_ext = NULL;
+			fnameW = (*pstate)->dire->d_name;
+			fname_extW = NULL;
 
-			if (!ext
-			||  (ext
-			&&   ((fname_ext = strstr(fname, ext))
-			&&    (fname_ext[ext_len] == '\0'))))
+			if (!extW
+			||  (extW
+			&&   ((fname_extW = wcsstr(fnameW, extW))
+			&&    (fname_extW[extW_len] == L'\0'))))
 			{
-				if (fname_ext) {
-					*fname_ext = '\0';
+				if (fname_extW) {
+					*fname_extW = L'\0';
 				}
+
 				*pdonefl = false;
-				*pfname = fname;
+				status = WfrConvertUtf16ToUtf8String(fnameW, wcslen(fnameW), (char **)pfname);
 				(*pstate)->donefl = false;
-				(void)chdir(path_cwd);
-				return WFR_STATUS_CONDITION_SUCCESS;
+				(void)_wchdir(path_cwdW);
+				goto out;
 			}
 		}
 
 	next:
-		(void)chdir(path_cwd);
+		(void)_wchdir(path_cwdW);
 		errno = 0;
 	}
 
@@ -441,6 +486,8 @@ WfrEnumerateFiles(
 		WfrEnumerateFilesCancel(pstate);
 	}
 
+out:
+	WFR_FREE_IF_NOTNULL(extW);
 	return status;
 }
 
@@ -451,7 +498,7 @@ WfrEnumerateFilesCancel(
 {
 	if (*pstate) {
 		if ((*pstate)->dirp) {
-			(void)closedir((*pstate)->dirp);
+			(void)_wclosedir((*pstate)->dirp);
 		}
 		WFR_ENUMERATE_FILES_STATE_INIT(**pstate);
 		WFR_FREE(*pstate); *pstate = NULL;
@@ -464,17 +511,17 @@ WfrEnumerateFilesInit(
 	WfrEnumerateFilesState **	pstate
 	)
 {
-	struct stat	statbuf;
+	struct _stat64	statbuf;
 	WfrStatus	status;
 
 
 	if (WFR_NEW(status, (*pstate), WfrEnumerateFilesState)
 	&&  WFR_SUCCESS(status = WFR_ENUMERATE_FILES_STATE_INIT(**pstate))
-	&&  WFR_SUCCESS_POSIX(status, ((*pstate)->path = strdup(dname)))
-	&&  (WFR_SUCCESS_POSIX(status, (stat(dname, &statbuf) == 0))
+	&&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(dname, strlen(dname), (wchar_t **)&((*pstate)->path)))
+	&&  (WFR_SUCCESS_POSIX(status, (_wstat64((*pstate)->path, &statbuf) == 0))
 	||   WFR_STATUS_IS_NOT_FOUND(status))
 	&&  (WFR_STATUS_IS_NOT_FOUND(status) ? true
-	    : WFR_SUCCESS_POSIX(status, ((*pstate)->dirp = opendir(dname)))))
+	    : WFR_SUCCESS_POSIX(status, ((*pstate)->dirp = _wopendir((*pstate)->path)))))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -582,7 +629,7 @@ WfrEscapeFileName(
 				fname, fname_size,
 				"%s%s%s%s%s",
 				(dname ? dname : ""),
-				(dname ? "/" : ""),
+				(dname ? "\\" : ""),
 				name_escaped,
 				(ext ? ext : ""),
 				(tmpfl ? ".XXXXXX" : ""));
@@ -601,54 +648,62 @@ WfrMakeDirectory(
 	)
 {
 	bool		lastfl;
-	char *		p, *path_sub, sep = '\0';
-	char *		path_absdrive;
-	char		path_cwd[PATH_MAX + 1];
+	wchar_t *	path_absdriveW;
+	wchar_t		path_cwdW[PATH_MAX + 1];
+	wchar_t *	path_subW;
+	wchar_t *	pathW;
+	wchar_t *	pathW_base = NULL;
+	wchar_t *	pW;
+	wchar_t		sepW = L'\0';
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
 
 
-	if (!WFR_SUCCESS_POSIX(status, (getcwd(path_cwd, sizeof(path_cwd))))) {
+	if (!WFR_SUCCESS_POSIX(status, (_wgetcwd(path_cwdW, sizeof(path_cwdW))))) {
 		return status;
-	}
-
-
-	if ((((path[0] >= 'a') && (path[0] <= 'z'))
-	||   ((path[0] >= 'A') && (path[0] <= 'Z')))
-	&&    (path[1] == ':')
-	&&   ((path[2] == '/') || (path[2] == '\\')))
-	{
-		path_absdrive = path; path += 3;
+	} else if (WFR_FAILURE(status = WfrConvertUtf8ToUtf16String(path, strlen(path), &pathW_base))) {
+		return status;
 	} else {
-		path_absdrive = NULL;
+		pathW = pathW_base;
 	}
 
-	for (p = path, path_sub = path;
-	     WFR_SUCCESS(status) && *p; p++)
+
+	if ((((pathW[0] >= L'a') && (pathW[0] <= L'z'))
+	||   ((pathW[0] >= L'A') && (pathW[0] <= L'Z')))
+	&&    (pathW[1] == L':')
+	&&   ((pathW[2] == L'/') || (pathW[2] == L'\\')))
 	{
-		if ((p[0] == '/')
-		||  (p[0] == '\\')
-		||  (p[1] == '\0'))
+		path_absdriveW = pathW; pathW += 3;
+	} else {
+		path_absdriveW = NULL;
+	}
+
+	for (pW = pathW, path_subW = pathW;
+	     WFR_SUCCESS(status) && *pW; pW++)
+	{
+		if ((pW[0] == L'/')
+		||  (pW[0] == L'\\')
+		||  (pW[1] == L'\0'))
 		{
-			if ((p[0] == '/') || (p[0] == '\\')) {
-				lastfl = false; sep = *p; *p = '\0';
+			if ((pW[0] == L'/') || (pW[0] == L'\\')) {
+				lastfl = false; sepW = *pW; *pW = L'\0';
 			} else {
 				lastfl = true;
 			}
 
-			while ((*path_sub == '/')
-			    || (*path_sub == '\\'))
+			while ((*path_subW == L'/')
+			    || (*path_subW == L'\\'))
 			{
-				path_sub++;
+				path_subW++;
 			}
-			if (path_sub[0] == '\0') {
+			if (path_subW[0] == L'\0') {
 				goto next;
-			} else if ((path_sub[0] == '.') && (path_sub[1] == '\0') && !path_absdrive) {
+			} else if ((path_subW[0] == L'.') && (path_subW[1] == L'\0') && !path_absdriveW) {
 				goto next;
-			} else if ((path_sub[0] == '.') && (path_sub[1] == '.') && (path_sub[2] == '\0')) {
+			} else if ((path_subW[0] == L'.') && (path_subW[1] == L'.') && (path_subW[2] == L'\0')) {
 				goto change_dir;
 			}
 
-			if (!WFR_SUCCESS_POSIX(status, (mkdir(path_absdrive ? path_absdrive : path_sub) == 0))
+			if (!WFR_SUCCESS_POSIX(status, (_wmkdir(path_absdriveW ? path_absdriveW : path_subW) == 0))
 			&&  ((WFR_STATUS_CONDITION(status) == EEXIST) && existsfl))
 			{
 				status = WFR_STATUS_CONDITION_SUCCESS;
@@ -656,21 +711,23 @@ WfrMakeDirectory(
 
 		change_dir:
 			if (!lastfl && WFR_SUCCESS(status)) {
-				WFR_SUCCESS_POSIX(status, chdir(path_absdrive ? path_absdrive : path_sub) == 0);
+				WFR_SUCCESS_POSIX(status, _wchdir(path_absdriveW ? path_absdriveW : path_subW) == 0);
 			}
 
 		next:
-			if (path_absdrive) {
-				path_absdrive = NULL;
+			if (path_absdriveW) {
+				path_absdriveW = NULL;
 			}
 
 			if (!lastfl) {
-				*p = sep; path_sub = ++p;
+				*pW = sepW; path_subW = ++pW;
 			}
 		}
 	}
 
-	(void)chdir(path_cwd);
+	(void)_wchdir(path_cwdW);
+
+	WFR_FREE_IF_NOTNULL(pathW_base);
 
 	return status;
 }
@@ -790,7 +847,10 @@ WfrRenameFile(
 	const char *	fname_new
 	)
 {
-	char		pname[MAX_PATH + 1], pname_new[MAX_PATH + 1];
+	char		pname[MAX_PATH + 1];
+	char		pname_new[MAX_PATH + 1];
+	wchar_t *	pname_newW = NULL;
+	wchar_t *	pnameW = NULL;
 	WfrStatus	status;
 
 
@@ -810,11 +870,16 @@ WfrRenameFile(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	if (WFR_SUCCESS(status)) {
+	if (WFR_SUCCESS(status)
+	&&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(pname, strlen(pname), &pnameW))
+	&&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(pname_new, strlen(pname_new), &pname_newW)))
+	{
 		WFR_SUCCESS_WINDOWS(status,
-			MoveFileEx(
-				pname, pname_new, MOVEFILE_REPLACE_EXISTING));
+			MoveFileExW(pnameW, pname_newW, MOVEFILE_REPLACE_EXISTING));
 	}
+
+	WFR_FREE_IF_NOTNULL(pname_newW);
+	WFR_FREE_IF_NOTNULL(pnameW);
 
 	return status;
 }

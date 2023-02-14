@@ -8,7 +8,7 @@
 
 #define PCRE2_CODE_UNIT_WIDTH			16
 #define PCRE2_STATIC				1
-#include "../PuTTie/pcre2@master/pcre2.h"
+#include "../PuTTie/pcre2/pcre2.h"
 
 /*
  * Public status condition constants and struct types private to PuTTie/winfrip*.c

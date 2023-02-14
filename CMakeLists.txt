@@ -74,6 +74,14 @@ add_executable(testcrypt
   test/testcrypt.c sshpubk.c ssh/crc-attack-detector.c)
 target_link_libraries(testcrypt
   keygen crypto utils ${platform_libraries})
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET testcrypt APPEND PROPERTY SOURCES
+  PuTTie/winfrip_rtl.c)
+set_property(TARGET testcrypt APPEND PROPERTY COMPILE_FLAGS
+  "-DWINFRIP_RTL_NO_PCRE2")
+endif()
+# winfrip }}}
 
 add_executable(test_host_strfoo
   utils/host_strchr_internal.c)
@@ -89,6 +97,14 @@ add_executable(test_unicode_norm
   utils/unicode-norm.c)
 target_compile_definitions(test_unicode_norm PRIVATE TEST)
 target_link_libraries(test_unicode_norm utils ${platform_libraries})
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET test_unicode_norm APPEND PROPERTY SOURCES
+  PuTTie/winfrip_rtl.c)
+set_property(TARGET test_unicode_norm APPEND PROPERTY COMPILE_FLAGS
+  "-DWINFRIP_RTL_NO_PCRE2")
+endif()
+# winfrip }}}
 
 add_executable(test_tree234
   utils/tree234.c)
@@ -112,6 +128,14 @@ target_link_libraries(bidi_gettype guiterminal utils ${platform_libraries})
 add_executable(bidi_test
   terminal/bidi_test.c)
 target_link_libraries(bidi_test guiterminal utils ${platform_libraries})
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET bidi_test APPEND PROPERTY SOURCES
+  PuTTie/winfrip_rtl.c)
+set_property(TARGET bidi_test APPEND PROPERTY COMPILE_FLAGS
+  "-DWINFRIP_RTL_NO_PCRE2")
+endif()
+# winfrip }}}
 
 # {{{ winfrip
 if (MINGW)
@@ -123,6 +147,7 @@ set_source_files_properties(PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS 
 set_source_files_properties(PuTTie/winfrip_rtl_registry.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_save.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(PuTTie/winfrip_rtl_windows.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_adapter.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_storage_adapter_host_ca.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -169,6 +194,7 @@ set_property(TARGET plink APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_registry.c
   PuTTie/winfrip_rtl_save.c
   PuTTie/winfrip_rtl_tree.c
+  PuTTie/winfrip_rtl_windows.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_adapter.c
   PuTTie/winfrip_storage_adapter_host_ca.c
@@ -213,6 +239,7 @@ set_property(TARGET pscp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_registry.c
   PuTTie/winfrip_rtl_save.c
   PuTTie/winfrip_rtl_tree.c
+  PuTTie/winfrip_rtl_windows.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_adapter.c
   PuTTie/winfrip_storage_adapter_host_ca.c
@@ -251,6 +278,7 @@ set_property(TARGET psftp APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl_registry.c
   PuTTie/winfrip_rtl_save.c
   PuTTie/winfrip_rtl_tree.c
+  PuTTie/winfrip_rtl_windows.c
   PuTTie/winfrip_storage.c
   PuTTie/winfrip_storage_adapter.c
   PuTTie/winfrip_storage_adapter_host_ca.c
@@ -282,6 +310,14 @@ add_executable(psocks
   proxy/nocproxy.c
   proxy/nosshproxy.c
   ssh/portfwd.c)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET psocks APPEND PROPERTY SOURCES
+  PuTTie/winfrip_rtl.c)
+set_property(TARGET psocks APPEND PROPERTY COMPILE_FLAGS
+  "-DWINFRIP_RTL_NO_PCRE2")
+endif()
+# winfrip }}}
 target_link_libraries(psocks
   eventloop console network utils
   ${platform_libraries})

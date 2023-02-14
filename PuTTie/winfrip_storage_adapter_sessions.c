@@ -13,6 +13,7 @@
 
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_adapter.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
@@ -156,7 +157,7 @@ open_settings_w(
 		return (settings_w *)session;
 	} else {
 		if (WfsGetAdapterDisplayErrors()) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "opening session");
 		}
 
 		return NULL;
@@ -332,7 +333,7 @@ close_settings_w(
 	status = WfsSaveSession(WfsGetBackend(), session);
 
 	if (WfsGetAdapterDisplayErrors()) {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "closing session");
 	}
 }
 
@@ -377,7 +378,7 @@ open_settings_r(
 		}
 
 		if (WfsGetAdapterDisplayErrors()) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "opening session (read-only)");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "opening session (read-only)");
 		}
 
 		return NULL;
@@ -405,6 +406,8 @@ read_setting_s(
 			&value, NULL)))
 	{
 		return strdup(value);
+	} else if (WFS_SESSION_NAME_IS_DEFAULT(session->name)) {
+		return NULL;
 	} else {
 	#ifdef WINFRIP_DEBUG
 		for (size_t nkey = 0;
@@ -442,6 +445,8 @@ read_setting_i(
 			(void *)&value, NULL)))
 	{
 		return value;
+	} else if (WFS_SESSION_NAME_IS_DEFAULT(session->name)) {
+		return defvalue;
 	} else {
 	#ifdef WINFRIP_DEBUG
 		for (size_t nkey = 0;
@@ -490,6 +495,8 @@ read_setting_filename(
 		} else {
 			return value;
 		}
+	} else if (WFS_SESSION_NAME_IS_DEFAULT(session->name)) {
+		return NULL;
 	} else {
 		WFR_DEBUG_FAIL();
 		WFR_FREE_IF_NOTNULL(value);
@@ -508,7 +515,7 @@ read_setting_fontspec(
 	char *		key_isbold = NULL;
 	WfsSession *	session;
 	WfrStatus	status;
-	FontSpec *	value;
+	FontSpec *	value = NULL;
 
 
 	session = (WfsSession *)handle;
@@ -544,6 +551,8 @@ read_setting_fontspec(
 
 	if (WFR_SUCCESS(status)) {
 		return value;
+	} else if (WFS_SESSION_NAME_IS_DEFAULT(session->name)) {
+		return NULL;
 	} else {
 		if (value) {
 			WFR_FREE_IF_NOTNULL(value->name);
@@ -570,7 +579,7 @@ close_settings_r(
 	}
 
 	if (WfsGetAdapterDisplayErrors()) {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "closing session (read-only)");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "closing session (read-only)");
 	}
 }
 
@@ -596,7 +605,7 @@ del_settings(
 	}
 
 	if (WfsGetAdapterDisplayErrors()) {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting session");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "deleting session");
 	}
 }
 
@@ -620,7 +629,7 @@ enum_settings_start(
 		return handle;
 	} else {
 		if (WfsGetAdapterDisplayErrors()) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating sessions");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "enumerating sessions");
 		}
 
 		return NULL;
@@ -645,7 +654,7 @@ enum_settings_next(
 
 	if (WFR_FAILURE(status) || donefl) {
 		if (WfsGetAdapterDisplayErrors() && WFR_FAILURE(status)) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating sessions");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "enumerating sessions");
 		}
 
 		return false;

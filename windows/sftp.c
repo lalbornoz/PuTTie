@@ -12,6 +12,11 @@
 #include "ssh.h"
 #include "security-api.h"
 
+/* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_printf_wrap.h"
+/* winfrip }}} */
+
 SeatPromptResult filexfer_get_userpass_input(Seat *seat, prompts_t *p)
 {
     /* The file transfer tools don't support Restart Session, so we
@@ -106,8 +111,21 @@ RFile *open_existing_file(const char *name, uint64_t *size,
     HANDLE h;
     RFile *f;
 
+    /* {{{ winfrip */
+#if 1
+    wchar_t *   nameW;
+
+    (void)WfrConvertUtf8ToUtf16String(name, strlen(name), &nameW);
+    h = CreateFileW(nameW, GENERIC_READ, FILE_SHARE_READ, NULL,
+                    OPEN_EXISTING, 0, 0);
+    WFR_FREE_IF_NOTNULL(nameW);
+#else
+    /* winfrip }}} */
     h = CreateFile(name, GENERIC_READ, FILE_SHARE_READ, NULL,
                    OPEN_EXISTING, 0, 0);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     if (h == INVALID_HANDLE_VALUE)
         return NULL;
 
@@ -159,8 +177,21 @@ WFile *open_new_file(const char *name, long perms)
     HANDLE h;
     WFile *f;
 
+    /* {{{ winfrip */
+#if 1
+    wchar_t *   nameW;
+
+    (void)WfrConvertUtf8ToUtf16String(name, strlen(name), &nameW);
+    h = CreateFileW(nameW, GENERIC_WRITE, 0, NULL,
+                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    WFR_FREE_IF_NOTNULL(nameW);
+#else
+    /* winfrip }}} */
     h = CreateFile(name, GENERIC_WRITE, 0, NULL,
                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     if (h == INVALID_HANDLE_VALUE)
         return NULL;
 
@@ -175,8 +206,21 @@ WFile *open_existing_wfile(const char *name, uint64_t *size)
     HANDLE h;
     WFile *f;
 
+    /* {{{ winfrip */
+#if 1
+    wchar_t *   nameW;
+
+    (void)WfrConvertUtf8ToUtf16String(name, strlen(name), &nameW);
+    h = CreateFileW(nameW, GENERIC_WRITE, FILE_SHARE_READ, NULL,
+                    OPEN_EXISTING, 0, 0);
+    WFR_FREE_IF_NOTNULL(nameW);
+#else
+    /* winfrip }}} */
     h = CreateFile(name, GENERIC_WRITE, FILE_SHARE_READ, NULL,
                    OPEN_EXISTING, 0, 0);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     if (h == INVALID_HANDLE_VALUE)
         return NULL;
 
@@ -256,6 +300,33 @@ uint64_t get_file_posn(WFile *f)
 
 int file_type(const char *name)
 {
+/* {{{ winfrip */
+#if 1
+    DWORD       dwAttr;
+    wchar_t *   nameW = NULL;
+    int         rc;
+
+
+    if (WFR_FAILURE(WfrConvertUtf8ToUtf16String(name, strlen(name), &nameW))) {
+        return FILE_TYPE_NONEXISTENT;
+    }
+
+    dwAttr = GetFileAttributesW(nameW);
+
+    /* We know of no `weird' files under Windows. */
+    if (dwAttr == (DWORD)-1) {
+        rc = FILE_TYPE_NONEXISTENT;
+    } else if (dwAttr & FILE_ATTRIBUTE_DIRECTORY) {
+        rc = FILE_TYPE_DIRECTORY;
+    } else {
+        rc = FILE_TYPE_FILE;
+    }
+
+    WFR_FREE(nameW);
+
+    return rc;
+#else
+/* winfrip }}} */
     DWORD attr;
     attr = GetFileAttributes(name);
     /* We know of no `weird' files under Windows. */
@@ -265,6 +336,9 @@ int file_type(const char *name)
         return FILE_TYPE_DIRECTORY;
     else
         return FILE_TYPE_FILE;
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 }
 
 struct DirHandle {
@@ -334,6 +408,37 @@ void close_directory(DirHandle *dir)
 
 int test_wildcard(const char *name, bool cmdline)
 {
+/* {{{ winfrip */
+#if 1
+    WIN32_FIND_DATAW    FindFileData;
+    HANDLE              hFindFile;
+    wchar_t *           nameW = NULL;
+    int                 rc;
+
+
+    if (WFR_FAILURE(WfrConvertUtf8ToUtf16String(name, strlen(name), &nameW))) {
+        return WCTYPE_NONEXISTENT;
+    }
+
+    /* First see if the exact name exists. */
+    if (GetFileAttributesW(nameW) != (DWORD)-1) {
+        rc = WCTYPE_FILENAME;
+    } else {
+        /* Otherwise see if a wildcard match finds anything. */
+        hFindFile = FindFirstFileW(nameW, &FindFileData);
+        if (hFindFile == INVALID_HANDLE_VALUE) {
+            rc = WCTYPE_NONEXISTENT;
+        } else {
+            (void)FindClose(hFindFile);
+            rc = WCTYPE_WILDCARD;
+        }
+    }
+
+    WFR_FREE(nameW);
+
+    return rc;
+#else
+/* winfrip }}} */
     HANDLE fh;
     WIN32_FIND_DATA fdat;
 
@@ -348,6 +453,9 @@ int test_wildcard(const char *name, bool cmdline)
 
     FindClose(fh);
     return WCTYPE_WILDCARD;
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 }
 
 struct WildcardMatcher {
@@ -597,7 +705,15 @@ char *ssh_sftp_get_cmdline(const char *prompt, bool no_fds_ok)
     DWORD threadid;
     HANDLE hThread;
 
+    /* {{{ winfrip */
+#if 1
+    printf("%s", prompt);
+#else
+    /* winfrip }}} */
     fputs(prompt, stdout);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     fflush(stdout);
 
     if ((winselcli_unique_socket() == INVALID_SOCKET && no_fds_ok) ||
@@ -654,3 +770,9 @@ int main(int argc, char *argv[])
 
     return ret;
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

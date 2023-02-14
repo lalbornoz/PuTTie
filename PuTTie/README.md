@@ -90,6 +90,10 @@ you should use PuTTie:
    This feature may be turned on or off (default) from Pageant's system tray menu.
 10. **Launch Pageant at Windows startup**  
    This feature may be turned on or off (default) from Pageant's system tray menu.
+11. **GUI, configuration & storage internationalisation**  
+   Text strings in the GUI, configuration & storage thereof, including sessions, etc. may contain anything that
+   encodes from/to valid UTF-16/UTF-8 and vice versa; UTF-16 is used at and due to Windows API boundaries,
+   UTF-8 internally as well as in file contents.
 
 ## Jump list integration
 

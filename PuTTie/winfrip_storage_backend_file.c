@@ -81,40 +81,45 @@ WfsppFileInitAppDataSubdir(
 	void
 	)
 {
-	char *		appdata;
+	char *		appdata = NULL;
+	wchar_t *	appdataW;
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS_ERRNO1(status, ENOENT, (appdata = getenv("APPDATA")))) {
+	if (WFR_SUCCESS_ERRNO1(status, ENOENT, (appdataW = _wgetenv(L"APPDATA")))
+	&&  WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(appdataW, wcslen(appdataW), &appdata)))
+	{
 		WfsppFileAppData = appdata;
 		WFR_SNPRINTF(
 			WfsppFileDname, sizeof(WfsppFileDname),
-			"%s/PuTTie", WfsppFileAppData);
+			"%s\\PuTTie", WfsppFileAppData);
 		WFR_SNPRINTF(
 			WfsppFileDnameHostCAs, sizeof(WfsppFileDnameHostCAs),
-			"%s/hostcas", WfsppFileDname);
+			"%s\\hostcas", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileDnameHostKeys, sizeof(WfsppFileDnameHostKeys),
-			"%s/hostkeys", WfsppFileDname);
+			"%s\\hostkeys", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileDnameSessions, sizeof(WfsppFileDnameSessions),
-			"%s/sessions", WfsppFileDname);
+			"%s\\sessions", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileFnameOptions, sizeof(WfsppFileFnameOptions),
 			"options.ini");
 		WFR_SNPRINTF(
 			WfsppFileFnameJumpList, sizeof(WfsppFileFnameJumpList),
-			"%s/jump.list", WfsppFileDname);
+			"%s\\jump.list", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileFnameJumpListTmp, sizeof(WfsppFileFnameJumpListTmp),
 			"jump.list.XXXXXX");
 		WFR_SNPRINTF(
 			WfsppFileFnamePrivKeyList, sizeof(WfsppFileFnamePrivKeyList),
-			"%s/privkey.list", WfsppFileDname);
+			"%s\\privkey.list", WfsppFileDname);
 		WFR_SNPRINTF(
 			WfsppFileFnamePrivKeyListTmp, sizeof(WfsppFileFnamePrivKeyListTmp),
 			"privkey.list.XXXXXX");
 	}
+
+	WFR_FREE_IF_NOTNULL(appdata);
 
 	return status;
 }
@@ -141,7 +146,7 @@ WfsppFileTransformList(
 			list_size = 0;
 		}
 
-		if (WFR_SUCCESS(status = WfsTransformList(
+		if (WFR_SUCCESS(status = WfrUpdateStringList(
 				addfl, delfl, &list,
 				&list_size, trans_item)))
 		{
@@ -758,9 +763,7 @@ WfspFileGetEntriesJumpList(
 		WfsppFileFnameJumpList,
 		pjump_list, &jump_list_size);
 	if (WFR_FAILURE(status)) {
-		if (WFR_STATUS_IS_NOT_FOUND(status)
-		&&  WFR_NEWN(status, *pjump_list, 2, char))
-		{
+		if (WFR_NEWN(status, *pjump_list, 2, char)) {
 			(*pjump_list)[0] = '\0';
 			(*pjump_list)[1] = '\0';
 			if (pjump_list_size) {

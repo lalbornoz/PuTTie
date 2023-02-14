@@ -78,6 +78,7 @@ WfrTreeCopy(
 	void *		value_new;
 
 
+	status = WFR_STATUS_CONDITION_SUCCESS;
 	WFR_TREE234_FOREACH(status, tree_from, idx, item) {
 		if (WFR_SUCCESS(status = clone_value_fn(item, &value_new)))
 		{

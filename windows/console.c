@@ -11,6 +11,13 @@
 #include "ssh.h"
 #include "console.h"
 
+/* {{{ winfrip */
+#include <fcntl.h>
+
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_printf_wrap.h"
+/* winfrip }}} */
+
 void cleanup_exit(int code)
 {
     /*
@@ -25,11 +32,20 @@ void cleanup_exit(int code)
 
 void console_print_error_msg(const char *prefix, const char *msg)
 {
+    /* {{{ winfrip */
+#if 1
+    fprintf(stderr, "%s: %s\n", prefix, msg);
+    fflush(stderr);
+#else
+    /* winfrip }}} */
     fputs(prefix, stderr);
     fputs(": ", stderr);
     fputs(msg, stderr);
     fputc('\n', stderr);
     fflush(stderr);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 /*
@@ -716,3 +732,9 @@ SeatPromptResult console_get_userpass_input(prompts_t *p)
     conio_free(conio);
     return result;
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

@@ -16,6 +16,11 @@
 
 #include <commctrl.h>
 
+/* {{{ winfrip */
+#include "../PuTTie/winfrip_rtl.h"
+#include "../PuTTie/winfrip_rtl_windows.h"
+/* winfrip }}} */
+
 #ifdef MSVC4
 #define ICON_BIG        1
 #endif
@@ -41,8 +46,17 @@ void modalfatalbox(const char *fmt, ...)
     va_start(ap, fmt);
     stuff = dupvprintf(fmt, ap);
     va_end(ap);
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(NULL, stuff, "PuTTYgen Fatal Error",
+                  MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(NULL, stuff, "PuTTYgen Fatal Error",
                MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(stuff);
     exit(1);
 }
@@ -58,8 +72,17 @@ void nonfatal(const char *fmt, ...)
     va_start(ap, fmt);
     stuff = dupvprintf(fmt, ap);
     va_end(ap);
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(NULL, stuff, "PuTTYgen Error",
+                  MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(NULL, stuff, "PuTTYgen Error",
                MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(stuff);
 }
 
@@ -458,6 +481,29 @@ static INT_PTR CALLBACK PPKParamsProc(HWND hwnd, UINT msg,
 static bool prompt_keyfile(HWND hwnd, char *dlgtitle,
                            char *filename, bool save, bool ppk)
 {
+    /* {{{ winfrip */
+#if 1
+    char *      filename_ = NULL;
+    WfrStatus   status;
+
+
+    status = WfrRequestFile(
+        0, hwnd,
+        (ppk ? ".ppk" : NULL),
+        (ppk ? "PuTTY Private Key Files (*.ppk)\0*.ppk\0All Files (*.*)\0*\0\0\0"
+             : "All Files (*.*)\0*\0\0\0"),
+        NULL, dlgtitle, FILENAME_MAX, false, save,
+        &filename_, NULL);
+
+    if (WFR_SUCCESS(status)) {
+        memcpy(filename, filename_, FILENAME_MAX);
+        filename[FILENAME_MAX - 1] = '\0';
+        WFR_FREE(filename_);
+    }
+
+    return WFR_SUCCESS(status);
+#else
+    /* winfrip }}} */
     OPENFILENAME of;
     memset(&of, 0, sizeof(of));
     of.hwndOwner = hwnd;
@@ -477,6 +523,9 @@ static bool prompt_keyfile(HWND hwnd, char *dlgtitle,
     of.lpstrTitle = dlgtitle;
     of.Flags = 0;
     return request_file(NULL, &of, false, save);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 /*
@@ -781,7 +830,15 @@ void old_keyfile_warning(void)
         "Once the key is loaded into PuTTYgen, you can perform\n"
         "this conversion simply by saving it again.";
 
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(NULL, message, mbtitle, MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(NULL, message, mbtitle, MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 static const int nokey_ids[] = { IDC_NOKEY, 0 };
@@ -1225,8 +1282,17 @@ void load_key_file(HWND hwnd, struct MainDlgState *state,
                     "use the \"Save private key\" command to\n"
                     "save it in PuTTY's own format.",
                     key_type_to_str(realtype));
+            /* {{{ winfrip */
+        #if 1
+            WfrMessageBox(NULL, msg, "PuTTYgen Notice",
+                          MB_OK | MB_ICONINFORMATION);
+        #else
+            /* winfrip }}} */
             MessageBox(NULL, msg, "PuTTYgen Notice",
                        MB_OK | MB_ICONINFORMATION);
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
         }
     }
     burnstr(passphrase);
@@ -1359,9 +1425,19 @@ static void start_generating_key(HWND hwnd, struct MainDlgState *state)
     HANDLE hThread = CreateThread(NULL, 0, generate_key_thread,
                                   params, 0, &threadid);
     if (!hThread) {
+        /* {{{ winfrip */
+    #if 1
+        WfrMessageBox(hwnd, "Out of thread resources",
+                      "Key generation error",
+                      MB_OK | MB_ICONERROR);
+    #else
+        /* winfrip }}} */
         MessageBox(hwnd, "Out of thread resources",
                    "Key generation error",
                    MB_OK | MB_ICONERROR);
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         sfree(params);
     } else {
         CloseHandle(hThread);          /* we don't need the thread handle */
@@ -1759,8 +1835,17 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
             KillTimer(hwnd, DEMO_SCREENSHOT_TIMER_ID);
             char *err = save_screenshot(hwnd, demo_screenshot_filename);
             if (err) {
+                /* {{{ winfrip */
+            #if 1
+                WfrMessageBox(hwnd, err, "Demo screenshot failure",
+                              MB_OK | MB_ICONERROR);
+            #else
+                /* winfrip }}} */
                 MessageBox(hwnd, err, "Demo screenshot failure",
                            MB_OK | MB_ICONERROR);
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
                 sfree(err);
             }
             EndDialog(hwnd, 0);
@@ -1927,8 +2012,17 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                         "PuTTYgen will not generate a key smaller than 256"
                         " bits.\nKey length reset to default %d. Continue?",
                         DEFAULT_KEY_BITS);
+                    /* {{{ winfrip */
+                #if 1
+                    int ret = WfrMessageBox(hwnd, message, "PuTTYgen Warning",
+                                            MB_ICONWARNING | MB_OKCANCEL);
+                #else
+                    /* winfrip }}} */
                     int ret = MessageBox(hwnd, message, "PuTTYgen Warning",
                                          MB_ICONWARNING | MB_OKCANCEL);
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     sfree(message);
                     if (ret != IDOK)
                         break;
@@ -1939,8 +2033,17 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                     char *message = dupprintf(
                         "Keys shorter than %d bits are not recommended. "
                         "Really generate this key?", DEFAULT_KEY_BITS);
+                    /* {{{ winfrip */
+                #if 1
+                    int ret = WfrMessageBox(hwnd, message, "PuTTYgen Warning",
+                                            MB_ICONWARNING | MB_OKCANCEL);
+                #else
+                    /* winfrip }}} */
                     int ret = MessageBox(hwnd, message, "PuTTYgen Warning",
                                          MB_ICONWARNING | MB_OKCANCEL);
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     sfree(message);
                     if (ret != IDOK)
                         break;
@@ -2042,17 +2145,36 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                     sprintf(msg, "Cannot export an SSH-%d key in an SSH-%d"
                             " format", (state->ssh2 ? 2 : 1),
                             (state->ssh2 ? 1 : 2));
+                    /* {{{ winfrip */
+                #if 1
+                    WfrMessageBox(hwnd, msg,
+                                  "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                #else
+                    /* winfrip }}} */
                     MessageBox(hwnd, msg,
                                "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     break;
                 }
 
                 passphrase = GetDlgItemText_alloc(hwnd, IDC_PASSPHRASE1EDIT);
                 passphrase2 = GetDlgItemText_alloc(hwnd, IDC_PASSPHRASE2EDIT);
                 if (strcmp(passphrase, passphrase2)) {
+                    /* {{{ winfrip */
+                #if 1
+                    WfrMessageBox(hwnd,
+                                  "The two passphrases given do not match.",
+                                  "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                #else
+                    /* winfrip }}} */
                     MessageBox(hwnd,
                                "The two passphrases given do not match.",
                                "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     burnstr(passphrase);
                     burnstr(passphrase2);
                     break;
@@ -2060,11 +2182,23 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                 burnstr(passphrase2);
                 if (!*passphrase) {
                     int ret;
+                    /* {{{ winfrip */
+                #if 1
+                    ret = WfrMessageBox(hwnd,
+                                        "Are you sure you want to save this key\n"
+                                        "without a passphrase to protect it?",
+                                        "PuTTYgen Warning",
+                                        MB_YESNO | MB_ICONWARNING);
+                #else
+                    /* winfrip }}} */
                     ret = MessageBox(hwnd,
                                      "Are you sure you want to save this key\n"
                                      "without a passphrase to protect it?",
                                      "PuTTYgen Warning",
                                      MB_YESNO | MB_ICONWARNING);
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     if (ret != IDYES) {
                         burnstr(passphrase);
                         break;
@@ -2073,14 +2207,41 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                 if (prompt_keyfile(hwnd, "Save private key as:",
                                    filename, true, (type == realtype))) {
                     int ret;
+                    /* {{{ winfrip */
+                #if 1
+                    wchar_t *   filenameW;
+                    FILE *      fp = NULL;
+                    WfrStatus   status;
+
+
+                    if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+                                filename, strlen(filename), &filenameW)))
+                    {
+                        fp = _wfopen(filenameW, L"r");
+                        WFR_FREE(filenameW);
+                    }
+                #else
+                    /* winfrip }}} */
                     FILE *fp = fopen(filename, "r");
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     if (fp) {
                         char *buffer;
                         fclose(fp);
                         buffer = dupprintf("Overwrite existing file\n%s?",
                                            filename);
+                        /* {{{ winfrip */
+                    #if 1
+                        ret = WfrMessageBox(hwnd, buffer, "PuTTYgen Warning",
+                                            MB_YESNO | MB_ICONWARNING);
+                    #else
+                        /* winfrip }}} */
                         ret = MessageBox(hwnd, buffer, "PuTTYgen Warning",
                                          MB_YESNO | MB_ICONWARNING);
+                        /* {{{ winfrip */
+                    #endif
+                        /* winfrip }}} */
                         sfree(buffer);
                         if (ret != IDYES) {
                             burnstr(passphrase);
@@ -2109,8 +2270,17 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                         filename_free(fn);
                     }
                     if (ret <= 0) {
+                        /* {{{ winfrip */
+                    #if 1
+                        WfrMessageBox(hwnd, "Unable to save key file",
+                                      "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                    #else
+                        /* winfrip }}} */
                         MessageBox(hwnd, "Unable to save key file",
                                    "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                        /* {{{ winfrip */
+                    #endif
+                        /* winfrip }}} */
                     }
                 }
                 burnstr(passphrase);
@@ -2126,22 +2296,58 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                 if (prompt_keyfile(hwnd, "Save public key as:",
                                    filename, true, false)) {
                     int ret;
+                    /* {{{ winfrip */
+                #if 1
+                    wchar_t *   filenameW;
+                    FILE *      fp = NULL;
+                    WfrStatus   status;
+
+
+                    if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+                                filename, strlen(filename), &filenameW)))
+                    {
+                        fp = _wfopen(filenameW, L"r");
+                        WFR_FREE(filenameW);
+                    }
+                #else
+                    /* winfrip }}} */
                     FILE *fp = fopen(filename, "r");
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     if (fp) {
                         char *buffer;
                         fclose(fp);
                         buffer = dupprintf("Overwrite existing file\n%s?",
                                            filename);
+                        /* {{{ winfrip */
+                    #if 1
+                        ret = WfrMessageBox(hwnd, buffer, "PuTTYgen Warning",
+                                            MB_YESNO | MB_ICONWARNING);
+                    #else
+                        /* winfrip }}} */
                         ret = MessageBox(hwnd, buffer, "PuTTYgen Warning",
                                          MB_YESNO | MB_ICONWARNING);
+                        /* {{{ winfrip */
+                    #endif
+                        /* winfrip }}} */
                         sfree(buffer);
                         if (ret != IDYES)
                             break;
                     }
                     fp = fopen(filename, "w");
                     if (!fp) {
+                        /* {{{ winfrip */
+                    #if 1
+                        WfrMessageBox(hwnd, "Unable to open key file",
+                                      "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                    #else
+                        /* winfrip }}} */
                         MessageBox(hwnd, "Unable to open key file",
                                    "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                        /* {{{ winfrip */
+                    #endif
+                        /* winfrip }}} */
                     } else {
                         if (state->ssh2) {
                             strbuf *blob = strbuf_new();
@@ -2155,8 +2361,17 @@ static INT_PTR CALLBACK MainDlgProc(HWND hwnd, UINT msg,
                             ssh1_write_pubkey(fp, &state->key);
                         }
                         if (fclose(fp) < 0) {
+                            /* {{{ winfrip */
+                        #if 1
+                            WfrMessageBox(hwnd, "Unable to save key file",
+                                          "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                        #else
+                            /* winfrip }}} */
                             MessageBox(hwnd, "Unable to save key file",
                                        "PuTTYgen Error", MB_OK | MB_ICONERROR);
+                            /* {{{ winfrip */
+                        #endif
+                            /* winfrip }}} */
                         }
                     }
                 }
@@ -2385,7 +2600,15 @@ static NORETURN void opt_error(const char *fmt, ...)
     char *msg = dupvprintf(fmt, ap);
     va_end(ap);
 
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(NULL, msg, "PuTTYgen command line error", MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(NULL, msg, "PuTTYgen command line error", MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 
     exit(1);
 }
@@ -2610,3 +2833,9 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     cleanup_exit(ret);
     return ret;                        /* just in case optimiser complains */
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

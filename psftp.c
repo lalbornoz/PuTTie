@@ -15,9 +15,14 @@
 #include "ssh/sftp.h"
 
 /* {{{ winfrip */
+#include <fcntl.h>
+
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
+
+#include "PuTTie/winfrip_rtl_printf_wrap.h"
 /* winfrip }}} */
 
 /*
@@ -2818,12 +2823,17 @@ int psftp_main(int argc, char *argv[])
     WfrStatus    status;
 
 
-    WfrDebugInit();
+    (void)_setmode(_fileno(stdout), _O_U8TEXT);
+    (void)_setmode(_fileno(stderr), _O_U8TEXT);
+
     if (WFR_STATUS_FAILURE(status = WfsInit())) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("psftp", status, "initialising storage");
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "psftp", status, "initialising storage");
+        exit(1);
+    } else if (WFR_FAILURE(status = WfrGetCommandLineAsArgVUtf8(&argc, &argv))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "psftp", status, "initialising command line");
         exit(1);
     } else if (WFR_STATUS_FAILURE(WfsSetBackendFromArgV(&argc, &argv))) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("psftp", status, "setting backend");
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "psftp", status, "setting backend");
         exit(1);
     }
     /* winfrip }}} */

@@ -19,6 +19,7 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_rtl_shortcut.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_sessions.h"
@@ -84,7 +85,9 @@ WfpPageantCommandLaunchAtStartup(
 		break;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "creating/deleting Pageant launch at startup shortcut");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+		NULL, "Pageant", status,
+		"creating/deleting Pageant launch at startup shortcut");
 
 	return status;
 }
@@ -112,7 +115,9 @@ WfPageantAddKey(
 			status = WfsAddPrivKeyList(WfsGetBackend(), fn->path);
 		}
 
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "adding %s to Pageant private key list", fn->path);
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(
+			status, NULL,
+			"adding %s to Pageant private key list", fn->path);
 	}
 }
 
@@ -136,7 +141,9 @@ WfPageantAddKeysFromCmdLine(
 	if (WFR_FAILURE(status = WfsGetOptionIntWithDefault(
 			WfsGetBackend(), PAGEANT_OPTION_PERSIST_KEYS, false, &option_persist)))
 	{
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting Pageant persist keys option");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+			NULL, "Pageant", status,
+			"getting Pageant persist keys option");
 		exit(1);
 	}
 
@@ -147,7 +154,9 @@ WfPageantAddKeysFromCmdLine(
 
 		if (*option_persist == true) {
 			status = WfsClearPrivKeyList(backend);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "clearing Pageant private key list");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+				NULL, "Pageant", status,
+				"clearing Pageant private key list");
 		}
 
 		for (size_t nclkey = 0; nclkey < nclkeys; nclkey++) {
@@ -156,7 +165,7 @@ WfPageantAddKeysFromCmdLine(
 				if (*option_persist == true) {
 					status = WfsAddPrivKeyList(backend, clkey->fn->path);
 					WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
-						"Pageant", status,
+						NULL, "Pageant", status,
 						"adding %s to Pageant private key list", clkey->fn->path);
 				}
 			}
@@ -165,7 +174,9 @@ WfPageantAddKeysFromCmdLine(
 		sfree(clkeys);
 	} else if (*option_persist == true) {
 		status = WfsGetEntriesPrivKeyList(backend, &privkey_list, NULL);
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting Pageant private key list");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+			NULL, "Pageant", status,
+			"getting Pageant private key list");
 
 		for (char *privkey = privkey_list, *privkey_next = NULL;
 		     privkey && *privkey; privkey = privkey_next)
@@ -176,10 +187,16 @@ WfPageantAddKeysFromCmdLine(
 						add_keys_encrypted) == PAGEANT_ACTION_OK)
 				{
 					status = WfsAddPrivKeyList(WfsGetBackend(), privkey);
-					WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "adding %s to Pageant private key list", privkey);
+					WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+						NULL, "Pageant", status,
+						"adding %s to Pageant private key list",
+						privkey);
 				} else {
 					status = WfsRemovePrivKeyList(WfsGetBackend(), privkey);
-					WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "deleting %s from Pageant private key list", privkey);
+					WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+						NULL, "Pageant", status,
+						"deleting %s from Pageant private key list",
+						privkey);
 				}
 				privkey_next++;
 			}
@@ -197,7 +214,10 @@ WfPageantAppendCmdLineBackendArgString(
 	WfrStatus	status;
 
 	status = WfsGetBackendArgString(&backend_arg_string);
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting argument string");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+		NULL, "Pageant", status,
+		"getting argument string");
+
 	if (backend_arg_string) {
 		if (strlen(cmdline) > 0) {
 			strncat(cmdline, " ", cmdline_size);
@@ -218,7 +238,10 @@ WfPageantAppendParamBackendArgString(
 	WfrStatus	status;
 
 	status = WfsGetBackendArgString(&backend_arg_string);
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting argument string");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+		NULL, "Pageant", status,
+		"getting argument string");
+
 	if (backend_arg_string) {
 		if (strlen(param) > 0) {
 			strcat(param, " ");
@@ -254,7 +277,9 @@ WfPageantCommandLaunchAtStartup(
 			option, sizeof(*option), WFR_TREE_ITYPE_INT);
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting/setting Pageant launch at startup option");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+		NULL, "Pageant", status,
+		"getting/setting Pageant launch at startup option");
 
 	if (WFR_SUCCESS(status)) {
 		status = WfpPageantCommandLaunchAtStartup(*option);
@@ -309,7 +334,9 @@ WfPageantCommandPersistKeys(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting/setting Pageant persist keys option");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+		NULL, "Pageant", status,
+		"getting/setting Pageant persist keys option");
 }
 
 void
@@ -330,7 +357,9 @@ WfPageantDeleteAllKeys(
 		status = WfsClearPrivKeyList(WfsGetBackend());
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "clearing Pageant private key list");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+		NULL, "Pageant", status,
+		"clearing Pageant private key list");
 }
 
 void
@@ -355,7 +384,7 @@ WfPageantDeleteKey(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting %s from Pageant private key list", path);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "deleting %s from Pageant private key list", path);
 	WFR_FREE_IF_NOTNULL(path);
 }
 
@@ -364,18 +393,24 @@ WfPageantInit(
 	LPSTR *		pcmdline
 	)
 {
+	char *		cmdline;
 	WfrStatus	status;
 
 
 	WfrDebugInit();
 
 	if (WFR_FAILURE(status = WfsInit())) {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "initialising storage");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "Pageant", status, "initialising storage");
 		exit(1);
-	} else if (WFR_FAILURE(status = WfsSetBackendFromCmdLine(*pcmdline))) {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "setting backend");
+	} else if (WFR_FAILURE(status = WfrGetCommandLineAsUtf8(&cmdline))) {
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "Pageant", status, "initialising command line");
+		exit(1);
+	} else if (WFR_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "Pageant", status, "setting backend");
 		exit(1);
 	}
+
+	*pcmdline = cmdline;
 }
 
 void
@@ -394,13 +429,13 @@ WfPageantInitSysTrayMenu(
 	if (WFR_FAILURE(status = WfsGetOptionIntWithDefault(
 			WfsGetBackend(), PAGEANT_OPTION_LAUNCH_AT_STARTUP, false, &option_launch_at_startup)))
 	{
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting Pageant launch at startup option");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "Pageant", status, "getting Pageant launch at startup option");
 		exit(1);
 	}
 	if (WFR_FAILURE(status = WfsGetOptionIntWithDefault(
 			WfsGetBackend(), PAGEANT_OPTION_PERSIST_KEYS, false, &option_persist)))
 	{
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "getting Pageant persist keys option");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "Pageant", status, "getting Pageant persist keys option");
 		exit(1);
 	}
 
@@ -513,7 +548,9 @@ out:
 	}
 	WFR_FREE_IF_NOTNULL(sessionname_new);
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("Pageant", status, "%s", error_context);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
+		NULL, "Pageant", status,
+		"%s", error_context);
 }
 
 /*

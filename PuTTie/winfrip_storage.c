@@ -9,6 +9,7 @@
 #include <windows.h>
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
@@ -189,7 +190,7 @@ WfsGetBackendArgString(
 	if (WFR_SUCCESS(status = WfsGetBackendArg(backend, &backend_name))
 	&&  WFR_SUCCESS(status = WfsGetBackendArg(WfspLastBackendFrom, &backend_from_name)))
 	{
-		status = WfrSnDuprintf(
+		status = WfrSnDuprintF(
 			parg_string, NULL, "--%s%s%s",
 			backend_name,
 			fromfl ? "=" : "",
@@ -239,7 +240,7 @@ WfsSetBackend(
 {
 	WfsErrorFn	error_fn =
 			WFR_LAMBDA(void, (const char *name, WfrStatus status) {
-				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting %s", name);
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "exporting %s", name);
 			});
 	WfspBackend *	new_backend_impl;
 	WfrStatus	status;

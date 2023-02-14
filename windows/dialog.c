@@ -25,6 +25,7 @@
 #include <richedit.h>
 
 #include "../PuTTie/winfrip_rtl.h"
+#include "../PuTTie/winfrip_rtl_windows.h"
 /* winfrip }}} */
 
 #ifdef MSVC4
@@ -695,8 +696,17 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
             char *err = save_screenshot(
                 hwnd, dialog_box_demo_screenshot_filename);
             if (err) {
+                /* {{{ winfrip */
+            #if 1
+                WfrMessageBox(hwnd, err, "Demo screenshot failure",
+                              MB_OK | MB_ICONERROR);
+            #else
+                /* winfrip }}} */
                 MessageBox(hwnd, err, "Demo screenshot failure",
                            MB_OK | MB_ICONERROR);
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
                 sfree(err);
             }
             ShinyEndDialog(hwnd, 0);
@@ -1262,8 +1272,17 @@ SeatPromptResult win_seat_confirm_weak_crypto_primitive(
 
     message = dupprintf(msg, algtype, algname);
     title = dupprintf(mbtitle, appname);
+    /* {{{ winfrip */
+#if 1
+    mbret = WfrMessageBox(NULL, message, title,
+                          MB_ICONWARNING | MB_YESNO | MB_DEFBUTTON2);
+#else
+    /* winfrip }}} */
     mbret = MessageBox(NULL, message, title,
                        MB_ICONWARNING | MB_YESNO | MB_DEFBUTTON2);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     socket_reselect_all();
     sfree(message);
     sfree(title);
@@ -1290,8 +1309,17 @@ SeatPromptResult win_seat_confirm_weak_cached_hostkey(
 
     message = dupprintf(msg, algname, betteralgs);
     title = dupprintf(mbtitle, appname);
+    /* {{{ winfrip */
+#if 1
+    mbret = WfrMessageBox(NULL, message, title,
+                          MB_ICONWARNING | MB_YESNO | MB_DEFBUTTON2);
+#else
+    /* winfrip }}} */
     mbret = MessageBox(NULL, message, title,
                        MB_ICONWARNING | MB_YESNO | MB_DEFBUTTON2);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     socket_reselect_all();
     sfree(message);
     sfree(title);
@@ -1323,8 +1351,17 @@ static int win_gui_askappend(LogPolicy *lp, Filename *filename,
     message = dupprintf(msgtemplate, FILENAME_MAX, filename->path);
     mbtitle = dupprintf("%s Log to File", appname);
 
+    /* {{{ winfrip */
+#if 1
+    mbret = WfrMessageBox(NULL, message, mbtitle,
+                          MB_ICONQUESTION | MB_YESNOCANCEL | MB_DEFBUTTON3);
+#else
+    /* winfrip }}} */
     mbret = MessageBox(NULL, message, mbtitle,
                        MB_ICONQUESTION | MB_YESNOCANCEL | MB_DEFBUTTON3);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 
     socket_reselect_all();
 
@@ -1374,7 +1411,15 @@ void old_keyfile_warning(void)
     msg = dupprintf(message, appname);
     title = dupprintf(mbtitle, appname);
 
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(NULL, msg, title, MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(NULL, msg, title, MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 
     socket_reselect_all();
 

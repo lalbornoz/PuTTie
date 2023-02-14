@@ -69,112 +69,156 @@ static const wchar_t *	WfrpGdiPlusStatusErrorMessageW[] = {
 	L"ProfileNotFound",
 };
 
-static bool		WfrpVersionInit = false;
-static unsigned int	WfrpVersionMajor = UINT_MAX;
-static unsigned int	WfrpVersionMinor = UINT_MAX;
-
-/*
- * Private subroutine prototypes
- */
-
-static void WfrpInitVersion(void);
-
-/*
- * Private subroutines
- */
-
-static void
-WfrpInitVersion(
-	void
-	)
-{
-	OSVERSIONINFO	VersionInformation;
-
-
-	ZeroMemory(&VersionInformation, sizeof(VersionInformation));
-	VersionInformation.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	if (GetVersionExA(&VersionInformation)) {
-		WfrpVersionMajor = VersionInformation.dwMajorVersion;
-		WfrpVersionMinor = VersionInformation.dwMinorVersion;
-	}
-}
-
 /*
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
-unsigned int
-WfrGetOsVersionMajor(
-	void
+WfrStatus
+WfrConvertUtf8ToUtf16String(
+	const char *	in,
+	size_t		in_len,
+	wchar_t **	poutW
 	)
 {
-	if (!WfrpVersionInit) {
-		WfrpInitVersion();
-	}
-	return WfrpVersionMajor;
+	return WfrConvertUtf8ToUtf16String1(in, in_len, poutW, NULL);
 }
 
-unsigned int
-WfrGetOsVersionMinor(
-	void
+WfrStatus
+WfrConvertUtf8ToUtf16String1(
+	const char *	in,
+	size_t		in_len,
+	wchar_t **	poutW,
+	size_t *	poutW_size
 	)
 {
-	if (!WfrpVersionInit) {
-		WfrpInitVersion();
+	wchar_t *	outW;
+	int		outW_len, outW_nbytes;
+	WfrStatus	status;
+
+
+	outW_len = MultiByteToWideChar(CP_UTF8, 0, in, in_len, NULL, 0);
+	outW_nbytes = (outW_len + 1) * sizeof(*outW);
+
+	if (WFR_NEWN(status, outW, outW_nbytes, wchar_t)) {
+		ZeroMemory(outW, outW_nbytes);
+		if (WFR_SUCCESS_WINDOWS(status,
+				(outW_len == MultiByteToWideChar(
+					CP_UTF8, 0, in, in_len,
+					outW, outW_nbytes))))
+		{
+			outW[outW_len] = L'\0';
+			*poutW = outW;
+			if (poutW_size) {
+				*poutW_size = outW_len + 1;
+			}
+		} else {
+			WFR_FREE(outW);
+		}
 	}
-	return WfrpVersionMinor;
+
+	return status;
 }
 
-bool
-WfrIsVKeyDown(
-	int	nVirtKey
+WfrStatus
+WfrConvertUtf16ToUtf8String(
+	const wchar_t *		inW,
+	size_t			inW_len,
+	char **			pout
 	)
 {
-	return (GetKeyState(nVirtKey) < 0);
+	return WfrConvertUtf16ToUtf8String1(inW, inW_len, pout, NULL);
+}
+
+WfrStatus
+WfrConvertUtf16ToUtf8String1(
+	const wchar_t *		inW,
+	size_t			inW_len,
+	char **			pout,
+	size_t *		pout_size
+	)
+{
+	char *		out;
+	int		out_len, out_nbytes;
+	WfrStatus	status;
+
+
+	out_len = WideCharToMultiByte(CP_UTF8, 0, inW, inW_len, NULL, 0, NULL, NULL);
+	out_nbytes = (out_len + 1) * sizeof(*out);
+
+	if (WFR_NEWN(status, out, out_nbytes, char)) {
+		ZeroMemory(out, out_nbytes);
+		if (WFR_SUCCESS_WINDOWS(status,
+				(out_len == WideCharToMultiByte(
+					CP_UTF8, 0, inW, inW_len,
+					out, out_nbytes, NULL, NULL))))
+		{
+			out[out_len] = '\0';
+			*pout = out;
+			if (pout_size) {
+				*pout_size = out_len + 1;
+			}
+		} else {
+			WFR_FREE(out);
+		}
+	}
+
+	return status;
 }
 
 int
-WfrMessageBoxF(
-	const char *	lpCaption,
-	unsigned int	uType,
-	const char *	format,
-			...
-	)
-{
-	va_list		ap;
-	static char	msg_buf[255];
-
-
-	va_start(ap, format);
-	(void)vsnprintf(msg_buf, sizeof(msg_buf), format, ap);
-	va_end(ap);
-	msg_buf[sizeof(msg_buf) - 1] = '\0';
-
-	return MessageBoxA(NULL, msg_buf, lpCaption, uType);
-}
-
-int
-WfrMessageBoxFW(
-	const wchar_t *		lpCaption,
-	unsigned int		uType,
-	const wchar_t *		format,
+WfrFPrintUtf8AsUtf16F(
+	FILE *restrict		stream,
+	const char *restrict	format,
 				...
 	)
 {
 	va_list		ap;
-	static wchar_t	msg_buf[255];
+	int		nprinted;
+	WfrStatus	status;
+	char *		s = NULL;
+	size_t		s_len;
+	wchar_t *	sW = NULL;
 
 
 	va_start(ap, format);
-	(void)vsnwprintf(msg_buf, WFR_SIZEOF_WSTRING(msg_buf), format, ap);
+	status = WfrSnDuprintV(&s, &s_len, format, ap);
 	va_end(ap);
-	msg_buf[WFR_SIZEOF_WSTRING(msg_buf) - 1] = L'\0';
 
-	return MessageBoxW(NULL, msg_buf, lpCaption, uType);
+	if (WFR_SUCCESS(status)
+	&&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+			s, s_len, &sW)))
+	{
+		nprinted = fwprintf(stream, L"%S", sW);
+	} else {
+		nprinted = -1;
+	};
+
+	WFR_FREE_IF_NOTNULL(s);
+	WFR_FREE_IF_NOTNULL(sW);
+
+	if (nprinted == -1) {
+		errno = EINVAL;
+	}
+	return nprinted;
+}
+
+bool
+WfrIsNULTerminatedW(
+	wchar_t *	ws,
+	size_t		ws_size
+	)
+{
+	for (size_t n = 0; n < ws_size; n++) {
+		if (ws[n] == L'\0') {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 WfrStatus
-WfrSnDuprintf(
+WfrSnDuprintF(
 	char **		ps,
 	size_t *	pn,
 	const char *	format,
@@ -183,29 +227,47 @@ WfrSnDuprintf(
 {
 	va_list		ap;
 	WfrStatus	status;
+
+
+	va_start(ap, format);
+	status = WfrSnDuprintV(ps, pn, format, ap);
+	va_end(ap);
+
+	return status;
+}
+
+WfrStatus
+WfrSnDuprintV(
+	char **		ps,
+	size_t *	pn,
+	const char *	format,
+	va_list		ap
+	)
+{
+	va_list		aq;
+	WfrStatus	status;
 	char *		s = NULL;
 	int		s_len;
 	size_t		s_size;
 
 
 	if (WFR_NEWN(status, s, 1, char)) {
+		va_copy(aq, ap);
+
 		s_size = 1;
-		va_start(ap, format);
 		s_len = vsnprintf(s, s_size, format, ap);
-		va_end(ap);
 
 		if (s_len < 0) {
 			status = WFR_STATUS_FROM_ERRNO();
 		} else if (s_len == 0) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		} else if (WFR_RESIZE(status, s, s_size, (size_t)s_len + 1, char)) {
-			va_start(ap, format);
-			s_len = vsnprintf(s, s_size, format, ap);
-			va_end(ap);
-
+			s_len = vsnprintf(s, s_size, format, aq);
 			s[((s_len < 0) ? 0 : s_len)] = '\0';
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
+
+		va_end(aq);
 	}
 
 	if (WFR_SUCCESS(status)) {
@@ -228,7 +290,7 @@ WfrStatusToErrorMessage(
 	WfrStatusCondition	condition;
 	static char		condition_msg[128];
 #ifndef WINFRIP_RTL_NO_PCRE2
-	static wchar_t		condition_msg_w[128];
+	static wchar_t		condition_msgW[128];
 #endif /* WINFRIP_RTL_NO_PCRE2 */
 	static char		error_msg[256];
 	static HMODULE		hModule_ntdll = NULL;
@@ -282,13 +344,13 @@ WfrStatusToErrorMessage(
 #ifndef WINFRIP_RTL_NO_PCRE2
 	case WFR_STATUS_FACILITY_PCRE2:
 		condition_msg[0] = '\0';
-		condition_msg_w[0] = L'\0';
+		condition_msgW[0] = L'\0';
 		(void)pcre2_get_error_message(
 			status.condition,
-			condition_msg_w, sizeof(condition_msg_w));
+			condition_msgW, sizeof(condition_msgW));
 		(void)WideCharToMultiByte(
-			CP_UTF8, 0, condition_msg_w,
-			wcslen(condition_msg_w) + 1,
+			CP_UTF8, 0, condition_msgW,
+			wcslen(condition_msgW) + 1,
 			condition_msg, sizeof(condition_msg),
 			NULL, NULL);
 		break;
@@ -366,31 +428,84 @@ WfrStatusToErrorMessageW(
 }
 
 WfrStatus
-WfrToWcsDup(
-	char *		in,
-	size_t		in_size,
-	wchar_t **	pout_w
+WfrUpdateStringList(
+	bool			addfl,
+	bool			delfl,
+	char **			plist,
+	size_t *		plist_size,
+	const char *const	trans_item
 	)
 {
-	wchar_t *	out_w;
-	int		out_w_len, out_w_size;
+	size_t		item_len;
+	char *		list_new = NULL, *list_new_last;
+	ptrdiff_t	list_new_delta;
+	size_t		list_new_size = 0;
 	WfrStatus	status;
+	size_t		trans_item_len;
 
 
-	out_w_len = MultiByteToWideChar(CP_ACP, 0, in, in_size, NULL, 0);
-	out_w_size = out_w_len * sizeof(*out_w);
+	if (addfl || delfl) {
+		trans_item_len = strlen(trans_item);
 
-	if (WFR_SUCCESS_WINDOWS(status, (out_w_len > 0))
-	&&  WFR_NEWN(status, out_w, out_w_size, wchar_t))
-	{
-		ZeroMemory(out_w, out_w_size);
-		if (WFR_SUCCESS_WINDOWS(status, (MultiByteToWideChar(
-				CP_ACP, 0, in, in_size, out_w, out_w_size) == out_w_len)))
+		if ((*plist == NULL)
+		&&  WFR_NEWN(status, *plist, 2, char))
 		{
-			*pout_w = out_w;
-		} else {
-			WFR_FREE(out_w);
+			(*plist)[0] = '\0'; (*plist)[1] = '\0';
+			*plist_size = 1;
 		}
+
+		list_new_size = trans_item_len + 1 + *plist_size;
+		if (WFR_NEWN(status, list_new, list_new_size, char)) {
+			memset(list_new, '\0', list_new_size);
+			list_new_last = list_new;
+
+			if (addfl) {
+				memcpy(list_new_last, trans_item, trans_item_len + 1);
+				list_new_last += trans_item_len + 1;
+			}
+
+			for (char *item = *plist, *item_next = NULL;
+			     item && *item; item = item_next)
+			{
+				if ((item_next = strchr(item, '\0'))) {
+					item_len = item_next - item;
+					item_next++;
+
+					if ((trans_item_len != item_len)
+					||  (strncmp(trans_item, item, item_len) != 0))
+					{
+						memcpy(list_new_last, item, item_len);
+						list_new_last += item_len + 1;
+					}
+				}
+			}
+
+			if (&list_new_last[0] < &list_new[list_new_size - 1]) {
+				list_new_delta = (&list_new[list_new_size - 1] - &list_new_last[0]);
+				if ((list_new_size - list_new_delta) < 2) {
+					if (WFR_RESIZE(status, list_new, list_new_size, 2, char)) {
+						list_new[0] = '\0';
+						list_new[1] = '\0';
+					}
+				} else {
+					(void)WFR_RESIZE(status,
+						list_new, list_new_size,
+						list_new_size - list_new_delta, char);
+				}
+			} else {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			}
+
+			if (WFR_SUCCESS(status)) {
+				WFR_FREE(*plist);
+				*plist = list_new;
+				*plist_size = list_new_size;
+			}
+		}
+	}
+
+	if (WFR_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(list_new);
 	}
 
 	return status;
@@ -398,22 +513,22 @@ WfrToWcsDup(
 
 wchar_t *
 WfrWcsNDup(
-	const wchar_t *		in_w,
-	size_t			in_w_len
+	const wchar_t *		inW,
+	size_t			inW_len
 	)
 {
-	wchar_t *	out_w = NULL;
-	size_t		out_w_size;
+	wchar_t *	outW = NULL;
+	size_t		outW_size;
 
 
-	out_w_size = in_w_len + 1;
-	if (WFR_NEWN1(out_w, out_w_size, wchar_t)) {
-		memset(out_w, 0, out_w_size * sizeof(wchar_t));
-		wcsncpy(out_w, in_w, in_w_len);
-		out_w[in_w_len] = L'\0';
+	outW_size = inW_len + 1;
+	if (WFR_NEWN1(outW, outW_size, wchar_t)) {
+		memset(outW, 0, outW_size * sizeof(wchar_t));
+		wcsncpy(outW, inW, inW_len);
+		outW[inW_len] = L'\0';
 	}
 
-	return out_w;
+	return outW;
 }
 
 /*

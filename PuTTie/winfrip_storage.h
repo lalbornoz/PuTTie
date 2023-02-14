@@ -51,6 +51,9 @@ typedef void (*WfsErrorFn)(const char *, WfrStatus);
 	defaultfl;						\
 })
 
+#define WFS_SESSION_NAME_IS_DEFAULT(name) 			\
+	(strcmp((name), "Default Settings") == 0)
+
 /*
  * Public storage backend subroutine prototypes private to PuTTie/winfrip_storage*.c
  */

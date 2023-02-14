@@ -17,9 +17,9 @@
 
 typedef struct WfrEnumerateFilesState {
 	bool			donefl;
-	struct dirent *		dire;
-	DIR *			dirp;
-	const char *		path;
+	struct _wdirent *	dire;
+	_WDIR *			dirp;
+	const wchar_t *		path;
 } WfrEnumerateFilesState;
 #define WFR_ENUMERATE_FILES_STATE_EMPTY {					\
 	.donefl = false,							\

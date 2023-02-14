@@ -97,6 +97,7 @@ set_source_files_properties(../PuTTie/winfrip_rtl_save.c PROPERTIES COMPILE_FLAG
 set_source_files_properties(../PuTTie/winfrip_rtl_shortcut.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_terminal.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_tree.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_rtl_windows.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage_adapter.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_storage_adapter_host_ca.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
@@ -149,6 +150,7 @@ set_property(TARGET pageant APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_rtl_save.c
   ../PuTTie/winfrip_rtl_shortcut.c
   ../PuTTie/winfrip_rtl_tree.c
+  ../PuTTie/winfrip_rtl_windows.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_adapter.c
   ../PuTTie/winfrip_storage_adapter_host_ca.c
@@ -221,6 +223,7 @@ set_property(TARGET putty APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_rtl_save.c
   ../PuTTie/winfrip_rtl_terminal.c
   ../PuTTie/winfrip_rtl_tree.c
+  ../PuTTie/winfrip_rtl_windows.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_adapter.c
   ../PuTTie/winfrip_storage_adapter_host_ca.c
@@ -292,6 +295,7 @@ set_property(TARGET puttytel APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_rtl_save.c
   ../PuTTie/winfrip_rtl_terminal.c
   ../PuTTie/winfrip_rtl_tree.c
+  ../PuTTie/winfrip_rtl_windows.c
   ../PuTTie/winfrip_storage.c
   ../PuTTie/winfrip_storage_adapter.c
   ../PuTTie/winfrip_storage_adapter_host_ca.c
@@ -339,6 +343,13 @@ add_executable(puttygen
   ${CMAKE_SOURCE_DIR}/sshrand.c
   controls.c
   puttygen.rc)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET puttygen APPEND PROPERTY SOURCES
+  ../PuTTie/winfrip_rtl.c
+  ../PuTTie/winfrip_rtl_windows.c)
+endif()
+# winfrip }}}
 add_dependencies(puttygen generated_licence_h)
 target_link_libraries(puttygen
   keygen guimisc crypto utils

@@ -110,16 +110,8 @@ Wfp2GetMatch(
 		case WFP2_RTYPE_STRING:
 			value_new_size = match_size + 1;
 			if (WFR_SUCCESS_ERRNO1(status, EINVAL, (alloc_value))
-			&&  WFR_NEWN(status, value_new, value_new_size + 1, char))
+			&&  WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(match_begin, (match_end - match_begin), (char **)&value_new)))
 			{
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat="
-				snprintf(
-					value_new, value_new_size, "%*.*S",
-					(int)(match_end - match_begin),
-					(int)(match_end - match_begin),
-					match_begin);
-#pragma GCC diagnostic pop
 				*(char **)pvalue = value_new;
 				if (pvalue_size) {
 					*pvalue_size = value_new_size;

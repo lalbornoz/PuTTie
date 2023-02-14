@@ -14,8 +14,11 @@
 #include "security-api.h"
 
 /* {{{ winfrip */
+#include <fcntl.h>
+
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 /* winfrip }}} */
 
@@ -320,12 +323,17 @@ int main(int argc, char **argv)
     WfrStatus    status;
 
 
-    WfrDebugInit();
+    (void)_setmode(_fileno(stdout), _O_U8TEXT);
+    (void)_setmode(_fileno(stderr), _O_U8TEXT);
+
     if (WFR_STATUS_FAILURE(status = WfsInit())) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("plink", status, "initialising storage");
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "plink", status, "initialising storage");
+        exit(1);
+    } else if (WFR_FAILURE(status = WfrGetCommandLineAsArgVUtf8(&argc, &argv))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "plink", status, "initialising command line");
         exit(1);
     } else if (WFR_STATUS_FAILURE(status = WfsSetBackendFromArgV(&argc, &argv))) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("plink", status, "setting backend");
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "plink", status, "setting backend");
         exit(1);
     }
     /* winfrip }}} */

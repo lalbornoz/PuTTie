@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_adapter.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
