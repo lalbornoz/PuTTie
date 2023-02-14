@@ -12,6 +12,7 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_adapter.h"
@@ -59,7 +60,7 @@ enum_host_ca_start(
 		return handle;
 	} else {
 		if (WfsGetAdapterDisplayErrors()) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating host CAs");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "enumerating host CAs");
 		}
 
 		return NULL;
@@ -84,7 +85,7 @@ enum_host_ca_next(
 
 	if (WFR_FAILURE(status) || donefl) {
 		if (WfsGetAdapterDisplayErrors() && WFR_FAILURE(status)) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "enumerating host CAs");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "enumerating host CAs");
 		}
 
 		return false;
@@ -139,7 +140,7 @@ host_ca_load(
 		}
 
 		if (WfsGetAdapterDisplayErrors()) {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "loading host CA");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "loading host CA");
 		}
 	}
 

@@ -10,6 +10,7 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_feature_storage_priv.h"
@@ -42,11 +43,11 @@ WffsClearItems(
 	backend_to = WFFS_GET_BACKEND(ctx, WFFS_DIR_TO, dlg);
 
 	if (WFR_SUCCESS(status = WfsGetBackendName(backend, &backend_name))
-	&&  WFR_SUCCESS(status = WfrSnDuprintf(
+	&&  WFR_SUCCESS(status = WfrSnDuprintF(
 			&lpText, NULL, "Clear all %s in the %s backend?",
 			items_title, backend_name)))
 	{
-		switch (MessageBox(
+		switch (WfrMessageBox(
 				NULL, lpText, "PuTTie",
 				MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1))
 		{
@@ -83,7 +84,7 @@ WffsClearItems(
 		}
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "clearing items");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "clearing items");
 
 	return status;
 }
@@ -125,19 +126,19 @@ WffsDeleteItem(
 			{
 				status_ = WFR_STATUS_CONDITION_SUCCESS;
 			}
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, "deleting item %s", name);
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, NULL, "deleting item %s", name);
 		} else {
 			status_ = WffsUpdateItemList(
 				backend, ctx->listbox[dir], dlg,
 				&ctx->itemc[dir], &ctx->itemv[dir],
 				update_fn, true);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, "deleting item %s", name);
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status_, NULL, "deleting item %s", name);
 		}
 	} else if (nitem == -1) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "deleting item %s", name);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "deleting item %s", name);
 
 	return status;
 }
@@ -172,7 +173,7 @@ WffsExportItem(
 
 				status = export_item_fn(backend_from, backend_to, movefl, name);
 				if (WFR_FAILURE(status)) {
-					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting item %s", name);
+					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "exporting item %s", name);
 					status = WFR_STATUS_CONDITION_SUCCESS;
 				}
 			}
@@ -194,7 +195,7 @@ WffsExportItem(
 			}
 		}
 
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "exporting item");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "exporting item");
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
@@ -335,7 +336,7 @@ WffsRenameItem(
 		WFR_FREE(name_new);
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "renaming item %s", name);
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "renaming item %s", name);
 
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
@@ -367,7 +368,7 @@ WffsRefreshBackends(
 		dlg_listbox_select(ctrl, dlg, WFS_BACKEND_FILE);
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "refreshing backends");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "refreshing backends");
 
 	return status;
 }
@@ -418,7 +419,7 @@ WffsRefreshItems(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "refreshing item list");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "refreshing item list");
 
 	return status;
 }
@@ -466,7 +467,7 @@ WffsSelectItem(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "selecting item");
+	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "selecting item");
 
 	return status;
 }

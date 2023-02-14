@@ -16,6 +16,7 @@
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_rtl_terminal.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 
 /*
  * Private type definitions
@@ -149,8 +150,8 @@ WffupConfigPanelBrowserVerbHandler(
 		browser_verb_len = strlen(browser_verb);
 		conf_set_str(conf, CONF_frip_urls_browser_pname_verb, browser_verb);
 
-		if (WFR_SUCCESS(status = WfrToWcsDup(
-				browser_verb, browser_verb_len + 1, &browser_verb_w)))
+		if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+				browser_verb, browser_verb_len, &browser_verb_w)))
 		{
 			WFR_FREE(browser_verb);
 			WFR_FREE_IF_NOTNULL(WffupAppW);
@@ -325,10 +326,10 @@ WffupReconfig(
 		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
 		snprintf(dlg_text, sizeof(dlg_caption), "Regular expressions must not be empty.");
 		goto fail;
-	} else if (WFR_FAILURE(WfrToWcsDup(spec, spec_len + 1, &spec_w))) {
+	} else if (WFR_FAILURE(WfrConvertUtf8ToUtf16String(spec, spec_len, &spec_w))) {
 		WFR_DEBUG_FAIL();
 		snprintf(dlg_caption, sizeof(dlg_caption), "Error compiling clickable URL regex");
-		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrToWcsDup()");
+		snprintf(dlg_text, sizeof(dlg_caption), "Internal memory allocation error on calling WfrConvertUtf8ToUtf16String()");
 		goto fail;
 	} else if (WFR_SUCCESS(WfrInitTermLinesURLWRegex(
 			spec_w, &re_errorcode, &re_erroroffset)))
@@ -366,7 +367,10 @@ WffupReconfig(
 	 */
 
 fail:
-	switch (MessageBoxA(NULL, dlg_caption, dlg_text, MB_CANCELTRYCONTINUE | MB_ICONERROR)) {
+	switch (WfrMessageBox(
+			NULL, dlg_caption, dlg_text,
+			MB_CANCELTRYCONTINUE | MB_ICONERROR))
+	{
 	default:
 	case IDCANCEL:
 		WFR_FREE(spec_w);
@@ -483,7 +487,7 @@ WffupOpClick(
 
 		if ((INT_PTR)rc_shexec <= 32) {
 			WFR_IF_STATUS_FAILURE_MESSAGEBOX(
-				WFR_STATUS_FROM_WINDOWS(),
+				WFR_STATUS_FROM_WINDOWS(), NULL,
 				"opening URL %S with %S",
 				WffupBufW, WffupAppW ? WffupAppW : L"open");
 		}

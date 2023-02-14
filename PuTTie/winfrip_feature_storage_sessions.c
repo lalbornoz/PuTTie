@@ -11,6 +11,7 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_storage_sessions.h"
 #include "PuTTie/winfrip_storage.h"
@@ -122,7 +123,7 @@ WffsSessionsConfigPanelDroplistBackendHandler(
 		dlg_listbox_select(ctrl, dlg, WfsGetBackend());
 		dlg_update_done(ctrl, dlg);
 
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "updating backends list");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "updating backends list");
 
 		break;
 
@@ -132,7 +133,7 @@ WffsSessionsConfigPanelDroplistBackendHandler(
 		status = WfsSetBackend(id, id, false);
 		ctrl_sessionsaver->handler(ctrl_sessionsaver, dlg, data, EVENT_REFRESH);
 
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "setting backend");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "setting backend");
 
 		break;
 	}

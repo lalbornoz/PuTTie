@@ -23,6 +23,8 @@
 #include "pageant-rc.h"
 
 /* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_subr_pageant.h"
 /* winfrip }}} */
 
@@ -101,8 +103,17 @@ void modalfatalbox(const char *fmt, ...)
     va_start(ap, fmt);
     buf = dupvprintf(fmt, ap);
     va_end(ap);
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(traywindow, buf, "Pageant Fatal Error",
+                  MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(traywindow, buf, "Pageant Fatal Error",
                MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(buf);
     exit(1);
 }
@@ -325,7 +336,15 @@ void old_keyfile_warning(void)
         "You can perform this conversion by loading the key\n"
         "into PuTTYgen and then saving it again.";
 
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(NULL, message, mbtitle, MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(NULL, message, mbtitle, MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 struct keylist_update_ctx {
@@ -575,6 +594,21 @@ static void win_add_keyfile(Filename *filename, bool encrypted)
  */
 static void prompt_add_keyfile(bool encrypted)
 {
+    /* {{{ winfrip */
+#if 1
+    char *      filelist = NULL;
+    WORD        nFileOffset;
+    WfrStatus   status;
+
+
+    status = WfrRequestFile(
+        OFN_ALLOWMULTISELECT | OFN_EXPLORER, traywindow, NULL,
+        FILTER_KEY_FILES, NULL, "Select Private Key File", 8192,
+        true, false, &filelist, &nFileOffset);
+
+    if (WFR_SUCCESS(status)) {
+#else
+    /* winfrip }}} */
     OPENFILENAME of;
     char *filelist = snewn(8192, char);
 
@@ -591,7 +625,18 @@ static void prompt_add_keyfile(bool encrypted)
     of.lpstrTitle = "Select Private Key File";
     of.Flags = OFN_ALLOWMULTISELECT | OFN_EXPLORER;
     if (request_file(keypath, &of, true, false)) {
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
+    /* {{{ winfrip */
+    #if 1
+        if (strlen(filelist) > nFileOffset) {
+    #else
+    /* winfrip }}} */
         if (strlen(filelist) > of.nFileOffset) {
+    /* {{{ winfrip */
+    #endif
+    /* winfrip }}} */
             /* Only one filename returned? */
             Filename *fn = filename_from_str(filelist);
             /* {{{ winfrip */
@@ -1398,9 +1443,18 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
             if ((INT_PTR)ShellExecute(
                     hwnd, NULL, putty_path, cmdline, _T(""), SW_SHOW) <= 32)
             {
+                /* {{{ winfrip */
+            #if 1
+                WfrMessageBox(NULL, "Unable to execute PuTTY!",
+                             "Error", MB_OK | MB_ICONERROR);
+            #else
+                /* winfrip }}} */
                 MessageBox(NULL, "Unable to execute PuTTY!",
                            "Error", MB_OK | MB_ICONERROR);
-            }
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
+                }
             break;
           }
           case IDM_CLOSE:
@@ -1492,8 +1546,17 @@ static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT message,
                 strcat(param, mii.dwTypeData);
                 if ((INT_PTR)ShellExecute(hwnd, NULL, putty_path, param,
                                           _T(""), SW_SHOW) <= 32) {
+                    /* {{{ winfrip */
+                #if 1
+                    WfrMessageBox(NULL, "Unable to execute PuTTY!", "Error",
+                                  MB_OK | MB_ICONERROR);
+                #else
+                    /* winfrip }}} */
                     MessageBox(NULL, "Unable to execute PuTTY!", "Error",
                                MB_OK | MB_ICONERROR);
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                 }
             }
             break;
@@ -1571,7 +1634,15 @@ void spawn_cmd(const char *cmdline, const char *args, int show)
         char *msg;
         msg = dupprintf("Failed to run \"%s\": %s", cmdline,
                         win_strerror(GetLastError()));
+        /* {{{ winfrip */
+    #if 1
+        WfrMessageBox(NULL, msg, APPNAME, MB_OK | MB_ICONEXCLAMATION);
+    #else
+        /* winfrip }}} */
         MessageBox(NULL, msg, APPNAME, MB_OK | MB_ICONEXCLAMATION);
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         sfree(msg);
     }
 }
@@ -1613,7 +1684,15 @@ static NORETURN void opt_error(const char *fmt, ...)
     char *msg = dupvprintf(fmt, ap);
     va_end(ap);
 
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(NULL, msg, "Pageant command line error", MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(NULL, msg, "Pageant command line error", MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 
     exit(1);
 }
@@ -1669,10 +1748,21 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
          * Attempt to get the security API we need.
          */
         if (!got_advapi()) {
+            /* {{{ winfrip */
+        #if 1
+            WfrMessageBox(NULL,
+                          "Unable to access security APIs. Pageant will\n"
+                          "not run, in case it causes a security breach.",
+                          "Pageant Fatal Error", MB_ICONERROR | MB_OK);
+        #else
+            /* winfrip }}} */
             MessageBox(NULL,
                        "Unable to access security APIs. Pageant will\n"
                        "not run, in case it causes a security breach.",
                        "Pageant Fatal Error", MB_ICONERROR | MB_OK);
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
             return 1;
         }
     }
@@ -1778,7 +1868,15 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         mutex = lock_interprocess_mutex(mutexname, &err);
         sfree(mutexname);
         if (!mutex) {
+            /* {{{ winfrip */
+        #if 1
+            WfrMessageBox(NULL, err, "Pageant Error", MB_ICONERROR | MB_OK);
+        #else
+            /* winfrip }}} */
             MessageBox(NULL, err, "Pageant Error", MB_ICONERROR | MB_OK);
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
             return 1;
         }
     }
@@ -1838,7 +1936,15 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
                 char *err = dupprintf("Unable to open named pipe at %s "
                                       "for SSH agent:\n%s", pipename,
                                       sk_socket_error(sock));
+                /* {{{ winfrip */
+            #if 1
+                WfrMessageBox(NULL, err, "Pageant Error", MB_ICONERROR | MB_OK);
+            #else
+                /* winfrip }}} */
                 MessageBox(NULL, err, "Pageant Error", MB_ICONERROR | MB_OK);
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
                 return 1;
             }
             pageant_listener_got_socket(pl, sock);
@@ -1852,8 +1958,17 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
                 if (!fp) {
                     char *err = dupprintf("Unable to write OpenSSH config "
                                           "file to %s", openssh_config_file);
+                    /* {{{ winfrip */
+                #if 1
+                    WfrMessageBox(NULL, err, "Pageant Error",
+                                  MB_ICONERROR | MB_OK);
+                #else
+                    /* winfrip }}} */
                     MessageBox(NULL, err, "Pageant Error",
                                MB_ICONERROR | MB_OK);
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     return 1;
                 }
                 fprintf(fp, "IdentityAgent %s\n", pipename);
@@ -1881,7 +1996,15 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
                 char *err = dupprintf("Unable to open AF_UNIX socket at %s "
                                       "for SSH agent:\n%s", unixsocket,
                                       sk_socket_error(sock));
+                /* {{{ winfrip */
+            #if 1
+                WfrMessageBox(NULL, err, "Pageant Error", MB_ICONERROR | MB_OK);
+            #else
+                /* winfrip }}} */
                 MessageBox(NULL, err, "Pageant Error", MB_ICONERROR | MB_OK);
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
                 return 1;
             }
             pageant_listener_got_socket(pl, sock);
@@ -1972,8 +2095,17 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
      */
     if (already_running) {
         if (!command && !nclkeys) {
+            /* {{{ winfrip */
+        #if 1
+            WfrMessageBox(NULL, "Pageant is already running", "Pageant Error",
+                          MB_ICONERROR | MB_OK);
+        #else
+            /* winfrip }}} */
             MessageBox(NULL, "Pageant is already running", "Pageant Error",
                        MB_ICONERROR | MB_OK);
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
         }
         return 0;
     }

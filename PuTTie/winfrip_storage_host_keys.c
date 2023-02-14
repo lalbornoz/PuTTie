@@ -267,7 +267,7 @@ WfsPrintHostKeyName(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS(status = WfrSnDuprintf(
+	if (WFR_SUCCESS(status = WfrSnDuprintF(
 			&key_name, NULL, "%s@%u:%s",
 			keytype, port, hostname)))
 	{

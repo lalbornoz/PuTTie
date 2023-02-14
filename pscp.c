@@ -26,9 +26,14 @@
 #include "storage.h"
 
 /* {{{ winfrip */
+#include <fcntl.h>
+
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
+
+#include "PuTTie/winfrip_rtl_printf_wrap.h"
 /* winfrip }}} */
 
 static bool list = false;
@@ -112,10 +117,18 @@ static void tell_char(FILE *stream, char c)
 
 static void tell_str(FILE *stream, const char *str)
 {
+    /* {{{ winfrip */
+#if 1
+    fprintf(stderr, "%s", str);
+#else
+    /* winfrip }}} */
     unsigned int i;
 
     for (i = 0; i < strlen(str); ++i)
         tell_char(stream, str[i]);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 static void abandon_stats(void)
@@ -2278,12 +2291,17 @@ int psftp_main(int argc, char *argv[])
     WfrStatus    status;
 
 
-    WfrDebugInit();
+    (void)_setmode(_fileno(stdout), _O_U8TEXT);
+    (void)_setmode(_fileno(stderr), _O_U8TEXT);
+
     if (WFR_STATUS_FAILURE(status = WfsInit())) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("pscp", status, "initialising storage");
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "pscp", status, "initialising storage");
+        exit(1);
+    } else if (WFR_FAILURE(status = WfrGetCommandLineAsArgVUtf8(&argc, &argv))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "pscp", status, "initialising command line");
         exit(1);
     } else if (WFR_STATUS_FAILURE(WfsSetBackendFromArgV(&argc, &argv))) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("pscp", status, "setting backend");
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "pscp", status, "setting backend");
         exit(1);
     }
     /* winfrip }}} */

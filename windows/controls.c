@@ -22,6 +22,11 @@
 
 #include <commctrl.h>
 
+/* {{{ winfrip */
+#include "../PuTTie/winfrip_rtl.h"
+#include "../PuTTie/winfrip_rtl_windows.h"
+/* winfrip }}} */
+
 #define GAPBETWEEN 3
 #define GAPWITHIN 1
 #define GAPXBOX 7
@@ -1988,6 +1993,54 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
             (msg == WM_COMMAND &&
              (HIWORD(wParam) == BN_CLICKED ||
               HIWORD(wParam) == BN_DOUBLECLICKED))) {
+            /* {{{ winfrip */
+        #if 1
+            char *      filename = NULL;
+            wchar_t *   filenameW = NULL;
+            WfrStatus   status;
+
+
+            if (!ctrl->fileselect.just_button) {
+                (void)GetDlgItemTextW(dp->hwnd, c->base_id + 1,
+                                      filenameW, WFR_SIZEOF_WSTRING(filenameW));
+                filenameW[WFR_SIZEOF_WSTRING(filenameW) - 1] = L'\0';
+                if (WFR_SUCCESS(WfrConvertUtf16ToUtf8String(
+                            filenameW, wcslen(filenameW) - 1, &filename)))
+                {
+                    WFR_FREE(filenameW);
+                }
+            } else {
+                status = WFR_STATUS_CONDITION_SUCCESS;
+            }
+
+            if (WFR_SUCCESS(status)) {
+                status = WfrRequestFile(
+                    0, dp->hwnd,
+                    NULL, (ctrl->fileselect.filter ? ctrl->fileselect.filter : "All Files (*.*)\0*\0\0\0"),
+                    NULL, ctrl->fileselect.title, FILENAME_MAX, false, ctrl->fileselect.for_writing,
+                    &filename, NULL);
+            }
+
+            if (WFR_SUCCESS(status)) {
+                if (!ctrl->fileselect.just_button) {
+                    if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+                                    filename, strlen(filename) - 1, &filenameW)))
+                    {
+                        (void)SetDlgItemTextW(dp->hwnd, c->base_id + 1, filenameW);
+                        ctrl->handler(ctrl, dp, dp->data, EVENT_VALCHANGE);
+                        WFR_FREE(filenameW);
+                    }
+                } else {
+                    assert(!c->data);
+                    c->data = filename;
+                    ctrl->handler(ctrl, dp, dp->data, EVENT_ACTION);
+                    WFR_FREE(c->data);
+                }
+            } else {
+                WFR_FREE_IF_NOTNULL(filename);
+            }
+        #else
+            /* winfrip }}} */
             OPENFILENAME of;
             char filename[FILENAME_MAX];
 
@@ -2022,6 +2075,9 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
                     c->data = NULL;
                 }
             }
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
         }
         break;
       case CTRL_FONTSELECT:
@@ -2201,14 +2257,50 @@ void dlg_editbox_set(dlgcontrol *ctrl, dlgparam *dp, char const *text)
 {
     struct winctrl *c = dlg_findbyctrl(dp, ctrl);
     assert(c && c->ctrl->type == CTRL_EDITBOX);
+    /* {{{ winfrip */
+#if 1
+    wchar_t *textW = NULL;
+    (void)WfrConvertUtf8ToUtf16String(text, strlen(text), &textW);
+    SetDlgItemTextW(dp->hwnd, c->base_id+1, textW);
+    WFR_FREE(textW);
+#else
+    /* winfrip }}} */
     SetDlgItemText(dp->hwnd, c->base_id+1, text);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 char *dlg_editbox_get(dlgcontrol *ctrl, dlgparam *dp)
 {
     struct winctrl *c = dlg_findbyctrl(dp, ctrl);
     assert(c && c->ctrl->type == CTRL_EDITBOX);
+    /* {{{ winfrip */
+#if 1
+    char *      p;
+    WfrStatus   status;
+    char *      text = NULL;
+    wchar_t *   textW = NULL;
+    size_t      textW_size = 0;
+
+
+    do {
+        if (WFR_RESIZE(status, textW, textW_size, textW_size + 64, wchar_t)) {
+            (void)GetDlgItemTextW(dp->hwnd, c->base_id + 1, textW, textW_size);
+        }
+    } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(textW, textW_size));
+
+    if (WFR_SUCCESS(status)) {
+        (void)WfrConvertUtf16ToUtf8String(textW, wcslen(textW), &text);
+    }
+
+    return text;
+#else
+    /* winfrip }}} */
     return GetDlgItemText_alloc(dp->hwnd, c->base_id+1);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 void dlg_editbox_select_range(dlgcontrol *ctrl, dlgparam *dp,
@@ -2256,7 +2348,18 @@ void dlg_listbox_add(dlgcontrol *ctrl, dlgparam *dp, char const *text)
              c->ctrl->editbox.has_list)));
     msg = (c->ctrl->type==CTRL_LISTBOX && c->ctrl->listbox.height!=0 ?
            LB_ADDSTRING : CB_ADDSTRING);
+    /* {{{ winfrip */
+#if 1
+    wchar_t *textW = NULL;
+    (void)WfrConvertUtf8ToUtf16String(text, strlen(text), &textW);
+    SendDlgItemMessageW(dp->hwnd, c->base_id+1, msg, 0, (LPARAM)textW);
+    WFR_FREE(textW);
+#else
+    /* winfrip }}} */
     SendDlgItemMessage(dp->hwnd, c->base_id+1, msg, 0, (LPARAM)text);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 /*
@@ -2279,7 +2382,18 @@ void dlg_listbox_addwithid(dlgcontrol *ctrl, dlgparam *dp,
            LB_ADDSTRING : CB_ADDSTRING);
     msg2 = (c->ctrl->type==CTRL_LISTBOX && c->ctrl->listbox.height!=0 ?
             LB_SETITEMDATA : CB_SETITEMDATA);
+    /* {{{ winfrip */
+#if 1
+    wchar_t *textW = NULL;
+    (void)WfrConvertUtf8ToUtf16String(text, strlen(text), &textW);
+    index = SendDlgItemMessageW(dp->hwnd, c->base_id+1, msg, 0, (LPARAM)textW);
+    WFR_FREE(textW);
+#else
+    /* winfrip }}} */
     index = SendDlgItemMessage(dp->hwnd, c->base_id+1, msg, 0, (LPARAM)text);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     SendDlgItemMessage(dp->hwnd, c->base_id+1, msg2, index, (LPARAM)id);
 }
 
@@ -2337,7 +2451,18 @@ void dlg_text_set(dlgcontrol *ctrl, dlgparam *dp, char const *text)
 {
     struct winctrl *c = dlg_findbyctrl(dp, ctrl);
     assert(c && c->ctrl->type == CTRL_TEXT);
+    /* {{{ winfrip */
+#if 1
+    wchar_t *textW = NULL;
+    (void)WfrConvertUtf8ToUtf16String(text, strlen(text), &textW);
+    SetDlgItemTextW(dp->hwnd, c->base_id, textW);
+    WFR_FREE(textW);
+#else
+    /* winfrip }}} */
     SetDlgItemText(dp->hwnd, c->base_id, text);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 void dlg_label_change(dlgcontrol *ctrl, dlgparam *dp, char const *text)
@@ -2383,7 +2508,18 @@ void dlg_label_change(dlgcontrol *ctrl, dlgparam *dp, char const *text)
         unreachable("bad control type in label_change");
     }
     if (escaped) {
+        /* {{{ winfrip */
+#if 1
+        wchar_t *escapedW = NULL;
+        (void)WfrConvertUtf8ToUtf16String(escaped, strlen(escaped), &escapedW);
+        SetDlgItemTextW(dp->hwnd, id, escapedW);
+        WFR_FREE(escapedW);
+#else
+        /* winfrip }}} */
         SetDlgItemText(dp->hwnd, id, escaped);
+        /* {{{ winfrip */
+#endif
+        /* winfrip }}} */
         sfree(escaped);
     }
 }
@@ -2394,7 +2530,18 @@ void dlg_filesel_set(dlgcontrol *ctrl, dlgparam *dp, Filename *fn)
     assert(c);
     assert(c->ctrl->type == CTRL_FILESELECT);
     assert(!c->ctrl->fileselect.just_button);
+    /* {{{ winfrip */
+#if 1
+    wchar_t *pathW = NULL;
+    (void)WfrConvertUtf8ToUtf16String(fn->path, strlen(fn->path), &pathW);
+    SetDlgItemTextW(dp->hwnd, c->base_id+1, pathW);
+    WFR_FREE(pathW);
+#else
+    /* winfrip }}} */
     SetDlgItemText(dp->hwnd, c->base_id+1, fn->path);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
@@ -2404,6 +2551,34 @@ Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
     Filename *ret;
     assert(c);
     assert(c->ctrl->type == CTRL_FILESELECT);
+    /* {{{ winfrip */
+#if 1
+    char *      p;
+    WfrStatus   status;
+    char *      text = NULL;
+    wchar_t *   textW = NULL;
+    size_t      textW_size = 0;
+
+
+    if (!c->ctrl->fileselect.just_button) {
+        do {
+            if (WFR_RESIZE(status, textW, textW_size, textW_size + 64, wchar_t)) {
+                (void)GetDlgItemTextW(dp->hwnd, c->base_id + 1, textW, textW_size);
+            }
+        } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(textW, textW_size));
+
+        if (WFR_SUCCESS(status)
+        &&  WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(textW, wcslen(textW), &text)))
+        {
+            return filename_from_str(text);
+        } else {
+            return NULL;
+        }
+    } else {
+        return filename_from_str(c->data);
+    }
+#else
+    /* winfrip }}} */
     if (!c->ctrl->fileselect.just_button) {
         tmp = GetDlgItemText_alloc(dp->hwnd, c->base_id+1);
         ret = filename_from_str(tmp);
@@ -2412,6 +2587,9 @@ Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
     } else {
         return filename_from_str(c->data);
     }
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 void dlg_fontsel_set(dlgcontrol *ctrl, dlgparam *dp, FontSpec *fs)
@@ -2508,9 +2686,19 @@ void dlg_beep(dlgparam *dp)
 
 void dlg_error_msg(dlgparam *dp, const char *msg)
 {
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(dp->hwnd, msg,
+                  dp->errtitle ? dp->errtitle : NULL,
+                  MB_OK | MB_ICONERROR);
+#else
+    /* winfrip }}} */
     MessageBox(dp->hwnd, msg,
                dp->errtitle ? dp->errtitle : NULL,
                MB_OK | MB_ICONERROR);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 /*
@@ -2647,3 +2835,9 @@ void dp_cleanup(struct dlgparam *dp)
     sfree(dp->wintitle);
     sfree(dp->errtitle);
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

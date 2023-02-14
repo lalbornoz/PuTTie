@@ -10,6 +10,7 @@
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_storage_general.h"
 #include "PuTTie/winfrip_storage.h"
@@ -182,7 +183,7 @@ typedef struct WffspConfigContext {
  */
 #define WFFSP_CONFIG_MESSAGEBOX_SELECTV(selectv, uType, fmt, ...)						\
 	WfrMessageBoxF(												\
-			"PuTTie", (uType),									\
+			NULL, "PuTTie", (uType),								\
 			fmt "%s%s%s%s%s%s%s%s%s%s%s%s%s%s",							\
 			##__VA_ARGS__,										\
 			selectv[WFFSP_ITEM_HOST_CAS] ? WffspConfigItemNames[WFFSP_ITEM_HOST_CAS] : "",		\
@@ -299,7 +300,7 @@ WffspConfigGeneralCleanupHandler(
 	if (WFFSP_CONFIG_IF_SELECTV_NONE(selectv)) {
 		return;
 	} else if (WFR_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))) {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "getting backend name");
 		return;
 	}
 
@@ -322,7 +323,7 @@ WffspConfigGeneralCleanupHandler(
 		do {
 			if (selectv[item]) {
 				status = WffspConfigItemCleanupFnList[item](backend_from);
-				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up %s", WffspConfigItemNames[item]);
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "cleaning up %s", WffspConfigItemNames[item]);
 			}
 		} while ((++item) <= WFFSP_ITEM_MAX);
 
@@ -350,7 +351,7 @@ WffspConfigGeneralMigrateHandler(
 	WffspConfigContext *	ctx = (WffspConfigContext *)ctrl->context.p;
 	WfsErrorFn		error_fn =
 				WFR_LAMBDA(void, (const char *name, WfrStatus status) {
-					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating %s", name);
+					WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "migrating %s", name);
 				});
 	size_t			item;
 	bool			movefl;
@@ -372,7 +373,7 @@ WffspConfigGeneralMigrateHandler(
 	} else if (WFR_FAILURE(status = WfsGetBackendName(backend_from, &backend_from_name))
 		|| WFR_FAILURE(status = WfsGetBackendName(backend_to, &backend_to_name)))
 	{
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "getting backend name");
 		return;
 	}
 
@@ -404,13 +405,13 @@ WffspConfigGeneralMigrateHandler(
 						status = WffspConfigItemCleanupFnList[item](backend_from);
 					}
 				}
-				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "migrating %s", WffspConfigItemNames[item]);
+				WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "migrating %s", WffspConfigItemNames[item]);
 			}
 		} while ((++item) <= WFFSP_ITEM_MAX);
 
 		if (movefl && WFR_SUCCESS(status)) {
 			status = WfsCleanupContainer(backend_from);
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "cleaning up container");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "cleaning up container");
 		}
 
 		if (WFR_SUCCESS(status)) {
@@ -437,12 +438,12 @@ WffspPurgeJumpList(
 
 
 	if (WFR_FAILURE(status = WfsGetBackendName(backend, &backend_name))) {
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend name");
+		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "getting backend name");
 		return;
 	}
 
 	switch (WfrMessageBoxF(
-			"PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
+			NULL, "PuTTie", MB_ICONQUESTION | MB_YESNO | MB_DEFBUTTON1,
 			"Purge jump list in %s backend?", backend_name))
 	{
 	case IDYES:
@@ -455,11 +456,11 @@ WffspPurgeJumpList(
 		status = WfsPurgeJumpList(backend, &purge_count);
 		if (WFR_SUCCESS(status)) {
 			WfrMessageBoxF(
-				"PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
+				NULL, "PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
 				"Purged %u items in jump list in %s backend.",
 				purge_count, backend_name);
 		} else {
-			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "purging jump list");
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "purging jump list");
 		}
 	}
 }
@@ -473,7 +474,7 @@ WffsGeneralConfigPanel(
 	struct controlbox *	b
 	)
 {
-	WffspConfigContext *	ctx;
+	WffspConfigContext *	ctx = NULL;
 	struct controlset *	s;
 
 

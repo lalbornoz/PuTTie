@@ -88,7 +88,6 @@ typedef struct WfspBackend {
  */
 
 WfrStatus	WfsGetBackendImpl(WfsBackend backend, void *pbackend);
-WfrStatus	WfsTransformList(bool addfl, bool delfl, char **plist, size_t *plist_size, const char *const trans_item);
 WfrStatus	WfsTreeCloneValue(WfrTreeItem *item, void **pvalue_new);
 void		WfsTreeFreeItem(WfrTreeItem *item);
 

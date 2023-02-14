@@ -5,6 +5,7 @@
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_urls.h"
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 /* winfrip }}} */
 
@@ -42,7 +43,7 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
 
 
     if (WFR_STATUS_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("PuTTie", status, "setting backend");
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "setting backend");
         exit(1);
     }
     /* winfrip }}} */
@@ -220,8 +221,17 @@ const struct BackendVtable *backend_vt_from_conf(Conf *conf)
         conf_get_int(conf, CONF_protocol));
     if (!vt) {
         char *str = dupprintf("%s Internal Error", appname);
+        /* {{{ winfrip */
+    #if 1
+        WfrMessageBox(NULL, "Unsupported protocol number found",
+                      str, MB_OK | MB_ICONEXCLAMATION);
+    #else
+        /* winfrip }}} */
         MessageBox(NULL, "Unsupported protocol number found",
                    str, MB_OK | MB_ICONEXCLAMATION);
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         sfree(str);
         cleanup_exit(1);
     }
@@ -238,7 +248,15 @@ static void demo_terminal_screenshot(void *ctx, unsigned long now)
     HWND hwnd = (HWND)ctx;
     char *err = save_screenshot(hwnd, terminal_demo_screenshot_filename);
     if (err) {
+        /* {{{ winfrip */
+    #if 1
+        WfrMessageBox(hwnd, err, "Demo screenshot failure", MB_OK | MB_ICONERROR);
+    #else
+        /* winfrip }}} */
         MessageBox(hwnd, err, "Demo screenshot failure", MB_OK | MB_ICONERROR);
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         sfree(err);
     }
     cleanup_exit(0);

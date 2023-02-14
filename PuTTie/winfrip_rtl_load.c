@@ -133,15 +133,18 @@ WfrLoadListFromFile(
 	)
 {
 	FILE *		file = NULL;
+	wchar_t *	fnameW = NULL;
 	char *		list = NULL;
 	size_t		list_size = 0;
-	struct stat	statbuf;
+	struct _stat64	statbuf;
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS_POSIX(status, (stat(fname, &statbuf) == 0))
+
+	if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(fname, strlen(fname), &fnameW))
+	&&  WFR_SUCCESS_POSIX(status, (_wstat64(fnameW, &statbuf) == 0))
 	&&  WFR_SUCCESS_ERRNO1(status, ENOENT, ((list_size = statbuf.st_size) >= 2))
-	&&  WFR_SUCCESS_POSIX(status, (file = fopen(fname, "rb")))
+	&&  WFR_SUCCESS_POSIX(status, (file = _wfopen(fnameW, L"rb")))
 	&&  WFR_NEWN(status, list, list_size = statbuf.st_size, char)
 	&&  WFR_SUCCESS_POSIX(status, (fread(list, statbuf.st_size, 1, file) == 1)))
 	{
@@ -163,6 +166,8 @@ WfrLoadListFromFile(
 	if (WFR_FAILURE(status)) {
 		WFR_FREE_IF_NOTNULL(list);
 	}
+
+	WFR_FREE_IF_NOTNULL(fnameW);
 
 	return status;
 }
@@ -222,7 +227,7 @@ WfrLoadParse(
 		{
 			nmatches = 0;
 
-			if (WFR_SUCCESS(status = WfrToWcsDup(line, line_len + 1, &line_w))
+			if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(line, line_len, &line_w))
 			&&  ((nmatches = pcre2_match(
 					WfrpRegex.code, line_w, line_len,
 					0, 0, WfrpRegex.md, NULL)) == nmatches_count))
@@ -299,7 +304,8 @@ WfrLoadRawFile(
 	char *		data = NULL;
 	size_t		data_size;
 	char		pname[MAX_PATH + 1];
-	struct stat	statbuf;
+	wchar_t *	pnameW = NULL;
+	struct _stat64	statbuf;
 	WfrStatus	status;
 
 
@@ -313,8 +319,9 @@ WfrLoadRawFile(
 	}
 
 	if (WFR_SUCCESS(status)) {
-		if (WFR_SUCCESS_POSIX(status, (stat(pname, &statbuf) == 0))
-		&&  WFR_SUCCESS_POSIX(status, (file = fopen(pname, "rb")))
+		if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(pname, strlen(pname), &pnameW))
+		&&  WFR_SUCCESS_POSIX(status, (_wstat64(pnameW, &statbuf) == 0))
+		&&  WFR_SUCCESS_POSIX(status, (file = _wfopen(pnameW, L"rb")))
 		&&  WFR_NEWN(status, data, data_size = (statbuf.st_size + 1), char)
 		&&  WFR_SUCCESS_POSIX(status, (fread(data, statbuf.st_size, 1, file) == 1)))
 		{
@@ -343,6 +350,8 @@ WfrLoadRawFile(
 	} else {
 		WFR_FREE(data);
 	}
+
+	WFR_FREE_IF_NOTNULL(pnameW);
 
 	return status;
 }

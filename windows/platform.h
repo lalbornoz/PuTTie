@@ -27,6 +27,10 @@
 
 #include "help.h"
 
+/* {{{ winfrip */
+#include "../PuTTie/winfrip_rtl.h"
+/* winfrip }}} */
+
 #if defined _M_IX86 || defined _M_AMD64
 #define BUILDINFO_PLATFORM "x86 Windows"
 #elif defined _M_ARM || defined _M_ARM64
@@ -53,7 +57,32 @@ struct Filename {
 static inline FILE *f_open(const Filename *filename, const char *mode,
                            bool isprivate)
 {
+    /* {{{ winfrip */
+#if 1
+    wchar_t *   filenameW = NULL;
+    FILE *      fp = NULL;
+    wchar_t *   modeW = NULL;
+    WfrStatus   status;
+
+
+    if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+            filename->path, strlen(filename->path), &filenameW))
+    &&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+            mode, strlen(mode), &modeW)))
+    {
+        fp = _wfopen(filenameW, modeW);
+    }
+
+    WFR_FREE_IF_NOTNULL(filenameW);
+    WFR_FREE_IF_NOTNULL(modeW);
+
+    return fp;
+#else
+    /* winfrip }}} */
     return fopen(filename->path, mode);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
 
 struct FontSpec {

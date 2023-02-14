@@ -31,6 +31,7 @@
 #include "PuTTie/winfrip_feature_urls.h"
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_debug.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 /* winfrip }}} */
 
@@ -334,7 +335,15 @@ static void start_backend(WinGuiSeat *wgs)
                             conf_dest(wgs->conf), error);
         }
         sfree(error);
+        /* {{{ winfrip */
+    #if 1
+        WfrMessageBox(NULL, msg, str, MB_ICONERROR | MB_OK);
+    #else
+        /* winfrip }}} */
         MessageBox(NULL, msg, str, MB_ICONERROR | MB_OK);
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         sfree(str);
         sfree(msg);
         exit(0);
@@ -479,8 +488,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
 
 
     WfrDebugInit();
-    if (WFR_STATUS_FAILURE(status = WfsInit())) {
-        WFR_IF_STATUS_FAILURE_MESSAGEBOX1("PuTTie", status, "initialising storage");
+    if (WFR_FAILURE(status = WfsInit())) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "initialising storage");
+        exit(1);
+    } else if (WFR_FAILURE(status = WfrGetCommandLineAsUtf8(&cmdline))) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "initialising command line");
         exit(1);
     }
     /* winfrip }}} */
@@ -539,8 +551,17 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     hr = CoInitialize(NULL);
     if (hr != S_OK && hr != S_FALSE) {
         char *str = dupprintf("%s Fatal Error", appname);
+        /* {{{ winfrip */
+    #if 1
+        WfrMessageBox(NULL, "Failed to initialize COM subsystem",
+                      str, MB_OK | MB_ICONEXCLAMATION);
+    #else
+        /* winfrip }}} */
         MessageBox(NULL, "Failed to initialize COM subsystem",
                    str, MB_OK | MB_ICONEXCLAMATION);
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         sfree(str);
         return 1;
     }
@@ -1177,7 +1198,15 @@ static void win_seat_connection_fatal(Seat *seat, const char *msg)
     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
     char *title = dupprintf("%s Fatal Error", appname);
     show_mouseptr(wgs, true);
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(title);
 
     if (conf_get_int(wgs->conf, CONF_close_on_exit) == FORCE_ON)
@@ -1195,7 +1224,15 @@ static void win_seat_nonfatal(Seat *seat, const char *msg)
     WinGuiSeat *wgs = container_of(seat, WinGuiSeat, seat);
     char *title = dupprintf("%s Error", appname);
     show_mouseptr(wgs, true);
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(title);
 }
 
@@ -1221,7 +1258,15 @@ void cmdline_error(const char *fmt, ...)
     message = dupvprintf(fmt, ap);
     va_end(ap);
     title = dupprintf("%s Command Line Error", appname);
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(find_window_for_msgbox(), message, title, MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(find_window_for_msgbox(), message, title, MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(message);
     sfree(title);
     exit(1);
@@ -2132,8 +2177,17 @@ static void exit_callback(void *vctx)
              * we should not generate this informational one. */
             if (exitcode != INT_MAX) {
                 show_mouseptr(wgs, true);
+                /* {{{ winfrip */
+            #if 1
+                WfrMessageBox(wgs->term_hwnd, "Connection closed by remote host",
+                              appname, MB_OK | MB_ICONINFORMATION);
+            #else
+                /* winfrip }}} */
                 MessageBox(wgs->term_hwnd, "Connection closed by remote host",
                            appname, MB_OK | MB_ICONINFORMATION);
+                /* {{{ winfrip */
+            #endif
+                /* winfrip }}} */
             }
         }
     }
@@ -2248,8 +2302,17 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                         additional ? additional : "");
         if (wgs->session_closed ||
             !conf_get_bool(wgs->conf, CONF_warn_on_close) ||
+            /* {{{ winfrip */
+        #if 1
+            WfrMessageBox(hwnd, msg, title,
+                          MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON1)
+        #else
+            /* winfrip }}} */
             MessageBox(hwnd, msg, title,
                        MB_ICONWARNING | MB_OKCANCEL | MB_DEFBUTTON1)
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
             == IDOK)
             DestroyWindow(hwnd);
         sfree(title);
@@ -2345,7 +2408,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 WfrStatus status;
 
                 status = WfsGetBackendArgString(&backend_arg_string);
-                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend argument string");
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "getting backend argument string");
             #if 1
                 cl = dupprintf("putty%s%s%s &%p:%u",
                                argprefix,
@@ -2369,7 +2432,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                     WfrStatus status;
 
                     status = WfsGetBackendArgString(&backend_arg_string);
-                    WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend argument string");
+                    WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "getting backend argument string");
                 #if 1
                     cl = dupprintf("putty%s%s%s @%s",
                                    argprefix,
@@ -2392,7 +2455,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                 WfrStatus status;
 
                 status = WfsGetBackendArgString(&backend_arg_string);
-                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, "getting backend argument string");
+                WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "getting backend argument string");
                 cl = dupprintf("putty%s%s%s%s",
                                *argprefix ? " " : "",
                                argprefix,
@@ -5720,8 +5783,17 @@ void modalfatalbox(const char *fmt, ...)
     va_end(ap);
     show_mouseptr(NULL, true);
     title = dupprintf("%s Fatal Error", appname);
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(find_window_for_msgbox(), message, title,
+                  MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(find_window_for_msgbox(), message, title,
                MB_SYSTEMMODAL | MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(message);
     sfree(title);
     cleanup_exit(1);
@@ -5740,7 +5812,15 @@ void nonfatal(const char *fmt, ...)
     va_end(ap);
     show_mouseptr(NULL, true);
     title = dupprintf("%s Error", appname);
+    /* {{{ winfrip */
+#if 1
+    WfrMessageBox(find_window_for_msgbox(), message, title, MB_ICONERROR | MB_OK);
+#else
+    /* winfrip }}} */
     MessageBox(find_window_for_msgbox(), message, title, MB_ICONERROR | MB_OK);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(message);
     sfree(title);
 }
@@ -5856,8 +5936,17 @@ static void wintw_bell(TermWin *tw, int mode)
                 "Unable to play sound file\n%s\nUsing default sound instead",
                 bell_wavefile->path);
             otherbuf = dupprintf("%s Sound Error", appname);
+            /* {{{ winfrip */
+        #if 1
+            WfrMessageBox(wgs->term_hwnd, buf, otherbuf,
+                          MB_OK | MB_ICONEXCLAMATION);
+        #else
+            /* winfrip }}} */
             MessageBox(wgs->term_hwnd, buf, otherbuf,
                        MB_OK | MB_ICONEXCLAMATION);
+            /* {{{ winfrip */
+        #endif
+            /* winfrip }}} */
             sfree(buf);
             sfree(otherbuf);
             conf_set_int(wgs->conf, CONF_beep, BELL_DEFAULT);

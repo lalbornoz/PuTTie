@@ -17,6 +17,7 @@
 #include "winfrip_rtl.h"
 #include "winfrip_rtl_file.h"
 #include "winfrip_rtl_shortcut.h"
+#include "winfrip_rtl_windows.h"
 
 /*
  * Private constants
@@ -59,9 +60,9 @@ WinMain(
 		status = WFR_STATUS_FROM_WINDOWS();
 	} else if ((argc != 1) && (argc != 2) && (argc != 3)) {
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-		(void)WfrMessageBoxFW(
-			L"PuTTie", MB_OK | MB_ICONEXCLAMATION,
-			L"Invalid arguments, should be: [<shortcut file path>=%S] [<putty.exe file path>=%S]",
+		(void)WfrMessageBoxF(
+			NULL, "PuTTie", MB_OK | MB_ICONEXCLAMATION,
+			"Invalid arguments, should be: [<shortcut file path>=%S] [<putty.exe file path>=%S]",
 			PUTTIE_SHORTCUT_PATH_DEFAULT, PUTTIE_PATH_DEFAULT);
 	} else if (((argc >= 2) && !(shortcut_path = wcsdup(argv[1])))
 		|| (!shortcut_path && (!(shortcut_path = wcsdup(PUTTIE_SHORTCUT_PATH_DEFAULT))))
@@ -75,14 +76,14 @@ WinMain(
 			shortcut_path, puttie_path, NULL);
 
 		if (WFR_SUCCESS(status)) {
-			(void)WfrMessageBoxFW(
-				L"PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
-				L"Successfully created shortcut to %S as %S",
+			(void)WfrMessageBoxF(
+				NULL, "PuTTie", MB_ICONINFORMATION | MB_OK | MB_DEFBUTTON1,
+				"Successfully created shortcut to %S as %S",
 				puttie_path, shortcut_path);
 		} else {
-			(void)WfrMessageBoxFW(
-				L"PuTTie", MB_ICONERROR | MB_OK | MB_DEFBUTTON1,
-				L"%s", WfrStatusToErrorMessageW((status)));
+			(void)WfrMessageBoxF(
+				NULL, "PuTTie", MB_ICONERROR | MB_OK | MB_DEFBUTTON1,
+				"%s", WfrStatusToErrorMessageW((status)));
 		}
 
 		WFR_FREE_IF_NOTNULL(puttie_path);

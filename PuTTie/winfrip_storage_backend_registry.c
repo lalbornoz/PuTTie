@@ -26,139 +26,43 @@
  */
 
 /*
- * Names of registry subkeys/value containing PuTTie/PuTTy's top-level keys,
+ * Names of registry subkeys/value names containing PuTTie/PuTTy's top-level keys,
  * host CAs, host keys, the jump list, global options, the private key list,
- * and sessions, and the value names of the jump list and the private key list,
- * resp. [see windows/storage.c]
+ * and sessions, resp. [see windows/storage.c]
  */
 
 static LPCSTR	WfspRegistryKey = "Software\\SimonTatham\\PuTTY";
+static LPCSTR	WfspRegistryKeyName = "PuTTY";
 static LPCSTR	WfspRegistryKeyParent = "Software\\SimonTatham";
+static LPCSTR	WfspRegistryKeyParentKey = "Software";
+static LPCSTR	WfspRegistryKeyParentName = "SimonTatham";
+
 static LPCSTR	WfspRegistrySubKeyHostCAs = "Software\\SimonTatham\\PuTTY\\SshHostCAs";
 static LPCSTR	WfspRegistrySubKeyHostCAsName = "SshHostCAs";
+
 static LPCSTR	WfspRegistrySubKeyHostKeys = "Software\\SimonTatham\\PuTTY\\SshHostKeys";
 static LPCSTR	WfspRegistrySubKeyHostKeysName = "SshHostKeys";
+
 static LPCSTR	WfspRegistrySubKeyJumpList = "Software\\SimonTatham\\PuTTY\\Jumplist";
 static LPCSTR	WfspRegistrySubKeyJumpListName = "Jumplist";
+static LPCSTR	WfspRegistryValueJumpList = "Recent sessions";
+
 static LPCSTR	WfspRegistrySubKeyOptionsName = "Options";
+
 static LPCSTR	WfspRegistrySubKeyPrivKeyList = "Software\\SimonTatham\\PuTTY\\PrivKeyList";
 static LPCSTR	WfspRegistrySubKeyPrivKeyListName = "PrivKeyList";
+static LPCSTR	WfspRegistryValuePrivKeyList = "Private key list";
+
 static LPCSTR	WfspRegistrySubKeySessions = "Software\\SimonTatham\\PuTTY\\Sessions";
 static LPCSTR	WfspRegistrySubKeySessionsName = "Sessions";
-static LPCSTR	WfspRegistryValueJumpList = "Recent sessions";
-static LPCSTR	WfspRegistryValuePrivKeyList = "Private key list";
 
 /*
  * External subroutine prototypes
  */
 
 /* [see windows/jump-list.c] */
-void			update_jumplist(void);
-void			clear_jumplist_PuTTY(void);
-
-/*
- * Private subroutine prototypes
- */
-
-static WfrStatus	WfsppRegistryGetList(const char *subkey, const char *value_name, HKEY *phKey, char **plist, DWORD *plist_size);
-static WfrStatus	WfsppRegistryTransformList(bool addfl, bool delfl, const char *subkey, const char *const trans_item, const char *value_name);
-
-/*
- * Private subroutines
- */
-
-static WfrStatus
-WfsppRegistryGetList(
-	const char *	subkey,
-	const char *	value_name,
-	HKEY *		phKey,
-	char **		plist,
-	DWORD *		plist_size
-	)
-{
-	HKEY		hKey = NULL;
-	char *		list = NULL;
-	DWORD		list_size = 0;
-	WfrStatus	status;
-
-
-	if (WFR_SUCCESS(status = WfrCreateRegKey(
-			HKEY_CURRENT_USER, &hKey, subkey))
-	&&  WFR_SUCCESS_LSTATUS(status, RegGetValue(
-			hKey, NULL, value_name, RRF_RT_REG_MULTI_SZ,
-			NULL, NULL, &list_size))
-	&&  WFR_SUCCESS_ERRNO1(status, ENOENT, (list_size >= 2))
-	&&  WFR_NEWN(status, list, list_size, char)
-	&&  WFR_SUCCESS_LSTATUS(status, RegGetValue(
-			hKey, NULL, value_name, RRF_RT_REG_MULTI_SZ,
-			NULL, list, &list_size)))
-	{
-		list[list_size - 2] = '\0';
-		list[list_size - 1] = '\0';
-
-		*plist = list;
-		if (plist_size) {
-			*plist_size = list_size;
-		}
-	}
-
-	if (WFR_FAILURE(status)) {
-		WFR_FREE_IF_NOTNULL(list);
-	}
-
-	if (hKey) {
-		if (phKey) {
-			*phKey = hKey;
-		} else {
-			(void)RegCloseKey(hKey);
-		}
-	}
-
-	return status;
-}
-
-static WfrStatus
-WfsppRegistryTransformList(
-	bool			addfl,
-	bool			delfl,
-	const char *		subkey,
-	const char *const	trans_item,
-	const char *		value_name
-	)
-{
-	HKEY		hKey = NULL;
-	char *		list = NULL;
-	DWORD		list_size;
-	size_t		list_size_;
-	WfrStatus	status;
-
-
-	if (addfl || delfl) {
-		if (WFR_FAILURE(status = WfsppRegistryGetList(
-				subkey, value_name, &hKey, &list, &list_size)))
-		{
-			list = NULL;
-			list_size_ = 0;
-		} else {
-			list_size_ = list_size;
-		}
-
-		if (WFR_SUCCESS(status = WfsTransformList(
-				addfl, delfl, &list, &list_size_, trans_item)))
-		{
-			WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
-				hKey, value_name, 0, REG_MULTI_SZ,
-				(const BYTE *)list, (DWORD)list_size_));
-		}
-	}
-
-	if (hKey != NULL) {
-		(void)RegCloseKey(hKey);
-	}
-	WFR_FREE_IF_NOTNULL(list);
-
-	return status;
-}
+void	update_jumplist(void);
+void	clear_jumplist_PuTTY(void);
 
 /*
  * Public subroutines private to PuTTie/winfrip_storage*.c
@@ -170,7 +74,7 @@ WfspRegistryCleanupHostKeys(
 	)
 {
 	(void)backend;
-	return WfrCleanupRegSubKey(WfspRegistryKey, WfspRegistrySubKeyHostKeysName);
+	return WfrDeleteRegSubKey(true, WfspRegistryKey, WfspRegistrySubKeyHostKeysName);
 }
 
 WfrStatus
@@ -179,7 +83,7 @@ WfspRegistryClearHostKeys(
 	)
 {
 	(void)backend;
-	return WfrClearRegSubKey(WfspRegistrySubKeyHostKeys);
+	return WfrClearRegSubKey(true, WfspRegistrySubKeyHostKeys);
 }
 
 WfrStatus
@@ -189,7 +93,7 @@ WfspRegistryDeleteHostKey(
 	)
 {
 	(void)backend;
-	return WfrDeleteRegValue(WfspRegistrySubKeyHostKeys, key_name);
+	return WfrDeleteRegValue(true, WfspRegistrySubKeyHostKeys, key_name);
 }
 
 WfrStatus
@@ -235,7 +139,7 @@ WfspRegistryLoadHostKey(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS(status = WfrLoadRegValue(
+	if (WFR_SUCCESS(status = WfrLoadRegStringValue(
 			WfspRegistrySubKeyHostKeys, key_name, (char **)pkey, NULL)))
 	{
 		status = WfsSetHostKey(backend, false, key_name, *pkey);
@@ -263,7 +167,7 @@ WfspRegistrySaveHostKey(
 	)
 {
 	(void)backend;
-	return WfrSetRegValue(WfspRegistrySubKeyHostKeys, key_name, key, strlen(key));
+	return WfrSetRegValue(WfspRegistrySubKeyHostKeys, key_name, key, strlen(key), REG_SZ);
 }
 
 
@@ -273,7 +177,7 @@ WfspRegistryCleanupHostCAs(
 	)
 {
 	(void)backend;
-	return WfrCleanupRegSubKey(WfspRegistryKey, WfspRegistrySubKeyHostCAsName);
+	return WfrDeleteRegSubKey(true, WfspRegistryKey, WfspRegistrySubKeyHostCAsName);
 }
 
 WfrStatus
@@ -282,7 +186,7 @@ WfspRegistryClearHostCAs(
 	)
 {
 	(void)backend;
-	return WfrClearRegSubKey(WfspRegistrySubKeyHostCAs);
+	return WfrClearRegSubKey(true, WfspRegistrySubKeyHostCAs);
 }
 
 WfrStatus
@@ -301,7 +205,7 @@ WfspRegistryDeleteHostCA(
 	)
 {
 	(void)backend;
-	return WfrDeleteRegValue(WfspRegistrySubKeyHostCAs, name);
+	return WfrDeleteRegValue(true, WfspRegistrySubKeyHostCAs, name);
 }
 
 WfrStatus
@@ -458,7 +362,7 @@ WfspRegistryClearOptions(
 	)
 {
 	(void)backend;
-	return WfrCleanupRegSubKey(WfspRegistryKey, WfspRegistrySubKeyOptionsName);
+	return WfrDeleteRegSubKey(true, WfspRegistryKey, WfspRegistrySubKeyOptionsName);
 }
 
 WfrStatus
@@ -496,7 +400,7 @@ WfspRegistryCleanupSessions(
 	)
 {
 	(void)backend;
-	return WfrCleanupRegSubKey(WfspRegistryKey, WfspRegistrySubKeySessionsName);
+	return WfrDeleteRegSubKey(true, WfspRegistryKey, WfspRegistrySubKeySessionsName);
 }
 
 WfrStatus
@@ -505,7 +409,7 @@ WfspRegistryClearSessions(
 	)
 {
 	(void)backend;
-	return WfrClearRegSubKey(WfspRegistrySubKeySessions);
+	return WfrClearRegSubKey(true, WfspRegistrySubKeySessions);
 }
 
 WfrStatus
@@ -524,7 +428,7 @@ WfspRegistryDeleteSession(
 	)
 {
 	(void)backend;
-	return WfrDeleteRegSubKey(WfspRegistrySubKeySessions, sessionname);
+	return WfrDeleteRegSubKey(true, WfspRegistrySubKeySessions, sessionname);
 }
 
 WfrStatus
@@ -628,7 +532,7 @@ WfspRegistryAddJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS(status = WfsppRegistryTransformList(
+	if (WFR_SUCCESS(status = WfrUpdateRegStringList(
 			true, false, WfspRegistrySubKeyJumpList,
 			sessionname, WfspRegistryValueJumpList)))
 	{
@@ -644,7 +548,7 @@ WfspRegistryCleanupJumpList(
 	void
 	)
 {
-	return WfrCleanupRegSubKey(WfspRegistryKey, WfspRegistrySubKeyJumpListName);
+	return WfrDeleteRegSubKey(true, WfspRegistryKey, WfspRegistrySubKeyJumpListName);
 }
 
 void
@@ -665,14 +569,12 @@ WfspRegistryGetEntriesJumpList(
 	WfrStatus	status;
 
 
-	status = WfsppRegistryGetList(
+	status = WfrGetRegStringListValue(
 		WfspRegistrySubKeyJumpList,
 		WfspRegistryValueJumpList,
 		NULL, pjump_list, &jump_list_size_);
 	if (WFR_FAILURE(status)) {
-		if (WFR_STATUS_IS_NOT_FOUND(status)
-		&&  WFR_NEWN(status, (*pjump_list), 2, char))
-		{
+		if (WFR_NEWN(status, (*pjump_list), 2, char)) {
 			(*pjump_list)[0] = '\0';
 			(*pjump_list)[1] = '\0';
 			if (pjump_list_size) {
@@ -696,7 +598,7 @@ WfspRegistryRemoveJumpList(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS(status = WfsppRegistryTransformList(
+	if (WFR_SUCCESS(status = WfrUpdateRegStringList(
 			false, true, WfspRegistrySubKeyJumpList,
 			sessionname, WfspRegistryValueJumpList))) {
 		update_jumplist();
@@ -712,21 +614,11 @@ WfspRegistrySetEntriesJumpList(
 	size_t		jump_list_size
 	)
 {
-	HKEY		hKey;
-	WfrStatus	status;
-
-
-	(void)jump_list_size;
-	if (WFR_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyJumpList))
-	&&  WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
-			hKey, WfspRegistryValueJumpList, 0,
-			REG_MULTI_SZ, (const BYTE *)jump_list,
-			jump_list_size)))
-	{
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	return status;
+	return WfrSetRegValue(
+		WfspRegistrySubKeyJumpList,
+		WfspRegistryValueJumpList,
+		jump_list, jump_list_size,
+		REG_MULTI_SZ);
 }
 
 
@@ -735,7 +627,7 @@ WfspRegistryAddPrivKeyList(
 	const char *const	privkey_name
 	)
 {
-	return WfsppRegistryTransformList(
+	return WfrUpdateRegStringList(
 		true, false, WfspRegistrySubKeyPrivKeyList,
 		privkey_name, WfspRegistryValuePrivKeyList);
 }
@@ -745,24 +637,7 @@ WfspRegistryCleanupPrivKeyList(
 	void
 	)
 {
-	HKEY		hKey = NULL;
-	WfrStatus	status;
-
-
-	if (WFR_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, WfspRegistryKey))
-	&&  WFR_SUCCESS_LSTATUS(status, RegDeleteTree(hKey, WfspRegistrySubKeyPrivKeyListName)))
-	{
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	if (WFR_STATUS_IS_NOT_FOUND(status)) {
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-	if (hKey) {
-		(void)RegCloseKey(hKey);
-	}
-
-	return status;
+	return WfrDeleteRegSubKey(true, WfspRegistryKey, WfspRegistrySubKeyPrivKeyListName);
 }
 
 WfrStatus
@@ -783,7 +658,7 @@ WfspRegistryGetEntriesPrivKeyList(
 	WfrStatus	status;
 
 
-	status = WfsppRegistryGetList(
+	status = WfrGetRegStringListValue(
 		WfspRegistrySubKeyPrivKeyList,
 		WfspRegistryValuePrivKeyList,
 		NULL, pprivkey_list, &privkey_list_size_);
@@ -811,7 +686,7 @@ WfspRegistryRemovePrivKeyList(
 	const char *const	privkey_name
 	)
 {
-	return WfsppRegistryTransformList(
+	return WfrUpdateRegStringList(
 		false, true, WfspRegistrySubKeyPrivKeyList,
 		privkey_name, WfspRegistryValuePrivKeyList);
 }
@@ -822,21 +697,11 @@ WfspRegistrySetEntriesPrivKeyList(
 	size_t		privkey_list_size
 	)
 {
-	HKEY		hKey;
-	WfrStatus	status;
-
-
-	(void)privkey_list_size;
-	if (WFR_SUCCESS(status = WfrCreateRegKey(HKEY_CURRENT_USER, &hKey, WfspRegistrySubKeyPrivKeyList))
-	&&  WFR_SUCCESS_LSTATUS(status, RegSetValueEx(
-			hKey, WfspRegistryValuePrivKeyList, 0,
-			REG_MULTI_SZ, (const BYTE *)privkey_list,
-			privkey_list_size)))
-	{
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	return status;
+	return WfrSetRegValue(
+		WfspRegistrySubKeyPrivKeyList,
+		WfspRegistryValuePrivKeyList,
+		privkey_list, privkey_list_size,
+		REG_MULTI_SZ);
 }
 
 
@@ -851,14 +716,14 @@ WfspRegistryCleanupContainer(
 	(void)backend;
 
 	if (WFR_SUCCESS(status)) {
-		WFR_SUCCESS_LSTATUS(status, RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKey));
+		status = WfrDeleteRegSubKey(true, WfspRegistryKeyParent, WfspRegistryKeyName);
 		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}
 	}
 
 	if (WFR_SUCCESS(status)) {
-		WFR_SUCCESS_LSTATUS(status, RegDeleteTree(HKEY_CURRENT_USER, WfspRegistryKeyParent));
+		status = WfrDeleteRegSubKey(true, WfspRegistryKeyParentKey, WfspRegistryKeyParentName);
 		if (WFR_STATUS_IS_NOT_FOUND(status)) {
 			status = WFR_STATUS_CONDITION_SUCCESS;
 		}

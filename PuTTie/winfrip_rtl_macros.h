@@ -58,6 +58,22 @@
 	WFR_STATUS_SUCCESS((status));							\
 })
 
+#define WFR_NEWN_CAST(status, p, n, type, type_cast) ({					\
+	type *		_p;								\
+	WfrStatus	_status;							\
+       											\
+	_p = malloc((n) * sizeof(type));						\
+	if ((_p)) {									\
+		(p) = (type_cast *)_p;							\
+		_status = WFR_STATUS_CONDITION_SUCCESS;					\
+	} else {									\
+		_status = WFR_STATUS_FROM_ERRNO();					\
+	}										\
+											\
+	(status) = _status;								\
+	WFR_STATUS_SUCCESS(_status);							\
+})
+
 #define WFR_NEWN1(p, n, type) ({							\
 	type *		_p;								\
 	WfrStatus	_status;							\
@@ -117,6 +133,20 @@
 #define WFR_SIZEOF_WSTRING(wstring)							\
 	WFR_ARRAYCOUNT(wstring)
 
+#define WFR_WMKTEMP_S(nameTemplate) ({							\
+	errno_t		_errno;								\
+	WfrStatus	_status;							\
+       											\
+	_errno = _wmktemp_s((nameTemplate), wcslen((nameTemplate)) + 1);		\
+	if (_errno == 0) {								\
+		_status = WFR_STATUS_CONDITION_SUCCESS;					\
+	} else {									\
+		_status = WFR_STATUS_FROM_ERRNO1(_errno);				\
+	}										\
+											\
+	_status;									\
+})
+
 /*
  * Public string processing macros private to PuTTie/winfrip*.c
  */
@@ -149,16 +179,10 @@
  * Public general macros private to PuTTie/winfrip*.c
  */
 
-#define WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, fmt, ...)				\
-	WFR_IF_STATUS_FAILURE_MESSAGEBOX1("PuTTie", (status), fmt, ## __VA_ARGS__)
-
-#define WFR_IF_STATUS_FAILURE_MESSAGEBOX1(caption, status, fmt, ...)			\
-	if (WFR_FAILURE((status))) {							\
-		(void)WfrMessageBoxF(							\
-				(caption), MB_ICONERROR | MB_OK | MB_DEFBUTTON1,	\
-				fmt ": %s",	## __VA_ARGS__,				\
-				WfrStatusToErrorMessage((status)));			\
-	}
+#define WFR_DIV_ROUNDDOWN(a, b)								\
+	(((a) - ((a) % (b))) / (b))
+#define WFR_DIV_ROUNDUP(a, b)								\
+	(((a) / (b)) + ((a) % (b)))
 
 #define WFR_INTCMP(i1, i2)								\
 	(((i1) < (i2)) ? -1 : ((i1) > (i2)) ? 1 : 0)
