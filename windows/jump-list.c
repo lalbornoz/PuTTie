@@ -27,6 +27,7 @@
 
 /* {{{ winfrip */
 #include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_adapter.h"
 #include "PuTTie/winfrip_storage_sessions.h"
@@ -56,7 +57,15 @@ typedef PROPVARIANT *REFPROPVARIANT;
 #define PropVariantInit(pvar) memset((pvar),0,sizeof(PROPVARIANT))
 #endif
 
+/* {{{ winfrip */
+#if 1
+#define IID_IShellLink IID_IShellLinkW
+#else
+/* winfrip }}} */
 #define IID_IShellLink IID_IShellLinkA
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 
 typedef struct ICustomDestinationListVtbl {
     HRESULT ( __stdcall *QueryInterface ) (
@@ -145,6 +154,107 @@ typedef struct IObjectArray
     IObjectArrayVtbl *lpVtbl;
 } IObjectArray;
 
+/* {{{ winfrip */
+#if 1
+typedef struct IShellLinkVtbl
+{
+    HRESULT ( __stdcall *QueryInterface )(
+        /* [in] IShellLink*/ void *This,
+        /* [in] */ const GUID * const riid,
+        /* [out] */ void **ppvObject);
+
+    ULONG ( __stdcall *AddRef )(
+        /* [in] IShellLink*/ void *This);
+
+    ULONG ( __stdcall *Release )(
+        /* [in] IShellLink*/ void *This);
+
+    HRESULT ( __stdcall *GetPath )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][out] */ LPWSTR pszFile,
+        /* [in] */ int cch,
+        /* [unique][out][in] */ WIN32_FIND_DATAA *pfd,
+        /* [in] */ DWORD fFlags);
+
+    HRESULT ( __stdcall *GetIDList )(
+        /* [in] IShellLink*/ void *This,
+        /* [out] LPITEMIDLIST*/ void **ppidl);
+
+    HRESULT ( __stdcall *SetIDList )(
+        /* [in] IShellLink*/ void *This,
+        /* [in] LPITEMIDLIST*/ void *pidl);
+
+    HRESULT ( __stdcall *GetDescription )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][out] */ LPWSTR pszName,
+        /* [in] */ int cch);
+
+    HRESULT ( __stdcall *SetDescription )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][in] */ LPCWSTR pszName);
+
+    HRESULT ( __stdcall *GetWorkingDirectory )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][out] */ LPWSTR pszDir,
+        /* [in] */ int cch);
+
+    HRESULT ( __stdcall *SetWorkingDirectory )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][in] */ LPCWSTR pszDir);
+
+    HRESULT ( __stdcall *GetArguments )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][out] */ LPWSTR pszArgs,
+        /* [in] */ int cch);
+
+    HRESULT ( __stdcall *SetArguments )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][in] */ LPCWSTR pszArgs);
+
+    HRESULT ( __stdcall *GetHotkey )(
+        /* [in] IShellLink*/ void *This,
+        /* [out] */ WORD *pwHotkey);
+
+    HRESULT ( __stdcall *SetHotkey )(
+        /* [in] IShellLink*/ void *This,
+        /* [in] */ WORD wHotkey);
+
+    HRESULT ( __stdcall *GetShowCmd )(
+        /* [in] IShellLink*/ void *This,
+        /* [out] */ int *piShowCmd);
+
+    HRESULT ( __stdcall *SetShowCmd )(
+        /* [in] IShellLink*/ void *This,
+        /* [in] */ int iShowCmd);
+
+    HRESULT ( __stdcall *GetIconLocation )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][out] */ LPWSTR pszIconPath,
+        /* [in] */ int cch,
+        /* [out] */ int *piIcon);
+
+    HRESULT ( __stdcall *SetIconLocation )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][in] */ LPCWSTR pszIconPath,
+        /* [in] */ int iIcon);
+
+    HRESULT ( __stdcall *SetRelativePath )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][in] */ LPCWSTR pszPathRel,
+        /* [in] */ DWORD dwReserved);
+
+    HRESULT ( __stdcall *Resolve )(
+        /* [in] IShellLink*/ void *This,
+        /* [unique][in] */ HWND hwnd,
+        /* [in] */ DWORD fFlags);
+
+    HRESULT ( __stdcall *SetPath )(
+        /* [in] IShellLink*/ void *This,
+        /* [string][in] */ LPCWSTR pszFile);
+
+} IShellLinkVtbl;
+#else
+/* winfrip }}} */
 typedef struct IShellLinkVtbl
 {
     HRESULT ( __stdcall *QueryInterface )(
@@ -242,6 +352,9 @@ typedef struct IShellLinkVtbl
         /* [string][in] */ LPCSTR pszFile);
 
 } IShellLinkVtbl;
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 
 typedef struct IShellLink
 {
@@ -346,9 +459,19 @@ static const CLSID CLSID_EnumerableObjectCollection = {
 static const IID IID_IObjectCollection = {
     0x5632b1a4, 0xe38a, 0x400a, {0x92,0x8a,0xd4,0xcd,0x63,0x23,0x02,0x95}
 };
+/* {{{ winfrip */
+#if 1
+static const IID IID_IShellLinkW = {
+    0x000214f9, 0x0000, 0x0000, {0xc0,0x00, 0x00,0x00,0x00,0x00,0x00,0x46}
+};
+#else
+/* winfrip }}} */
 static const IID IID_IShellLink = {
     0x000214ee, 0x0000, 0x0000, {0xc0,0x00,0x00,0x00,0x00,0x00,0x00,0x46}
 };
+/* {{{ winfrip */
+#endif
+/* winfrip }}} */
 static const IID IID_ICustomDestinationList = {
     0x6332debf, 0x87b5, 0x4670, {0x90,0xc0,0x5e,0x57,0xb4,0x08,0xa4,0x9e}
 };
@@ -441,7 +564,25 @@ static IShellLink *make_shell_link(const char *appname,
     }
 
     /* Set path, parameters, icon and description. */
+    /* {{{ winfrip */
+#if 1
+    {
+    wchar_t *   app_pathW;
+    WfrStatus   status;
+
+
+    status = WfrConvertUtf8ToUtf16String(app_path, strlen(app_path), &app_pathW);
+    if (WFR_SUCCESS(status)) {
+        ret->lpVtbl->SetPath(ret, app_pathW);
+    }
+    WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "converting application path string `%s' from UTF-8 to UTF-16", app_path);
+    }
+#else
+    /* winfrip }}} */
     ret->lpVtbl->SetPath(ret, app_path);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 
     if (sessionname) {
         /* The leading space is reported to work around a Windows 10
@@ -452,8 +593,33 @@ static IShellLink *make_shell_link(const char *appname,
     } else {
         param_string = dupstr("");
     }
+    /* {{{ winfrip */
+#if 1
+    {
+    wchar_t *   param_stringW;
+    WfrStatus   status;
+
+
+    status = WfrConvertUtf8ToUtf16String(param_string, strlen(param_string), &param_stringW);
+    if (WFR_SUCCESS(status)) {
+        ret->lpVtbl->SetArguments(ret, param_stringW);
+    }
+    WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "converting parameter string `%s' from UTF-8 to UTF-16", param_string);
+    }
+#else
+    /* winfrip }}} */
     ret->lpVtbl->SetArguments(ret, param_string);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(param_string);
+
+    /* {{{ winfrip */
+#if 1
+    {
+    wchar_t *   desc_stringW;
+    WfrStatus   status;
+
 
     if (sessionname) {
         desc_string = dupcat("Connect to PuTTY session '", sessionname, "'");
@@ -462,15 +628,81 @@ static IShellLink *make_shell_link(const char *appname,
         desc_string = dupprintf("Run %.*s",
                                 (int)strcspn(appname, "."), appname);
     }
+
+    status = WfrConvertUtf8ToUtf16String(desc_string, strlen(desc_string), &desc_stringW);
+    if (WFR_SUCCESS(status)) {
+        ret->lpVtbl->SetDescription(ret, desc_stringW);
+    }
+    WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "converting description string `%s' from UTF-8 to UTF-16", desc_string);
+    }
+#else
+    /* winfrip }}} */
+    if (sessionname) {
+        desc_string = dupcat("Connect to PuTTY session '", sessionname, "'");
+    } else {
+        assert(appname);
+        desc_string = dupprintf("Run %.*s",
+                                (int)strcspn(appname, "."), appname);
+    }
     ret->lpVtbl->SetDescription(ret, desc_string);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
     sfree(desc_string);
 
+    /* {{{ winfrip */
+#if 1
+    {
+    wchar_t *   app_pathW;
+    WfrStatus   status;
+
+
+    status = WfrConvertUtf8ToUtf16String(app_path, strlen(app_path), &app_pathW);
+    if (WFR_SUCCESS(status)) {
+        ret->lpVtbl->SetIconLocation(ret, app_pathW, 0);
+    }
+    WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "converting application path string `%s' from UTF-8 to UTF-16", app_path);
+    }
+#else
+    /* winfrip }}} */
     ret->lpVtbl->SetIconLocation(ret, app_path, 0);
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 
     /* To set the link title, we require the property store of the link. */
     if (SUCCEEDED(ret->lpVtbl->QueryInterface(ret,
                                               COMPTR(IPropertyStore, &pPS)))) {
         PropVariantInit(&pv);
+        /* {{{ winfrip */
+    #if 1
+        {
+        char *      appname_;
+        wchar_t *   appname_W;
+        wchar_t *   sessionnameW;
+        WfrStatus   status;
+
+
+        pv.vt = VT_LPWSTR;
+        if (sessionname) {
+            status = WfrConvertUtf8ToUtf16String(sessionname, strlen(sessionname), &sessionnameW);
+            WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "converting session name `%s' from UTF-8 to UTF-16", sessionname);
+            if (WFR_SUCCESS(status)) {
+                pv.pwszVal = sessionnameW;
+            }
+        } else {
+            assert(appname);
+            appname_ = dupprintf("Run %.*s",
+                                 (int)strcspn(appname, "."), appname);
+            status = WfrConvertUtf8ToUtf16String(appname_, strlen(appname_), &appname_W);
+            WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "converting application name string `%s' from UTF-8 to UTF-16", appname_);
+            if (WFR_SUCCESS(status)) {
+                pv.pwszVal = appname_W;
+            }
+        }
+        }
+    #else
+        /* winfrip }}} */
         pv.vt = VT_LPSTR;
         if (sessionname) {
             pv.pszVal = dupstr(sessionname);
@@ -479,6 +711,9 @@ static IShellLink *make_shell_link(const char *appname,
             pv.pszVal = dupprintf("Run %.*s",
                                   (int)strcspn(appname, "."), appname);
         }
+        /* {{{ winfrip */
+    #endif
+        /* winfrip }}} */
         pPS->lpVtbl->SetValue(pPS, &PKEY_Title, &pv);
         sfree(pv.pszVal);
         pPS->lpVtbl->Commit(pPS);
@@ -580,6 +815,23 @@ static void update_jumplist_from_registry(void)
                 IShellLink *rlink;
                 if (SUCCEEDED(pRemoved->lpVtbl->GetAt(
                                   pRemoved, i, COMPTR(IShellLink, &rlink)))) {
+                    /* {{{ winfrip */
+                #if 1
+                    {
+                    wchar_t     desc1W[2048];
+                    wchar_t     desc2W[2048];
+                    WfrStatus   status;
+
+
+                    if (SUCCEEDED(link->lpVtbl->GetDescription(link, desc1W, WFR_SIZEOF_WSTRING(desc1W) - 1))
+                     && SUCCEEDED(rlink->lpVtbl->GetDescription(rlink, desc2W, WFR_SIZEOF_WSTRING(desc2W) - 1))
+                     && (wcscmp(desc1W, desc2W) == 0))
+                    {
+                        found = true;
+                    }
+                    }
+                #else
+                    /* winfrip }}} */
                     char desc1[2048], desc2[2048];
                     if (SUCCEEDED(link->lpVtbl->GetDescription(
                                       link, desc1, sizeof(desc1)-1)) &&
@@ -588,6 +840,9 @@ static void update_jumplist_from_registry(void)
                         !strcmp(desc1, desc2)) {
                         found = true;
                     }
+                    /* {{{ winfrip */
+                #endif
+                    /* winfrip }}} */
                     rlink->lpVtbl->Release(rlink);
                 }
             }
