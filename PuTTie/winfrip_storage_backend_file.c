@@ -207,7 +207,7 @@ WfspFileDeleteHostCA(
 {
 	(void)backend;
 	return WfrDeleteFile(
-		true, WfsppFileDnameHostCAs,
+		true, true, WfsppFileDnameHostCAs,
 		WfsppFileExtHostCAs, name);
 }
 
@@ -412,7 +412,7 @@ WfspFileDeleteHostKey(
 {
 	(void)backend;
 	return WfrDeleteFile(
-		true, WfsppFileDnameHostKeys,
+		true, true, WfsppFileDnameHostKeys,
 		WfsppFileExtHostKeys, key_name);
 }
 
@@ -509,7 +509,7 @@ WfspFileClearOptions(
 	)
 {
 	(void)backend;
-	return WfrDeleteFile(false, WfsppFileDname, NULL, WfsppFileFnameOptions);
+	return WfrDeleteFile(false, true, WfsppFileDname, NULL, WfsppFileFnameOptions);
 }
 
 WfrStatus
@@ -598,7 +598,7 @@ WfspFileDeleteSession(
 {
 	(void)backend;
 	return WfrDeleteFile(
-		true, WfsppFileDnameSessions,
+		true, true, WfsppFileDnameSessions,
 		WfsppFileExtSessions, sessionname);
 }
 
@@ -738,7 +738,7 @@ WfspFileCleanupJumpList(
 	void
 	)
 {
-	return WfrDeleteFile(false, NULL, NULL, WfsppFileFnameJumpList);
+	return WfrDeleteFile(false, true, NULL, NULL, WfsppFileFnameJumpList);
 }
 
 void
@@ -826,7 +826,7 @@ WfspFileCleanupPrivKeyList(
 	void
 	)
 {
-	return WfrDeleteFile(false, NULL, NULL, WfsppFileFnamePrivKeyList);
+	return WfrDeleteFile(false, true, NULL, NULL, WfsppFileFnamePrivKeyList);
 }
 
 WfrStatus

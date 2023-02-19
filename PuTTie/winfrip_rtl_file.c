@@ -264,6 +264,7 @@ WfrDeleteDirectory(
 WfrStatus
 WfrDeleteFile(
 	bool		escape_fnamefl,
+	bool		noentfl,
 	const char *	dname,
 	const char *	ext,
 	const char *	fname
@@ -292,6 +293,10 @@ WfrDeleteFile(
 	}
 
 	WFR_FREE_IF_NOTNULL(pnameW);
+
+	if (WFR_STATUS_IS_NOT_FOUND(status) && noentfl) {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
 
 	return status;
 }
