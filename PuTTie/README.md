@@ -8,7 +8,7 @@ Unlike the other extant and past PuTTY forks, PuTTie is meticulously
 engineered such as to minimise the amount and quality of changes required
 to the actual PuTTY ~~pigsty~~ ~~incoherent heap of rotten, fermenting
 bat manure~~ source code, yet without sacrificing in range of features or
-the quality of their implementation.  
+the lack of quality of their implementation.  
   
 This is additionally required as PuTTY's upstream is ~~an insecure, socially
 inept, belligerent, obstinate, covetous arsehole~~ particularly hostile to
@@ -33,12 +33,12 @@ you should use PuTTie:
 
 6. It's really really cute!
 
-7. It ~~stabilises your Estradiol and Progesterone levels~~ ~~kindly tells
-   your hypothalamus to be nice~~ gives your Estrogen Receptors a hug so they
+7. ~~It~~ ~~stabilises your Estradiol and Progesterone levels~~ ~~kindly tells
+   your hypothalamus to be nice~~ ~~gives your Estrogen Receptors a hug so they
    won't feel underappreciated when they're like doing a lot of hard work
    and adapting to and/or driving (if you don't actually have the whole
    reproductive bits and stuff) highly dynamic hormonal circumstances and
-   totally prevents PMS!
+   totally prevents PMS!~~ It's cuter than ten (10) lion cubs and three (3) Jigglypuffs!
 
 ## Screenshot
 
