@@ -53,7 +53,7 @@ add_library(agent STATIC
 
 add_library(guiterminal STATIC
   terminal/terminal.c terminal/bidi.c
-  ldisc.c config.c dialog.c
+  ldisc.c terminal/lineedit.c config.c dialog.c
   $<TARGET_OBJECTS:logging>)
 
 add_library(noterminal STATIC
@@ -182,7 +182,8 @@ endif()
 # winfrip }}}
 
 add_executable(plink
-  ${platform}/plink.c)
+  ${platform}/plink.c
+  stubs/no-lineedit.c)
 # {{{ winfrip
 if (MINGW)
 set_property(TARGET plink APPEND PROPERTY SOURCES
