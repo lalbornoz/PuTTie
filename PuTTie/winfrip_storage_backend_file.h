@@ -38,6 +38,8 @@
 											\
 	WfspFileCleanupContainer, WfspFileEnumerateCancel,				\
        	WfspFileInit, WfspFileSetBackend,						\
+       											\
+	NULL, NULL, NULL, NULL,								\
 }
 
 WfrStatus	WfspFileCleanupHostCAs(WfsBackend backend);

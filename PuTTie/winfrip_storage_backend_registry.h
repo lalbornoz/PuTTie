@@ -38,6 +38,8 @@
 													\
 	WfspRegistryCleanupContainer, WfspRegistryEnumerateCancel,					\
 	WfspRegistryInit, WfspRegistrySetBackend,							\
+       													\
+	NULL, NULL, NULL, NULL,										\
 }
 
 WfrStatus	WfspRegistryCleanupHostCAs(WfsBackend backend);
