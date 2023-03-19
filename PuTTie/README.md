@@ -120,6 +120,7 @@ Thanks to <a href="https://github.com/gtwy">James Watt</a> for helping fixing lo
 ## Built with & tested on
 
 1. MinGW w/ GCC v11.3.0 & cmake v3.23.2 on Cygwin v3.4.2-1 & Windows 8.1 x64, resp.
+2. MinGW w/ GCC v10-win32 20220324 & cmake v3.24.2 on Ubuntu v22.10 & wine-7.0 (Ubuntu 7.0~repack-8)
 
 ## How to build
 
