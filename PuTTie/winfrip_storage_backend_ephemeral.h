@@ -38,6 +38,8 @@
 													\
 	WfspEphemeralCleanupContainer, WfspEphemeralEnumerateCancel,					\
 	WfspEphemeralInit, WfspEphemeralSetBackend,							\
+													\
+	NULL, NULL, NULL, NULL,										\
 }
 
 WfrStatus	WfspEphemeralCleanupHostCAs(WfsBackend backend);
