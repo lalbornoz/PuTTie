@@ -173,11 +173,12 @@ endif()
 add_dependencies(pageant generated_licence_h)
 target_link_libraries(pageant
   guimisc eventloop agent network crypto utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
-  # {{{ winfrip
-  shlwapi.lib
-  # winfrip }}}
   ${platform_libraries})
+# {{{ winfrip
+set_property(TARGET pageant APPEND PROPERTY LINK_LIBRARIES
+  shlwapi.lib
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a)
+# }}}
 set_target_properties(pageant PROPERTIES
   WIN32_EXECUTABLE ON
   LINK_FLAGS "${LFLAG_MANIFEST_NO}")
@@ -248,10 +249,13 @@ add_dependencies(putty generated_licence_h)
 target_link_libraries(putty
   guiterminal guimisc eventloop sshclient otherbackends settings network crypto
   utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   gdiplus.lib msimg32.lib
   bcrypt.lib
   ${platform_libraries})
+# {{{ winfrip
+set_property(TARGET putty APPEND PROPERTY LINK_LIBRARIES
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a)
+# }}}
 if (MINGW)
   target_link_options(putty PRIVATE
     -Wl,-Bstatic -l:libwinpthread.a)
@@ -319,10 +323,13 @@ be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
 add_dependencies(puttytel generated_licence_h)
 target_link_libraries(puttytel
   guiterminal guimisc eventloop otherbackends settings network utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   gdiplus.lib msimg32.lib
   bcrypt.lib
   ${platform_libraries})
+# {{{ winfrip
+set_property(TARGET puttytel APPEND PROPERTY LINK_LIBRARIES
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a)
+# }}}
 if (MINGW)
   target_link_options(puttytel PRIVATE
     -Wl,-Bstatic -l:libwinpthread.a)
@@ -354,8 +361,11 @@ endif()
 add_dependencies(puttygen generated_licence_h)
 target_link_libraries(puttygen
   keygen guimisc crypto utils
-  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   ${platform_libraries})
+# {{{ winfrip
+set_property(TARGET puttygen APPEND PROPERTY LINK_LIBRARIES
+  ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a)
+# }}}
 if (MINGW)
   target_link_options(puttygen PRIVATE
     -Wl,-Bstatic -l:libwinpthread.a)
@@ -411,6 +421,12 @@ add_executable(test_lineedit
   ${CMAKE_SOURCE_DIR}/stubs/no-storage.c
   ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
   no-jump-list.c)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET test_lineedit APPEND PROPERTY SOURCES
+  ../PuTTie/stubs-tests.c)
+endif()
+# winfrip }}}
 target_link_libraries(test_lineedit
   guiterminal settings eventloop utils ${platform_libraries})
 
@@ -420,6 +436,12 @@ add_executable(test_terminal
   ${CMAKE_SOURCE_DIR}/stubs/no-storage.c
   ${CMAKE_SOURCE_DIR}/stubs/no-timing.c
   no-jump-list.c)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET test_terminal APPEND PROPERTY SOURCES
+  ../PuTTie/stubs-tests.c)
+endif()
+# winfrip }}}
 target_link_libraries(test_terminal
   guiterminal settings eventloop utils ${platform_libraries})
 
