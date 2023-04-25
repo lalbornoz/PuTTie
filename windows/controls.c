@@ -2288,7 +2288,7 @@ char *dlg_editbox_get(dlgcontrol *ctrl, dlgparam *dp)
         if (WFR_RESIZE(status, textW, textW_size, textW_size + 64, wchar_t)) {
             (void)GetDlgItemTextW(dp->hwnd, c->base_id + 1, textW, textW_size);
         }
-    } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(textW, textW_size));
+    } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(textW, textW_size - 1));
 
     if (WFR_SUCCESS(status)) {
         (void)WfrConvertUtf16ToUtf8String(textW, wcslen(textW), &text);
@@ -2565,7 +2565,7 @@ Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
             if (WFR_RESIZE(status, textW, textW_size, textW_size + 64, wchar_t)) {
                 (void)GetDlgItemTextW(dp->hwnd, c->base_id + 1, textW, textW_size);
             }
-        } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(textW, textW_size));
+        } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(textW, textW_size - 1));
 
         if (WFR_SUCCESS(status)
         &&  WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(textW, wcslen(textW), &text)))
