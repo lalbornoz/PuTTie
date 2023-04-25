@@ -7,14 +7,19 @@ build_clang_compile_cmds() {
 	local	_args="" _clang_fname=""			\
 		_compile_commands_fname=""			\
 		_compile_flags_fname="" _dname="" _fname=""	\
-		_pname="" _pwd="" _tmp_fname="";
+		_pname="" _pwd="" _tmp_fname="" _uname_os="";
 
 	_clang_fname="$(which clang)" || return 1;
 	_compile_commands_fname="${0%/*}/../compile_commands.json";
-	_compile_flags_fname="${0%/*}/../compile_flags.txt";
-	_pwd="$(cygpath -m "$(pwd)")" || return 1;
+	_pwd="${PWD}";
+	_uname_os="$(uname -o)" || return 1;
+	if [ "${_uname_os}" = "Cygwin" ]; then
+		_pwd="$(cygpath -m "${_pwd}")" || return 1;
+	fi;
 	_tmp_fname="$(mktemp)" || return 1;
 	trap "rm -f \"${_tmp_fname}\" 2>/dev/null" HUP INT TERM USR1 USR2;
+
+	_compile_flags_fname="${0%/*}/compile_flags.txt.tmpl.${_uname_os##*/}";
 
 	_args="$(
 		sed						\
@@ -38,22 +43,22 @@ build_clang_compile_cmds() {
 
 		printf '
 	{
-		"directory": "%s%s",
+		"directory": "%s",
 		"arguments": %s, "%s.o", "%s"],
-		"file": "%s"
+		"file": "%s%s"
 	},'							\
-			"${_pwd}" "${_dname:+/${_dname}}"	\
+			"${_pwd}"				\
 			"${_args}" "${_fname%.c}" "${_fname}"	\
-			"${_fname}";
+			"${_dname:+${_dname}/}" "${_fname}";
 	done > "${_tmp_fname}";
 
 	sed	-i""						\
 		-e '$s/},$/}/'					\
 		-e '1i\
-{'								\
+['								\
 		-e '1d'						\
 		-e '$a\
-}'		"${_tmp_fname}";
+]'		"${_tmp_fname}";
 
 	mv -i "${_tmp_fname}" "${_compile_commands_fname}";
 	if [ -e "${_tmp_fname}" ]; then
