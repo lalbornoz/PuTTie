@@ -7921,7 +7921,11 @@ static struct term_userpass_state *term_userpass_state_new(
     s->le_rcv.vt = &term_userpass_lineedit_receiver_vt;
     s->le = lineedit_new(term, LE_INTERRUPT | LE_EOF_ALWAYS | LE_ESC_ERASES,
                          &s->le_rcv);
-    assert(!term->userpass_state);
+
+    /* In case a term_userpass_state is still around */
+    if (term->userpass_state)
+        term_userpass_state_free(term->userpass_state);
+
     term->userpass_state = s;
     return s;
 }
