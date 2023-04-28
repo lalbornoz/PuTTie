@@ -22,23 +22,59 @@ you should use PuTTie:
   
 1. It's really cute!
 
-2. It has a really cute name!
+2. It has a green heart next to its really cute name because PuTTie loves you!
 
-3. It has a green heart next to its really cute name because PuTTie loves you!
+3. It can totally dance the Melbourne shuffle!
 
-4. It can totally dance the Melbourne shuffle!
-
-5. kade, nadia, roarie and arab like PuTTie:  
+4. kade, nadia, roarie and arab like PuTTie:  
    ![kade, nadia, roarie and arab like PuTTie!](https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/PuTTie_endorsements.png "kade, nadia, roarie and arab like PuTTie!")
 
-6. It's really really cute!
-
-7. ~~It~~ ~~stabilises your Estradiol and Progesterone levels~~ ~~kindly tells
-   your hypothalamus to be nice~~ ~~gives your Estrogen Receptors a hug so they
+5. ~~It~~ ~~stabilises your Estradiol and Progesterone levels~~ ~~kindly tells
+   your hypothalamus to be nice~~ gives your Estrogen Receptors a hug so they
    won't feel underappreciated when they're like doing a lot of hard work
    and adapting to and/or driving (if you don't actually have the whole
    reproductive bits and stuff) highly dynamic hormonal circumstances and
-   totally prevents PMS!~~ It's cuter than ten (10) lion cubs and three (3) Jigglypuffs!
+   totally prevents PMS/PMDD as long as you use it all day long for three (3)
+   days without sleeping or eating!
+
+6. By leveraging the groundbreaking *This Is All Made Up (TIAMU)* methodology,
+   bla bli **Cryptocurrencies** ble blu **Agile** bli **Deep AI** bla
+   **Blockchain** blö **ANN** blü bli **Cloud-Based** ble **Cybercrimes**
+   bli blø **Kamelåså**:  
+  
+   |                                  | PuTTie               | PuTTY              |
+   |----------------------------------|----------------------|--------------------|
+   | Scalability                      | infinite             | huh?               |
+   | Total Cost of Ownership          | -infinity            | wa?                |
+   | Security track record            | IMPENETRABLE CASTLE  | HELP               |
+   | Simon Tatham involvement         | NEIN                 | i want to die :(   |
+   | Amortised molecular weight at 0K | 2.176434(24)×10−8 kg | er..               |
+   | Environmental cost               | -infinity            | where am i?        |
+   | Wingspan at cruising speed       | 22-34mm              | help im trapped ple|
+   | Cluck cluck, cluMEOW ROAAHHHHHHHH| [x]                  | [ ]                |
+
+7. The following people/deities have found PuTTie to have been critical to
+   their immeasurable contributions to {woman,man,non-binary-,egg-}kind in general:  
+  
+   kade, nadia, roarie, Brigadier-Sergeant Corporal Erran Morad, Tupac Shakur, Rainer Maria Rilke, Big L,
+   Michael Ende, Taktlo$$, Omar Souleyman, King Kool Savas, Christian J. Kiewiet, David N. Cutler
+   Sr., Usāmah b. Muḥammad b. Awaḍ bin Lādin, Kāẓim Finjān al-Ḥammāmi, Aḥmad
+   al-Asīr, James Thomas "Baby Huey" Ramey, Federico García Lorca, Miguel de Unamuno y Jugo,
+   Fyodor Dostoevsky, Immanuel Kant, Ivan the Terrible, Geoffrey Chaucer, the bloke what made Sir
+   Gawain and the Green Knight but he said I'm not supposed to share his name, Moses Šem-Ṭо̄v
+   de León, Šəlо̄mо̄ b. Yəhūḏā b. Gābīrо̄l, Abū Muḥammad ʿAlī b. Ḥazm,
+   Abū Ḥāmid al-Ġazālī, Abū al-Ṭayyib Aḥmad al-Mutanabbī, ʿubādah al-Qazzāz,
+   Abū ʿUthman ʿAmr al-Jāḥiẓ of Baṣrah, ʿAbd al-Malik al-Aṣmaʿī, Heraclitus
+   of Ephesos, Parmenides of Elea, Ecclesiastes, none of the Biblical Patriarchs because most
+   of them either never existed anyway and/or were appropriated from old Mesopotamia for the
+   purposes of ramming divine sovereignty of a lower Canaanite deity down everyone's throats,
+   Sīn-lēq-unnínni, Mursili I, despite his anger issues, Šubši-mašrā-šakkan, bonus
+   points for having a badass name, ʿammu Rāpī the Amorite, utilising the ST100 ancestor of
+   VT100, Šarrukīn I of Akkad, all of the Anunnaki, except for Ellil because he doesn't know
+   how be nice to people, Ištar the Lioness, Goddess of Transness and stuff, Gudea of Lagaš,
+   Wendy Carlos, and Cardi B.
+  
+   **Don't you want to be like them?** (except for Ellil because he's an arsehole)
 
 ## Screenshot
 
@@ -115,7 +151,8 @@ tool is provided for this purpose. Follow the following steps in order to create
 
 ## Thanks to
 
-Thanks to <a href="https://github.com/gtwy">James Watt</a> for helping fixing lots of bugs!
+Thanks to <a href="https://github.com/gtwy">James Watt</a> and
+<a href="https://github.com/SamKook">SamKook</a> for helping fixing lots of bugs!
 
 ## Built with & tested on
 
