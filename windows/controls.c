@@ -2040,6 +2040,11 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
                     WFR_FREE(c->data);
                 }
             } else {
+                (void)WfrMessageBoxF(
+                        dp->hwnd, "PuTTie",
+                        MB_ICONERROR | MB_OK | MB_DEFBUTTON1,
+                        "%s",
+                        WfrStatusToErrorMessage((status)));
                 WFR_FREE_IF_NOTNULL(filename);
             }
         #else
