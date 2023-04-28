@@ -5,6 +5,9 @@
 
 #include <stdio.h>
 
+#include <errno.h>
+#include <sys/stat.h>
+
 #include <windows.h>
 
 #include "PuTTie/winfrip_rtl.h"
@@ -250,6 +253,7 @@ WfrRequestFile(
 	)
 {
 	wchar_t *	lpstrDefExtW = NULL;
+	char *		lpstrFile = NULL;
 	wchar_t *	lpstrFileW = NULL;
 	size_t		lpstrFileInitial_len;
 	wchar_t *	lpstrFileInitialW = NULL;
@@ -260,6 +264,7 @@ WfrRequestFile(
 	wchar_t *	lpstrTitleW = NULL;
 	wchar_t		lpWorkingDirectoryW[MAX_PATH + 1];
 	OPENFILENAMEW	ofW;
+	struct _stat64	statbuf;
 	WfrStatus	status;
 
 
@@ -304,6 +309,7 @@ WfrRequestFile(
 		if ((*plpstrFile)) {
 			memcpy(lpstrFileW, lpstrFileInitialW,
 			       lpstrFileInitial_len * sizeof(*lpstrFileInitialW));
+			lpstrFileW[lpstrFileInitial_len] = L'\0';
 		} else {
 			lpstrFileW[0] = L'\0';
 		}
@@ -340,11 +346,20 @@ WfrRequestFile(
 		     (p[0] == L'\0') ? (p[1] != L'\0') : true;
 		     p++, lpstrFileW_len++);
 
-		status = WfrConvertUtf16ToUtf8String(lpstrFileW, lpstrFileW_len, plpstrFile);
+		status = WfrConvertUtf16ToUtf8String(lpstrFileW, lpstrFileW_len, &lpstrFile);
 		if (WFR_SUCCESS(status)) {
+			if (!savefl) {
+				(void)WFR_STATUS_BIND_POSIX(status, (_wstat64(lpstrFileW, &statbuf) == 0));
+			}
+		}
+
+		if (WFR_SUCCESS(status)) {
+			*plpstrFile = lpstrFile;
 			if (pnFileOffset) {
 				*pnFileOffset = ofW.nFileOffset;
 			}
+		} else {
+			WFR_FREE(lpstrFile);
 		}
 	}
 
