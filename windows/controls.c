@@ -2009,7 +2009,7 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
                 } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(filenameW, filenameW_size - 1));
 
                 if (WFR_SUCCESS(status)) {
-                    status = WfrConvertUtf16ToUtf8String(filenameW, wcslen(filenameW) - 1, &filename);
+                    status = WfrConvertUtf16ToUtf8String(filenameW, wcslen(filenameW), &filename);
                     WFR_FREE(filenameW);
                 }
             } else {
