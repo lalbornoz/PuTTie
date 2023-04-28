@@ -707,12 +707,10 @@ WffbpOpSize(
 		return WF_RETURN_FAILURE;
 
 	case WFR_TI_STYLE_ABSOLUTE:
-	case WFR_TI_STYLE_TILE:
-		return WF_RETURN_CONTINUE;
-
 	case WFR_TI_STYLE_CENTER:
 	case WFR_TI_STYLE_FIT:
 	case WFR_TI_STYLE_STRETCH:
+	case WFR_TI_STYLE_TILE:
 		if (WFR_SUCCESS(WffbpSet(conf, hdc, true, false, true))) {
 			return WF_RETURN_CONTINUE;
 		} else {
