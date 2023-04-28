@@ -477,7 +477,8 @@ WffbpSlideshowReconfShuffle(
 	if (WFR_NEW(status, timer_ctx_new, WffbpContext)
 	&&  WFR_SUCCESS(status = WfrPathNameToDirectory(bg_dname, &dname_new))
 	&&  WFR_SUCCESS(status = WfrEnumerateFilesV(
-			dname_new, NULL, &dname_filec_new, &dname_filev_new)))
+			dname_new, WFF_BGIMG_FILTER_IMAGE_FILES,
+			&dname_filec_new, &dname_filev_new)))
 	{
 		EnterCriticalSection(&WffbpDnameCriticalSection);
 		WFR_FREE_IF_NOTNULL(WffbpDname);

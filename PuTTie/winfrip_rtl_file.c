@@ -162,6 +162,76 @@ WfrpWatchDirectoryThreadProc(
 	return (WFR_SUCCESS(status) ? TRUE : FALSE);
 }
 
+static bool
+WfrpFilterFilename(
+	const char *	fname,
+	const char *	filter_list
+	)
+{
+	const char *	filter;
+	char		filter_ext[MAX_PATH + 1];
+	size_t		filter_ext_len;
+	const char *	filter_ext_spec;
+	const char *	filter_ext_spec_next;
+	const char *	fname_ext;
+	size_t		fname_ext_len;
+	bool		matchfl = false;
+
+
+	fname_ext = strrchr(fname, '.');
+	if (!fname_ext) {
+		return true;
+	} else {
+		fname_ext_len = strlen(fname_ext);
+	}
+
+
+	for (filter = filter_list; !matchfl && filter && filter[0]; )
+	{
+		if ((filter = strchr(filter, '\0'))) {
+			filter++;
+
+			for (filter_ext_spec = filter;
+			     !matchfl && filter_ext_spec && filter_ext_spec[0]; )
+			{
+				if (filter_ext_spec[0] == '*') {
+					filter_ext_spec++;
+				}
+
+				if ((filter_ext_spec_next = strchr(filter_ext_spec, ';'))) {
+					filter_ext_len = filter_ext_spec_next - filter_ext_spec;
+					filter_ext_spec_next++;
+				} else {
+					filter_ext_len = strlen(filter_ext_spec);
+				}
+
+				if ((filter_ext_len + 1) <= sizeof(filter_ext)) {
+					memcpy(filter_ext, filter_ext_spec, filter_ext_len);
+					filter_ext[filter_ext_len] = '\0';
+
+					if ((fname_ext_len == filter_ext_len)
+					&&  (memcmp(fname_ext, filter_ext, filter_ext_len) == 0))
+					{
+						matchfl = true;
+					}
+				}
+
+				filter_ext_spec = filter_ext_spec_next;
+			}
+
+			if ((filter = strchr(filter, '\0'))) {
+				filter++;
+			}
+		}
+	}
+
+	if (!matchfl) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 /*
  * Public subroutines private to PuTTie/winfrip*.c
  */
@@ -542,7 +612,7 @@ WfrEnumerateFilesInit(
 WfrStatus
 WfrEnumerateFilesV(
 	const char *	dname,
-	const char *	ext,
+	const char *	filter_list,
 	size_t *	pfilec,
 	char ***	pfilev
 	)
@@ -558,8 +628,12 @@ WfrEnumerateFilesV(
 
 	if (WFR_SUCCESS(status = WfrEnumerateFilesInit(dname, &state))) {
 		while (WFR_SUCCESS(status = WfrEnumerateFiles(
-				ext, &donefl, &fname, &state)) && !donefl)
+				NULL, &donefl, &fname, &state)) && !donefl)
 		{
+			if (filter_list && WfrpFilterFilename(fname, filter_list)) {
+				continue;
+			}
+
 			if (!WFR_RESIZE(status, filev_new, filec_new, filec_new + 1, char *)
 			||  !WFR_SUCCESS_POSIX(status, (fname_new = strdup(fname))))
 			{
