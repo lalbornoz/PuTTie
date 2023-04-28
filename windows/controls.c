@@ -1997,16 +1997,19 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
         #if 1
             char *      filename = NULL;
             wchar_t *   filenameW = NULL;
+            size_t      filenameW_size = 0;
             WfrStatus   status;
 
 
             if (!ctrl->fileselect.just_button) {
-                (void)GetDlgItemTextW(dp->hwnd, c->base_id + 1,
-                                      filenameW, WFR_SIZEOF_WSTRING(filenameW));
-                filenameW[WFR_SIZEOF_WSTRING(filenameW) - 1] = L'\0';
-                if (WFR_SUCCESS(WfrConvertUtf16ToUtf8String(
-                            filenameW, wcslen(filenameW) - 1, &filename)))
-                {
+                do {
+                    if (WFR_RESIZE(status, filenameW, filenameW_size, filenameW_size + 64, wchar_t)) {
+                        (void)GetDlgItemTextW(dp->hwnd, c->base_id + 1, filenameW, filenameW_size);
+                    }
+                } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(filenameW, filenameW_size - 1));
+
+                if (WFR_SUCCESS(status)) {
+                    status = WfrConvertUtf16ToUtf8String(filenameW, wcslen(filenameW) - 1, &filename);
                     WFR_FREE(filenameW);
                 }
             } else {
