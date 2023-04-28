@@ -496,12 +496,18 @@ static bool prompt_keyfile(HWND hwnd, char *dlgtitle,
         &filename_, NULL);
 
     if (WFR_SUCCESS(status)) {
-        memcpy(filename, filename_, FILENAME_MAX);
-        filename[FILENAME_MAX - 1] = '\0';
-        WFR_FREE(filename_);
+        if (filename_) {
+            memcpy(filename, filename_, FILENAME_MAX);
+            filename[FILENAME_MAX - 1] = '\0';
+            WFR_FREE(filename_);
+        } else {
+            return false;
+        }
+    } else {
+        filename[0] = '\0';
     }
 
-    return WFR_SUCCESS(status);
+    return true;
 #else
     /* winfrip }}} */
     OPENFILENAME of;

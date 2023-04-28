@@ -607,6 +607,14 @@ static void prompt_add_keyfile(bool encrypted)
         true, false, &filelist, &nFileOffset);
 
     if (WFR_SUCCESS(status)) {
+        if (!filelist) {
+            return;
+        }
+    } else {
+        filelist = strdup(":");
+    }
+
+    {
 #else
     /* winfrip }}} */
     OPENFILENAME of;

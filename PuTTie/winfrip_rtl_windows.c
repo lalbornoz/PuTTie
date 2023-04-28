@@ -263,6 +263,7 @@ WfrRequestFile(
 	wchar_t *	lpstrInitialDirW = NULL;
 	wchar_t *	lpstrTitleW = NULL;
 	wchar_t		lpWorkingDirectoryW[MAX_PATH + 1];
+	bool		resultfl;
 	OPENFILENAMEW	ofW;
 	struct _stat64	statbuf;
 	WfrStatus	status;
@@ -273,7 +274,7 @@ WfrRequestFile(
 	lpstrFilter_len = 1;
 	for (const char *p = lpstrFilter;
 	     (p[0] == '\0') ? (p[1] != '\0') : true;
-	     p++, lpstrFilter_len++);
+	     p++, lpstrFilter_len++) {};
 
 
         if ((preservefl
@@ -333,14 +334,13 @@ WfrRequestFile(
 	ofW.lpstrFileTitle = NULL;
 	ofW.lpstrTitle = lpstrTitleW;
 
-        (void)WFR_STATUS_BIND_WINDOWS(status,
-		((savefl ? GetSaveFileNameW(&ofW) : GetOpenFileNameW(&ofW))));
+	resultfl = (savefl ? GetSaveFileNameW(&ofW) : GetOpenFileNameW(&ofW));
 
-	if (WFR_SUCCESS(status)) {
-		if (preservefl) {
-			(void)SetCurrentDirectoryW(lpWorkingDirectoryW);
-		}
+	if (preservefl) {
+		(void)SetCurrentDirectoryW(lpWorkingDirectoryW);
+	}
 
+	if (resultfl) {
 		lpstrFileW_len = 1;
 		for (const wchar_t *p = lpstrFileW;
 		     (p[0] == L'\0') ? (p[1] != L'\0') : true;
@@ -360,6 +360,12 @@ WfrRequestFile(
 			}
 		} else {
 			WFR_FREE(lpstrFile);
+		}
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+		*plpstrFile = NULL;
+		if (pnFileOffset) {
+			*pnFileOffset = 0;
 		}
 	}
 
