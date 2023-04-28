@@ -2027,7 +2027,7 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
             if (WFR_SUCCESS(status)) {
                 if (!ctrl->fileselect.just_button) {
                     if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
-                                    filename, strlen(filename) - 1, &filenameW)))
+                                    filename, strlen(filename), &filenameW)))
                     {
                         (void)SetDlgItemTextW(dp->hwnd, c->base_id + 1, filenameW);
                         ctrl->handler(ctrl, dp, dp->data, EVENT_VALCHANGE);
