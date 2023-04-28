@@ -11,6 +11,8 @@
 #pragma GCC diagnostic pop
 
 #include <stdbool.h>
+
+#include <errno.h>
 #include <sys/stat.h>
 
 #include "PuTTie/winfrip_feature.h"
@@ -62,12 +64,14 @@ typedef enum WffbpType {
 /*
  * Absolute pathname to background images slideshow directory
  * Vector of background images filenames in background images slideshow directory
+ * Last randomly selected background images filename vector item index
  * Absolute pathname to single background image filename
  */
 static char *			WffbpDname = NULL;
 static size_t			WffbpDnameLen = 0;
 static size_t			WffbpDnameFileC = 0;
 static char **			WffbpDnameFileV = NULL;
+static ssize_t			WffbpFileIdxLast = -1;
 static char *			WffbpFname = NULL;
 
 /*
@@ -291,39 +295,49 @@ WffbpGetFnameShuffle(
 		bg_fname_len = strlen(bg_fname);
 		status = WfrConvertUtf8ToUtf16String(bg_fname, bg_fname_len, pbg_fname_w);
 	} else if ((WffbpDnameFileC > 0) && (WffbpDnameFileV != NULL)) {
-		if (WFR_SUCCESS(status = WfrGenRandom(
-			(PUCHAR)&bg_fname_idx, sizeof(bg_fname_idx))))
-		{
-			bg_fname_idx %= WffbpDnameFileC;
-			bg_fname_len = strlen(
-				  WffbpDnameFileV[bg_fname_idx]
-				? WffbpDnameFileV[bg_fname_idx]
-				: "");
-			bg_fname_size = WffbpDnameLen + 1 + bg_fname_len + 1;
-
-			if ((WffbpDnameLen == 0)
-			||  (WffbpDnameFileV[bg_fname_idx] == NULL)
-			||  (bg_fname_len == 0))
+		do {
+			if (WFR_SUCCESS(status = WfrGenRandom(
+				(PUCHAR)&bg_fname_idx, sizeof(bg_fname_idx))))
 			{
-				status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-			} else if (WFR_NEWN(status, bg_fname, bg_fname_size, char)) {
-				EnterCriticalSection(&WffbpDnameCriticalSection);
-				WFR_SNPRINTF(
-					bg_fname, bg_fname_size, "%*.*s\\%s",
-					(int)WffbpDnameLen, (int)WffbpDnameLen, WffbpDname,
-					WffbpDnameFileV[bg_fname_idx]);
-				LeaveCriticalSection(&WffbpDnameCriticalSection);
+				bg_fname_idx %= WffbpDnameFileC;
+				if ((WffbpDnameFileC > 1)
+				&&  (WffbpFileIdxLast >= 0)
+				&&  ((size_t)WffbpFileIdxLast == bg_fname_idx))
+				{
+					continue;
+				}
 
-				bg_fname_len = strlen(bg_fname);
-				status = WfrConvertUtf8ToUtf16String(bg_fname, bg_fname_len, pbg_fname_w);
-				if (WFR_FAILURE(status)) {
-					WFR_FREE(bg_fname);
-				} else {
-					WFR_FREE_IF_NOTNULL(WffbpFname);
-					WffbpFname = bg_fname;
+				bg_fname_len = strlen(
+					  WffbpDnameFileV[bg_fname_idx]
+					? WffbpDnameFileV[bg_fname_idx]
+					: "");
+				bg_fname_size = WffbpDnameLen + 1 + bg_fname_len + 1;
+
+				if ((WffbpDnameLen == 0)
+				||  (WffbpDnameFileV[bg_fname_idx] == NULL)
+				||  (bg_fname_len == 0))
+				{
+					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+				} else if (WFR_NEWN(status, bg_fname, bg_fname_size, char)) {
+					EnterCriticalSection(&WffbpDnameCriticalSection);
+					WFR_SNPRINTF(
+						bg_fname, bg_fname_size, "%*.*s\\%s",
+						(int)WffbpDnameLen, (int)WffbpDnameLen, WffbpDname,
+						WffbpDnameFileV[bg_fname_idx]);
+					LeaveCriticalSection(&WffbpDnameCriticalSection);
+
+					bg_fname_len = strlen(bg_fname);
+					status = WfrConvertUtf8ToUtf16String(bg_fname, bg_fname_len, pbg_fname_w);
+					if (WFR_FAILURE(status)) {
+						WFR_FREE(bg_fname);
+					} else {
+						WFR_FREE_IF_NOTNULL(WffbpFname);
+						WffbpFname = bg_fname;
+						WffbpFileIdxLast = bg_fname_idx;
+					}
 				}
 			}
-		}
+		} while (false);
 	} else {
 		pbg_fname_w = NULL;
 		status = WFR_STATUS_CONDITION_SUCCESS;
@@ -490,6 +504,7 @@ WffbpSlideshowReconfShuffle(
 		WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
 		WffbpDnameFileC = dname_filec_new;
 		WffbpDnameFileV = dname_filev_new;
+		WffbpFileIdxLast = -1;
 
 		(void)SetEvent(WffbpDnameEvent);
 
@@ -523,6 +538,7 @@ WffbpSlideshowReconfShuffle(
 		WffbpDnameLen = 0;
 		WFR_FREE_IF_NOTNULL(WffbpFname);
 		WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
+		WffbpFileIdxLast = -1;
 	}
 
 	WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "configuring background image");
@@ -559,6 +575,7 @@ WffbpSlideshowReconfSingle(
 		WffbpDnameLen = 0;
 		WFR_FREE_IF_NOTNULL(WffbpFname);
 		WFR_FREE_VECTOR_IF_NOTNULL(WffbpDnameFileC, WffbpDnameFileV);
+		WffbpFileIdxLast = -1;
 
 		WffbpSlideshowFrequency = -1;
 		if (WffbpTimerContext) {
