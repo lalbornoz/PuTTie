@@ -83,7 +83,7 @@ WfrClearRegSubKey(
 	const char *	subkey
 	)
 {
-	HKEY		hKey;
+	HKEY		hKey = NULL;
 	LPSTR		subkey_escaped = NULL;
 	wchar_t *	subkey_escapedW = NULL;
 	WfrStatus	status;
@@ -117,7 +117,7 @@ WfrDeleteRegSubKey(
 	const char *	subkey
 	)
 {
-	HKEY		hKey;
+	HKEY		hKey = NULL;
 	LPSTR		subkey_escaped = NULL;
 	wchar_t *	subkey_escapedW = NULL;
 	WfrStatus	status;
@@ -152,7 +152,7 @@ WfrDeleteRegValue(
 	const char *	value_name
 	)
 {
-	HKEY		hKey;
+	HKEY		hKey = NULL;
 	LPSTR		value_name_escaped = NULL;
 	wchar_t *	value_name_escapedW = NULL;
 	WfrStatus	status;
@@ -790,7 +790,7 @@ WfrSetRegValue(
 	)
 {
 	bool		convertfl;
-	HKEY		hKey;
+	HKEY		hKey = NULL;
 	char *		value_name_escaped = NULL;
 	wchar_t *	value_name_escapedW = NULL;
 	wchar_t *	valueW = NULL;
