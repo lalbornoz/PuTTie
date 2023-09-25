@@ -1,12 +1,12 @@
 /*
- * Message box with optional context help.
+ * Enhanced version of the MessageBox API function. Permits enabling a
+ * Help button by setting helpctxid to a context id in the help file
+ * relevant to this dialog box. Also permits setting the 'utf8' flag
+ * to indicate that the char strings given as 'text' and 'caption' are
+ * encoded in UTF-8 rather than the system code page.
  */
 
 #include "putty.h"
-
-/* {{{ winfrip */
-#include "PuTTie/winfrip_rtl.h"
-/* winfrip }}} */
 
 static HWND message_box_owner;
 
@@ -29,48 +29,10 @@ static VOID CALLBACK message_box_help_callback(LPHELPINFO lpHelpInfo)
         launch_help(message_box_owner, context);
 }
 
-int message_box(HWND owner, LPCTSTR text, LPCTSTR caption,
-                DWORD style, DWORD helpctxid)
+int message_box(HWND owner, LPCTSTR text, LPCTSTR caption, DWORD style,
+                bool utf8, DWORD helpctxid)
 {
-    /* {{{ winfrip */
-#if 1
-    wchar_t *       captionW;
-    MSGBOXPARAMSW   mboxW;
-    int             rc;
-    wchar_t *       textW;
-
-
-	(void)WfrConvertUtf8ToUtf16String(caption, strlen(caption), &captionW);
-	(void)WfrConvertUtf8ToUtf16String(text, strlen(text), &textW);
-
-    /*
-     * We use MessageBoxIndirectW() because it allows us to specify a
-     * callback function for the Help button.
-     */
-    mboxW.cbSize = sizeof(mboxW);
-    mboxW.dwContextHelpId = helpctxid;
-    mboxW.dwLanguageId = LANG_NEUTRAL;
-    mboxW.dwStyle = style;
-    /* Assumes the globals `hinst' and `hwnd' have sensible values. */
-    mboxW.hInstance = hinst;
-    mboxW.hwndOwner = message_box_owner = owner;
-    mboxW.lpfnMsgBoxCallback = &message_box_help_callback;
-    mboxW.lpszCaption = captionW;
-    mboxW.lpszText = textW;
-
-    if (helpctxid != 0 && has_help()) {
-        mboxW.dwStyle |= MB_HELP;
-    }
-
-    rc = MessageBoxIndirectW(&mboxW);
-
-    WFR_FREE(captionW);
-    WFR_FREE(textW);
-
-    return rc;
-#else
-    /* winfrip }}} */
-    MSGBOXPARAMS mbox;
+    MSGBOXPARAMSW mbox;
 
     /*
      * We use MessageBoxIndirect() because it allows us to specify a
@@ -79,22 +41,31 @@ int message_box(HWND owner, LPCTSTR text, LPCTSTR caption,
     mbox.cbSize = sizeof(mbox);
     /* Assumes the globals `hinst' and `hwnd' have sensible values. */
     mbox.hInstance = hinst;
-    mbox.hwndOwner = message_box_owner = owner;
-    mbox.lpfnMsgBoxCallback = &message_box_help_callback;
     mbox.dwLanguageId = LANG_NEUTRAL;
-    mbox.lpszText = text;
-    mbox.lpszCaption = caption;
-    mbox.dwContextHelpId = helpctxid;
-    mbox.dwStyle = style;
-    if (helpctxid != 0 && has_help()) mbox.dwStyle |= MB_HELP;
-    return MessageBoxIndirect(&mbox);
-    /* {{{ winfrip */
-#endif
-    /* winfrip }}} */
-}
 
-/* {{{ winfrip */
-/*
- * vim:expandtab sw=4 ts=4
- */
-/* winfrip }}} */
+    mbox.hwndOwner = message_box_owner = owner;
+
+    wchar_t *wtext, *wcaption;
+    if (utf8) {
+        wtext = decode_utf8_to_wide_string(text);
+        wcaption = decode_utf8_to_wide_string(caption);
+    } else {
+        wtext = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, text);
+        wcaption = dup_mb_to_wc(DEFAULT_CODEPAGE, 0, caption);
+    }
+    mbox.lpszText = wtext;
+    mbox.lpszCaption = wcaption;
+
+    mbox.dwStyle = style;
+
+    mbox.dwContextHelpId = helpctxid;
+    if (helpctxid != 0 && has_help()) mbox.dwStyle |= MB_HELP;
+    mbox.lpfnMsgBoxCallback = &message_box_help_callback;
+
+    int toret = MessageBoxIndirectW(&mbox);
+
+    sfree(wtext);
+    sfree(wcaption);
+
+    return toret;
+}
