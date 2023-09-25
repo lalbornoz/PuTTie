@@ -2,6 +2,10 @@
 # Copyright (c) 2018, 2019, 2020, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
 #
 
+DBG_ADDR="localhost:1234";
+DBG_GDBSERVER_FNAME="Z:/usr/share/win64/gdbserver.exe";
+DBG_PUTTY_FNAME="putty.exe";
+
 # {{{ build_clang_compile_cmds()
 build_clang_compile_cmds() {
 	local	_args="" _clang_fname=""			\
@@ -67,6 +71,30 @@ build_clang_compile_cmds() {
 	trap - HUP INT TERM USR1 USR2;
 };
 # }}}
+# {{{ build_dbg_svr($_addr, $_gdbserver_fname, $_putty_fname, ...)
+build_dbg_svr() {
+	local _addr="${1}" _gdbserver_fname="${2}" _putty_fname="${3}"; shift 3;
+
+	wine	\
+		"${_gdbserver_fname}"			\
+		"${_addr}"				\
+		"${_putty_fname}"			\
+		"${@}";
+	return "${?}";
+};
+# }}}
+# {{{ build_dbg_cli($_addr, $_putty_fname)
+build_dbg_cli() {
+	local _addr="${1}" _putty_fname="${2}";
+
+	x86_64-w64-mingw32-gdb				\
+		-ex "set pagination off"		\
+		-ex "target remote ${_addr}"		\
+		"${_putty_fname}";
+	return "${?}";
+};
+# }}}
+
 # {{{ build_clean($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
 build_clean() {
 	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
@@ -209,11 +237,13 @@ build_install() {
 # }}}
 
 buildp_usage() {
-	echo "usage: ${0} [-B <backend>] [-c] [--clang] [-d] [-h] [-i] [-j jobs] [-R] [-t <target>]" >&2;
+	echo "usage: ${0} [-B <backend>] [-c] [--clang] [-d] [--dbg-svr [..]] [--dbg-cli] [-h] [-i] [-j jobs] [-R] [-t <target>]" >&2;
 	echo "       -B <backend>..: set default storage backend to either of ephemeral, file, or registry (default)" >&2;
 	echo "       -c............: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
 	echo "       --clang.......: regenerate compile_commands.json" >&2;
 	echo "       -d............: select Debug (vs. Release) build" >&2;
+	echo "       --dbg-svr.....: run putty.exe w/ optional arguments via wine & local gdbserver on port 1234" >&2;
+	echo "       --dbg-cli.....: debug putty.exe w/ MingW gdb previously launched w/ --dbg-svr" >&2;
 	echo "       -h............: show this screen" >&2;
 	echo "       -i............: {clean,install} images {pre,post}-build" >&2;
 	echo "       -j............: set cmake(1) max. job count" >&2;
@@ -223,14 +253,18 @@ buildp_usage() {
 
 build() {
 	local	_build_type="Release" _Bflag="registry" _cflag=0 _clangflag=0	\
-		_dflag=0 _iflag=0 _jflag=1 _Rflag=0 _tflag="" _install_dname=""	\
-		_opt=""								\
+		_dflag=0 _dbgflag=0 _iflag=0 _jflag=1 _Rflag=0 _tflag=""	\
+		_install_dname="" _opt=""					\
 		CMAKE="${CMAKE:-cmake}" OPTIND=1;
 
 	while [ "${#}" -gt 0 ]; do
 		case "${1}" in
 		--clang)
 			_clangflag=1; shift 1; ;;
+		--dbg-svr)
+			_dbgflag=1; shift 1; ;;
+		--dbg-cli)
+			_dbgflag=2; shift 1; ;;
 		*)	if getopts B:cdhij:Rt: _opt; then
 				case "${_opt}" in
 				B)	_Bflag="${OPTARG}"; ;;
@@ -258,13 +292,17 @@ build() {
 
 	case "${_clangflag}" in
 	1)	build_clang_compile_cmds; exit "${?}"; ;;
-	*)
-		build_clean "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-		build_configure "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-		build_make "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-		build_install "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-		;;
 	esac;
+
+	case "${_dbgflag}" in
+	1)	build_dbg_svr "${DBG_ADDR}" "${DBG_GDBSERVER_FNAME}" "${DBG_PUTTY_FNAME}" "${@}"; exit "${?}"; ;;
+	2)	build_dbg_cli "${DBG_ADDR}" "${DBG_PUTTY_FNAME}"; exit "${?}"; ;;
+	esac;
+
+	build_clean "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	build_configure "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	build_make "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	build_install "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
 };
 
 set -o errexit -o noglob -o nounset;
