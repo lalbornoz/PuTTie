@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.7)
 project(putty LANGUAGES C)
 
+set(CMAKE_C_STANDARD 99)
+
 include(cmake/setup.cmake)
 
 # Scan the docs directory first, so that when we start calling
@@ -323,6 +325,19 @@ endif()
 target_link_libraries(psocks
   eventloop console network utils
   ${platform_libraries})
+
+add_executable(test_conf
+  test/test_conf.c
+  stubs/no-agent.c
+  stubs/no-callback.c
+  stubs/no-gss.c
+  stubs/no-ldisc.c
+  stubs/no-network.c
+  stubs/no-timing.c
+  proxy/noproxy.c # FIXME: move this to stubs
+)
+be_list(test_conf TestConf SSH SERIAL OTHERBACKENDS)
+target_link_libraries(test_conf sshclient otherbackends settings network crypto utils ${platform_libraries})
 
 foreach(subdir ${platform} ${extra_dirs})
   add_subdirectory(${subdir})

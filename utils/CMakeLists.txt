@@ -14,6 +14,7 @@ add_sources_from_current_dir(utils
   chomp.c
   cmdline_get_passwd_input_state_new.c
   conf.c
+  conf_data.c
   conf_dest.c
   conf_launchable.c
   ctrlparse.c
@@ -21,10 +22,12 @@ add_sources_from_current_dir(utils
   debug.c
   decode_utf8.c
   decode_utf8_to_wchar.c
+  decode_utf8_to_wide_string.c
   default_description.c
   dupcat.c
   dupprintf.c
   dupstr.c
+  dupwcs.c
   dup_mb_to_wc.c
   dup_wc_to_mb.c
   encode_utf8.c

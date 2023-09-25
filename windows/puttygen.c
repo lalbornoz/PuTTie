@@ -1202,7 +1202,7 @@ void load_key_file(HWND hwnd, struct MainDlgState *state,
         char *msg = dupprintf("Couldn't load private key (%s)",
                               key_type_to_str(type));
         message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
-                    HELPCTXID(errors_cantloadkey));
+                    false, HELPCTXID(errors_cantloadkey));
         sfree(msg);
         return;
     }
@@ -1265,7 +1265,7 @@ void load_key_file(HWND hwnd, struct MainDlgState *state,
     if (ret == 0) {
         char *msg = dupprintf("Couldn't load private key (%s)", errmsg);
         message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
-                    HELPCTXID(errors_cantloadkey));
+                    false, HELPCTXID(errors_cantloadkey));
         sfree(msg);
     } else if (ret == 1) {
         /*
@@ -1313,7 +1313,7 @@ void add_certificate(HWND hwnd, struct MainDlgState *state,
         char *msg = dupprintf("Couldn't load certificate (%s)",
                               key_type_to_str(type));
         message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
-                    HELPCTXID(errors_cantloadkey));
+                    false, HELPCTXID(errors_cantloadkey));
         sfree(msg);
         return;
     }
@@ -1326,7 +1326,7 @@ void add_certificate(HWND hwnd, struct MainDlgState *state,
                        &error)) {
         char *msg = dupprintf("Couldn't load certificate (%s)", error);
         message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
-                    HELPCTXID(errors_cantloadkey));
+                    false, HELPCTXID(errors_cantloadkey));
         sfree(msg);
         strbuf_free(pub);
         return;
@@ -1339,7 +1339,7 @@ void add_certificate(HWND hwnd, struct MainDlgState *state,
         char *msg = dupprintf("Couldn't load certificate (unsupported "
                               "algorithm name '%s')", algname);
         message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
-                    HELPCTXID(errors_cantloadkey));
+                    false, HELPCTXID(errors_cantloadkey));
         sfree(msg);
         sfree(algname);
         strbuf_free(pub);
@@ -1367,7 +1367,7 @@ void add_certificate(HWND hwnd, struct MainDlgState *state,
     if (!match) {
         char *msg = dupprintf("Certificate is for a different public key");
         message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
-                    HELPCTXID(errors_cantloadkey));
+                    false, HELPCTXID(errors_cantloadkey));
         sfree(msg);
         strbuf_free(pub);
         return;
@@ -1383,7 +1383,7 @@ void add_certificate(HWND hwnd, struct MainDlgState *state,
     if (!newkey) {
         char *msg = dupprintf("Couldn't combine certificate with key");
         message_box(hwnd, msg, "PuTTYgen Error", MB_OK | MB_ICONERROR,
-                    HELPCTXID(errors_cantloadkey));
+                    false, HELPCTXID(errors_cantloadkey));
         sfree(msg);
         return;
     }

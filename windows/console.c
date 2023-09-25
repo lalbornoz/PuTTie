@@ -159,7 +159,7 @@ static void console_write(BinarySink *bs, const void *data, size_t len)
 {
     ConsoleIO *conio = BinarySink_DOWNCAST(bs, ConsoleIO);
 
-    if (conio_use_utf8) {
+    if (conio->utf8) {
         /*
          * Convert the UTF-8 input into a wide string.
          */
@@ -236,7 +236,7 @@ static bool console_read_line_to_strbuf(ConsoleIO *conio, bool echo,
             goto out;
         }
 
-        if (conio_use_utf8) {
+        if (conio->utf8) {
             wchar_t wbuf[4096];
             size_t wlen;
 
@@ -570,15 +570,15 @@ int console_askappend(LogPolicy *lp, Filename *filename,
         "The session log file \"%.*s\" already exists.\n"
         "Logging will not be enabled.\n";
 
-    ConsoleIO *conio = conio_setup(false);
+    ConsoleIO *conio = conio_setup(true);
     int result;
 
     if (console_batch_mode) {
-        put_fmt(conio, msgtemplate_batch, FILENAME_MAX, filename->path);
+        put_fmt(conio, msgtemplate_batch, FILENAME_MAX, filename->utf8path);
         result = 0;
         goto out;
     }
-    put_fmt(conio, msgtemplate, FILENAME_MAX, filename->path);
+    put_fmt(conio, msgtemplate, FILENAME_MAX, filename->utf8path);
 
     ResponseType response = parse_and_free_response(
         console_read_line(conio, true));

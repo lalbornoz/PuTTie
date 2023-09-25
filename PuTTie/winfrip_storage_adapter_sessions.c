@@ -53,6 +53,13 @@ static const char *	WfspIgnoreMissingStrSettings[] = {
 #endif /* WINFRIP_DEBUG */
 
 /*
+ * External subroutine prototypes
+ */
+
+/* [see windows/utils/filename.c] */
+Filename *filename_from_utf8(const char *ustr);
+
+/*
  * Private subroutine prototypes
  */
 
@@ -236,7 +243,7 @@ write_setting_filename(
 
 	session = (WfsSession *)handle;
 
-	if (!(value_new = strdup(value->path))) {
+	if (!(value_new = strdup(value->utf8path))) {
 		WFR_DEBUG_FAIL();
 	} else {
 		value_new_size = strlen(value_new) + 1;
@@ -471,7 +478,8 @@ read_setting_filename(
 {
 	WfsSession *	session;
 	WfrStatus	status;
-	Filename *	value = NULL;
+	char *		utf8path;
+	Filename *	value;
 
 
 	session = (WfsSession *)handle;
@@ -479,18 +487,12 @@ read_setting_filename(
 		return NULL;
 	}
 
-	if (WFR_NEW(status, value, Filename)
-	&&  WFR_SUCCESS(status = WfsGetSessionKey(
+	if (WFR_SUCCESS(status = WfsGetSessionKey(
 			session, key, WFR_TREE_ITYPE_STRING,
-			(void *)&value->path, NULL)))
+			(void *)&utf8path, NULL)))
 	{
-		status = WFR_STATUS_CONDITION_SUCCESS;
-	}
-
-	if (WFR_SUCCESS(status)) {
-		if (!(value->path = strdup(value->path))) {
+		if (!(value = filename_from_utf8((const char *)utf8path))) {
 			WFR_DEBUG_FAIL();
-			WFR_FREE(value);
 			return NULL;
 		} else {
 			return value;
@@ -499,7 +501,6 @@ read_setting_filename(
 		return NULL;
 	} else {
 		WFR_DEBUG_FAIL();
-		WFR_FREE_IF_NOTNULL(value);
 		return NULL;
 	}
 }

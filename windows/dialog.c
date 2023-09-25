@@ -1348,20 +1348,12 @@ static int win_gui_askappend(LogPolicy *lp, Filename *filename,
     char *mbtitle;
     int mbret;
 
-    message = dupprintf(msgtemplate, FILENAME_MAX, filename->path);
+    message = dupprintf(msgtemplate, FILENAME_MAX, filename->utf8path);
     mbtitle = dupprintf("%s Log to File", appname);
 
-    /* {{{ winfrip */
-#if 1
-    mbret = WfrMessageBox(NULL, message, mbtitle,
-                          MB_ICONQUESTION | MB_YESNOCANCEL | MB_DEFBUTTON3);
-#else
-    /* winfrip }}} */
-    mbret = MessageBox(NULL, message, mbtitle,
-                       MB_ICONQUESTION | MB_YESNOCANCEL | MB_DEFBUTTON3);
-    /* {{{ winfrip */
-#endif
-    /* winfrip }}} */
+    mbret = message_box(NULL, message, mbtitle,
+                        MB_ICONQUESTION | MB_YESNOCANCEL | MB_DEFBUTTON3,
+                        true, 0);
 
     socket_reselect_all();
 

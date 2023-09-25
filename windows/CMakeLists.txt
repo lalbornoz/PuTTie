@@ -445,6 +445,14 @@ endif()
 target_link_libraries(test_terminal
   guiterminal settings eventloop utils ${platform_libraries})
 
+add_sources_from_current_dir(test_conf no-jump-list.c handle-wait.c)
+# {{{ winfrip
+if (MINGW)
+set_property(TARGET test_conf APPEND PROPERTY SOURCES
+  PuTTie/stubs-tests.c)
+endif()
+# winfrip }}}
+
 # {{{ winfrip
 #
 # vim:expandtab sw=4 ts=4

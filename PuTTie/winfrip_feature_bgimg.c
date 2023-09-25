@@ -362,7 +362,7 @@ WffbpGetFnameSingle(
 	(void)reshuffle;
 
 	bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
-	bg_fname = bg_fname_conf->path;
+	bg_fname = bg_fname_conf->utf8path;
 	status = WFR_STATUS_CONDITION_SUCCESS;
 
 	if (WFR_SUCCESS(status)) {
@@ -486,7 +486,7 @@ WffbpSlideshowReconfShuffle(
 
 
 	bg_dname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
-	bg_dname = bg_dname_conf->path;
+	bg_dname = bg_dname_conf->utf8path;
 
 	if (WFR_NEW(status, timer_ctx_new, WffbpContext)
 	&&  WFR_SUCCESS(status = WfrPathNameToDirectory(bg_dname, &dname_new))
@@ -562,7 +562,7 @@ WffbpSlideshowReconfSingle(
 	(void)hWnd;
 
 	bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename);
-	bg_fname = bg_fname_conf->path;
+	bg_fname = bg_fname_conf->utf8path;
 
 	if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(bg_fname, strlen(bg_fname), &bg_fnameW))
 	&&  WFR_SUCCESS_POSIX(status, (_wstat64(bg_fnameW, &statbuf) == 0))
@@ -764,7 +764,7 @@ WffBgImgConfigPanel(
 	s_bgimg_settings = ctrl_getset(b, "Frippery/Background", "frip_bgimg_settings", "Background image settings");
 	c = ctrl_filesel(
 		s_bgimg_settings, "Image file/directory:", 'i',
-		WFF_BGIMG_FILTER_IMAGE_FILES, FALSE, "Select background image file/directory",
+		WFF_BGIMG_FILTER_IMAGE_FILESW, FALSE, "Select background image file/directory",
 		WFP_HELP_CTX, conf_filesel_handler, I(CONF_frip_bgimg_filename));
 	c->fileselect.just_button = false;
 	ctrl_text(
@@ -818,7 +818,7 @@ WffBgImgOperation(
 
 	if ((conf_get_int(conf, CONF_frip_bgimg_type) != WFFBP_TYPE_IMAGE)
 	||  !(bg_fname_conf = conf_get_filename(conf, CONF_frip_bgimg_filename))
-	||  (!bg_fname_conf->path || (strlen(bg_fname_conf->path) == 0)))
+	||  (!bg_fname_conf->utf8path || (strlen(bg_fname_conf->utf8path) == 0)))
 	{
 		return WF_RETURN_CONTINUE;
 	} else {

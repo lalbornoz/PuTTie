@@ -112,12 +112,12 @@ WfPageantAddKey(
 				WfsGetBackend(), PAGEANT_OPTION_PERSIST_KEYS, false, &option_persist))
 		&&  (*option_persist == true))
 		{
-			status = WfsAddPrivKeyList(WfsGetBackend(), fn->path);
+			status = WfsAddPrivKeyList(WfsGetBackend(), fn->utf8path);
 		}
 
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(
 			status, NULL,
-			"adding %s to Pageant private key list", fn->path);
+			"adding %s to Pageant private key list", fn->utf8path);
 	}
 }
 
@@ -163,10 +163,10 @@ WfPageantAddKeysFromCmdLine(
 			clkey = &clkeys[nclkey];
 			if (win_add_keyfile(clkey->fn, clkey->add_encrypted) == PAGEANT_ACTION_OK) {
 				if (*option_persist == true) {
-					status = WfsAddPrivKeyList(backend, clkey->fn->path);
+					status = WfsAddPrivKeyList(backend, clkey->fn->utf8path);
 					WFR_IF_STATUS_FAILURE_MESSAGEBOX1(
 						NULL, "Pageant", status,
-						"adding %s to Pageant private key list", clkey->fn->path);
+						"adding %s to Pageant private key list", clkey->fn->utf8path);
 				}
 			}
 			filename_free(clkey->fn);

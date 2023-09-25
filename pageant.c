@@ -2512,7 +2512,7 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
         PageantClientOp *pco = pageant_client_op_new();
         put_byte(pco, SSH1_AGENTC_ADD_RSA_IDENTITY);
         /* {{{ winfrip */
-        put_stringz(pco, filename->path);
+        put_stringz(pco, filename->utf8path);
         /* winfrip }}} */
         rsa_ssh1_private_blob_agent(BinarySink_UPCAST(pco), rkey);
         put_stringz(pco, rkey->comment);
@@ -2531,7 +2531,7 @@ int pageant_add_keyfile(Filename *filename, const char *passphrase,
         PageantClientOp *pco = pageant_client_op_new();
         put_byte(pco, SSH2_AGENTC_ADD_IDENTITY);
         /* {{{ winfrip */
-        put_stringz(pco, filename->path);
+        put_stringz(pco, filename->utf8path);
         /* winfrip }}} */
         put_stringz(pco, ssh_key_ssh_id(skey->key));
         ssh_key_openssh_blob(skey->key, BinarySink_UPCAST(pco));

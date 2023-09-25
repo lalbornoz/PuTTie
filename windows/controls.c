@@ -1993,90 +1993,36 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
             (msg == WM_COMMAND &&
              (HIWORD(wParam) == BN_CLICKED ||
               HIWORD(wParam) == BN_DOUBLECLICKED))) {
-            /* {{{ winfrip */
-        #if 1
-            char *      filename = NULL;
-            wchar_t *   filenameW = NULL;
-            size_t      filenameW_size = 0;
-            WfrStatus   status;
+            OPENFILENAMEW of;
+            wchar_t filename[FILENAME_MAX];
 
-
-            if (!ctrl->fileselect.just_button) {
-                do {
-                    if (WFR_RESIZE(status, filenameW, filenameW_size, filenameW_size + 64, wchar_t)) {
-                        (void)GetDlgItemTextW(dp->hwnd, c->base_id + 1, filenameW, filenameW_size);
-                    }
-                } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(filenameW, filenameW_size - 1));
-
-                if (WFR_SUCCESS(status)) {
-                    status = WfrConvertUtf16ToUtf8String(filenameW, wcslen(filenameW), &filename);
-                    WFR_FREE(filenameW);
-                }
-            } else {
-                status = WFR_STATUS_CONDITION_SUCCESS;
-            }
-
-            if (WFR_SUCCESS(status)) {
-                status = WfrRequestFile(
-                    0, dp->hwnd,
-                    NULL, (ctrl->fileselect.filter ? ctrl->fileselect.filter : "All Files (*.*)\0*\0\0\0"),
-                    NULL, ctrl->fileselect.title, FILENAME_MAX, false, ctrl->fileselect.for_writing,
-                    &filename, NULL);
-            }
-
-            if (WFR_SUCCESS(status)) {
-                if (filename) {
-                    if (!ctrl->fileselect.just_button) {
-                        if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
-                                        filename, strlen(filename), &filenameW)))
-                        {
-                            (void)SetDlgItemTextW(dp->hwnd, c->base_id + 1, filenameW);
-                            ctrl->handler(ctrl, dp, dp->data, EVENT_VALCHANGE);
-                            WFR_FREE(filenameW);
-                        }
-                    } else {
-                        assert(!c->data);
-                        c->data = filename;
-                        ctrl->handler(ctrl, dp, dp->data, EVENT_ACTION);
-                        WFR_FREE(c->data);
-                    }
-                }
-            } else {
-                (void)WfrMessageBoxF(
-                        dp->hwnd, "PuTTie",
-                        MB_ICONERROR | MB_OK | MB_DEFBUTTON1,
-                        "%s",
-                        WfrStatusToErrorMessage((status)));
-                WFR_FREE_IF_NOTNULL(filename);
-            }
-        #else
-            /* winfrip }}} */
-            OPENFILENAME of;
-            char filename[FILENAME_MAX];
+            wchar_t *title_to_free = NULL;
 
             memset(&of, 0, sizeof(of));
             of.hwndOwner = dp->hwnd;
             if (ctrl->fileselect.filter)
                 of.lpstrFilter = ctrl->fileselect.filter;
             else
-                of.lpstrFilter = "All Files (*.*)\0*\0\0\0";
+                of.lpstrFilter = L"All Files (*.*)\0*\0\0\0";
             of.lpstrCustomFilter = NULL;
             of.nFilterIndex = 1;
             of.lpstrFile = filename;
             if (!ctrl->fileselect.just_button) {
-                GetDlgItemText(dp->hwnd, c->base_id+1,
-                               filename, lenof(filename));
-                filename[lenof(filename)-1] = '\0';
+                GetDlgItemTextW(dp->hwnd, c->base_id+1,
+                                filename, lenof(filename));
+                filename[lenof(filename)-1] = L'\0';
             } else {
-                *filename = '\0';
+                *filename = L'\0';
             }
             of.nMaxFile = lenof(filename);
             of.lpstrFileTitle = NULL;
-            of.lpstrTitle = ctrl->fileselect.title;
+            of.lpstrTitle = title_to_free = dup_mb_to_wc(
+                DEFAULT_CODEPAGE, 0, ctrl->fileselect.title);
             of.Flags = 0;
-            if (request_file(NULL, &of, false, ctrl->fileselect.for_writing)) {
+            if (request_file_w(NULL, &of, false,
+                               ctrl->fileselect.for_writing)) {
                 if (!ctrl->fileselect.just_button) {
-                    SetDlgItemText(dp->hwnd, c->base_id + 1, filename);
+                    SetDlgItemTextW(dp->hwnd, c->base_id + 1, filename);
                     ctrl->handler(ctrl, dp, dp->data, EVENT_VALCHANGE);
                 } else {
                     assert(!c->data);
@@ -2085,9 +2031,8 @@ bool winctrl_handle_command(struct dlgparam *dp, UINT msg,
                     c->data = NULL;
                 }
             }
-            /* {{{ winfrip */
-        #endif
-            /* winfrip }}} */
+
+            sfree(title_to_free);
         }
         break;
       case CTRL_FONTSELECT:
@@ -2540,25 +2485,12 @@ void dlg_filesel_set(dlgcontrol *ctrl, dlgparam *dp, Filename *fn)
     assert(c);
     assert(c->ctrl->type == CTRL_FILESELECT);
     assert(!c->ctrl->fileselect.just_button);
-    /* {{{ winfrip */
-#if 1
-    wchar_t *pathW = NULL;
-    (void)WfrConvertUtf8ToUtf16String(fn->path, strlen(fn->path), &pathW);
-    SetDlgItemTextW(dp->hwnd, c->base_id+1, pathW);
-    WFR_FREE(pathW);
-#else
-    /* winfrip }}} */
-    SetDlgItemText(dp->hwnd, c->base_id+1, fn->path);
-    /* {{{ winfrip */
-#endif
-    /* winfrip }}} */
+    SetDlgItemTextW(dp->hwnd, c->base_id+1, fn->wpath);
 }
 
 Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
 {
     struct winctrl *c = dlg_findbyctrl(dp, ctrl);
-    char *tmp;
-    Filename *ret;
     assert(c);
     assert(c->ctrl->type == CTRL_FILESELECT);
     /* {{{ winfrip */
@@ -2590,8 +2522,8 @@ Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
 #else
     /* winfrip }}} */
     if (!c->ctrl->fileselect.just_button) {
-        tmp = GetDlgItemText_alloc(dp->hwnd, c->base_id+1);
-        ret = filename_from_str(tmp);
+        wchar_t *tmp = GetDlgItemTextW_alloc(dp->hwnd, c->base_id+1);
+        Filename *ret = filename_from_wstr(tmp);
         sfree(tmp);
         return ret;
     } else {

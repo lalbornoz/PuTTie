@@ -58,6 +58,38 @@ char filename_char_sanitise(char c)
 
 FILE *f_open(const Filename *filename, char const *mode, bool is_private)
 {
+    /* {{{ winfrip */
+#if 1
+    int         fd;
+    wchar_t *   filenameW = NULL;
+    FILE *      fp = NULL;
+    wchar_t *   modeW = NULL;
+    WfrStatus   status;
+
+
+    if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+            filename->cpath, strlen(filename->cpath), &filenameW))
+    &&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(
+            mode, strlen(mode), &modeW)))
+    {
+        if (!is_private) {
+            fp = _wfopen(filenameW, modeW);
+        } else {
+            assert(modeW[0] == L'w');        /* is_private is meaningless for read,
+                                                and tricky for append */
+            fd = _wopen(filenameW, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+            if (fd >= 0) {
+                fp = _wfdopen(fd, modeW);
+            }
+        }
+    }
+
+    WFR_FREE_IF_NOTNULL(filenameW);
+    WFR_FREE_IF_NOTNULL(modeW);
+
+    return fp;
+#else
+    /* winfrip }}} */
     if (!is_private) {
         return fopen(filename->path, mode);
     } else {
@@ -69,4 +101,13 @@ FILE *f_open(const Filename *filename, char const *mode, bool is_private)
             return NULL;
         return fdopen(fd, mode);
     }
+    /* {{{ winfrip */
+#endif
+    /* winfrip }}} */
 }
+
+/* {{{ winfrip */
+/*
+ * vim:expandtab sw=4 ts=4
+ */
+/* winfrip }}} */

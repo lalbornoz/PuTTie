@@ -30,6 +30,18 @@
 	"WMF (*.wmf)\0*.wmf\0"											\
 	"All Files (*.*)\0*\0"											\
 	"\0\0")
+#define WFF_BGIMG_FILTER_IMAGE_FILESW (										\
+	L"All Picture Files\0*.bmp;*.emf;*.gif;*.ico;*.jpg;*.jpeg;*.jpe;*.jfif;*.png;*.tif;*.tiff;*.wmf\0"	\
+	L"Bitmap Files (*.bmp)\0*.bmp\0"									\
+	L"EMF (*.emf)\0*.emf\0"											\
+	L"GIF (*.gif)\0*.gif\0"											\
+	L"ICO (*.ico)\0*.ico\0"											\
+	L"JPEG (*.jpg;*.jpeg;*.jpe;*.jfif)\0*.jpg;*.jpeg;*.jpe;*.jfif\0"					\
+	L"PNG (*.png)\0*.png\0"											\
+	L"TIFF (*.tif;*.tiff)\0*.tif;*.tiff\0"									\
+	L"WMF (*.wmf)\0*.wmf\0"											\
+	L"All Files (*.*)\0*\0"											\
+	L"\0\0")
 
 /*
  * Public subroutine prototypes used by/in:
