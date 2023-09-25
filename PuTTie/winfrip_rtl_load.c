@@ -302,7 +302,7 @@ WfrLoadRawFile(
 {
 	FILE *		file = NULL;
 	char *		data = NULL;
-	size_t		data_size;
+	size_t		data_size = 0;
 	char		pname[MAX_PATH + 1];
 	wchar_t *	pnameW = NULL;
 	struct _stat64	statbuf;
