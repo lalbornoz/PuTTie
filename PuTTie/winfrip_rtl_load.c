@@ -327,9 +327,9 @@ WfrLoadRawFile(
 		{
 			data[statbuf.st_size] = '\0';
 		} else {
-			if ((statbuf.st_size == 0)
-			||  (file ? (feof(file)) : false))
-			{
+			if (statbuf.st_size == 0) {
+				status = WFR_STATUS_CONDITION_SUCCESS;
+			} else if (file && feof(file)) {
 				status = WFR_STATUS_FROM_ERRNO1(ENODATA);
 			}
 		}
