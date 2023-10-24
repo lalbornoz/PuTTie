@@ -45,9 +45,13 @@ WfrpSaveGetCreateTempRootDirectory(
 		dname_tmpW = (wchar_t *)L".\\";
 	}
 
-	if (WFR_FAILURE_POSIX(status, (_wstat64(dname_tmpW, &statbuf) == 0))
-	&&  WFR_STATUS_IS_NOT_FOUND(status)
-	&&  WFR_SUCCESS(status = WfrMakeDirectoryW(dname_tmpW, true)))
+	WFR_STATUS_BIND_POSIX(status, (_wstat64(dname_tmpW, &statbuf) == 0));
+	if (WFR_SUCCESS(status))
+	{
+		*pdname_tmpW = dname_tmpW;
+	} else if (WFR_FAILURE(status)
+		&& WFR_STATUS_IS_NOT_FOUND(status)
+		&& WFR_SUCCESS(status = WfrMakeDirectoryW(dname_tmpW, true)))
 	{
 		*pdname_tmpW = dname_tmpW;
 	}
