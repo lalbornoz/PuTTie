@@ -4,7 +4,6 @@
 
 DBG_ADDR="localhost:1234";
 DBG_GDBSERVER_FNAME="Z:/usr/share/win64/gdbserver.exe";
-DBG_PUTTY_FNAME="putty.exe";
 
 # {{{ build_clang_compile_cmds()
 build_clang_compile_cmds() {
@@ -71,26 +70,26 @@ build_clang_compile_cmds() {
 	trap - HUP INT TERM USR1 USR2;
 };
 # }}}
-# {{{ build_dbg_svr($_addr, $_gdbserver_fname, $_putty_fname, ...)
+# {{{ build_dbg_svr($_addr, $_gdbserver_fname, $_exe_fname, ...)
 build_dbg_svr() {
-	local _addr="${1}" _gdbserver_fname="${2}" _putty_fname="${3}"; shift 3;
+	local _addr="${1}" _gdbserver_fname="${2}" _exe_fname="${3}"; shift 3;
 
 	wine	\
 		"${_gdbserver_fname}"			\
 		"${_addr}"				\
-		"${_putty_fname}"			\
+		"${_exe_fname}"			\
 		"${@}";
 	return "${?}";
 };
 # }}}
-# {{{ build_dbg_cli($_addr, $_putty_fname)
+# {{{ build_dbg_cli($_addr, $_exe_fname)
 build_dbg_cli() {
-	local _addr="${1}" _putty_fname="${2}";
+	local _addr="${1}" _exe_fname="${2}";
 
 	x86_64-w64-mingw32-gdb				\
 		-ex "set pagination off"		\
 		-ex "target remote ${_addr}"		\
-		"${_putty_fname}";
+		"${_exe_fname}";
 	return "${?}";
 };
 # }}}
@@ -237,18 +236,18 @@ build_install() {
 # }}}
 
 buildp_usage() {
-	echo "usage: ${0} [-B <backend>] [-c] [--clang] [-d] [--dbg-svr [..]] [--dbg-cli] [-h] [-i] [-j jobs] [-R] [-t <target>]" >&2;
-	echo "       -B <backend>..: set default storage backend to either of ephemeral, file, or registry (default)" >&2;
-	echo "       -c............: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
-	echo "       --clang.......: regenerate compile_commands.json" >&2;
-	echo "       -d............: select Debug (vs. Release) build (NB: pass -c when switching between build types)" >&2;
-	echo "       --dbg-svr.....: run putty.exe w/ optional arguments via wine & local gdbserver on port 1234" >&2;
-	echo "       --dbg-cli.....: debug putty.exe w/ MingW gdb previously launched w/ --dbg-svr" >&2;
-	echo "       -h............: show this screen" >&2;
-	echo "       -i............: {clean,install} images {pre,post}-build" >&2;
-	echo "       -j............: set cmake(1) max. job count" >&2;
-	echo "       -R............: create release archive (implies -i)" >&2;
-	echo "       -t <target>...: build PuTTY <target> instead of default target" >&2;
+	echo "usage: ${0} [-B <backend>] [-c] [--clang] [-d] [--dbg-svr <fname> [..]] [--dbg-cli <fname>] [-h] [-i] [-j <jobs>] [-R] [-t <target>]" >&2;
+	echo "       -B <backend>..........: set default storage backend to either of ephemeral, file, or registry (default)" >&2;
+	echo "       -c....................: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
+	echo "       --clang...............: regenerate compile_commands.json" >&2;
+	echo "       -d....................: select Debug (vs. Release) build (NB: pass -c when switching between build types)" >&2;
+	echo "       --dbg-svr <fname> [..]: run <fname> w/ optional arguments via wine & local gdbserver on port 1234" >&2;
+	echo "       --dbg-cli <fname>.....: debug <fname> w/ MingW gdb previously launched w/ --dbg-svr" >&2;
+	echo "       -h....................: show this screen" >&2;
+	echo "       -i....................: {clean,install} images {pre,post}-build" >&2;
+	echo "       -j <jobs>.............: set cmake(1) max. job count" >&2;
+	echo "       -R....................: create release archive (implies -i)" >&2;
+	echo "       -t <target>...........: build PuTTY <target> instead of default target" >&2;
 };
 
 build() {
@@ -260,11 +259,22 @@ build() {
 	while [ "${#}" -gt 0 ]; do
 		case "${1}" in
 		--clang)
-			_clangflag=1; shift 1; ;;
+			_clangflag=1; shift 1;
+			;;
 		--dbg-svr)
-			_dbgflag=1; shift 1; ;;
+			_dbgflag=1; shift 1;
+			if [ "${#}" -lt 1 ]; then
+				printf "error: missing <fname> argument to --dbg-svr\n" >&2;
+				buildp_usage; exit 1;
+			fi;
+			;;
 		--dbg-cli)
-			_dbgflag=2; shift 1; ;;
+			_dbgflag=2; shift 1;
+			if [ "${#}" -lt 1 ]; then
+				printf "error: missing <fname> argument to --dbg-cli\n" >&2;
+				buildp_usage; exit 1;
+			fi;
+			;;
 		*)	if getopts B:cdhij:Rt: _opt; then
 				case "${_opt}" in
 				B)	_Bflag="${OPTARG}"; ;;
@@ -295,8 +305,8 @@ build() {
 	esac;
 
 	case "${_dbgflag}" in
-	1)	build_dbg_svr "${DBG_ADDR}" "${DBG_GDBSERVER_FNAME}" "${DBG_PUTTY_FNAME}" "${@}"; exit "${?}"; ;;
-	2)	build_dbg_cli "${DBG_ADDR}" "${DBG_PUTTY_FNAME}"; exit "${?}"; ;;
+	1)	build_dbg_svr "${DBG_ADDR}" "${DBG_GDBSERVER_FNAME}" "${@}"; exit "${?}"; ;;
+	2)	build_dbg_cli "${DBG_ADDR}" "${@}"; exit "${?}"; ;;
 	esac;
 
 	build_clean "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
