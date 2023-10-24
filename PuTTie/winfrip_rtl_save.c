@@ -21,6 +21,41 @@
 #include "PuTTie/winfrip_rtl_pcre2.h"
 
 /*
+ * Private subroutine prototypes
+ */
+
+WfrStatus WfrpSaveGetCreateTempRootDirectory(wchar_t **pdname_tmpW);
+
+/*
+ * Private subroutines
+ */
+
+WfrStatus
+WfrpSaveGetCreateTempRootDirectory(
+	wchar_t **	pdname_tmpW
+)
+{
+	wchar_t *	dname_tmpW;
+	struct _stat64	statbuf;
+	WfrStatus	status;
+
+
+	if (!(dname_tmpW = _wgetenv(L"TEMP"))
+	||  !(dname_tmpW = _wgetenv(L"TMP"))) {
+		dname_tmpW = (wchar_t *)L".\\";
+	}
+
+	if (WFR_FAILURE_POSIX(status, (_wstat64(dname_tmpW, &statbuf) == 0))
+	&&  WFR_STATUS_IS_NOT_FOUND(status)
+	&&  WFR_SUCCESS(status = WfrMakeDirectoryW(dname_tmpW, true)))
+	{
+		*pdname_tmpW = dname_tmpW;
+	}
+
+	return status;
+}
+
+/*
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
@@ -43,9 +78,8 @@ WfrSaveListToFile(
 	WfrStatus	status;
 
 
-	if (!(dname_tmpW = _wgetenv(L"TEMP"))
-	||  !(dname_tmpW = _wgetenv(L"TMP"))) {
-		dname_tmpW = (wchar_t *)L".\\";
+	if (WFR_FAILURE(status = WfrpSaveGetCreateTempRootDirectory(&dname_tmpW))) {
+		return status;
 	}
 	if (WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(dname_tmpW, wcslen(dname_tmpW), &dname_tmp))) {
 		WFR_SNPRINTF(
@@ -117,6 +151,10 @@ WfrSaveRawFile(
 	WfrStatus	status;
 
 
+	if (WFR_FAILURE(status = WfrpSaveGetCreateTempRootDirectory(&dname_tmpW))) {
+		return status;
+	}
+
 	if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(dname, strlen(dname), &dnameW))
 	&&  WFR_FAILURE_POSIX(status, (_wstat64(dnameW, &statbuf) == 0)))
 	{
@@ -128,11 +166,6 @@ WfrSaveRawFile(
 		if (WFR_FAILURE(status)) {
 			return status;
 		}
-	}
-
-	if (!(dname_tmpW = _wgetenv(L"TEMP"))
-	||  !(dname_tmpW = _wgetenv(L"TMP"))) {
-		dname_tmpW = (wchar_t *)L".\\";
 	}
 
 	if (WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(dname_tmpW, wcslen(dname_tmpW), &dname_tmp))) {
@@ -222,6 +255,10 @@ WfrSaveToFileV(
 	const char *		value;
 
 
+	if (WFR_FAILURE(status = WfrpSaveGetCreateTempRootDirectory(&dname_tmpW))) {
+		return status;
+	}
+
 	if (dname
 	&&  (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(dname, strlen(dname), &dnameW))
 	&&   WFR_FAILURE_POSIX(status, (_wstat64(dnameW, &statbuf) == 0))))
@@ -232,11 +269,6 @@ WfrSaveToFileV(
 		if (WFR_FAILURE(status)) {
 			return status;
 		}
-	}
-
-	if (!(dname_tmpW = _wgetenv(L"TEMP"))
-	||  !(dname_tmpW = _wgetenv(L"TMP"))) {
-		dname_tmpW = L".\\";
 	}
 
 	if (WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(dname_tmpW, wcslen(dname_tmpW), &dname_tmp))) {
@@ -420,6 +452,10 @@ WfrSaveTreeToFile(
 	WfrStatus	status;
 
 
+	if (WFR_FAILURE(status = WfrpSaveGetCreateTempRootDirectory(&dname_tmpW))) {
+		return status;
+	}
+
 	if (dname
 	&&  (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(dname, strlen(dname), &dnameW))
 	&&   WFR_FAILURE_POSIX(status, (_wstat64(dnameW, &statbuf) == 0))))
@@ -432,10 +468,6 @@ WfrSaveTreeToFile(
 		}
 	}
 
-	if (!(dname_tmpW = _wgetenv(L"TEMP"))
-	||  !(dname_tmpW = _wgetenv(L"TMP"))) {
-		dname_tmpW = L".\\";
-	}
 	if (WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(dname_tmpW, wcslen(dname_tmpW), &dname_tmp))) {
 		if (escape_fnamefl) {
 			if (WFR_FAILURE(status = WfrEscapeFileName(

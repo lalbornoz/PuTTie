@@ -726,12 +726,29 @@ WfrMakeDirectory(
 	bool	existsfl
 	)
 {
+	wchar_t *	pathW = NULL;
+	WfrStatus	status;
+
+
+	if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(path, strlen(path), &pathW))) {
+		status = WfrMakeDirectoryW(pathW, existsfl);
+	}
+
+	WFR_FREE_IF_NOTNULL(pathW);
+
+	return status;
+}
+
+WfrStatus
+WfrMakeDirectoryW(
+	wchar_t *	pathW,
+	bool		existsfl
+	)
+{
 	bool		lastfl;
 	wchar_t *	path_absdriveW;
 	wchar_t		path_cwdW[PATH_MAX + 1];
 	wchar_t *	path_subW;
-	wchar_t *	pathW;
-	wchar_t *	pathW_base = NULL;
 	wchar_t *	pW;
 	wchar_t		sepW = L'\0';
 	WfrStatus	status = WFR_STATUS_CONDITION_SUCCESS;
@@ -739,10 +756,6 @@ WfrMakeDirectory(
 
 	if (!WFR_SUCCESS_POSIX(status, (_wgetcwd(path_cwdW, sizeof(path_cwdW))))) {
 		return status;
-	} else if (WFR_FAILURE(status = WfrConvertUtf8ToUtf16String(path, strlen(path), &pathW_base))) {
-		return status;
-	} else {
-		pathW = pathW_base;
 	}
 
 
@@ -805,8 +818,6 @@ WfrMakeDirectory(
 	}
 
 	(void)_wchdir(path_cwdW);
-
-	WFR_FREE_IF_NOTNULL(pathW_base);
 
 	return status;
 }
