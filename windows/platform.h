@@ -70,6 +70,9 @@ struct Filename {
     char *cpath, *utf8path;
 };
 Filename *filename_from_wstr(const wchar_t *str);
+/* {{{ winfrip */
+Filename *filename_from_utf8(const char *ustr);
+/* winfrip }}} */
 FILE *f_open(const Filename *filename, const char *mode, bool isprivate);
 
 #ifndef SUPERSEDE_FONTSPEC_FOR_TESTING

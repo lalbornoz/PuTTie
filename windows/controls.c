@@ -2495,7 +2495,6 @@ Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
     assert(c->ctrl->type == CTRL_FILESELECT);
     /* {{{ winfrip */
 #if 1
-    char *      p;
     WfrStatus   status;
     wchar_t *   textW = NULL;
     size_t      textW_size = 0;
