@@ -597,6 +597,8 @@ static void prompt_add_keyfile(bool encrypted)
     /* {{{ winfrip */
 #if 1
     char *      filelist = NULL;
+    size_t      filelist_len = 0;
+    wchar_t *   filelistW = NULL;
     WORD        nFileOffset;
     WfrStatus   status;
 
@@ -609,6 +611,13 @@ static void prompt_add_keyfile(bool encrypted)
     if (WFR_SUCCESS(status)) {
         if (!filelist) {
             return;
+        } else {
+            filelist_len = 1;
+            for (char *p = filelist; !((p[0] == '\0') && (p[1] == '\0')); p++, filelist_len++) {};
+            if (WFR_FAILURE((status = WfrConvertUtf8ToUtf16String(filelist, filelist_len, &filelistW)))) {
+                WFR_FREE(filelist);
+                return;
+            }
         }
     } else {
         filelist = strdup(":");
@@ -646,7 +655,7 @@ static void prompt_add_keyfile(bool encrypted)
     #endif
     /* winfrip }}} */
             /* Only one filename returned? */
-            Filename *fn = filename_from_str(filelist);
+            Filename *fn = filename_from_wstr(filelistW);
             /* {{{ winfrip */
         #if 1
             WfPageantAddKey(encrypted, fn, win_add_keyfile);
@@ -667,7 +676,22 @@ static void prompt_add_keyfile(bool encrypted)
             char *filewalker = filelist + strlen(dir) + 1;
             while (*filewalker != '\0') {
                 char *filename = dupcat(dir, "\\", filewalker);
-                Filename *fn = filename_from_str(filename);
+                /* {{{ winfrip */
+            #if 0
+                /* winfrip }}} */
+                Filename *fn = filename_from_wstr(filename);
+                /* {{{ winfrip */
+            #else
+                wchar_t *   filenameW;
+                Filename *  fn = NULL;
+
+                if (WFR_SUCCESS((status = WfrConvertUtf8ToUtf16String(filename, strlen(filename), &filenameW))))
+                {
+                    fn = filename_from_wstr(filenameW);
+                    WFR_FREE(filenameW);
+                }
+            #endif
+                /* winfrip }}} */
                 /* {{{ winfrip */
             #if 1
                 WfPageantAddKey(encrypted, fn, win_add_keyfile);
@@ -686,7 +710,16 @@ static void prompt_add_keyfile(bool encrypted)
         keylist_update();
         pageant_forget_passphrases();
     }
+/* {{{ winfrip */
+#if 0
+/* }}} */
     sfree(filelist);
+/* {{{ winfrip */
+#else
+    WFR_FREE_IF_NOTNULL(filelist);
+    WFR_FREE_IF_NOTNULL(filelistW);
+#endif
+/* }}} */
 }
 
 /*
