@@ -87,7 +87,13 @@ set_source_files_properties(../PuTTie/winfrip_feature_storage_sessions.c PROPERT
 set_source_files_properties(../PuTTie/winfrip_feature_trans.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_feature_urls.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+
 set_source_files_properties(../PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+if ("${WINFRIP_DEBUG_NOCONSOLE}" STREQUAL "1")
+  set_property(SOURCE ../PuTTie/winfrip_rtl_debug.c APPEND_STRING PROPERTY COMPILE_FLAGS
+    " -DWINFRIP_DEBUG_NOCONSOLE")
+endif()
+
 set_source_files_properties(../PuTTie/winfrip_rtl_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_gdi.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_rtl_load.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")

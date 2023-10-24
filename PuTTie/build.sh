@@ -128,11 +128,16 @@ build_configure() {
 		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
 		_tflag="${9}"							\
 		_git_branch="" _git_commit="" _git_pcre2_commit="pcre2-10.42"	\
+		_special_mingw_diva_debug_build=""				\
 		_version_ssh="" _version_text="";
 
 	_git_branch="$(git branch --show-current)" || exit 2;
 	_git_commit="$(git rev-parse --short HEAD)" || exit 2;
 	_version_text="PuTTie ${_build_type} build (Git commit ${_git_commit} on branch ${_git_branch})";
+
+	if [ "${_dflag}" -eq 2 ]; then
+		_special_mingw_diva_debug_build="-DWINFRIP_DEBUG_NOCONSOLE=1";
+	fi;
 
 	if ! [ -e PuTTie/pcre2/CMakeCache.txt ]\
 	|| ! [ -e PuTTie/pcre2/CMakeFiles/ ]; then
@@ -177,6 +182,7 @@ build_configure() {
 			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
 			-DCMAKE_TOOLCHAIN_FILE="cmake/toolchain-mingw.cmake"		\
 			-DDEFAULT_STORAGE_BACKEND="${_Bflag}"				\
+			${_special_mingw_diva_debug_build}				\
 			;
 	fi;
 };
@@ -236,11 +242,12 @@ build_install() {
 # }}}
 
 buildp_usage() {
-	echo "usage: ${0} [-B <backend>] [-c] [--clang] [-d] [--dbg-svr <fname> [..]] [--dbg-cli <fname>] [-h] [-i] [-j <jobs>] [-R] [-t <target>]" >&2;
+	echo "usage: ${0} [-B <backend>] [-c] [--clang] [-d] [-D] [--dbg-svr <fname> [..]] [--dbg-cli <fname>] [-h] [-i] [-j <jobs>] [-R] [-t <target>]" >&2;
 	echo "       -B <backend>..........: set default storage backend to either of ephemeral, file, or registry (default)" >&2;
 	echo "       -c....................: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
 	echo "       --clang...............: regenerate compile_commands.json" >&2;
 	echo "       -d....................: select Debug (vs. Release) build (NB: pass -c when switching between build types)" >&2;
+	echo "       -D....................: select Debug w/o debugging console (vs. Release) build (for usage w/ --dbg-{svr,cli} (NB: pass -c when switching between build types)" >&2;
 	echo "       --dbg-svr <fname> [..]: run <fname> w/ optional arguments via wine & local gdbserver on port 1234" >&2;
 	echo "       --dbg-cli <fname>.....: debug <fname> w/ MingW gdb previously launched w/ --dbg-svr" >&2;
 	echo "       -h....................: show this screen" >&2;
@@ -275,11 +282,12 @@ build() {
 				buildp_usage; exit 1;
 			fi;
 			;;
-		*)	if getopts B:cdhij:Rt: _opt; then
+		*)	if getopts B:cdDhij:Rt: _opt; then
 				case "${_opt}" in
 				B)	_Bflag="${OPTARG}"; ;;
 				c)	_cflag=1; ;;
 				d)	_dflag=1; _build_type="Debug"; ;;
+				D)	_dflag=2; _build_type="Debug"; ;;
 				h)	buildp_usage; exit 0; ;;
 				i)	_iflag=1; ;;
 				j)	_jflag="${OPTARG}"; ;;

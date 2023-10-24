@@ -143,7 +143,13 @@ endif()
 # {{{ winfrip
 if (MINGW)
 set_source_files_properties(PuTTie/winfrip_rtl.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+
 set_source_files_properties(PuTTie/winfrip_rtl_debug.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+if ("${WINFRIP_DEBUG_NOCONSOLE}" STREQUAL "1")
+  set_property(SOURCE PuTTie/winfrip_rtl_debug.c APPEND_STRING PROPERTY COMPILE_FLAGS
+    " -DWINFRIP_DEBUG_NOCONSOLE")
+endif()
+
 set_source_files_properties(PuTTie/winfrip_rtl_file.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_load.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(PuTTie/winfrip_rtl_pcre2.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")

@@ -24,7 +24,9 @@ WfrDebugInit(
 	HANDLE		hConsoleOutput;
 
 
+#ifndef WINFRIP_DEBUG_NOCONSOLE
 	AllocConsole();
+#endif /* WINFRIP_DEBUG_NOCONSOLE */
 	AttachConsole(GetCurrentProcessId());
 	_wfreopen(L"CON", L"w", stderr);
 	hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
