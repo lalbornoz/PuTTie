@@ -319,6 +319,7 @@ WfrLoadRawFile(
 	}
 
 	if (WFR_SUCCESS(status)) {
+		statbuf.st_size = -1;
 		if (WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(pname, strlen(pname), &pnameW))
 		&&  WFR_SUCCESS_POSIX(status, (_wstat64(pnameW, &statbuf) == 0))
 		&&  WFR_SUCCESS_POSIX(status, (file = _wfopen(pnameW, L"rb")))
