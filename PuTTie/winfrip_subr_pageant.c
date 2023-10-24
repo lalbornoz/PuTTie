@@ -182,8 +182,11 @@ WfPageantAddKeysFromCmdLine(
 		     privkey && *privkey; privkey = privkey_next)
 		{
 			if ((privkey_next = strchr(privkey, '\0'))) {
-				if (win_add_keyfile(
-						filename_from_str(privkey),
+				wchar_t *	privkeyW = NULL;
+
+            			if (WFR_SUCCESS((status = WfrConvertUtf8ToUtf16String(privkey, strlen(privkey), &privkeyW)))
+				&&  win_add_keyfile(
+						filename_from_wstr(privkeyW),
 						add_keys_encrypted) == PAGEANT_ACTION_OK)
 				{
 					status = WfsAddPrivKeyList(WfsGetBackend(), privkey);
@@ -199,6 +202,8 @@ WfPageantAddKeysFromCmdLine(
 						privkey);
 				}
 				privkey_next++;
+
+				WFR_FREE_IF_NOTNULL(privkeyW);
 			}
 		}
 	}
