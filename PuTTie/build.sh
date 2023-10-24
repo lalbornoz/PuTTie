@@ -241,7 +241,7 @@ buildp_usage() {
 	echo "       -B <backend>..: set default storage backend to either of ephemeral, file, or registry (default)" >&2;
 	echo "       -c............: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
 	echo "       --clang.......: regenerate compile_commands.json" >&2;
-	echo "       -d............: select Debug (vs. Release) build" >&2;
+	echo "       -d............: select Debug (vs. Release) build (NB: pass -c when switching between build types)" >&2;
 	echo "       --dbg-svr.....: run putty.exe w/ optional arguments via wine & local gdbserver on port 1234" >&2;
 	echo "       --dbg-cli.....: debug putty.exe w/ MingW gdb previously launched w/ --dbg-svr" >&2;
 	echo "       -h............: show this screen" >&2;
