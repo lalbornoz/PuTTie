@@ -182,16 +182,19 @@ $ ./PuTTie/build.sh -B file -c -R -j 4
 #
 # Help screen:
 $ ./PuTTie/build.sh -h
-usage: ./PuTTie/build.sh [-B <backend>] [-c] [--clang] [-d] [-h] [-i] [-j jobs] [-R] [-t <target>]
-       -B <backend>..: set default storage backend to either of ephemeral, file, or registry (default)
-       -c............: clean cmake(1) cache file(s) and output directory/ies before build
-       --clang.......: regenerate compile_commands.json
-       -d............: select Debug (vs. Release) build
-       -h............: show this screen
-       -i............: {clean,install} images {pre,post}-build
-       -j............: set cmake(1) max. job count
-       -R............: create release archive (implies -i)
-       -t <target>...: build PuTTY <target> instead of default target
+usage: ./PuTTie/build.sh [-B <backend>] [-c] [--clang] [-d] [-D] [--dbg-svr <fname> [..]] [--dbg-cli <fname>] [-h] [-i] [-j <jobs>] [-R] [-t <target>]
+       -B <backend>..........: set default storage backend to either of ephemeral, file, or registry (default)
+       -c....................: clean cmake(1) cache file(s) and output directory/ies before build
+       --clang...............: regenerate compile_commands.json
+       -d....................: select Debug (vs. Release) build (NB: pass -c when switching between build types)
+       -D....................: select Debug w/o debugging console (vs. Release) build (for usage w/ --dbg-{svr,cli} (NB: pass -c when switching between build types)
+       --dbg-svr <fname> [..]: run <fname> w/ optional arguments via wine & local gdbserver on port 1234
+       --dbg-cli <fname>.....: debug <fname> w/ MingW gdb previously launched w/ --dbg-svr
+       -h....................: show this screen
+       -i....................: {clean,install} images {pre,post}-build
+       -j <jobs>.............: set cmake(1) max. job count
+       -R....................: create release archive (implies -i)
+       -t <target>...........: build PuTTY <target> instead of default target
 ```
 
 ## TODO/wish list
