@@ -75,9 +75,9 @@ build_dbg_svr() {
 	local _addr="${1}" _gdbserver_fname="${2}" _exe_fname="${3}"; shift 3;
 
 	wine	\
-		"${_gdbserver_fname}"			\
-		"${_addr}"				\
-		"${_exe_fname}"			\
+		"${_gdbserver_fname}"	\
+		"${_addr}"		\
+		"${_exe_fname}"		\
 		"${@}";
 	return "${?}";
 };
