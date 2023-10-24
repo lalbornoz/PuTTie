@@ -2497,7 +2497,6 @@ Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
 #if 1
     char *      p;
     WfrStatus   status;
-    char *      text = NULL;
     wchar_t *   textW = NULL;
     size_t      textW_size = 0;
 
@@ -2509,10 +2508,8 @@ Filename *dlg_filesel_get(dlgcontrol *ctrl, dlgparam *dp)
             }
         } while (WFR_SUCCESS(status) && !WfrIsNULTerminatedW(textW, textW_size - 1));
 
-        if (WFR_SUCCESS(status)
-        &&  WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(textW, wcslen(textW), &text)))
-        {
-            return filename_from_str(text);
+        if (WFR_SUCCESS(status)) {
+            return filename_from_wstr(textW);
         } else {
             return NULL;
         }

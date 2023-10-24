@@ -2528,6 +2528,9 @@ enum {
  * as fontspec_serialise and fontspec_deserialise above.
  */
 Filename *filename_from_str(const char *string);
+/* {{{ winfrip */
+Filename *filename_from_wstr(const wchar_t *str);
+/* winfrip }}} */
 const char *filename_to_str(const Filename *fn);
 bool filename_equal(const Filename *f1, const Filename *f2);
 bool filename_is_null(const Filename *fn);
