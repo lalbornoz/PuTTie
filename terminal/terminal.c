@@ -2533,6 +2533,8 @@ static void swap_screen(Terminal *term, int which,
          */
         erase_lots(term, false, true, true);
     }
+
+    seen_disp_event(term);
 }
 
 /*
@@ -2714,6 +2716,8 @@ static void scroll(Terminal *term, int topline, int botline,
             }
         }
     }
+
+    seen_disp_event(term);
 }
 
 /*
@@ -2743,6 +2747,7 @@ static void move(Terminal *term, int x, int y, int marg_clip)
     term->curs.x = x;
     term->curs.y = y;
     term->wrapnext = false;
+    seen_disp_event(term);
 }
 
 /*
@@ -2781,6 +2786,7 @@ static void save_cursor(Terminal *term, bool save)
         term->cset_attr[term->cset] = term->save_csattr;
         term->sco_acs = term->save_sco_acs;
         set_erase_char(term);
+        seen_disp_event(term);
     }
 }
 
@@ -2939,6 +2945,8 @@ static void erase_lots(Terminal *term,
      * application has explicitly thrown them away). */
     if (erasing_lines_from_top && !(term->alt_which))
         term->tempsblines = 0;
+
+    seen_disp_event(term);
 }
 
 /*
@@ -3175,6 +3183,13 @@ static void toggle_mode(Terminal *term, int mode, int query, bool state)
  */
 static void do_osc(Terminal *term)
 {
+    if (term->osc_is_apc) {
+        /* This OSC was really an APC, and we don't support that
+         * sequence at all. We only recognise it in order to ignore it
+         * and filter it out of input. */
+        return;
+    }
+
     if (term->osc_w) {
         while (term->osc_strlen--)
             term->wordness[(unsigned char)term->osc_string[term->osc_strlen]] =
@@ -3849,6 +3864,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                 copy_termchar(scrlineptr(term->curs.y),
                               term->curs.x, &term->erase_char);
             }
+            seen_disp_event(term);
         } else
         /* Or normal C0 controls. */
         if ((c & ~0x1F) == 0 && term->termstate < DO_CTRLS) {
@@ -4102,6 +4118,21 @@ static void term_out(Terminal *term, bool called_from_term_data)
                     /* Compatibility is nasty here, xterm, linux, decterm yuk! */
                     compatibility(OTHER);
                     term->termstate = SEEN_OSC;
+                    term->osc_is_apc = false;
+                    term->osc_strlen = 0;
+                    term->esc_args[0] = 0;
+                    term->esc_nargs = 1;
+                    break;
+                  case '_':             /* APC: application program command */
+                    /* APC sequences are just a string, terminated by
+                     * ST or (I've observed in practice) ^G. That is,
+                     * they have the same termination convention as
+                     * OSC. So we handle them by going straight into
+                     * OSC_STRING state and setting a flag indicating
+                     * that it's not really an OSC. */
+                    compatibility(OTHER);
+                    term->termstate = SEEN_OSC;
+                    term->osc_is_apc = true;
                     term->osc_strlen = 0;
                     term->esc_args[0] = 0;
                     term->esc_nargs = 1;
@@ -4113,7 +4144,6 @@ static void term_out(Terminal *term, bool called_from_term_data)
                   case '8':             /* DECRC: restore cursor */
                     compatibility(VT100);
                     save_cursor(term, false);
-                    seen_disp_event(term);
                     break;
                   case '=':             /* DECKPAM: Keypad application mode */
                     compatibility(VT100);
@@ -4228,6 +4258,7 @@ static void term_out(Terminal *term, bool called_from_term_data)
                     check_line_size(term, ldata);
                     check_trust_status(term, ldata);
                     ldata->lattr = nlattr;
+                    seen_disp_event(term);
                     break;
                   }
                   /* GZD4: G0 designate 94-set */
@@ -4786,7 +4817,6 @@ static void term_out(Terminal *term, bool called_from_term_data)
                         break;
                       case 'u':       /* restore cursor */
                         save_cursor(term, false);
-                        seen_disp_event(term);
                         break;
                       case 't': /* DECSLPP: set page size - ie window height */
                         /*
@@ -4959,7 +4989,6 @@ static void term_out(Terminal *term, bool called_from_term_data)
                         scroll(term, term->marg_t, term->marg_b,
                                def(term->esc_args[0], 1), true);
                         term->wrapnext = false;
-                        seen_disp_event(term);
                         break;
                       case 'T':         /* SD: Scroll down */
                         CLAMP(term->esc_args[0], term->rows);
@@ -4967,7 +4996,6 @@ static void term_out(Terminal *term, bool called_from_term_data)
                         scroll(term, term->marg_t, term->marg_b,
                                -def(term->esc_args[0], 1), true);
                         term->wrapnext = false;
-                        seen_disp_event(term);
                         break;
                       case ANSI('|', '*'): /* DECSNLS */
                         /*
@@ -5443,7 +5471,6 @@ static void term_out(Terminal *term, bool called_from_term_data)
                 break;
               case VT52_ESC:
                 term->termstate = TOPLEVEL;
-                seen_disp_event(term);
                 switch (c) {
                   case 'A':
                     move(term, term->curs.x, term->curs.y - 1, 1);
@@ -5507,10 +5534,12 @@ static void term_out(Terminal *term, bool called_from_term_data)
                     move(term, 0, 0, 0);
                     break;
                   case 'I':
-                    if (term->curs.y == 0)
+                    if (term->curs.y == 0) {
                         scroll(term, 0, term->rows - 1, -1, true);
-                    else if (term->curs.y > 0)
+                    } else if (term->curs.y > 0) {
                         term->curs.y--;
+                        seen_disp_event(term);
+                    }
                     term->wrapnext = false;
                     break;
                   case 'J':
@@ -5601,10 +5630,12 @@ static void term_out(Terminal *term, bool called_from_term_data)
                   case 'e':
                     /* compatibility(ATARI) */
                     term->cursor_on = true;
+                    seen_disp_event(term);
                     break;
                   case 'f':
                     /* compatibility(ATARI) */
                     term->cursor_on = false;
+                    seen_disp_event(term);
                     break;
                     /* case 'j': Save cursor position - broken on ST */
                     /* case 'k': Restore cursor position */
