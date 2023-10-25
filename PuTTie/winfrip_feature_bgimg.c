@@ -76,11 +76,13 @@ static char *			WffbpFname = NULL;
 
 /*
  * Critical section serialising access to WffbpDname, event handle both used by the
- * slideshow directory change notification thread and the thread handle to the latter
+ * slideshow directory change notification thread, the thread handle to the latter,
+ * and whether said thread has been started or not
  */
 static CRITICAL_SECTION		WffbpDnameCriticalSection;
 static HANDLE			WffbpDnameEvent;
 static HANDLE			WffbpDnameWatchThread;
+static bool			WffbpDnameWatchThreadStarted = false;
 
 /*
  * Current and old device context handles
@@ -120,7 +122,7 @@ static void		WffbpSlideshowTimerFunction(void *ctx, unsigned long now);
 
 static WfReturn		WffbpOpDirChange(Conf *conf, HWND hwnd);
 static WfReturn		WffbpOpDraw(int char_width, Conf *conf, HDC hdc, int font_height, int len, int nbg, bool *pbgfl, int rc_width, int x, int y);
-static WfReturn		WffbpOpInit(Conf *conf, HWND hwnd);
+static void		WffbpOpInitDnameWatchThread(HWND hwnd);
 static WfReturn		WffbpOpReconf(Conf *conf, HDC hdc, HWND hwnd);
 static WfReturn		WffbpOpSize(Conf *conf, HDC hdc);
 
@@ -674,27 +676,27 @@ WffbpOpDraw(
 	return rc;
 }
 
-static WfReturn
-WffbpOpInit(
-	Conf *	conf,
+static void
+WffbpOpInitDnameWatchThread(
 	HWND	hwnd
-	)
+)
 {
 	WfrStatus	status;
 
 
-	if (WFR_FAILURE(status = WfrWatchDirectory(
-			false, &WffbpDname, &WffbpDnameCriticalSection,
-			hwnd, WFF_BGIMG_WM_CHANGEREQUEST, &WffbpDnameEvent,
-			&WffbpDnameWatchThread)))
-	{
-		WFR_IF_STATUS_FAILURE_MESSAGEBOX(
-			status, NULL,
-			"creating background image directory change notification thread");
-		exit(1);
-	} else {
-		(void)WffbpSlideshowReconf(conf, hwnd);
-		return WF_RETURN_CONTINUE;
+	if (!WffbpDnameWatchThreadStarted) {
+		if (WFR_FAILURE(status = WfrWatchDirectory(
+				false, &WffbpDname, &WffbpDnameCriticalSection,
+				hwnd, WFF_BGIMG_WM_CHANGEREQUEST, &WffbpDnameEvent,
+				&WffbpDnameWatchThread)))
+		{
+			WFR_IF_STATUS_FAILURE_MESSAGEBOX(
+				status, NULL,
+				"creating background image directory change notification thread");
+			exit(1);
+		} else {
+			WffbpDnameWatchThreadStarted = true;
+		}
 	}
 }
 
@@ -705,6 +707,8 @@ WffbpOpReconf(
 	HWND	hwnd
 	)
 {
+	WffbpOpInitDnameWatchThread(hwnd);
+
 	if (WFR_SUCCESS(WffbpSlideshowReconf(conf, hwnd))
 	&&  WFR_SUCCESS(WffbpSet(conf, hdc, true, true, false)))
 	{
@@ -835,9 +839,6 @@ WffBgImgOperation(
 		break;
 	case WFF_BGIMG_OP_DRAW:
 		rc = WffbpOpDraw(char_width, conf, hdc, font_height, len, nbg, pbgfl, rc_width, x, y);
-		break;
-	case WFF_BGIMG_OP_INIT:
-		rc = WffbpOpInit(conf, hwnd);
 		break;
 	case WFF_BGIMG_OP_RECONF:
 		rc = WffbpOpReconf(conf, hdc, hwnd);
