@@ -2293,7 +2293,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
     switch (message) {
       /* {{{ winfrip */
       case WM_SHOWWINDOW:
-        (void)WffBgImgOperation(WFF_BGIMG_OP_INIT, NULL, wgs->conf,
+        (void)WffBgImgOperation(WFF_BGIMG_OP_RECONF, NULL, wgs->conf,
                                 NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
         (void)WffUrlsOperation(WFF_URLS_OP_INIT, wgs->conf, hwnd, -1,
                                NULL, NULL, -1, 0, 0);
