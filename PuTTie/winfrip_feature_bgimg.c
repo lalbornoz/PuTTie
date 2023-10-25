@@ -287,6 +287,7 @@ WffbpGetFnameShuffle(
 	size_t		bg_fname_idx;
 	size_t		bg_fname_len;
 	size_t		bg_fname_size;
+	bool		foundfl;
 	WfrStatus	status;
 
 
@@ -297,6 +298,9 @@ WffbpGetFnameShuffle(
 		bg_fname_len = strlen(bg_fname);
 		status = WfrConvertUtf8ToUtf16String(bg_fname, bg_fname_len, pbg_fname_w);
 	} else if ((WffbpDnameFileC > 0) && (WffbpDnameFileV != NULL)) {
+		foundfl = false;
+		status = WFR_STATUS_CONDITION_SUCCESS;
+
 		do {
 			if (WFR_SUCCESS(status = WfrGenRandom(
 				(PUCHAR)&bg_fname_idx, sizeof(bg_fname_idx))))
@@ -336,10 +340,11 @@ WffbpGetFnameShuffle(
 						WFR_FREE_IF_NOTNULL(WffbpFname);
 						WffbpFname = bg_fname;
 						WffbpFileIdxLast = bg_fname_idx;
+						foundfl = true;
 					}
 				}
 			}
-		} while (false);
+		} while (WFR_SUCCESS(status) && !foundfl);
 	} else {
 		pbg_fname_w = NULL;
 		status = WFR_STATUS_CONDITION_SUCCESS;
