@@ -353,14 +353,16 @@ static ResponseType parse_and_free_response(char *line)
     return toret;
 }
 
-SeatPromptResult console_confirm_ssh_host_key(
-    Seat *seat, const char *host, int port, const char *keytype,
-    char *keystr, SeatDialogText *text, HelpCtx helpctx,
-    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
+/*
+ * Helper function to print the message from a SeatDialogText. Returns
+ * the final prompt to print on the input line, or NULL if a
+ * batch-mode abort is needed. In the latter case it will have printed
+ * the abort text already.
+ */
+static const char *console_print_seatdialogtext(
+    ConsoleIO *conio, SeatDialogText *text)
 {
-    ConsoleIO *conio = conio_setup(false);
     const char *prompt = NULL;
-    SeatPromptResult result;
 
     for (SeatDialogTextItem *item = text->items,
              *end = item+text->nitems; item < end; item++) {
@@ -380,9 +382,7 @@ SeatPromptResult console_confirm_ssh_host_key(
           case SDT_BATCH_ABORT:
             if (console_batch_mode) {
                 put_fmt(conio, "%s\n", item->text);
-                result = SPR_SW_ABORT(
-                    "Cannot confirm a host key in batch mode");
-                goto out;
+                return NULL;
             }
             break;
           case SDT_PROMPT:
@@ -393,6 +393,22 @@ SeatPromptResult console_confirm_ssh_host_key(
         }
     }
     assert(prompt); /* something in the SeatDialogText should have set this */
+    return prompt;
+}
+
+SeatPromptResult console_confirm_ssh_host_key(
+    Seat *seat, const char *host, int port, const char *keytype,
+    char *keystr, SeatDialogText *text, HelpCtx helpctx,
+    void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
+{
+    ConsoleIO *conio = conio_setup(false);
+    SeatPromptResult result;
+
+    const char *prompt = console_print_seatdialogtext(conio, text);
+    if (!prompt) {
+        result = SPR_SW_ABORT("Cannot confirm a host key in batch mode");
+        goto out;
+    }
 
     ResponseType response;
 
@@ -438,22 +454,20 @@ SeatPromptResult console_confirm_ssh_host_key(
 }
 
 SeatPromptResult console_confirm_weak_crypto_primitive(
-    Seat *seat, const char *algtype, const char *algname,
+    Seat *seat, SeatDialogText *text,
     void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     ConsoleIO *conio = conio_setup(false);
     SeatPromptResult result;
 
-    put_fmt(conio, weakcrypto_msg_common_fmt, algtype, algname);
-
-    if (console_batch_mode) {
-        put_dataz(conio, console_abandoned_msg);
+    const char *prompt = console_print_seatdialogtext(conio, text);
+    if (!prompt) {
         result = SPR_SW_ABORT("Cannot confirm a weak crypto primitive "
                               "in batch mode");
         goto out;
     }
 
-    put_dataz(conio, console_continue_prompt);
+    put_fmt(conio, "%s (y/n) ", prompt);
 
     ResponseType response = parse_and_free_response(
         console_read_line(conio, true));
@@ -470,22 +484,18 @@ SeatPromptResult console_confirm_weak_crypto_primitive(
 }
 
 SeatPromptResult console_confirm_weak_cached_hostkey(
-    Seat *seat, const char *algname, const char *betteralgs,
+    Seat *seat, SeatDialogText *text,
     void (*callback)(void *ctx, SeatPromptResult result), void *ctx)
 {
     ConsoleIO *conio = conio_setup(false);
     SeatPromptResult result;
 
-    put_fmt(conio, weakhk_msg_common_fmt, algname, betteralgs);
+    const char *prompt = console_print_seatdialogtext(conio, text);
+    if (!prompt)
+        return SPR_SW_ABORT("Cannot confirm a weak cached host key "
+                            "in batch mode");
 
-    if (console_batch_mode) {
-        put_dataz(conio, console_abandoned_msg);
-        result = SPR_SW_ABORT("Cannot confirm a weak cached host key "
-                              "in batch mode");
-        goto out;
-    }
-
-    put_dataz(conio, console_continue_prompt);
+    put_fmt(conio, "%s (y/n) ", prompt);
 
     ResponseType response = parse_and_free_response(
         console_read_line(conio, true));
@@ -496,7 +506,7 @@ SeatPromptResult console_confirm_weak_cached_hostkey(
         put_dataz(conio, console_abandoned_msg);
         result = SPR_USER_ABORT;
     }
-  out:
+
     conio_free(conio);
     return result;
 }
