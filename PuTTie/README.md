@@ -17,7 +17,7 @@ forks. As PuTTie has shown to have, over the course of its existence since
 late June 2018, very low maintenance cost, it is much less likely to succumb
 to the inevitability of bit rot and loss of maintainers.
   
-Still not convinced? Here are seven (7) *extremely convincing* reasons why
+Still not convinced? Here are six (6) *extremely convincing* reasons why
 you should use PuTTie:  
   
 1. It's really cute!
@@ -37,23 +37,7 @@ you should use PuTTie:
    totally prevents PMS/PMDD as long as you use it all day long for three (3)
    days without sleeping or eating!
 
-6. By leveraging the groundbreaking *This Is All Made Up (TIAMU)* methodology,
-   bla bli **Cryptocurrencies** ble blu **Agile** bli **Deep AI** bla
-   **Blockchain** blö **ANN** blü bli **Cloud-Based** ble **Cybercrimes**
-   bli blø **Kamelåså**:  
-  
-   |                                  | PuTTie               | PuTTY              |
-   |----------------------------------|----------------------|--------------------|
-   | Scalability                      | infinite             | huh?               |
-   | Total Cost of Ownership          | -infinity            | wa?                |
-   | Security track record            | IMPENETRABLE CASTLE  | HELP               |
-   | Simon Tatham involvement         | NEIN                 | i want to die :(   |
-   | Amortised molecular weight at 0K | 2.176434(24)×10−8 kg | er..               |
-   | Environmental cost               | -infinity            | where am i?        |
-   | Wingspan at cruising speed       | 22-34mm              | help im trapped ple|
-   | Cluck cluck, cluMEOW ROAAHHHHHHHH| [x]                  | [ ]                |
-
-7. The following people/deities have found PuTTie to have been critical to
+6. The following people/deities have found PuTTie to have been critical to
    their immeasurable contributions to {woman,man,non-binary-,egg-}kind in general:  
   
    kade, nadia, roarie, Brigadier-Sergeant Corporal Erran Morad, Tupac Shakur, Rainer Maria Rilke, Big L,
