@@ -161,6 +161,8 @@ WffGeneralConfigPanel(
 	s = ctrl_getset(b, "Frippery", "frip_general", "General pointless frippery");
 	ctrl_checkbox(s, "Always on top", 'l', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_general_always_on_top));
 	ctrl_checkbox(s, "Minimise to system tray", 'y', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_general_minimise_to_systray));
+	ctrl_checkbox(s, "Cache passwords", 'p', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_cache_passwords));
+	ctrl_text(s, "WARNING: If and while enabled, this will cache passwords in memory insecurely. Consider not using this on shared computers.", WFP_HELP_CTX);
 }
 
 UINT

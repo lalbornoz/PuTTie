@@ -3,6 +3,7 @@
 
 /* {{{ winfrip */
 #include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_cachepassword.h"
 #include "PuTTie/winfrip_feature_urls.h"
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_windows.h"
@@ -71,6 +72,7 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
                 }; break;
             }
         } while (!breakfl);
+        (void)WffCachePasswordOperation(WFF_CACHEPASSWORD_OP_RECONF, conf, NULL, -1, NULL, NULL);
         /* winfrip }}} */
         special_launchable_argument = true;
     } else if (handle_special_filemapping_cmdline(p, conf)) {
@@ -200,6 +202,7 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
                 }; break;
             }
         } while (!breakfl);
+        (void)WffCachePasswordOperation(WFF_CACHEPASSWORD_OP_RECONF, conf, NULL, -1, NULL, NULL);
         /* winfrip }}} */
         }
     }
