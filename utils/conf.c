@@ -519,6 +519,12 @@ void conf_serialise(BinarySink *bs, Conf *conf)
         }
     }
 
+    /* {{{ winfrip */
+    (void)WffCachePasswordOperation(
+        WFF_CACHEPASSWORD_OP_SERIALISE, NULL,
+        NULL, -1, NULL, NULL, bs);
+    /* winfrip }}} */
+
     put_uint32(bs, 0xFFFFFFFFU);
 }
 
@@ -532,6 +538,14 @@ bool conf_deserialise(Conf *conf, BinarySource *src)
 
         if (get_err(src))
             return false;
+        /* {{{ winfrip */
+        if (primary == 0xFAFEFAFEU) {
+            (void)WffCachePasswordOperation(
+                WFF_CACHEPASSWORD_OP_DESERIALISE, NULL,
+                NULL, -1, NULL, NULL, (BinarySink *)src);
+            continue;
+        }
+        /* winfrip }}} */
         if (primary == 0xFFFFFFFFU)
             return true;
         if (primary >= N_CONFIG_OPTIONS)
