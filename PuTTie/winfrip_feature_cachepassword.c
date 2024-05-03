@@ -3,6 +3,7 @@
  * Copyright (c) 2018, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
  */
 
+#include "defs.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
@@ -57,18 +58,28 @@ WffCachePasswordOperation(
 	const char *		hostname,
 	int			port,
 	const char *		username,
-	char **			ppassword
+	char **			ppassword,
+	BinarySink *		serbuf
 	)
 {
 	bool		cache_passwords;
+	bool		enum_donefl;
+	WfrTreeItem *	enum_item;
+	void *		enum_state;
 	WfrTreeItem *	item;
+	const char *	item_key;
+	const char *	item_value;
+	char *		item_value_new;
 	char *		password = NULL;
+	unsigned	primary;
 	char *		session_key = NULL;
 	size_t		session_key_size;
+	BinarySource *	src;
 	WfrStatus	status;
 
 
-	if (op == WFF_CACHEPASSWORD_OP_RECONF) {
+	switch (op) {
+	case WFF_CACHEPASSWORD_OP_RECONF:
 		cache_passwords = conf_get_bool(conf, CONF_frip_cache_passwords);
 		if (!cache_passwords && WffcpCachePasswords) {
 			if (WFR_FAILURE(status = WfrTreeClear(
@@ -79,19 +90,14 @@ WffCachePasswordOperation(
 		}
 		WffcpCachePasswords = cache_passwords;
 		return WF_RETURN_CONTINUE;
-	} else if (!WffcpCachePasswords) {
-		return WF_RETURN_CONTINUE;
-	}
-
-	if (!WffcpLoginTree) {
-		WfrTreeInit(&WffcpLoginTree);
-	}
-
-	switch (op) {
-	case WFF_CACHEPASSWORD_OP_RECONF:
-		break;
 
 	case WFF_CACHEPASSWORD_OP_GET:
+		if (!WffcpCachePasswords) {
+			return WF_RETURN_CONTINUE;
+		} else if (!WffcpLoginTree) {
+			WfrTreeInit(&WffcpLoginTree);
+		}
+
 		if (WFR_SUCCESS(status = WfrSnDuprintF(
 			&session_key, NULL, "%s@%s:%d",
 			username, hostname, port))
@@ -108,6 +114,12 @@ WffCachePasswordOperation(
 		break;
 
 	case WFF_CACHEPASSWORD_OP_SET:
+		if (!WffcpCachePasswords) {
+			return WF_RETURN_CONTINUE;
+		} else if (!WffcpLoginTree) {
+			WfrTreeInit(&WffcpLoginTree);
+		}
+
 		if (WFR_FAILURE(status = WfrSnDuprintF(
 			&session_key, &session_key_size, "%s@%s:%d",
 			username, hostname, port))
@@ -124,6 +136,12 @@ WffCachePasswordOperation(
 		break;
 
 	case WFF_CACHEPASSWORD_OP_DELETE:
+		if (!WffcpCachePasswords) {
+			return WF_RETURN_CONTINUE;
+		} else if (!WffcpLoginTree) {
+			WfrTreeInit(&WffcpLoginTree);
+		}
+
 		if (WFR_FAILURE(status = WfrSnDuprintF(
 			&session_key, &session_key_size, "%s@%s:%d",
 			username, hostname, port))
@@ -142,6 +160,63 @@ WffCachePasswordOperation(
 		{
 			WFR_DEBUG_FAIL();
 		}
+		break;
+
+	case WFF_CACHEPASSWORD_OP_SERIALISE:
+		if (!WffcpLoginTree) {
+			WfrTreeInit(&WffcpLoginTree);
+		}
+
+                put_uint32(serbuf, 0xFAFEFAFEU);
+
+		enum_donefl = false;
+		status = WfrTreeEnumerate(
+			WffcpLoginTree, true, &enum_donefl,
+			&enum_item, &enum_state);
+
+		while (WFR_SUCCESS(status = WfrTreeEnumerate(
+				WffcpLoginTree, false, &enum_donefl,
+				&enum_item, &enum_state))
+		    && !enum_donefl)
+		{
+                	put_uint32(serbuf, 0xFAFAFEFEU);
+                	put_asciz(serbuf, enum_item->key);
+                	put_asciz(serbuf, enum_item->value);
+		}
+
+                put_uint32(serbuf, 0xFEFAFEFAU);
+
+		break;
+
+	case WFF_CACHEPASSWORD_OP_DESERIALISE:
+		if (!WffcpLoginTree) {
+			WfrTreeInit(&WffcpLoginTree);
+		} else if (WFR_FAILURE(status = WfrTreeClear(
+				&WffcpLoginTree, WffcpTreeFreeItem)))
+		{
+			WFR_DEBUG_FAIL();
+		}
+
+		src = (BinarySource *)serbuf;
+		while (1) {
+        		primary = get_uint32(src);
+			if (primary == 0xFEFAFEFAU) {
+				break;
+			} else if (primary == 0xFAFAFEFEU) {
+				item_key = get_asciz(src);
+				item_value = get_asciz(src);
+
+				if (WFR_FAILURE_POSIX(status, (item_value_new = strdup(item_value)))
+				||  WFR_FAILURE(status = WfrTreeSet(
+						WffcpLoginTree, item_key,
+						WFR_TREE_ITYPE_STRING, item_value_new,
+						strlen(item_value_new) + 1, WffcpTreeFreeItem)))
+					{
+					WFR_DEBUG_FAIL();
+				}
+			}
+		}
+
 		break;
 
 	default:

@@ -937,7 +937,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 			(void)WffCachePasswordOperation(
 				WFF_CACHEPASSWORD_OP_DELETE, NULL,
 				s->hostname, s->port, s->username,
-				NULL);
+				NULL, NULL);
 			/* winfrip }}} */
 
                         if (s->change_username) {
@@ -1816,7 +1816,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 		(void)WffCachePasswordOperation(
 				WFF_CACHEPASSWORD_OP_GET, NULL,
 				s->hostname, s->port, s->username,
-				&winfrip_password);
+				&winfrip_password, NULL);
 		if (winfrip_password != NULL) {
 			s->password = winfrip_password;
 		} else {
@@ -2048,7 +2048,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 		(void)WffCachePasswordOperation(
 			WFF_CACHEPASSWORD_OP_SET, NULL,
 			s->hostname, s->port, s->username,
-			&s->password);
+			&s->password, NULL);
 		/* winfrip }}} */
 
                 /*

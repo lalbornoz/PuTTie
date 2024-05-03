@@ -2298,8 +2298,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                                 NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
         (void)WffUrlsOperation(WFF_URLS_OP_INIT, wgs->conf, hwnd, -1,
                                NULL, NULL, -1, 0, 0);
-        (void)WffCachePasswordOperation(WFF_CACHEPASSWORD_OP_RECONF,
-                                        wgs->conf, NULL, -1, NULL, NULL);
+        (void)WffCachePasswordOperation(WFF_CACHEPASSWORD_OP_RECONF, wgs->conf,
+                                        NULL, -1, NULL, NULL, NULL);
         break;
       /* winfrip }}} */
       /* {{{ winfrip */
@@ -2550,7 +2550,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                         "Frippery/URLs"); break;
                 }
             } while (!breakfl);
-            (void)WffCachePasswordOperation(WFF_CACHEPASSWORD_OP_RECONF, wgs->conf, NULL, -1, NULL, NULL);
+            (void)WffCachePasswordOperation(WFF_CACHEPASSWORD_OP_RECONF, wgs->conf, NULL, -1, NULL, NULL, NULL);
             /* winfrip }}} */
             wgs->reconfiguring = false;
             if (!reconfig_result) {
@@ -2685,7 +2685,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                                NULL, hwnd, -1, -1, -1, -1, -1, -1, -1);
               WffTransOperation(WFF_TRANS_OP_FOCUS_SET, wgs->conf, hwnd);
               WffCachePasswordOperation(WFF_CACHEPASSWORD_OP_RECONF, wgs->conf,
-                                        NULL, -1, NULL, NULL);
+                                        NULL, -1, NULL, NULL, NULL);
               /* winfrip }}} */
             }
 

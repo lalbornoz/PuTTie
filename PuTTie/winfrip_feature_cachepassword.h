@@ -18,14 +18,16 @@
  */
 
 typedef enum WffCachePasswordOp {
-	WFF_CACHEPASSWORD_OP_RECONF	= 1,
-	WFF_CACHEPASSWORD_OP_GET	= 2,
-	WFF_CACHEPASSWORD_OP_SET	= 3,
-	WFF_CACHEPASSWORD_OP_DELETE	= 4,
-	WFF_CACHEPASSWORD_OP_CLEAR	= 5,
+	WFF_CACHEPASSWORD_OP_RECONF		= 1,
+	WFF_CACHEPASSWORD_OP_GET		= 2,
+	WFF_CACHEPASSWORD_OP_SET		= 3,
+	WFF_CACHEPASSWORD_OP_DELETE		= 4,
+	WFF_CACHEPASSWORD_OP_CLEAR		= 5,
+	WFF_CACHEPASSWORD_OP_SERIALISE		= 6,
+	WFF_CACHEPASSWORD_OP_DESERIALISE	= 7,
 } WffCachePasswordOp;
 
-WfReturn	WffCachePasswordOperation(WffCachePasswordOp op, Conf *conf, const char *hostname, int port, const char *username, char **ppassword);
+WfReturn	WffCachePasswordOperation(WffCachePasswordOp op, Conf *conf, const char *hostname, int port, const char *username, char **ppassword, BinarySink *serbuf);
 
 #endif // !PUTTY_WINFRIP_FEATURE_CACHEPASSWORD_H
 
