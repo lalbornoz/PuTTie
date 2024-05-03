@@ -5,6 +5,7 @@
 
 #include <assert.h>
 
+#include "PuTTie/winfrip_rtl_status.h"
 #include "putty.h"
 #include "ssh.h"
 #include "bpp.h"
@@ -15,6 +16,12 @@
 #include "gssc.h"
 #include "gss.h"
 #endif
+
+/* {{{ winfrip */
+#include "PuTTie/winfrip_rtl.h"
+#include "PuTTie/winfrip_feature.h"
+#include "PuTTie/winfrip_feature_cachepassword.h"
+/* winfrip }}} */
 
 #define BANNER_LIMIT 131072
 
@@ -926,6 +933,13 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                         ppl_logevent("Password authentication failed");
                         ppl_printf("Access denied\r\n");
 
+			/* {{{ winfrip */
+			(void)WffCachePasswordOperation(
+				WFF_CACHEPASSWORD_OP_DELETE, NULL,
+				s->hostname, s->port, s->username,
+				NULL);
+			/* winfrip }}} */
+
                         if (s->change_username) {
                             /* XXX perhaps we should allow
                              * keyboard-interactive to do this too? */
@@ -1797,6 +1811,17 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                  */
                 bool changereq_first_time; /* not live over crReturn */
 
+		/* {{{ winfrip */
+		char *	winfrip_password = NULL;
+		(void)WffCachePasswordOperation(
+				WFF_CACHEPASSWORD_OP_GET, NULL,
+				s->hostname, s->port, s->username,
+				&winfrip_password);
+		if (winfrip_password != NULL) {
+			s->password = winfrip_password;
+		} else {
+		/* winfrip }}} */
+
                 s->ppl.bpp->pls->actx = SSH2_PKTCTX_PASSWORD;
 
                 s->cur_prompt = ssh_ppl_new_prompts(&s->ppl);
@@ -1834,6 +1859,10 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                 s->password = prompt_get_result(s->cur_prompt->prompts[0]);
                 free_prompts(s->cur_prompt);
                 s->cur_prompt = NULL;
+
+		/* {{{ winfrip */
+		}
+		/* winfrip }}} */
 
                 /*
                  * Send the password packet.
@@ -2014,6 +2043,13 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                  * the loop and start again.
                  */
                 pq_push_front(s->ppl.in_pq, pktin);
+
+		/* {{{ winfrip */
+		(void)WffCachePasswordOperation(
+			WFF_CACHEPASSWORD_OP_SET, NULL,
+			s->hostname, s->port, s->username,
+			&s->password);
+		/* winfrip }}} */
 
                 /*
                  * We don't need the old password any more, in any

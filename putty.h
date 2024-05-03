@@ -1792,6 +1792,7 @@ NORETURN void cleanup_exit(int);
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_bgimg.h"
+#include "PuTTie/winfrip_feature_cachepassword.h"
 #include "PuTTie/winfrip_feature_general.h"
 #include "PuTTie/winfrip_feature_mouse.h"
 #include "PuTTie/winfrip_feature_storage_general.h"
