@@ -136,6 +136,8 @@ you should use PuTTie:
    Text strings in the GUI, configuration & storage thereof, including sessions, etc. may contain anything that
    encodes from/to valid UTF-16/UTF-8 and vice versa; UTF-16 is used at and due to Windows API boundaries,
    UTF-8 internally as well as in file contents.
+12. **Cache passwords**  
+   Caches SSH2 passwords in memory across session restarts and session duplication.
 
 [Back to top](#table-of-contents)
 
