@@ -64,7 +64,9 @@ add_session_to_jumplist(
 	const char *const	sessionname
 	)
 {
-	WfsAddJumpList(WfsGetBackend(), sessionname);
+	if (sessionname != NULL) {
+		WfsAddJumpList(WfsGetBackend(), sessionname);
+	}
 }
 
 void
@@ -88,7 +90,9 @@ remove_session_from_jumplist(
 	const char *const	sessionname
 	)
 {
-	WfsRemoveJumpList(WfsGetBackend(), sessionname);
+	if (sessionname != NULL) {
+		WfsRemoveJumpList(WfsGetBackend(), sessionname);
+	}
 }
 
 /*
