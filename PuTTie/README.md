@@ -2,6 +2,20 @@
 
 PuTTY plus *pointless frippery* and tremendous amounts of *bloat*[[1](#r1)][[2](#r2)][[3](#r3)][[4](#r4)][[5](#r5)][[9](#r9)]
 
+# Table of contents
+
+ 1. [What is PuTTie, and how is it different?](#what-is-puttie-and-how-is-it-different)  
+ 2. [Screenshot](#screenshot)  
+ 3. [List of newly introduced features](#list-of-newly-introduced-features)  
+ 4. [Jump list integration](#jump-list-integration)  
+ 5. [Thanks to](#thanks-to)  
+ 6. [Built with & tested on](#built-with--tested-on)  
+ 7. [How to build](#how-to-build)  
+ 8. [TODO/wish list](#todowish-list)  
+ 9. [Pull requests policy](#pull-requests-policy)  
+10. [References](#references)
+
+[//]: ## "{{{ What is PuTTie, and how is it different?"
 ## What is PuTTie, and how is it different?
 
 Unlike the other extant and past PuTTY forks, PuTTie is meticulously
@@ -60,10 +74,18 @@ you should use PuTTie:
   
    **Don't you want to be like them?** (except for Ellil because he's an arsehole)
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ Screenshot"
 ## Screenshot
 
 ![Screenshot](https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/PuTTie.png "Screenshot")
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ List of newly introduced features"
 ## List of newly introduced features
 
 1. **Background {BMP,EMF,GIF,ICO,JPEG,PNG,TIFF,WMF}[[10](#r10)] images**, similarly to[[6](#r6)]  
@@ -115,6 +137,10 @@ you should use PuTTie:
    encodes from/to valid UTF-16/UTF-8 and vice versa; UTF-16 is used at and due to Windows API boundaries,
    UTF-8 internally as well as in file contents.
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ Jump list integration"
 ## Jump list integration
 
 PuTTie fixes bugs (particularly [[25](#r25)]) in PuTTy's jump list integration implementation. Owing to
@@ -133,16 +159,28 @@ tool is provided for this purpose. Follow the following steps in order to create
 
 3. The shortcut created in 2. may now be pinned to the Start menu via the context menu.
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ Thanks to"
 ## Thanks to
 
 Thanks to <a href="https://github.com/gtwy">James Watt</a> and
 <a href="https://github.com/SamKook">SamKook</a> for helping fixing lots of bugs!
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ Built with & tested on"
 ## Built with & tested on
 
 1. MinGW w/ GCC v11.3.0 & cmake v3.23.2 on Cygwin v3.4.2-1 & Windows 8.1 x64, resp.
 2. MinGW w/ GCC v10-win32 20220324 & cmake v3.24.2 on Ubuntu v22.10 & wine-7.0 (Ubuntu 7.0~repack-8)
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ How to build"
 ## How to build
 
 ```shell
@@ -181,6 +219,10 @@ usage: ./PuTTie/build.sh [-B <backend>] [-c] [--clang] [-d] [-D] [--dbg-svr <fna
        -t <target>...........: build PuTTY <target> instead of default target
 ```
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ TODO/wish list"
 ## TODO/wish list
 
 1. **New feature**: Direct{2D,Write} backend, similarly to[[21](#r21)]
@@ -188,11 +230,19 @@ usage: ./PuTTie/build.sh [-B <backend>] [-c] [--clang] [-d] [-D] [--dbg-svr <fna
 3. **New feature**: ssh:// protocol handler registration, similarly to[[19](#r19)]
 4. **New feature**: ReGIS[[22](#r22)] and/or Sixel[[23](#r23)] terminal graphics support
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ Pull requests policy"
 ## Pull requests policy
 
 Pull requests are accepted & welcomed, unless you're Simon Tatham, Owen Dunn,
 Ben Harris, or Jacob Nevins.
 
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
+[//]: ## "{{{ References"
 ## References
 
 ``Wed, 20 Jun 2018 11:11:13 +0200  [1]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/config-locations.html" id="r1">PuTTY wish config-locations</a>  
@@ -221,6 +271,10 @@ Ben Harris, or Jacob Nevins.
 ``Fri, 27 Aug 2021 18:42:02 +0200 [24]`` <a href="https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecutea" id="r24">ShellExecuteA function (shellapi.h) - Win32 apps | Microsoft Docs</a>  
 ``Mon, 30 Jan 2023 16:49:06 +0100 [25]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/win-jumplist-trouble.html" id="r25">PuTTY bug win-jumplist-trouble</a>  
 ``Mon, 30 Jan 2023 16:55:44 +0100 [26]`` <a href="https://github.com/MicrosoftDocs/win32/blob/docs/desktop-src/shell/appids.md" id="r26">win32/appids.md at docs · MicrosoftDocs/win32</a>  
+
+[Back to top](#table-of-contents)
+
+[//]: "}}}"
   
 <!--
   vim:tw=0
