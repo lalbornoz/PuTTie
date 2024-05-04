@@ -190,6 +190,10 @@ set_target_properties(pageant PROPERTIES
   WIN32_EXECUTABLE ON
   LINK_FLAGS "${LFLAG_MANIFEST_NO}")
 installed_program(pageant)
+# {{{ winfrip
+set_property(TARGET pageant APPEND PROPERTY SOURCES
+  ../PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 add_sources_from_current_dir(plink no-jump-list.c nohelp.c plink.rc)
 add_dependencies(plink generated_licence_h)
@@ -346,6 +350,10 @@ set_target_properties(puttytel PROPERTIES
   WIN32_EXECUTABLE ON
   LINK_FLAGS "${LFLAG_MANIFEST_NO}")
 installed_program(puttytel)
+# {{{ winfrip
+set_property(TARGET puttytel APPEND PROPERTY SOURCES
+  ../PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 add_executable(puttygen
   puttygen.c
@@ -382,6 +390,10 @@ set_target_properties(puttygen PROPERTIES
   WIN32_EXECUTABLE ON
   LINK_FLAGS "${LFLAG_MANIFEST_NO}")
 installed_program(puttygen)
+# {{{ winfrip
+set_property(TARGET puttygen APPEND PROPERTY SOURCES
+  ../PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 if(HAVE_CONPTY)
   add_executable(pterm
@@ -437,6 +449,10 @@ endif()
 # winfrip }}}
 target_link_libraries(test_lineedit
   guiterminal settings eventloop utils ${platform_libraries})
+# {{{ winfrip
+set_property(TARGET test_lineedit APPEND PROPERTY SOURCES
+  ../PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 add_executable(test_terminal
   ${CMAKE_SOURCE_DIR}/test/test_terminal.c
@@ -452,6 +468,10 @@ endif()
 # winfrip }}}
 target_link_libraries(test_terminal
   guiterminal settings eventloop utils ${platform_libraries})
+# {{{ winfrip
+set_property(TARGET test_terminal APPEND PROPERTY SOURCES
+  ../PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 add_sources_from_current_dir(test_conf no-jump-list.c handle-wait.c)
 # {{{ winfrip

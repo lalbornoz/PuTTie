@@ -81,9 +81,11 @@ target_link_libraries(testcrypt
 if (MINGW)
 set_property(TARGET testcrypt APPEND PROPERTY SOURCES
   PuTTie/winfrip_rtl.c)
-set_property(TARGET testcrypt APPEND PROPERTY COMPILE_FLAGS
-  "-DWINFRIP_RTL_NO_PCRE2")
+set_property(TARGET testcrypt APPEND_STRING PROPERTY COMPILE_FLAGS
+  " -DWINFRIP_RTL_NO_PCRE2")
 endif()
+set_property(TARGET testcrypt APPEND PROPERTY SOURCES
+  PuTTie/stubs-cachepasswords.c)
 # winfrip }}}
 
 add_executable(test_host_strfoo
@@ -234,6 +236,10 @@ target_link_libraries(plink
   ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   ${platform_libraries})
 installed_program(plink)
+# {{{ winfrip
+set_property(TARGET plink APPEND PROPERTY SOURCES
+  PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 add_executable(pscp
   pscp.c)
@@ -273,6 +279,10 @@ target_link_libraries(pscp
   ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   ${platform_libraries})
 installed_program(pscp)
+# {{{ winfrip
+set_property(TARGET pscp APPEND PROPERTY SOURCES
+  PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 add_executable(psftp
   psftp.c)
@@ -312,6 +322,10 @@ target_link_libraries(psftp
   ${CMAKE_SOURCE_DIR}/PuTTie/pcre2/libpcre2-16.a
   ${platform_libraries})
 installed_program(psftp)
+# {{{ winfrip
+set_property(TARGET psftp APPEND PROPERTY SOURCES
+  PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 add_executable(psocks
   ${platform}/psocks.c
@@ -331,6 +345,10 @@ endif()
 target_link_libraries(psocks
   eventloop console network utils
   ${platform_libraries})
+# {{{ winfrip
+set_property(TARGET psocks APPEND PROPERTY SOURCES
+  PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 add_executable(test_conf
   test/test_conf.c
@@ -344,6 +362,10 @@ add_executable(test_conf
 )
 be_list(test_conf TestConf SSH SERIAL OTHERBACKENDS)
 target_link_libraries(test_conf sshclient otherbackends settings network crypto utils ${platform_libraries})
+# {{{ winfrip
+set_property(TARGET test_conf APPEND PROPERTY SOURCES
+  PuTTie/stubs-cachepasswords.c)
+# winfrip }}}
 
 foreach(subdir ${platform} ${extra_dirs})
   add_subdirectory(${subdir})

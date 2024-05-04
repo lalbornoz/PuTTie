@@ -934,10 +934,12 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                         ppl_printf("Access denied\r\n");
 
 			/* {{{ winfrip */
+		#ifndef WINFRIP_NO_CACHE_PASSWORDS
 			(void)WffCachePasswordOperation(
 				WFF_CACHEPASSWORD_OP_DELETE, NULL,
 				s->hostname, s->port, s->username,
 				NULL, NULL);
+		#endif /* !WINFRIP_NO_CACHE_PASSWORDS */
 			/* winfrip }}} */
 
                         if (s->change_username) {
@@ -1812,6 +1814,7 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                 bool changereq_first_time; /* not live over crReturn */
 
 		/* {{{ winfrip */
+	#ifndef WINFRIP_NO_CACHE_PASSWORDS
 		char *	winfrip_password = NULL;
 		(void)WffCachePasswordOperation(
 				WFF_CACHEPASSWORD_OP_GET, NULL,
@@ -1820,6 +1823,9 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
 		if (winfrip_password != NULL) {
 			s->password = winfrip_password;
 		} else {
+	#else
+		{
+	#endif /* !WINFRIP_NO_CACHE_PASSWORDS */
 		/* winfrip }}} */
 
                 s->ppl.bpp->pls->actx = SSH2_PKTCTX_PASSWORD;
@@ -2045,10 +2051,12 @@ static void ssh2_userauth_process_queue(PacketProtocolLayer *ppl)
                 pq_push_front(s->ppl.in_pq, pktin);
 
 		/* {{{ winfrip */
+	#ifndef WINFRIP_NO_CACHE_PASSWORDS
 		(void)WffCachePasswordOperation(
 			WFF_CACHEPASSWORD_OP_SET, NULL,
 			s->hostname, s->port, s->username,
 			&s->password, NULL);
+	#endif /* !WINFRIP_NO_CACHE_PASSWORDS */
 		/* winfrip }}} */
 
                 /*
