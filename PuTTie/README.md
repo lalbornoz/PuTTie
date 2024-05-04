@@ -137,7 +137,9 @@ you should use PuTTie:
    encodes from/to valid UTF-16/UTF-8 and vice versa; UTF-16 is used at and due to Windows API boundaries,
    UTF-8 internally as well as in file contents.
 12. **Cache passwords**  
-   Caches SSH2 passwords in memory across session restarts and session duplication.
+   Caches SSH2 passwords in memory across session restarts and session duplication.  
+   WARNING: If and while enabled, this will cache passwords in memory insecurely. Consider not using this on
+   shared computers.
 
 [Back to top](#table-of-contents)
 
