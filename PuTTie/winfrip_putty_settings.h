@@ -22,6 +22,7 @@
 	gppb((sesskey), "FripCachePasswords", WFF_CACHEPASSWORD_DEFAULT_CACHE_PASSWORDS, (conf), CONF_frip_cache_passwords);					\
 	gppb((sesskey), "FripGeneralAlwaysOnTop", WFF_GENERAL_DEFAULT_ALWAYS_ON_TOP, (conf), CONF_frip_general_always_on_top);					\
 	gppb((sesskey), "FripGeneralMinimiseToSysTray", WFF_GENERAL_DEFAULT_MINIMISE_TO_SYSTRAY, (conf), CONF_frip_general_minimise_to_systray);		\
+	gppb((sesskey), "FripGeneralRestartSession", WFF_GENERAL_DEFAULT_RESTART_SESSION, (conf), CONF_frip_general_restart_session);				\
 	gppb((sesskey), "FripMouseFontSizeWheel", WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL, (conf), CONF_frip_mouse_font_size_wheel);					\
 	gppi((sesskey), "FripTranspCustom", WFF_TRANS_DEFAULT_CUSTOM, (conf), CONF_frip_trans_custom);								\
 	gppi((sesskey), "FripTranspOpaqueOn", WFF_TRANS_DEFAULT_OPAQUE_ON, (conf), CONF_frip_trans_opaque_on);							\
@@ -52,6 +53,7 @@
 	write_setting_b((sesskey), "FripCachePasswords", conf_get_bool((conf), CONF_frip_cache_passwords));				\
 	write_setting_b((sesskey), "FripGeneralAlwaysOnTop", conf_get_bool((conf), CONF_frip_general_always_on_top));			\
 	write_setting_b((sesskey), "FripGeneralMinimiseToSysTray", conf_get_bool((conf), CONF_frip_general_minimise_to_systray));	\
+	write_setting_b((sesskey), "FripGeneralRestartSession", conf_get_bool((conf), CONF_frip_general_restart_session));		\
 	write_setting_b((sesskey), "FripMouseFontSizeWheel", conf_get_bool((conf), CONF_frip_mouse_font_size_wheel));			\
 	write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_trans_custom));					\
 	write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_trans_opaque_on));				\

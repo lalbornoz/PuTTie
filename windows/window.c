@@ -303,7 +303,15 @@ static const SeatVtable win_seat_vt = {
 WinGuiSeat wgs = { .seat.vt = &win_seat_vt, .logpolicy.vt = &win_gui_logpolicy_vt };
 /* winfrip }}} */
 
+/* {{{ winfrip */
+#if 0
+/* winfrip }}} */
 static void start_backend(WinGuiSeat *wgs)
+/* {{{ winfrip */
+#else
+void start_backend(WinGuiSeat *wgs)
+#endif
+/* winfrip }}} */
 {
     const struct BackendVtable *vt;
     char *error, *realhost;
@@ -636,7 +644,7 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         WffTransOperation(WFF_TRANS_OP_FOCUS_SET, wgs->conf, wgs->term_hwnd);
         /* winfrip }}} */
         /* {{{ winfrip */
-        (void)WffGeneralOperation(WFF_GENERAL_OP_SYSTRAY_INIT, wgs->conf, inst, wgs->term_hwnd, -1, -1, -1);
+        (void)WffGeneralOperation(WFF_GENERAL_OP_SYSTRAY_INIT, wgs->conf, inst, wgs->term_hwnd, -1, -1, NULL, -1);
         /* winfrip }}} */
 #endif
 
@@ -1200,7 +1208,9 @@ static void win_seat_connection_fatal(Seat *seat, const char *msg)
     show_mouseptr(wgs, true);
     /* {{{ winfrip */
 #if 1
-    WfrMessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
+    if (!conf_get_bool(wgs->conf, CONF_frip_general_restart_session)) {
+        WfrMessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
+    }
 #else
     /* winfrip }}} */
     MessageBox(wgs->term_hwnd, msg, title, MB_ICONERROR | MB_OK);
@@ -1210,9 +1220,23 @@ static void win_seat_connection_fatal(Seat *seat, const char *msg)
     sfree(title);
 
     if (conf_get_int(wgs->conf, CONF_close_on_exit) == FORCE_ON)
+    /* {{{ winfrip */
+    {
+        if (!conf_get_bool(wgs->conf, CONF_frip_general_restart_session)) {
+    /* winfrip }}} */
         PostQuitMessage(1);
+    /* {{{ winfrip */
+        }
+    }
+    /* winfrip }}} */
     else {
+        /* {{{ winfrip */
+        if (!conf_get_bool(wgs->conf, CONF_frip_general_restart_session)) {
+        /* winfrip }}} */
         queue_toplevel_callback(close_session, wgs);
+        /* {{{ winfrip */
+        }
+        /* winfrip }}} */
     }
 }
 
@@ -2191,10 +2215,22 @@ static void exit_callback(void *vctx)
          * appropriate action. */
         if (close_on_exit == FORCE_ON ||
             (close_on_exit == AUTO && exitcode != INT_MAX)) {
+            /* {{{ winfrip */
+            if (!conf_get_bool(wgs->conf, CONF_frip_general_restart_session)) {
+            /* winfrip }}} */
             PostQuitMessage(0);
+            /* {{{ winfrip */
+            }
+            /* winfrip }}} */
         } else {
+            /* {{{ winfrip */
+            if (!conf_get_bool(wgs->conf, CONF_frip_general_restart_session)) {
+            /* winfrip }}} */
             queue_toplevel_callback(close_session, wgs);
             wgs->session_closed = true;
+            /* {{{ winfrip */
+            }
+            /* winfrip }}} */
             /* exitcode == INT_MAX indicates that the connection was closed
              * by a fatal error, so an error box will be coming our way and
              * we should not generate this informational one. */
@@ -2202,8 +2238,10 @@ static void exit_callback(void *vctx)
                 show_mouseptr(wgs, true);
                 /* {{{ winfrip */
             #if 1
-                WfrMessageBox(wgs->term_hwnd, "Connection closed by remote host",
-                              appname, MB_OK | MB_ICONINFORMATION);
+                if (!conf_get_bool(wgs->conf, CONF_frip_general_restart_session)) {
+                    WfrMessageBox(wgs->term_hwnd, "Connection closed by remote host",
+                                  appname, MB_OK | MB_ICONINFORMATION);
+                }
             #else
                 /* winfrip }}} */
                 MessageBox(wgs->term_hwnd, "Connection closed by remote host",
@@ -2212,6 +2250,9 @@ static void exit_callback(void *vctx)
             #endif
                 /* winfrip }}} */
             }
+            /* {{{ winfrip */
+            (void)WffGeneralOperation(WFF_GENERAL_OP_RESTART_SESSION, NULL, NULL, NULL, -1, -1, wgs, -1);
+            /* winfrip }}} */
         }
     }
 }
@@ -2530,7 +2571,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             prev_conf = conf_copy(wgs->conf);
 
             /* {{{ winfrip */
-            (void)WffGeneralOperation(WFF_GENERAL_OP_CONFIG_DIALOG, wgs->conf, hinst, hwnd, -1, -1, -1);
+            (void)WffGeneralOperation(WFF_GENERAL_OP_CONFIG_DIALOG, wgs->conf, hinst, hwnd, -1, -1, NULL, -1);
             /* winfrip }}} */
             reconfig_result = do_reconfig(
                 hwnd, wgs->conf,
@@ -2555,7 +2596,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             wgs->reconfiguring = false;
             if (!reconfig_result) {
               /* {{{ winfrip */
-              (void)WffGeneralOperation(WFF_GENERAL_OP_FOCUS_SET, wgs->conf, hinst, hwnd, -1, false, -1);
+              (void)WffGeneralOperation(WFF_GENERAL_OP_FOCUS_SET, wgs->conf, hinst, hwnd, -1, false, NULL, -1);
               /* winfrip }}} */
               conf_free(prev_conf);
               break;
@@ -2724,7 +2765,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
             conf_free(prev_conf);
             /* {{{ winfrip */
-            (void)WffGeneralOperation(WFF_GENERAL_OP_FOCUS_SET, wgs->conf, hinst, hwnd, -1, false, -1);
+            (void)WffGeneralOperation(WFF_GENERAL_OP_FOCUS_SET, wgs->conf, hinst, hwnd, -1, false, NULL, -1);
             /* winfrip }}} */
             break;
           }
@@ -2776,7 +2817,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
             break;
           default:
             /* {{{ winfrip */
-            if (WffGeneralOperation(WFF_GENERAL_OP_SYSTRAY_WM_MENU, wgs->conf, hinst, hwnd, -1, -1, wParam) == WF_RETURN_BREAK) {
+            if (WffGeneralOperation(WFF_GENERAL_OP_SYSTRAY_WM_MENU, wgs->conf, hinst, hwnd, -1, -1, NULL, wParam) == WF_RETURN_BREAK) {
                 break;
             }
             /* winfrip }}} */
@@ -3102,7 +3143,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_SETFOCUS:
         /* {{{ winfrip */
         WffTransOperation(WFF_TRANS_OP_FOCUS_SET, wgs->conf, hwnd);
-        (void)WffGeneralOperation(WFF_GENERAL_OP_FOCUS_SET, wgs->conf, hinst, hwnd, -1, wgs->reconfiguring, -1);
+        (void)WffGeneralOperation(WFF_GENERAL_OP_FOCUS_SET, wgs->conf, hinst, hwnd, -1, wgs->reconfiguring, NULL, -1);
         /* winfrip }}} */
         term_set_focus(wgs->term, true);
         CreateCaret(hwnd, wgs->caretbm, wgs->font_width, wgs->font_height);
@@ -3274,7 +3315,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
                              conf_get_bool(wgs->conf, CONF_win_name_always) ?
                              wgs->window_name : wgs->icon_name);
             if (wParam == SIZE_MINIMIZED) {
-                (void)WffGeneralOperation(WFF_GENERAL_OP_SYSTRAY_MINIMISE, wgs->conf, hinst, hwnd, -1, -1, -1);
+                (void)WffGeneralOperation(WFF_GENERAL_OP_SYSTRAY_MINIMISE, wgs->conf, hinst, hwnd, -1, -1, NULL, -1);
             }
         }
         if (wParam == SIZE_RESTORED || wParam == SIZE_MAXIMIZED)
@@ -3643,7 +3684,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       default:
         /* {{{ winfrip */
         if (message == WffGeneralGetWmSysTray()) {
-            (void)WffGeneralOperation(WFF_GENERAL_OP_SYSTRAY_WM_OTHER, wgs->conf, hinst, wgs->term_hwnd, lParam, -1, -1);
+            (void)WffGeneralOperation(WFF_GENERAL_OP_SYSTRAY_WM_OTHER, wgs->conf, hinst, wgs->term_hwnd, lParam, -1, NULL, -1);
             break;
         }
         /* winfrip }}} */

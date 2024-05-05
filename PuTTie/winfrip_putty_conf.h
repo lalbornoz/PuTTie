@@ -61,6 +61,11 @@ CONF_OPTION(frip_general_minimise_to_systray,			\
     DEFAULT_BOOL(WFF_GENERAL_DEFAULT_MINIMISE_TO_SYSTRAY),	\
     SAVE_KEYWORD("FripGeneralMinimiseToSystray"),		\
 )								\
+CONF_OPTION(frip_general_restart_session,			\
+    VALUE_TYPE(BOOL),						\
+    DEFAULT_BOOL(WFF_GENERAL_DEFAULT_RESTART_SESSION),		\
+    SAVE_KEYWORD("FripGeneralRestartSession"),			\
+)								\
 CONF_OPTION(frip_mouse_font_size_wheel,				\
     VALUE_TYPE(BOOL),						\
     DEFAULT_BOOL(WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL),		\

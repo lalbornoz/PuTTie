@@ -8,6 +8,7 @@
 #include "putty.h"
 #include "dialog.h"
 #include "windows/putty-rc.h"
+#include "windows/win-gui-seat.h"
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_rtl.h"
@@ -43,6 +44,13 @@
  */
 
 static NOTIFYICONDATAA	WffgpNotifyIcon;
+
+/*
+ * External subroutine prototypes
+ */
+
+/* [see windows/window.c] */
+void			start_backend(WinGuiSeat *wgs);
 
 /*
  * Private subroutine prototypes
@@ -163,6 +171,7 @@ WffGeneralConfigPanel(
 	ctrl_checkbox(s, "Minimise to system tray", 'y', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_general_minimise_to_systray));
 	ctrl_checkbox(s, "Cache passwords", 'p', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_cache_passwords));
 	ctrl_text(s, "WARNING: If and while enabled, this will cache passwords in memory insecurely. Consider not using this on shared computers.", WFP_HELP_CTX);
+	ctrl_checkbox(s, "Automatically restart session on disconnect", 'r', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_general_restart_session));
 }
 
 UINT
@@ -185,6 +194,7 @@ WffGeneralOperation(
 	HWND		hwnd,
 	LPARAM		lParam,
 	int		reconfiguring,
+	void *		wgs,
 	WPARAM		wParam
 	)
 {
@@ -216,6 +226,13 @@ WffGeneralOperation(
 		return WffgpSysTrayWmMenu(hwnd, wParam);
 	case WFF_GENERAL_OP_SYSTRAY_WM_OTHER:
 		WffgpSysTrayWmOther(hwnd, lParam); break;
+
+	case WFF_GENERAL_OP_RESTART_SESSION:
+		/* window.c:WndProc():IDM_RESTART */
+		lp_eventlog(&((WinGuiSeat *)wgs)->logpolicy, "----- Session restarted -----");
+		term_pwron(((WinGuiSeat *)wgs)->term, false);
+		start_backend(wgs);
+		break;
 
 	default:
 		WFR_DEBUG_FAIL();

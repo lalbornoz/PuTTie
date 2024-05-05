@@ -144,6 +144,7 @@ you should use PuTTie:
    and can be enabled in the Frippery panel.  
    WARNING: If and while enabled, this will cache passwords in memory insecurely. Consider not using this on
    shared computers.
+13. **Automatic session restart on disconnect**  
 
 [Back to top](#table-of-contents)
 
@@ -173,8 +174,10 @@ tool is provided for this purpose. Follow the following steps in order to create
 [//]: ## "{{{ Thanks to"
 ## Thanks to
 
-Thanks to <a href="https://github.com/gtwy">James Watt</a> and
-<a href="https://github.com/SamKook">SamKook</a> for helping fixing lots of bugs!
+Thanks to <a href="https://github.com/gtwy">James Watt</a>,
+<a href="https://github.com/SamKook">SamKook</a>,
+<a href="https://github.com/opbod">opbod</a>,
+for helping fixing lots of bugs!
 
 [Back to top](#table-of-contents)
 
