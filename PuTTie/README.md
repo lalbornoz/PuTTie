@@ -110,9 +110,12 @@ you should use PuTTie:
    Selectable w/ command-line option ``--file`` in plink, pscp, psftp, pterm, putty & puttytel  
    Additionally, file storage may be initialised from the registry w/ the command-
    line option ``--file=registry``  
+  
    User interfaces are provided within putty & puttytel to clean up, clear, copy, delete, migrate,
    rename, and move sessions, host CAs, host keys, and the persistent Pageant private key and
    jump lists and global options from/to all storage backends (ephemeral, file, registry)
+  
+   The disk file configuration tree is, by default, rooted at ``%APPDATA%\PuTTie\``.
 8. **Store configuration in ephemeral storage**  
    Selectable w/ command-line option ``--ephemeral`` in plink, pscp, psftp, pterm, putty & puttytel  
    Additionally, ephemeral storage may be initialised from disk files or the registry w/ the command-
