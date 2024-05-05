@@ -140,6 +140,4 @@ Makefile
 /windows/*.msi
 /windows/*.wixobj
 /windows/*.wixpdb
-.buildme.sh
-.runme.sh
 compile_commands.json
