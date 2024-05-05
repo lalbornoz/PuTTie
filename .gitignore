@@ -141,3 +141,4 @@ Makefile
 /windows/*.wixobj
 /windows/*.wixpdb
 compile_commands.json
+.cache/clangd/
