@@ -48,7 +48,7 @@ CONF_OPTION(frip_bgimg_type,					\
 )								\
 CONF_OPTION(frip_cache_passwords,				\
     VALUE_TYPE(BOOL),						\
-    DEFAULT_BOOL(WFF_CACHE_PASSWORDS),				\
+    DEFAULT_BOOL(WFF_CACHEPASSWORD_DEFAULT_CACHE_PASSWORDS),	\
     SAVE_KEYWORD("FripCachePasswords"),				\
 )								\
 CONF_OPTION(frip_general_always_on_top,				\

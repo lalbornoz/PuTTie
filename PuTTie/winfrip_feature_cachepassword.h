@@ -10,7 +10,7 @@
  * Public defaults
  */
 
-#define	WFF_CACHE_PASSWORDS	false
+#define	WFF_CACHEPASSWORD_DEFAULT_CACHE_PASSWORDS	false
 
 /*
  * Public type definitions and subroutine prototypes used by/in:
