@@ -8,6 +8,7 @@
 #include "PuTTie/winfrip_rtl.h"
 #include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
+#include "PuTTie/winfrip_subr_putty_help.h"
 /* winfrip }}} */
 
 extern bool sesslist_demo_mode;
@@ -40,12 +41,19 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
     conf_set_int(conf, CONF_logtype, LGTYP_NONE);
 
     /* {{{ winfrip */
-    WfrStatus    status;
+    WfrStatus   status;
+    bool        exitfl = false;
+    int         exit_status;
 
 
     if (WFR_STATUS_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
         WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "setting backend");
         exit(1);
+    } else {
+        WfPuttyCmdLineHelp(cmdline, &exitfl, &exit_status);
+        if (exitfl) {
+            exit(exit_status);
+        }
     }
     /* winfrip }}} */
 

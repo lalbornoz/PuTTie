@@ -123,6 +123,7 @@ set_source_files_properties(../PuTTie/winfrip_storage_privkey_list.c PROPERTIES 
 set_source_files_properties(../PuTTie/winfrip_storage_sessions.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_subr_pageant.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 set_source_files_properties(../PuTTie/winfrip_subr_putty_config.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
+set_source_files_properties(../PuTTie/winfrip_subr_putty_help.c PROPERTIES COMPILE_FLAGS "-Wall -Wextra")
 
 if ("${DEFAULT_STORAGE_BACKEND}" STREQUAL "")
   set(DEFAULT_STORAGE_BACKEND "WFS_BACKEND_REGISTRY")
@@ -253,7 +254,8 @@ set_property(TARGET putty APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_storage_priv.c
   ../PuTTie/winfrip_storage_privkey_list.c
   ../PuTTie/winfrip_storage_sessions.c
-  ../PuTTie/winfrip_subr_putty_config.c)
+  ../PuTTie/winfrip_subr_putty_config.c
+  ../PuTTie/winfrip_subr_putty_help.c)
 endif()
 # winfrip }}}
 be_list(putty PuTTie SSH SERIAL OTHERBACKENDS)
