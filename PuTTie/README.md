@@ -145,6 +145,8 @@ you should use PuTTie:
    WARNING: If and while enabled, this will cache passwords in memory insecurely. Consider not using this on
    shared computers.
 13. **Automatic session restart on disconnect**  
+14. **putty.exe help screen**  
+    Pass any of: ``-?``, ``-h``, ``--help``.
 
 [Back to top](#table-of-contents)
 
