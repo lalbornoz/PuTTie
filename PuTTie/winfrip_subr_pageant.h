@@ -6,7 +6,6 @@
 #ifndef PUTTY_WINFRIP_SUBR_PAGEANT_H
 #define PUTTY_WINFRIP_SUBR_PAGEANT_H
 
-
 /*
  * Public subroutine prototypes private to windows/pageant.c
  */
