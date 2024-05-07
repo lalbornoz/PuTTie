@@ -121,7 +121,7 @@ WfPuttyCmdLineHelp(
 	WfrStatus	status;
 
 
-	for (arg = cmdline, *pexitfl = false;
+	for (arg = cmdline, *pexitfl = false, status = WFR_STATUS_CONDITION_SUCCESS;
 	     arg && arg[0] && WFR_SUCCESS(status) && !(*pexitfl);
 	     arg = arg_next)
 	{
