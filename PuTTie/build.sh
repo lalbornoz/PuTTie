@@ -89,7 +89,8 @@ build_dbg_cli() {
 	x86_64-w64-mingw32-gdb				\
 		-ex "set pagination off"		\
 		-ex "target remote ${_addr}"		\
-		"${_exe_fname}";
+		"${_exe_fname}"				\
+		"${@}";
 	return "${?}";
 };
 # }}}
@@ -249,7 +250,7 @@ buildp_usage() {
 	echo "       -d....................: select Debug (vs. Release) build (NB: pass -c when switching between build types)" >&2;
 	echo "       -D....................: select Debug w/o debugging console (vs. Release) build (for usage w/ --dbg-{svr,cli} (NB: pass -c when switching between build types)" >&2;
 	echo "       --dbg-svr <fname> [..]: run <fname> w/ optional arguments via wine & local gdbserver on port 1234" >&2;
-	echo "       --dbg-cli <fname>.....: debug <fname> w/ MingW gdb previously launched w/ --dbg-svr" >&2;
+	echo "       --dbg-cli <fname> [..]: debug <fname> w/ MingW gdb and optional arguments previously launched w/ --dbg-svr" >&2;
 	echo "       -h....................: show this screen" >&2;
 	echo "       -i....................: {clean,install} images {pre,post}-build" >&2;
 	echo "       -j <jobs>.............: set cmake(1) max. job count" >&2;
