@@ -89,7 +89,7 @@ WfrStatus	WfspEphemeralSetEntriesPrivKeyList(const char *privkey_list, size_t pr
 WfrStatus	WfspEphemeralCleanupContainer(WfsBackend backend);
 WfrStatus	WfspEphemeralEnumerateCancel(WfsBackend backend, void **pstate);
 WfrStatus	WfspEphemeralInit(void);
-WfrStatus	WfspEphemeralSetBackend(WfsBackend backend_new);
+WfrStatus	WfspEphemeralSetBackend(WfsBackend backend_new, char *args_extra);
 
 #endif // !PUTTY_WINFRIP_STORAGE_BACKEND_EPHEMERAL_H
 

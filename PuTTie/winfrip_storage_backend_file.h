@@ -89,7 +89,7 @@ WfrStatus	WfspFileSetEntriesPrivKeyList(const char *privkey_list, size_t privkey
 WfrStatus	WfspFileCleanupContainer(WfsBackend backend);
 WfrStatus	WfspFileEnumerateCancel(WfsBackend backend, void **pstate);
 WfrStatus	WfspFileInit(void);
-WfrStatus	WfspFileSetBackend(WfsBackend backend_new);
+WfrStatus	WfspFileSetBackend(WfsBackend backend_new, char *args_extra);
 
 #endif // !PUTTY_WINFRIP_STORAGE_BACKEND_FILE_H
 

@@ -12,6 +12,10 @@
  * Public type definitions private to PuTTie/winfrip*.c
  */
 
+#ifndef WFS_DEFAULT_STORAGE_BACKEND
+#define WFS_DEFAULT_STORAGE_BACKEND	WFS_BACKEND_REGISTRY
+#endif /* !WFS_DEFAULT_STORAGE_BACKEND */
+
 typedef enum WfsBackend {
 	WFS_BACKEND_EPHEMERAL	= 0,
 	WFS_BACKEND_FILE	= 1,
@@ -63,7 +67,7 @@ WfrStatus	WfsGetBackendArg(WfsBackend backend, const char **parg);
 WfrStatus	WfsGetBackendArgString(char **parg_string);
 WfrStatus	WfsGetBackendName(WfsBackend backend, const char **pname);
 bool		WfsGetBackendNext(WfsBackend *pbackend);
-WfrStatus	WfsSetBackend(WfsBackend new_backend, WfsBackend new_backend_from, bool reset);
+WfrStatus	WfsSetBackend(WfsBackend new_backend, WfsBackend new_backend_from, bool reset, char *args_extra);
 WfrStatus	WfsSetBackendFromArgV(int *pargc, char ***pargv);
 WfrStatus	WfsSetBackendFromCmdLine(char *cmdline);
 

@@ -753,11 +753,14 @@ WfspRegistryInit(
 
 WfrStatus
 WfspRegistrySetBackend(
-	WfsBackend	backend_new
+	WfsBackend	backend_new,
+	char *		args_extra
 	)
 {
 	WfrStatus	status;
 
+
+	WFR_FREE_IF_NOTNULL(args_extra);
 
 	if (WFR_SUCCESS(status = WfsClearHostCAs(backend_new, false))
 	&&  WFR_SUCCESS(status = WfsClearHostKeys(backend_new, false))
