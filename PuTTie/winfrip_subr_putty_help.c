@@ -111,7 +111,7 @@ WfpPuttyUsage(
 	printf("Press any key to continue.\n");
 	fflush(stdout);
 	fflush(stdin);
-	(void)getch();
+	(void)getchar();
 }
 
 /*
