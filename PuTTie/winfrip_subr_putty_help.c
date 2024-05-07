@@ -8,6 +8,8 @@
 #include "putty.h"
 #pragma GCC diagnostic pop
 
+#include <conio.h>
+
 #include "PuTTie/winfrip_subr_putty_help.h"
 
 /*
@@ -111,7 +113,7 @@ WfpPuttyUsage(
 	printf("Press any key to continue.\n");
 	fflush(stdout);
 	fflush(stdin);
-	(void)getchar();
+	(void)_getch();
 }
 
 /*
