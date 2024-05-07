@@ -130,7 +130,7 @@ WffsSessionsConfigPanelDroplistBackendHandler(
 	case EVENT_SELCHANGE:
 	case EVENT_VALCHANGE:
 		id = dlg_listbox_getid(ctrl, dlg, dlg_listbox_index(ctrl, dlg));
-		status = WfsSetBackend(id, id, false);
+		status = WfsSetBackend(id, id, false, NULL);
 		ctrl_sessionsaver->handler(ctrl_sessionsaver, dlg, data, EVENT_REFRESH);
 
 		WFR_IF_STATUS_FAILURE_MESSAGEBOX(status, NULL, "setting backend");

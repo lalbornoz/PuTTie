@@ -89,7 +89,7 @@ WfrStatus	WfspRegistrySetEntriesPrivKeyList(const char *privkey_list, size_t pri
 WfrStatus	WfspRegistryCleanupContainer(WfsBackend backend);
 WfrStatus	WfspRegistryEnumerateCancel(WfsBackend backend, void **pstate);
 WfrStatus	WfspRegistryInit(void);
-WfrStatus	WfspRegistrySetBackend(WfsBackend backend_new);
+WfrStatus	WfspRegistrySetBackend(WfsBackend backend_new, char *args_extra);
 
 #endif // !PUTTY_WINFRIP_STORAGE_BACKEND_REGISTRY_H
 

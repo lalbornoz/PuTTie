@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include <windows.h>
 
@@ -44,7 +45,7 @@ static WfsBackend	WfspLastBackend = WFS_DEFAULT_STORAGE_BACKEND,
  */
 
 static WfrStatus	WfspInit(WfsBackend backend);
-static WfrStatus	WfspSetBackendFromArg(const char *arg, bool *psetfl, WfsBackend *pbackend, WfsBackend *pbackend_from);
+static WfrStatus	WfspSetBackendFromArg(char *arg, WfsBackend *pbackend, WfsBackend *pbackend_from, const char **pbackend_arg, char **pbackend_args_extra);
 
 /*
  * Private subroutines
@@ -81,13 +82,14 @@ WfspInit(
 
 static WfrStatus
 WfspSetBackendFromArg(
-	const char *	arg,
-	bool *		psetfl,
+	char *		arg,
 	WfsBackend *	pbackend,
-	WfsBackend *	pbackend_from
+	WfsBackend *	pbackend_from,
+	const char **	pbackend_arg,
+	char **		pbackend_args_extra
 	)
 {
-	const char *	arg_suffix = NULL;
+	char *		arg_suffix = NULL;
 	size_t		arg_suffix_len;
 	WfsBackend	backend;
 	const char *	backend_arg;
@@ -96,7 +98,9 @@ WfspSetBackendFromArg(
 
 
 	backend = WFS_BACKEND_MIN;
-	*psetfl = false;
+	*pbackend_arg = NULL;
+	*pbackend_args_extra = NULL;
+	status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 
 	do {
 		if (WFR_SUCCESS(status = WfsGetBackendArg(backend, &backend_arg)))
@@ -106,8 +110,8 @@ WfspSetBackendFromArg(
 			&&  (strncmp(&arg[2], backend_arg, backend_arg_len) == 0))
 			{
 				arg_suffix = &arg[2 + backend_arg_len];
-				*psetfl = true;
 				*pbackend = *pbackend_from = backend;
+				*pbackend_arg = backend_arg;
 				status = WFR_STATUS_CONDITION_SUCCESS;
 				break;
 			}
@@ -115,25 +119,34 @@ WfspSetBackendFromArg(
 	} while (WFR_SUCCESS(status) && WfsGetBackendNext(&backend));
 
 	if (WFR_SUCCESS(status)
-	&&  arg_suffix && ((arg_suffix_len = strlen(arg_suffix)) > 0))
+	&&  (arg_suffix != NULL)
+	&&  ((arg_suffix_len = strlen(arg_suffix)) > 0))
 	{
-		backend = WFS_BACKEND_MIN;
-		*psetfl = false;
-		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-
-		do {
-			if (WFR_SUCCESS(status = WfsGetBackendArg(backend, &backend_arg)))
-			{
-				if ((arg_suffix[0] == '=')
-				&&  (strcmp(&arg_suffix[1], backend_arg) == 0))
+		if ((arg_suffix[0] == '=')
+		&&  (arg_suffix[1] == ';'))
+		{
+			*pbackend_args_extra = &arg_suffix[2];
+			status = WFR_STATUS_CONDITION_SUCCESS;
+		} else if (arg_suffix[0] == '=') {
+			backend = WFS_BACKEND_MIN;
+			do {
+				if (WFR_SUCCESS(status = WfsGetBackendArg(backend, &backend_arg)))
 				{
-					*pbackend_from = backend;
-					*psetfl = true;
-					status = WFR_STATUS_CONDITION_SUCCESS;
-					break;
+					backend_arg_len = strlen(backend_arg);
+					if (strncmp(&arg_suffix[1], backend_arg, backend_arg_len) == 0) {
+						if (arg_suffix[1 + backend_arg_len] == ';') {
+							*pbackend_args_extra = &arg_suffix[1 + backend_arg_len + 1];
+						}
+
+						*pbackend_from = backend;
+						status = WFR_STATUS_CONDITION_SUCCESS;
+						break;
+					}
 				}
-			}
-		} while (WFR_SUCCESS(status) && WfsGetBackendNext(&backend));
+			} while (WFR_SUCCESS(status) && WfsGetBackendNext(&backend));
+		} else {
+			status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+		}
 	}
 
 	return status;
@@ -235,7 +248,8 @@ WfrStatus
 WfsSetBackend(
 	WfsBackend	new_backend,
 	WfsBackend	new_backend_from,
-	bool		reset
+	bool		reset,
+	char *		args_extra
 	)
 {
 	WfsErrorFn	error_fn =
@@ -248,7 +262,7 @@ WfsSetBackend(
 
 	if (reset || (WfspBackendCurrent != new_backend)) {
 		if (WFR_SUCCESS(status = WfsGetBackendImpl(new_backend, &new_backend_impl))) {
-			status = new_backend_impl->SetBackend(new_backend);
+			status = new_backend_impl->SetBackend(new_backend, args_extra);
 			if ((new_backend_from != new_backend)
 			&&  WFR_SUCCESS(status))
 			{
@@ -289,40 +303,64 @@ WfsSetBackendFromArgV(
 {
 	char *		arg;
 	int		argc_new = 0, argc_new_;
+	const char *	backend_arg;
+	char *		backend_args_extra = NULL, *backend_args_extra_new;
 	char **		argv_new;
-	WfsBackend	backend = WFS_DEFAULT_STORAGE_BACKEND, backend_from = WFS_DEFAULT_STORAGE_BACKEND;
+	WfsBackend	backend = WFS_DEFAULT_STORAGE_BACKEND;
+	WfsBackend	backend_from = WFS_DEFAULT_STORAGE_BACKEND;
 	int		narg, narg_new;
-	bool		setfl;
 	WfrStatus	status;
 
 
 	argc_new_ = *pargc;
+
 	if (WFR_NEWN(status, argv_new, argc_new_, char *)) {
 		memset(argv_new, 0, argc_new_ * sizeof(*argv_new));
-		for (narg = 0, narg_new = 0, setfl = false;
-			 (narg < (*pargc)) && WFR_SUCCESS(status);
-			 narg++, setfl = false)
+		for (narg = 0, narg_new = 0;
+		     (narg < (*pargc)) && WFR_SUCCESS(status);
+		     narg++)
 		{
 			arg = (*pargv)[narg];
-			status = WfspSetBackendFromArg(arg, &setfl, &backend, &backend_from);
 
-			if (WFR_SUCCESS(status)) {
-				if (!setfl) {
+			status = WfspSetBackendFromArg(
+				arg, &backend, &backend_from,
+				&backend_arg, &backend_args_extra_new);
+
+			if (WFR_SUCCESS(status) && (backend_args_extra_new != NULL)) {
+				if (!backend_arg) {
 					argc_new++;
 					argv_new[narg_new++] = arg;
+				}
+
+				WFR_FREE_IF_NOTNULL(backend_args_extra);
+				if (backend_args_extra_new != NULL) {
+					WFR_STATUS_BIND_POSIX(status,
+						(backend_args_extra = strdup(
+							backend_args_extra_new)));
+				} else {
+					backend_args_extra = NULL;
 				}
 			}
 		}
 
 		if (WFR_SUCCESS(status)) {
-			if (!WFR_RESIZE_IF_NEQ_SIZE(status, argv_new, argc_new_, argc_new, char *)) {
+			if (!WFR_RESIZE_IF_NEQ_SIZE(
+					status, argv_new, argc_new_,
+					argc_new, char *)
+			||  WFR_FAILURE(status = WfsSetBackend(
+					backend, backend_from,
+					true, backend_args_extra)))
+			{
 				WFR_FREE(argv_new);
-			} else if (WFR_FAILURE(status = WfsSetBackend(backend, backend_from, true))) {
-				WFR_FREE(argv_new);
+				WFR_FREE_IF_NOTNULL(backend_args_extra);
 			} else {
-				*pargc = argc_new_; *pargv = argv_new;
-				WfspLastBackend = backend; WfspLastBackendFrom = backend_from;
+				*pargc = argc_new_;
+				*pargv = argv_new;
+				WfspLastBackend = backend;
+				WfspLastBackendFrom = backend_from;
 			}
+		} else {
+			WFR_FREE_IF_NOTNULL(backend_args_extra);
 		}
 	}
 
@@ -335,16 +373,17 @@ WfsSetBackendFromCmdLine(
 	)
 {
 	char *		arg, *arg_, *arg_full, *arg_next;
+	const char *	backend_arg;
+	char *		backend_args_extra = NULL, *backend_args_extra_new;
 	size_t		arg_len;
-	WfsBackend	backend = WFS_DEFAULT_STORAGE_BACKEND, backend_from = WFS_DEFAULT_STORAGE_BACKEND;
-	bool		setfl;
+	WfsBackend	backend = WFS_DEFAULT_STORAGE_BACKEND;
+	WfsBackend	backend_from = WFS_DEFAULT_STORAGE_BACKEND;
 	WfrStatus	status;
 
 
-	status = WFR_STATUS_CONDITION_SUCCESS;
-	for (arg = cmdline, setfl = false;
-		 arg && arg[0] && WFR_SUCCESS(status);
-		 arg = arg_next, setfl = false)
+	for (arg = cmdline, status = WFR_STATUS_CONDITION_SUCCESS;
+	     arg && arg[0] && WFR_SUCCESS(status);
+	     arg = arg_next)
 	{
 		arg_full = arg;
 		while (*arg == ' ') {
@@ -355,27 +394,51 @@ WfsSetBackendFromCmdLine(
 
 		if (WFR_NEWN(status, arg_, arg_len + 1, char)) {
 			memcpy(arg_, arg, arg_len); arg_[arg_len] = '\0';
-			status = WfspSetBackendFromArg(arg_, &setfl, &backend, &backend_from);
-			WFR_FREE(arg_);
-		}
 
-		if (WFR_SUCCESS(status)) {
-			if (setfl) {
-				if (arg_next) {
-					memmove(arg_full, arg_next, strlen(arg_next) + 1);
-					arg_next = arg_full;
-				} else {
-					memmove(arg_full, &arg_full[strlen(arg_full)], 1);
+			status = WfspSetBackendFromArg(
+				arg_, &backend, &backend_from,
+				&backend_arg, &backend_args_extra_new);
+
+			if (WFR_SUCCESS(status)) {
+				if (backend_arg != NULL) {
+					if ((arg_next != NULL) && (arg_full == cmdline)) {
+						memmove(arg_full, arg_next + 1, strlen(arg_next));
+						arg_next = arg_full;
+					} else if ((arg_next != NULL) && (arg_full != cmdline)) {
+						memmove(arg_full, arg_next, strlen(arg_next) + 1);
+						arg_next = arg_full;
+					} else {
+						memmove(arg_full, &arg_full[strlen(arg_full)], 1);
+					}
+				}
+
+				if (backend_args_extra_new != NULL) {
+					WFR_FREE_IF_NOTNULL(backend_args_extra);
+					if (backend_args_extra_new != NULL) {
+						WFR_STATUS_BIND_POSIX(status,
+							(backend_args_extra = strdup(
+								backend_args_extra_new)));
+					} else {
+						backend_args_extra = NULL;
+					}
 				}
 			}
+
+			WFR_FREE(arg_);
 		}
 	}
 
-	if (WFR_SUCCESS(status)) {
-		status = WfsSetBackend(backend, backend_from, true);
-		if (WFR_SUCCESS(status)) {
-			WfspLastBackend = backend; WfspLastBackendFrom = backend_from;
-		}
+	if (WFR_SUCCESS(status)
+	&&  WFR_SUCCESS(status = WfsSetBackend(
+			backend, backend_from,
+			true, backend_args_extra)))
+	{
+		WfspLastBackend = backend;
+		WfspLastBackendFrom = backend_from;
+	}
+
+	if (WFR_FAILURE(status)) {
+		WFR_FREE_IF_NOTNULL(backend_args_extra);
 	}
 
 	return status;
@@ -433,7 +496,7 @@ WfsInit(
 	} while (WFR_SUCCESS(status) && WfsGetBackendNext(&backend));
 
 	if (WFR_SUCCESS(status)) {
-		status = WfsSetBackend(WfspBackendCurrent, WfspBackendCurrent, true);
+		status = WfsSetBackend(WfspBackendCurrent, WfspBackendCurrent, true, NULL);
 	}
 
 	return status;

@@ -558,10 +558,12 @@ WfspEphemeralInit(
 
 WfrStatus
 WfspEphemeralSetBackend(
-	WfsBackend	backend_new
+	WfsBackend	backend_new,
+	char *		args_extra
 	)
 {
 	(void)backend_new;
+	WFR_FREE_IF_NOTNULL(args_extra);
 	return WFR_STATUS_CONDITION_SUCCESS;
 }
 

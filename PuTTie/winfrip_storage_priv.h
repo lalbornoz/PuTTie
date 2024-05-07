@@ -67,7 +67,7 @@ typedef struct WfspBackend {
 	WfrStatus	(*CleanupContainer)(WfsBackend);
 	WfrStatus	(*EnumerateCancel)(WfsBackend, void **);
 	WfrStatus	(*Init)(void);
-	WfrStatus	(*SetBackend)(WfsBackend);
+	WfrStatus	(*SetBackend)(WfsBackend, char *);
 
 	tree234 *	tree_host_ca;
 	tree234 *	tree_host_key;

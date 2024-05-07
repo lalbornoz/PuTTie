@@ -69,7 +69,7 @@ void			clear_jumplist_PuTTY(void);
  * Private subroutine prototypes
  */
 
-static WfrStatus	WfsppFileInitAppDataSubdir(void);
+static WfrStatus	WfsppFileInitAppDataSubdir(char *appdata);
 static WfrStatus	WfsppFileTransformList(bool addfl, bool delfl, const char *fname, const char *fname_tmp, const char *const trans_item);
 
 /*
@@ -78,21 +78,58 @@ static WfrStatus	WfsppFileTransformList(bool addfl, bool delfl, const char *fnam
 
 static WfrStatus
 WfsppFileInitAppDataSubdir(
-	void
+	char *	appdata
 	)
 {
-	char *		appdata = NULL;
+	char *		appdata_default = NULL;
 	wchar_t *	appdataW;
+	wchar_t *	last_slash;
+	wchar_t		module_fnameW[PATH_MAX + 1];
+	size_t		module_fnameW_len;
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS_ERRNO1(status, ENOENT, (appdataW = _wgetenv(L"APPDATA")))
-	&&  WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(appdataW, wcslen(appdataW), &appdata)))
-	{
+	if (appdata != NULL) {
 		WfsppFileAppData = appdata;
-		WFR_SNPRINTF(
-			WfsppFileDname, sizeof(WfsppFileDname),
-			"%s\\PuTTie", WfsppFileAppData);
+		status = WFR_STATUS_CONDITION_SUCCESS;
+
+		if (appdata[0] == '~') {
+			if (WFR_SUCCESS_WINDOWS(status, GetModuleFileNameW(
+					NULL, module_fnameW,
+					WFR_SIZEOF_WSTRING(module_fnameW)))
+			&&  ((module_fnameW_len = wcslen(module_fnameW)) > 0))
+			{
+				for (last_slash = &module_fnameW[module_fnameW_len];
+				     (last_slash >= (wchar_t*)&module_fnameW)
+				     	&& (last_slash[0] != '\\') && (last_slash[0] != '/');
+				     last_slash--);
+
+				if ((last_slash[0] == '\\') || (last_slash[0] == '/')) {
+					last_slash[0] = '\0';
+					WFR_SNPRINTF(
+						WfsppFileDname, sizeof(WfsppFileDname),
+						"%S\\%s", module_fnameW, &WfsppFileAppData[1]);
+				} else {
+					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
+				}
+			}
+		} else {
+			WFR_SNPRINTF(
+				WfsppFileDname, sizeof(WfsppFileDname),
+				"%s", WfsppFileAppData);
+		}
+	} else {
+		if (WFR_SUCCESS_ERRNO1(status, ENOENT, (appdataW = _wgetenv(L"APPDATA")))
+		&&  WFR_SUCCESS(status = WfrConvertUtf16ToUtf8String(appdataW, wcslen(appdataW), &appdata_default)))
+		{
+			WfsppFileAppData = appdata_default;
+			WFR_SNPRINTF(
+				WfsppFileDname, sizeof(WfsppFileDname),
+				"%s\\PuTTie", WfsppFileAppData);
+		}
+	}
+
+	if (WFR_SUCCESS(status)) {
 		WFR_SNPRINTF(
 			WfsppFileDnameHostCAs, sizeof(WfsppFileDnameHostCAs),
 			"%s\\hostcas", WfsppFileDname);
@@ -102,6 +139,7 @@ WfsppFileInitAppDataSubdir(
 		WFR_SNPRINTF(
 			WfsppFileDnameSessions, sizeof(WfsppFileDnameSessions),
 			"%s\\sessions", WfsppFileDname);
+		printf("file %s\n", WfsppFileDnameSessions);
 		WFR_SNPRINTF(
 			WfsppFileFnameOptions, sizeof(WfsppFileFnameOptions),
 			"options.ini");
@@ -924,7 +962,7 @@ WfspFileInit(
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS(status = WfsppFileInitAppDataSubdir())) {
+	if (WFR_SUCCESS(status = WfsppFileInitAppDataSubdir(NULL))) {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
 
@@ -933,13 +971,22 @@ WfspFileInit(
 
 WfrStatus
 WfspFileSetBackend(
-	WfsBackend	backend_new
+	WfsBackend	backend_new,
+	char *		args_extra
 	)
 {
 	WfrStatus	status;
 
 
-	if (WFR_SUCCESS(status = WfsClearHostCAs(backend_new, false))
+	if (args_extra != NULL) {
+		status = WfsppFileInitAppDataSubdir(args_extra);
+		WFR_FREE(args_extra);
+	} else {
+		status = WFR_STATUS_CONDITION_SUCCESS;
+	}
+
+	if (WFR_SUCCESS(status)
+	&&  WFR_SUCCESS(status = WfsClearHostCAs(backend_new, false))
 	&&  WFR_SUCCESS(status = WfsClearHostKeys(backend_new, false))
 	&&  WFR_SUCCESS(status = WfsClearSessions(backend_new, false)))
 	{
