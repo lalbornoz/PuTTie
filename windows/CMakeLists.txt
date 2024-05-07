@@ -330,7 +330,8 @@ set_property(TARGET puttytel APPEND PROPERTY SOURCES
   ../PuTTie/winfrip_storage_priv.c
   ../PuTTie/winfrip_storage_privkey_list.c
   ../PuTTie/winfrip_storage_sessions.c
-  ../PuTTie/winfrip_subr_putty_config.c)
+  ../PuTTie/winfrip_subr_putty_config.c
+  ../PuTTie/winfrip_subr_putty_help.c)
 endif()
 # winfrip }}}
 be_list(puttytel PuTTYtel SERIAL OTHERBACKENDS)
