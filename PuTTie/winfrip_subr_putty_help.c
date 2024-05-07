@@ -31,6 +31,7 @@ WfpPuttyUsage(
 
 	printf("Usage: putty [options] [user@]host\n");
 	printf("       (\"host\" can also be a PuTTY saved session name)\n");
+	printf("\n");
 	printf("Options:\n");
 	printf("  -?\n");
 	printf("  -h\n");
@@ -92,6 +93,8 @@ WfpPuttyUsage(
 	printf("  -restrict-acl\n");
 	printf("            restrict Windows process ACL\n");
 	printf("  -host-ca  launch host CA configuration dialog box\n");
+	printf("\n");
+	printf("PuTTie-specific options:\n");
 	printf("  --file\n");
 	printf("  --ephemeral\n");
 	printf("            select storage backend\n");
