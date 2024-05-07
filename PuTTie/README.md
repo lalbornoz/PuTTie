@@ -184,6 +184,8 @@ tool is provided for this purpose. Follow the following steps in order to create
 Thanks to <a href="https://github.com/gtwy">James Watt</a>,
 <a href="https://github.com/SamKook">SamKook</a>,
 <a href="https://github.com/opbod">opbod</a>,
+<a href="https://github.com/jslegers73">jslegers73</a>,
+<a href="https://github.com/lars18th">lars18th</a>
 for helping fixing lots of bugs!
 
 [Back to top](#table-of-contents)
