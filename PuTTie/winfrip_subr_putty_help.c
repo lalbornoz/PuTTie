@@ -25,6 +25,12 @@ WfpPuttyUsage(
 	void
 )
 {
+	AllocConsole();
+	AttachConsole(GetCurrentProcessId());
+	_wfreopen(L"CON", L"w", stdout);
+	_wfreopen(L"CON", L"w", stderr);
+	_wfreopen(L"CONIN", L"r", stdin);
+
 	/*
 	 * (based on plink.c:usage(), doc/using.but, and PuTTie/README.md)
 	 */
@@ -102,6 +108,10 @@ WfpPuttyUsage(
 	printf("  --ephemeral=file\n");
 	printf("  --ephemeral=registry\n");
 	printf("            select storage backend and init from other backend\n");
+	printf("Press any key to continue.\n");
+	fflush(stdout);
+	fflush(stdin);
+	(void)getch();
 }
 
 /*

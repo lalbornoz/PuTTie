@@ -28,7 +28,9 @@ WfrDebugInit(
 	AllocConsole();
 #endif /* WINFRIP_DEBUG_NOCONSOLE */
 	AttachConsole(GetCurrentProcessId());
+	_wfreopen(L"CON", L"w", stdout);
 	_wfreopen(L"CON", L"w", stderr);
+	_wfreopen(L"CONIN", L"r", stdin);
 	hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 	(void)SetConsoleScreenBufferSize(hConsoleOutput, dwSize);
 	(void)SetConsoleWindowInfo(hConsoleOutput, TRUE, &consoleWindow);
