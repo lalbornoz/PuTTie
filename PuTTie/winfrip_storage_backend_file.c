@@ -139,7 +139,6 @@ WfsppFileInitAppDataSubdir(
 		WFR_SNPRINTF(
 			WfsppFileDnameSessions, sizeof(WfsppFileDnameSessions),
 			"%s\\sessions", WfsppFileDname);
-		printf("file %s\n", WfsppFileDnameSessions);
 		WFR_SNPRINTF(
 			WfsppFileFnameOptions, sizeof(WfsppFileFnameOptions),
 			"options.ini");
@@ -980,7 +979,6 @@ WfspFileSetBackend(
 
 	if (args_extra != NULL) {
 		status = WfsppFileInitAppDataSubdir(args_extra);
-		WFR_FREE(args_extra);
 	} else {
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
