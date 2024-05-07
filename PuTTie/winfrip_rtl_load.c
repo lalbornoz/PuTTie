@@ -199,9 +199,9 @@ WfrLoadParse(
 	size_t			value_size;
 
 
-	if (WFR_FAILURE_ERRNO1(status, EINVAL, (data_size > 0))
-	||  WFR_FAILURE(status = WfrpInitRegex()))
-	{
+	if (data_size == 0) {
+		return WFR_STATUS_CONDITION_SUCCESS;
+	} else if (WFR_FAILURE(status = WfrpInitRegex())) {
 		return status;
 	}
 
@@ -343,6 +343,9 @@ WfrLoadRawFile(
 	if (WFR_SUCCESS(status)) {
 		*pdata = data;
 		if (pdata_size) {
+			if (statbuf.st_size == 0) {
+				data_size = 0;
+			}
 			*pdata_size = data_size;
 		}
 		if (pmtime) {
