@@ -46,7 +46,10 @@ void gui_term_process_cmdline(Conf *conf, char *cmdline)
     int         exit_status;
 
 
-    if (WFR_STATUS_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
+    if (WFR_STATUS_FAILURE(status = WfsInit())) {
+        WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "initialising storage");
+        exit(1);
+    } else if (WFR_STATUS_FAILURE(status = WfsSetBackendFromCmdLine(cmdline))) {
         WFR_IF_STATUS_FAILURE_MESSAGEBOX1(NULL, "PuTTie", status, "setting backend");
         exit(1);
     } else {

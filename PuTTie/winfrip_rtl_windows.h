@@ -24,6 +24,8 @@
 
 WfrStatus	WfrGetCommandLineAsArgVUtf8(int *pargc, char ***pargv);
 WfrStatus	WfrGetCommandLineAsUtf8(char **pCommandLine);
+WfrStatus	WfrGetModuleBaseNameW(wchar_t **pmodule_nameW);
+WfrStatus	WfrGetModuleDirNameW(wchar_t **pmodule_nameW);
 unsigned int	WfrGetOsVersionMajor(void);
 unsigned int	WfrGetOsVersionMinor(void);
 bool		WfrIsVKeyDown(int nVirtKey);
