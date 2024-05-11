@@ -18,6 +18,7 @@
 #include "PuTTie/winfrip_rtl_load.h"
 #include "PuTTie/winfrip_rtl_pcre2.h"
 #include "PuTTie/winfrip_rtl_save.h"
+#include "PuTTie/winfrip_rtl_windows.h"
 #include "PuTTie/winfrip_storage.h"
 #include "PuTTie/winfrip_storage_host_ca.h"
 #include "PuTTie/winfrip_storage_host_keys.h"
@@ -83,9 +84,7 @@ WfsppFileInitAppDataSubdir(
 {
 	char *		appdata_default = NULL;
 	wchar_t *	appdataW;
-	wchar_t *	last_slash;
-	wchar_t		module_fnameW[PATH_MAX + 1];
-	size_t		module_fnameW_len;
+	wchar_t *	module_dnameW;
 	WfrStatus	status;
 
 
@@ -94,24 +93,11 @@ WfsppFileInitAppDataSubdir(
 		status = WFR_STATUS_CONDITION_SUCCESS;
 
 		if (appdata[0] == '~') {
-			if (WFR_SUCCESS_WINDOWS(status, GetModuleFileNameW(
-					NULL, module_fnameW,
-					WFR_SIZEOF_WSTRING(module_fnameW)))
-			&&  ((module_fnameW_len = wcslen(module_fnameW)) > 0))
+			if (WFR_SUCCESS(status = WfrGetModuleDirNameW(&module_dnameW)))
 			{
-				for (last_slash = &module_fnameW[module_fnameW_len];
-				     (last_slash >= (wchar_t*)&module_fnameW)
-				     	&& (last_slash[0] != '\\') && (last_slash[0] != '/');
-				     last_slash--);
-
-				if ((last_slash[0] == '\\') || (last_slash[0] == '/')) {
-					last_slash[0] = '\0';
-					WFR_SNPRINTF(
-						WfsppFileDname, sizeof(WfsppFileDname),
-						"%S\\%s", module_fnameW, &WfsppFileAppData[1]);
-				} else {
-					status = WFR_STATUS_FROM_ERRNO1(EINVAL);
-				}
+				WFR_SNPRINTF(
+					WfsppFileDname, sizeof(WfsppFileDname),
+					"%S\\%s", module_dnameW, &WfsppFileAppData[1]);
 			}
 		} else {
 			WFR_SNPRINTF(

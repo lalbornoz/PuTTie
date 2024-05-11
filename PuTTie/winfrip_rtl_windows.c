@@ -102,7 +102,7 @@ WfrGetCommandLineAsArgVUtf8(
 
 WfrStatus
 WfrGetCommandLineAsUtf8(
-	char **pCommandLine
+	char **		pCommandLine
 	)
 {
 	char *		CommandLine;
@@ -151,6 +151,65 @@ WfrGetCommandLineAsUtf8(
 
 	if (WFR_SUCCESS(status)) {
 		*pCommandLine = CommandLine;
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrGetModuleBaseNameW(
+	wchar_t **	pmodule_nameW
+)
+{
+	wchar_t *	last_slash;
+	static wchar_t	module_fnameW[PATH_MAX + 1];
+	size_t		module_fnameW_len;
+	WfrStatus	status;
+
+
+	if (WFR_SUCCESS_WINDOWS(status, GetModuleFileNameW(
+			NULL, module_fnameW,
+			WFR_SIZEOF_WSTRING(module_fnameW)))
+	&&  ((module_fnameW_len = wcslen(module_fnameW)) > 0))
+	{
+		for (last_slash = &module_fnameW[module_fnameW_len];
+		     (last_slash >= (wchar_t*)&module_fnameW)
+			&& (last_slash[0] != '\\') && (last_slash[0] != '/');
+		     last_slash--);
+
+		if ((last_slash[0] == '\\') || (last_slash[0] == '/')) {
+			*pmodule_nameW = &last_slash[1];
+		}
+	}
+
+	return status;
+}
+
+WfrStatus
+WfrGetModuleDirNameW(
+	wchar_t **	pmodule_nameW
+)
+{
+	wchar_t *	last_slash;
+	static wchar_t	module_fnameW[PATH_MAX + 1];
+	size_t		module_fnameW_len;
+	WfrStatus	status;
+
+
+	if (WFR_SUCCESS_WINDOWS(status, GetModuleFileNameW(
+			NULL, module_fnameW,
+			WFR_SIZEOF_WSTRING(module_fnameW)))
+	&&  ((module_fnameW_len = wcslen(module_fnameW)) > 0))
+	{
+		for (last_slash = &module_fnameW[module_fnameW_len];
+		     (last_slash >= (wchar_t*)&module_fnameW)
+			&& (last_slash[0] != '\\') && (last_slash[0] != '/');
+		     last_slash--);
+
+		if ((last_slash[0] == '\\') || (last_slash[0] == '/')) {
+			last_slash[0] = '\0';
+			*pmodule_nameW = module_fnameW;
+		}
 	}
 
 	return status;
