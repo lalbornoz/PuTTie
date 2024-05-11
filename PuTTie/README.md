@@ -119,8 +119,13 @@ you should use PuTTie:
    changed on a per-session and descendant duplicated session basis with the command-line option
    suffix ``;[~]<absolute/relative pathname>``, with the optional ``~`` prefix substituted with
    the pathname to the PuTTie executable image file, e.g.: ``--file=registry;..\data\PuTTie_stuff``,
-   ``--file=;~``, ``--file=;~\..\..\PuTTie_backup``, etc.
-   ``
+   ``--file=;~``, ``--file=;~\..\..\PuTTie_backup``, etc.  
+  
+   Additionally, the default backend is set from the filename of the plink, pscp, psftp, pterm,
+   putty & puttytel executable image file when the filename matches one of: ``*-ephemeral.exe``,
+   ``*-file.exe``, ``*-portable.exe``, ``*-registry.exe``, with ``*-portable.exe`` selecting the file
+   backend and passing ``~`` as per-session file configuration tree, e.g. the pathname to the executable
+   image file.
 8. **Store configuration in ephemeral storage**  
    Selectable w/ command-line option ``--ephemeral`` in plink, pscp, psftp, pterm, putty & puttytel  
    Additionally, ephemeral storage may be initialised from disk files or the registry w/ the command-
@@ -131,7 +136,13 @@ you should use PuTTie:
   
    N.B. The random seed file ``PUTTY.RND`` stored beneath ``%LOCALAPPDATA%`` is still read from,
    if present, on startup and written to on exit due to security concerns, even when ephemeral storage
-   is selected.
+   is selected.  
+  
+   Additionally, the default backend is set from the filename of the plink, pscp, psftp, pterm,
+   putty & puttytel executable image file when the filename matches one of: ``*-ephemeral.exe``,
+   ``*-file.exe``, ``*-portable.exe``, ``*-registry.exe``, with ``*-portable.exe`` selecting the file
+   backend and passing ``~`` as per-session file configuration tree, e.g. the pathname to the executable
+   image file.
 9. **Persist Pageant private key file names across startups**  
    A list of private key files is stored in file- or registry-based storage to persist key files
    added to Pageant across startups. This list is updated on adding or removing keys and may additionally
