@@ -544,6 +544,65 @@ enum {
     TREE_BASE, /* fixed things at the bottom like OK and Cancel buttons */
 };
 
+/* {{{ winfrip */
+static int recreate_panel(HWND hwnd, HWND hwndFrom, PortableDialogStuff *pds)
+{
+    /*
+     * Selection-change events on the treeview cause us to do
+     * a flurry of control deletion and creation - but only
+     * after WM_INITDIALOG has finished. The initial
+     * selection-change event(s) during treeview setup are
+     * ignored.
+     */
+    HTREEITEM i;
+    TVITEM item;
+    char buffer[64];
+
+    if (!pds->initialised)
+        return 0;
+
+    i = TreeView_GetSelection(hwndFrom);
+
+    SendMessage (hwnd, WM_SETREDRAW, false, 0);
+
+    item.hItem = i;
+    item.pszText = buffer;
+    item.cchTextMax = sizeof(buffer);
+    item.mask = TVIF_TEXT | TVIF_PARAM;
+    TreeView_GetItem(hwndFrom, &item);
+    {
+        /* Destroy all controls in the currently visible panel. */
+        int k;
+        HWND item;
+        struct winctrl *c;
+
+        while ((c = winctrl_findbyindex(
+                    &pds->ctrltrees[TREE_PANEL], 0)) != NULL) {
+            for (k = 0; k < c->num_ids; k++) {
+                item = GetDlgItem(hwnd, c->base_id + k);
+                if (item)
+                    DestroyWindow(item);
+            }
+            winctrl_rem_shortcuts(pds->dp, c);
+            winctrl_remove(&pds->ctrltrees[TREE_PANEL], c);
+            sfree(c->data);
+            sfree(c);
+        }
+    }
+    pds_create_controls(pds, TREE_PANEL, IDCX_PANELBASE,
+                        100, 3, 13, (char *)item.lParam);
+
+    dlg_refresh(NULL, pds->dp);    /* set up control values */
+
+    SendMessage (hwnd, WM_SETREDRAW, true, 0);
+    InvalidateRect (hwnd, NULL, true);
+
+    SetFocus(hwndFrom);     /* ensure focus stays */
+
+    return 0;
+}
+/* winfrip }}} */
+
 /*
  * This function is the configuration box.
  * (Being a dialog procedure, in general it returns 0 if the default
@@ -555,7 +614,15 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
     PortableDialogStuff *pds = (PortableDialogStuff *)ctx;
     const int DEMO_SCREENSHOT_TIMER_ID = 1230;
     HWND treeview;
+    /* {{{ winfrip */
+#if 0
+    /* winfrip }}} */
     struct treeview_faff tvfaff;
+    /* {{{ winfrip */
+#else
+    static struct treeview_faff tvfaff;
+#endif
+    /* winfrip }}} */
 
     switch (msg) {
       case WM_INITDIALOG:
@@ -732,6 +799,9 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
       case WM_NOTIFY:
         if (LOWORD(wParam) == IDCX_TREEVIEW &&
             ((LPNMHDR) lParam)->code == TVN_SELCHANGED) {
+            /* {{{ winfrip */
+        #if 0
+            /* winfrip }}} */
             /*
              * Selection-change events on the treeview cause us to do
              * a flurry of control deletion and creation - but only
@@ -783,8 +853,18 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
             InvalidateRect (hwnd, NULL, true);
 
             SetFocus(((LPNMHDR) lParam)->hwndFrom);     /* ensure focus stays */
+            /* {{{ winfrip */
+        #else
+            return recreate_panel(hwnd, ((LPNMHDR) lParam)->hwndFrom, pds);
+        #endif
+            /* winfrip }}} */
         }
         return 0;
+
+      /* {{{ winfrip */
+      case WM_SIZE:
+        return recreate_panel(hwnd, tvfaff.treeview, pds);
+      /* winfrip }}} */
 
       default:
         return pds_default_dlgproc(pds, hwnd, msg, wParam, lParam);
