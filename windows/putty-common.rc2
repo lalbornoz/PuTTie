@@ -33,8 +33,16 @@ BEGIN
 END
 
 /* Accelerators used: aco */
+/* {{{ winfrip */
+#if 0
+/* }}} */
 IDD_MAINBOX DIALOG DISCARDABLE 0, 0, 300, 252
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+/* {{{ winfrip */
+#else
+IDD_MAINBOX DIALOG DISCARDABLE 0, 0, 300, 322
+#endif
+/* }}} */
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "PuTTY Configuration"
 FONT 8, "MS Shell Dlg"
 CLASS "PuTTYConfigBox"

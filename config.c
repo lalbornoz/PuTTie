@@ -1945,7 +1945,7 @@ void setup_config_box(struct controlbox *b, bool midsession,
     *ssd_listbox = ssd->listbox;
     /* winfrip }}} */
     ssd->listbox->column = 0;
-    ssd->listbox->listbox.height = 7;
+    ssd->listbox->listbox.height = 16;
     if (!midsession) {
         ssd->loadbutton = ctrl_pushbutton(s, "Load", 'l',
                                           HELPCTX(session_saved),

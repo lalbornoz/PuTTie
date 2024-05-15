@@ -561,7 +561,15 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
       case WM_INITDIALOG:
         pds_initdialog_start(pds, hwnd);
 
+        /* {{{ winfrip */
+    #if 0
+        /* winfrip }}} */
         pds_create_controls(pds, TREE_BASE, IDCX_STDBASE, 3, 3, 235, "");
+        /* {{{ winfrip */
+    #else
+        pds_create_controls(pds, TREE_BASE, IDCX_STDBASE, 3, 3, 305, "");
+    #endif
+        /* winfrip }}} */
 
         SendMessage(hwnd, WM_SETICON, (WPARAM) ICON_BIG,
                     (LPARAM) LoadIcon(hinst, MAKEINTRESOURCE(IDI_CFGICON)));
@@ -593,7 +601,15 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
             r.left = 3;
             r.right = r.left + 95;
             r.top = 13;
+            /* {{{ winfrip */
+        #if 0
+            /* winfrip }}} */
             r.bottom = r.top + 219;
+            /* {{{ winfrip */
+        #else
+            r.bottom = r.top + 289;
+        #endif
+            /* winfrip }}} */
             MapDialogRect(hwnd, &r);
             treeview = CreateWindowEx(WS_EX_CLIENTEDGE, WC_TREEVIEW, "",
                                       WS_CHILD | WS_VISIBLE |

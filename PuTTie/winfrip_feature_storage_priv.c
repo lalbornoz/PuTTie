@@ -238,7 +238,7 @@ WffsInitPanel(
 	ctrl_columns(s, 2, 75, 25);
 	ctx->listbox[WFFS_DIR_FROM] = ctrl_listbox(s, NULL, NO_SHORTCUT, WFP_HELP_CTX, handler, P(ctx));
 	ctx->listbox[WFFS_DIR_FROM]->column = 0;
-	ctx->listbox[WFFS_DIR_FROM]->listbox.height = 6;
+	ctx->listbox[WFFS_DIR_FROM]->listbox.height = 10;
 	ctx->listbox[WFFS_DIR_FROM]->listbox.multisel = 1;
 	ctx->button_clear[WFFS_DIR_FROM] = ctrl_pushbutton(s, "Clear...", NO_SHORTCUT, WFP_HELP_CTX, handler, P(ctx));
 	ctx->button_clear[WFFS_DIR_FROM]->column = 1;
@@ -268,7 +268,7 @@ WffsInitPanel(
 	ctrl_columns(s, 2, 75, 25);
 	ctx->listbox[WFFS_DIR_TO] = ctrl_listbox(s, NULL, NO_SHORTCUT, WFP_HELP_CTX, handler, P(ctx));
 	ctx->listbox[WFFS_DIR_TO]->column = 0;
-	ctx->listbox[WFFS_DIR_TO]->listbox.height = 6;
+	ctx->listbox[WFFS_DIR_TO]->listbox.height = 10;
 	ctx->listbox[WFFS_DIR_TO]->listbox.multisel = 1;
 	ctx->button_clear[WFFS_DIR_TO] = ctrl_pushbutton(s, "Clear...", NO_SHORTCUT, WFP_HELP_CTX, handler, P(ctx));
 	ctx->button_clear[WFFS_DIR_TO]->column = 1;
