@@ -175,6 +175,256 @@ static void pds_initdialog_start(PortableDialogStuff *pds, HWND hwnd)
     }
 }
 
+/* {{{ winfrip */
+#define WINFRIPP_DIALOG_YMAGIC1    100
+#define WINFRIPP_DIALOG_YMAGIC2    14
+#define WINFRIPP_DIALOG_YMAGIC3    27
+
+static void winfripp_dialog_get_control_rect(
+    struct ctlpos *cp, int id, HWND *phwnd_ctrl, RECT *prect_ctrl)
+{
+    HWND    hwnd_ctrl;
+    RECT    rect_ctrl;
+
+
+    hwnd_ctrl = GetDlgItem(cp->hwnd, id);
+    (void)GetWindowRect(hwnd_ctrl, &rect_ctrl);
+    (void)MapWindowPoints(HWND_DESKTOP, cp->hwnd, (LPPOINT)&rect_ctrl, 2);
+
+    *phwnd_ctrl = hwnd_ctrl;
+    *prect_ctrl = rect_ctrl;
+}
+
+static void winfripp_dialog_move_single_control(
+    struct ctlpos *cp, int id, int left_offset, int top)
+{
+    HWND    hwnd_ctrl;
+    RECT    rect_ctrl;
+
+
+    winfripp_dialog_get_control_rect(cp, id, &hwnd_ctrl, &rect_ctrl);
+    (void)SetWindowPos(
+        hwnd_ctrl, NULL,
+        rect_ctrl.left + left_offset,
+        top,
+        0, 0,
+        SWP_NOSIZE | SWP_NOZORDER);
+}
+
+static void winfripp_dialog_resize_single_control(
+    struct ctlpos *cp, int id, int left_offset, int bottom)
+{
+    HWND    hwnd_ctrl;
+    RECT    rect_ctrl;
+
+
+    winfripp_dialog_get_control_rect(cp, id, &hwnd_ctrl, &rect_ctrl);
+    (void)SetWindowPos(
+        hwnd_ctrl, NULL,
+        0, 0,
+        (rect_ctrl.right - rect_ctrl.left) + left_offset,
+        bottom,
+        SWP_NOMOVE | SWP_NOZORDER);
+}
+
+static void winfripp_dialog_resize_control(
+    struct ctlpos *cp, dlgcontrol *ctrl, struct winctrl *thisc_ctrl, int *pypos)
+{
+    HWND    hwnd_ctrl;
+    RECT    rect_ctrl;
+
+
+    winfripp_dialog_get_control_rect(
+        cp, thisc_ctrl->base_id,
+        &hwnd_ctrl, &rect_ctrl);
+    winfripp_dialog_move_single_control(
+        cp, thisc_ctrl->base_id, 0,
+        *pypos + WINFRIPP_DIALOG_YMAGIC2);
+    *pypos += (rect_ctrl.bottom - rect_ctrl.top) + WINFRIPP_DIALOG_YMAGIC2;
+
+    if (ctrl->type == CTRL_RADIO) {
+        for (int nbutton = 0;
+             nbutton < ctrl->radio.nbuttons;
+             nbutton++)
+        {
+            winfripp_dialog_move_single_control(
+                cp, thisc_ctrl->base_id + 1 + nbutton, 0, *pypos);
+        }
+    }
+}
+
+static bool winfripp_dialog_resize_listbox(
+    LONG bottom_extra, struct ctlpos *cp, dlgcontrol *ctrl,
+    PortableDialogStuff* pds, struct controlset *s, struct winctrl *thisc_ctrl,
+    size_t which_tree, int *pypos)
+{
+    bool    foundfl = false;
+    HWND    hwnd_ctrl;
+    RECT    rect_ctrl, rect_ctrl_child;
+
+
+    winfripp_dialog_get_control_rect(
+        cp, thisc_ctrl->base_id,
+        &hwnd_ctrl, &rect_ctrl);
+
+    if ((ctrl->type == CTRL_LISTBOX)
+    &&  (ctrl->listbox.height == -1))
+    {
+        winfripp_dialog_get_control_rect(
+            cp, thisc_ctrl->base_id + 1,
+            &hwnd_ctrl, &rect_ctrl);
+        rect_ctrl.bottom += bottom_extra;
+        winfripp_dialog_resize_single_control(
+            cp, thisc_ctrl->base_id + 1, 0,
+            rect_ctrl.bottom - rect_ctrl.top);
+        foundfl = true;
+
+        if ((s->boxname != NULL)
+        &&  (s->boxname[0] != '\0'))
+        {
+            for (size_t n = 0; n < s->ncontrols; n++) {
+                if ((s->ctrls[n]->type != CTRL_COLUMNS)
+                &&  (s->ctrls[n]->type != CTRL_TABDELAY))
+                {
+                    if ((thisc_ctrl = winctrl_findbyctrl(
+                            &pds->ctrltrees[which_tree], s->ctrls[n])) != NULL)
+                    {
+                        winfripp_dialog_get_control_rect(
+                            cp, thisc_ctrl->base_id - 1,
+                            &hwnd_ctrl, &rect_ctrl_child);
+                        winfripp_dialog_resize_single_control(
+                            cp, thisc_ctrl->base_id - 1, 0,
+                            rect_ctrl.bottom - rect_ctrl_child.top);
+
+                        *pypos = rect_ctrl_child.top
+                               + (rect_ctrl.bottom - rect_ctrl_child.top);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    return foundfl;
+}
+
+static void winfripp_dialog_resize_dynamic_controls(
+    struct ctlpos *cp, char *path,
+    PortableDialogStuff *pds, size_t which_tree)
+{
+    LONG                    bottom_extra;
+    dlgcontrol *            ctrl;
+    bool                    foundfl = false;
+    int                     index;
+    RECT                    rect_parent;
+    struct controlset *     s;
+    struct winctrl *        thisc_ctrl = NULL;
+    int                     ypos = 0;
+
+
+    /*
+     * Derive the amount of additional space available to dynamic listbox
+     * controls (e.g. height==-1) from the bottom coordinate of the client
+     * area minus WINFRIPP_DIALOG_YMAGIC1 minus the bottom coordinate of
+     * the bottommost control.
+     */
+
+    (void)GetClientRect(cp->hwnd, &rect_parent);
+    if ((rect_parent.bottom - WINFRIPP_DIALOG_YMAGIC1) > cp->ypos) {
+        bottom_extra = (rect_parent.bottom - WINFRIPP_DIALOG_YMAGIC1)
+                     - cp->ypos;
+    }
+
+    /*
+     * Iterate over all panels.
+     */
+
+    for (index = -1;
+         (index = ctrl_find_path(
+            pds->ctrlbox, path, index)) >= 0 ;)
+    {
+        s = pds->ctrlbox->ctrlsets[index];
+
+        /*
+         * If a dynamic listbox control (e.g. height==-1) was previously
+         * encountered and had its size adjusted and if it is enclosed by
+         * a box control, adjust its size as well.
+         *
+         * Being as PuTTY provides no interface to access said box control,
+         * derive its id from the first non-virtual (e.g. CTRL_COLUMNS or
+         * CTRL_TABDELAY) control in the current panel minus 1, as per
+         * winctrl_layout().
+         */
+
+        if (foundfl
+        &&  (s->boxname != NULL)
+        &&  (s->boxname[0] != '\0'))
+        {
+            for (size_t n = 0; n < s->ncontrols; n++) {
+                if ((s->ctrls[n]->type != CTRL_COLUMNS)
+                &&  (s->ctrls[n]->type != CTRL_TABDELAY))
+                {
+                    if ((thisc_ctrl = winctrl_findbyctrl(
+                            &pds->ctrltrees[which_tree],
+                            s->ctrls[n])) != NULL)
+                    {
+                        winfripp_dialog_move_single_control(
+                            cp, thisc_ctrl->base_id - 1, 0, ypos);
+                    }
+                    break;
+                }
+            }
+        }
+
+        /*
+         * Iterate over the panel's controls until a dynamic listbox
+         * control (e.g. height==-1) is encountered, which then has
+         * its size adjusted. All the controls following a dynamic
+         * listbox will have their size adjusted also.
+         */
+
+        for (size_t n = 0; n < s->ncontrols; n++) {
+            ctrl = s->ctrls[n];
+
+            if ((ctrl->column == 0)
+            &&  ((thisc_ctrl = winctrl_findbyctrl(
+                    &pds->ctrltrees[which_tree], ctrl)) != NULL))
+            {
+                if (!foundfl) {
+                    foundfl = winfripp_dialog_resize_listbox(
+                        bottom_extra, cp, ctrl, pds,
+                        s, thisc_ctrl, which_tree, &ypos);
+                } else if (foundfl) {
+                    winfripp_dialog_resize_control(
+                        cp, ctrl, thisc_ctrl, &ypos);
+                }
+            }
+        }
+    }
+
+    /*
+     * Move About/Open/Cancel buttons row to the very bottom of
+     * the client area minus WINFRIPP_DIALOG_YMAGIC3.
+     */
+
+    if (foundfl
+    && ((index = ctrl_find_path(pds->ctrlbox, "", -1)) >= 0))
+    {
+        s = pds->ctrlbox->ctrlsets[index];
+
+        for (size_t n = 0; n < s->ncontrols; n++) {
+            if ((thisc_ctrl = winctrl_findbyctrl(
+                    &pds->ctrltrees[1], s->ctrls[n])) != NULL)
+            {
+                winfripp_dialog_move_single_control(
+                    cp, thisc_ctrl->base_id,
+                    0, rect_parent.bottom - WINFRIPP_DIALOG_YMAGIC3);
+            }
+        }
+    }
+}
+/* winfrip }}} */
+
 /*
  * Create the panelfuls of controls in the configuration box.
  */
@@ -191,6 +441,10 @@ static void pds_create_controls(
         struct controlset *s = pds->ctrlbox->ctrlsets[index];
         winctrl_layout(pds->dp, &pds->ctrltrees[which_tree], &cp, s, &base_id);
     }
+
+    /* {{{ winfrip */
+    winfripp_dialog_resize_dynamic_controls(&cp, path, pds, which_tree);
+    /* winfrip }}} */
 }
 
 static void pds_initdialog_finish(PortableDialogStuff *pds)
