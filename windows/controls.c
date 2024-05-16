@@ -788,6 +788,12 @@ void listbox(struct ctlpos *cp, const char *stext,
         doctl(cp, r, "STATIC", WS_CHILD | WS_VISIBLE, 0, stext, sid);
     }
 
+    /* {{{ winfrip */
+    if (lines == -1) {
+        lines = 1;
+    }
+    /* winfrip }}} */
+
     r.left = GAPBETWEEN;
     r.top = cp->ypos;
     r.right = cp->width;
