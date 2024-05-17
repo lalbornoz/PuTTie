@@ -53,6 +53,11 @@ CONF_OPTION(frip_cache_passwords,				\
 )								\
 CONF_OPTION(frip_general_always_on_top,				\
     VALUE_TYPE(BOOL),						\
+    DEFAULT_BOOL(WFF_GENERAL_DEFAULT_DUPSESS_SHORTCUT),		\
+    SAVE_KEYWORD("FripGeneralDupSessShortcut"),			\
+)								\
+CONF_OPTION(frip_general_dupsess_shortcut,			\
+    VALUE_TYPE(BOOL),						\
     DEFAULT_BOOL(WFF_GENERAL_DEFAULT_ALWAYS_ON_TOP),		\
     SAVE_KEYWORD("FripGeneralAlwaysOnTop"),			\
 )								\
