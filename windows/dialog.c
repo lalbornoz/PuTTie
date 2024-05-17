@@ -179,9 +179,19 @@ static void pds_initdialog_start(PortableDialogStuff *pds, HWND hwnd)
 /*
  * Create the panelfuls of controls in the configuration box.
  */
+/* {{{ winfrip */
+#if 0
+/* winfrip }}} */
 static void pds_create_controls(
     PortableDialogStuff *pds, size_t which_tree, int base_id,
     int left, int right, int top, char *path)
+/* {{{ winfrip */
+#else
+static void pds_create_controls(
+    PortableDialogStuff *pds, size_t which_tree, int base_id,
+    int left, int right, int top, char *path, HWND treeview_hwnd)
+#endif
+/* winfrip }}} */
 {
     struct ctlpos cp;
 
@@ -196,7 +206,7 @@ static void pds_create_controls(
     /* {{{ winfrip */
     WfPuttyDialogResizeControls(
         pds->ctrlbox, pds->ctrltrees, cp.hwnd,
-        path, which_tree, cp.ypos);
+        treeview_hwnd, path, which_tree, cp.ypos);
     /* winfrip }}} */
 }
 
@@ -552,7 +562,7 @@ enum {
 };
 
 /* {{{ winfrip */
-static int recreate_panel(HWND hwnd, HWND hwndFrom, PortableDialogStuff *pds)
+static int recreate_panel(HWND hwnd, HWND hwndFrom, PortableDialogStuff *pds, HWND treeview_hwnd)
 {
     /*
      * Selection-change events on the treeview cause us to do
@@ -597,7 +607,8 @@ static int recreate_panel(HWND hwnd, HWND hwndFrom, PortableDialogStuff *pds)
         }
     }
     pds_create_controls(pds, TREE_PANEL, IDCX_PANELBASE,
-                        100, 3, 13, (char *)item.lParam);
+                        100, 3, 13, (char *)item.lParam,
+                        treeview_hwnd);
 
     dlg_refresh(NULL, pds->dp);    /* set up control values */
 
@@ -641,7 +652,7 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
         pds_create_controls(pds, TREE_BASE, IDCX_STDBASE, 3, 3, 235, "");
         /* {{{ winfrip */
     #else
-        pds_create_controls(pds, TREE_BASE, IDCX_STDBASE, 3, 3, 305, "");
+        pds_create_controls(pds, TREE_BASE, IDCX_STDBASE, 3, 3, 305, "", tvfaff.treeview);
     #endif
         /* winfrip }}} */
 
@@ -768,8 +779,17 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
              * match the initial treeview selection.
              */
             assert(firstpath);   /* config.c must have given us _something_ */
+            /* {{{ winfrip */
+        #if 0
+            /* winfrip }}} */
             pds_create_controls(pds, TREE_PANEL, IDCX_PANELBASE,
                                 100, 3, 13, firstpath);
+            /* {{{ winfrip */
+        #else
+            pds_create_controls(pds, TREE_PANEL, IDCX_PANELBASE,
+                                100, 3, 13, firstpath, tvfaff.treeview);
+        #endif
+            /* winfrip }}} */
             dlg_refresh(NULL, pds->dp);    /* and set up control values */
         }
 
@@ -872,7 +892,7 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
             SetFocus(((LPNMHDR) lParam)->hwndFrom);     /* ensure focus stays */
             /* {{{ winfrip */
         #else
-            return recreate_panel(hwnd, ((LPNMHDR) lParam)->hwndFrom, pds);
+            return recreate_panel(hwnd, tvfaff.treeview, pds, tvfaff.treeview);
         #endif
             /* winfrip }}} */
         }
@@ -885,7 +905,7 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
                 WFF_GENERAL_OP_SIZE_SET, pds->dp->data,
                 hinst, hwnd, -1, -1, NULL, -1);
         }
-        return recreate_panel(hwnd, tvfaff.treeview, pds);
+        return recreate_panel(hwnd, tvfaff.treeview, pds, tvfaff.treeview);
 
       case WM_MOVE:
         if (pds->initialised) {
@@ -1559,8 +1579,17 @@ static INT_PTR CAConfigProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
 
         centre_window(hwnd);
 
+        /* {{{ winfrip */
+    #if 0
+        /* winfrip }}} */
         pds_create_controls(pds, 0, IDCX_PANELBASE, 3, 3, 3, "Main");
         pds_create_controls(pds, 0, IDCX_STDBASE, 3, 3, 243, "");
+        /* {{{ winfrip */
+    #else
+        pds_create_controls(pds, 0, IDCX_PANELBASE, 3, 3, 3, "Main", NULL);
+        pds_create_controls(pds, 0, IDCX_STDBASE, 3, 3, 243, "", NULL);
+    #endif
+        /* winfrip }}} */
         dlg_refresh(NULL, pds->dp);    /* and set up control values */
 
         pds_initdialog_finish(pds);

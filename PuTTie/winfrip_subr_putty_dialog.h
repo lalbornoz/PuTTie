@@ -10,7 +10,7 @@
  * Public subroutine prototypes private to windows/dialog.c
  */
 
-void WfPuttyDialogResizeControls(struct controlbox *ctrlbox, struct winctrls *ctrltrees, HWND hwnd, char *path, size_t which_tree, int ypos_initial);
+void WfPuttyDialogResizeControls(struct controlbox *ctrlbox, struct winctrls *ctrltrees, HWND hwnd, HWND hwnd_treeview, char *path, size_t which_tree, int ypos_initial);
 
 #endif // !PUTTY_WINFRIP_SUBR_PUTTY_DIALOG_H
 
