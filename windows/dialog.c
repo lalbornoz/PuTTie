@@ -179,6 +179,8 @@ static void pds_initdialog_start(PortableDialogStuff *pds, HWND hwnd)
 #define WINFRIPP_DIALOG_YMAGIC1    100
 #define WINFRIPP_DIALOG_YMAGIC2    14
 #define WINFRIPP_DIALOG_YMAGIC3    27
+#define WINFRIPP_DIALOG_YMAGIC4    13
+#define WINFRIPP_DIALOG_YMAGIC5    7
 
 static void winfripp_dialog_get_control_rect(
     struct ctlpos *cp, int id, HWND *phwnd_ctrl, RECT *prect_ctrl)
@@ -259,6 +261,7 @@ static bool winfripp_dialog_resize_listbox(
     size_t which_tree, int *pypos)
 {
     bool    foundfl = false;
+    LONG    height_new;
     HWND    hwnd_ctrl;
     RECT    rect_ctrl, rect_ctrl_child;
 
@@ -267,40 +270,50 @@ static bool winfripp_dialog_resize_listbox(
         cp, thisc_ctrl->base_id,
         &hwnd_ctrl, &rect_ctrl);
 
-    if ((ctrl->type == CTRL_LISTBOX)
-    &&  (ctrl->listbox.height == -1))
+    if (!((ctrl->type == CTRL_LISTBOX)
+    &&    (ctrl->listbox.height == -1)))
     {
-        winfripp_dialog_get_control_rect(
-            cp, thisc_ctrl->base_id + 1,
-            &hwnd_ctrl, &rect_ctrl);
-        rect_ctrl.bottom += bottom_extra;
-        winfripp_dialog_resize_single_control(
-            cp, thisc_ctrl->base_id + 1, 0,
-            rect_ctrl.bottom - rect_ctrl.top);
-        foundfl = true;
+        return false;
+    }
 
-        if ((s->boxname != NULL)
-        &&  (s->boxname[0] != '\0'))
-        {
-            for (size_t n = 0; n < s->ncontrols; n++) {
-                if ((s->ctrls[n]->type != CTRL_COLUMNS)
-                &&  (s->ctrls[n]->type != CTRL_TABDELAY))
+    winfripp_dialog_get_control_rect(
+        cp, thisc_ctrl->base_id + 1,
+        &hwnd_ctrl, &rect_ctrl);
+
+    if ((bottom_extra % WINFRIPP_DIALOG_YMAGIC4) > 0) {
+        bottom_extra -= (bottom_extra % WINFRIPP_DIALOG_YMAGIC4);
+    }
+    rect_ctrl.bottom += bottom_extra;
+
+    winfripp_dialog_resize_single_control(
+        cp, thisc_ctrl->base_id + 1, 0,
+        rect_ctrl.bottom - rect_ctrl.top);
+    foundfl = true;
+
+    if ((s->boxname != NULL)
+    &&  (s->boxname[0] != '\0'))
+    {
+        for (size_t n = 0; n < s->ncontrols; n++) {
+            if ((s->ctrls[n]->type != CTRL_COLUMNS)
+            &&  (s->ctrls[n]->type != CTRL_TABDELAY))
+            {
+                if ((thisc_ctrl = winctrl_findbyctrl(
+                        &pds->ctrltrees[which_tree],
+                        s->ctrls[n])) != NULL)
                 {
-                    if ((thisc_ctrl = winctrl_findbyctrl(
-                            &pds->ctrltrees[which_tree], s->ctrls[n])) != NULL)
-                    {
-                        winfripp_dialog_get_control_rect(
-                            cp, thisc_ctrl->base_id - 1,
-                            &hwnd_ctrl, &rect_ctrl_child);
-                        winfripp_dialog_resize_single_control(
-                            cp, thisc_ctrl->base_id - 1, 0,
-                            rect_ctrl.bottom - rect_ctrl_child.top);
+                    winfripp_dialog_get_control_rect(
+                        cp, thisc_ctrl->base_id - 1,
+                        &hwnd_ctrl, &rect_ctrl_child);
 
-                        *pypos = rect_ctrl_child.top
-                               + (rect_ctrl.bottom - rect_ctrl_child.top);
-                    }
-                    break;
+                    height_new = (rect_ctrl.bottom + WINFRIPP_DIALOG_YMAGIC5)
+                               - rect_ctrl_child.top;
+                    *pypos = rect_ctrl_child.top + height_new;
+
+                    winfripp_dialog_resize_single_control(
+                        cp, thisc_ctrl->base_id - 1, 0,
+                        height_new);
                 }
+                break;
             }
         }
     }
