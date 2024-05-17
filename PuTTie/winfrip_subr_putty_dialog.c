@@ -20,6 +20,7 @@
 #define WINFRIPP_DIALOG_YMAGIC3		27
 #define WINFRIPP_DIALOG_YMAGIC4		13
 #define WINFRIPP_DIALOG_YMAGIC5		7
+#define WINFRIPP_DIALOG_YMAGIC6		85
 
 /*
  * Private subroutine prototypes
@@ -210,6 +211,7 @@ WfPuttyDialogResizeControls(
 	struct controlbox *	ctrlbox,
 	struct winctrls *	ctrltrees,
 	HWND			hwnd,
+	HWND			hwnd_treeview,
 	char *			path,
 	size_t			which_tree,
 	int			ypos_initial
@@ -220,6 +222,7 @@ WfPuttyDialogResizeControls(
 	bool			foundfl = false;
 	int			index;
 	RECT			rect_parent;
+	RECT			rect_treeview;
 	struct controlset *	s;
 	struct winctrl *	thisc_ctrl = NULL;
 	int			ypos = 0;
@@ -322,5 +325,25 @@ WfPuttyDialogResizeControls(
 					0, rect_parent.bottom - WINFRIPP_DIALOG_YMAGIC3);
 				}
 			}
+	}
+
+	/*
+	 * Finally, resize the tree view control.
+	 */
+
+	if (ypos == 0) {
+		RECT	rect_ctrl;
+		(void)GetWindowRect(hwnd, &rect_ctrl);
+		ypos = (rect_ctrl.bottom - rect_ctrl.top) - WINFRIPP_DIALOG_YMAGIC6;
+	}
+	if (ypos > 0) {
+		(void)GetWindowRect(hwnd_treeview, &rect_treeview);
+		(void)MapWindowPoints(HWND_DESKTOP, hwnd, (LPPOINT)&rect_treeview, 2);
+		(void)SetWindowPos(
+			hwnd_treeview, NULL,
+			0, 0,
+			(rect_treeview.right - rect_treeview.left),
+			ypos,
+			SWP_NOMOVE | SWP_NOZORDER);
 	}
 }
