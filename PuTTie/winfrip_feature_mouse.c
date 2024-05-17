@@ -43,6 +43,8 @@ WffMouseConfigPanel(
 	ctrl_text(s, "This only affects mouse wheel actions with the CTRL modifier.", WFP_HELP_CTX);
 
 	ctrl_checkbox(s, "Change font size with CTRL 0/+/-:", 'k', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_mouse_font_size_wheel_shortcut));
+
+	ctrl_checkbox(s, "Duplicate session with CTRL + SHIFT + LMB", 'd', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_mouse_dupsess_shortcut));
 }
 
 /*
@@ -53,6 +55,8 @@ WfReturn
 WffMouseOperation(
 	WffMouseOp	op,
 	Conf *		conf,
+	HWND		hwnd,
+	LPARAM		lParam,
 	UINT		message,
 	WPARAM		wParam
 	)
@@ -138,6 +142,16 @@ WffMouseOperation(
 			}
 			return WF_RETURN_CONTINUE;
 		}
+
+	case WFF_MOUSE_OP_DUPLICATE_SESSION:
+		if (conf_get_bool(conf, CONF_frip_mouse_dupsess_shortcut)
+        	&&  (message == WM_LBUTTONDOWN)
+		&&  (wParam == (MK_CONTROL | MK_LBUTTON | MK_SHIFT)))
+		{
+            		PostMessage(hwnd, WM_COMMAND, lParam, 0);
+			return WF_RETURN_BREAK;
+		}
+		return WF_RETURN_CONTINUE;
 	}
 }
 

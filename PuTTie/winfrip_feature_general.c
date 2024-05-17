@@ -172,7 +172,6 @@ WffGeneralConfigPanel(
 	ctrl_checkbox(s, "Cache passwords", 'p', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_cache_passwords));
 	ctrl_text(s, "WARNING: If and while enabled, this will cache passwords in memory insecurely. Consider not using this on shared computers.", WFP_HELP_CTX);
 	ctrl_checkbox(s, "Automatically restart session on disconnect", 'r', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_general_restart_session));
-	ctrl_checkbox(s, "Duplicate session with CTRL + SHIFT + LMB", 'd', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_general_dupsess_shortcut));
 }
 
 UINT
@@ -193,7 +192,6 @@ WffGeneralOperation(
 	Conf *		conf,
 	HINSTANCE	hinst,
 	HWND		hwnd,
-	UINT		message,
 	LPARAM		lParam,
 	int		reconfiguring,
 	void *		wgs,
@@ -234,16 +232,6 @@ WffGeneralOperation(
 		lp_eventlog(&((WinGuiSeat *)wgs)->logpolicy, "----- Session restarted -----");
 		term_pwron(((WinGuiSeat *)wgs)->term, false);
 		start_backend(wgs);
-		break;
-
-	case WFF_GENERAL_OP_DUPLICATE_SESSION:
-		if (conf_get_bool(conf, CONF_frip_general_dupsess_shortcut)
-        	&&  (message == WM_LBUTTONDOWN)
-		&&  (wParam == (MK_CONTROL | MK_LBUTTON | MK_SHIFT)))
-		{
-            		PostMessage(hwnd, WM_COMMAND, lParam, 0);
-			return WF_RETURN_BREAK;
-		}
 		break;
 
 	default:
