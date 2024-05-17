@@ -1037,6 +1037,16 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
             SetTimer(hwnd, DEMO_SCREENSHOT_TIMER_ID, TICKSPERSEC, NULL);
 
         pds_initdialog_finish(pds);
+
+        /* {{{ winfrip */
+        (void)WffGeneralOperation(
+            WFF_GENERAL_OP_POSITION_RESTORE, pds->dp->data,
+            hinst, hwnd, -1, -1, NULL, -1);
+        (void)WffGeneralOperation(
+            WFF_GENERAL_OP_SIZE_RESTORE, pds->dp->data,
+            hinst, hwnd, -1, -1, NULL, -1);
+        /* winfrip }}} */
+
         return 0;
 
       case WM_TIMER:
@@ -1130,7 +1140,20 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
 
       /* {{{ winfrip */
       case WM_SIZE:
+        if (pds->initialised) {
+            (void)WffGeneralOperation(
+                WFF_GENERAL_OP_SIZE_SET, pds->dp->data,
+                hinst, hwnd, -1, -1, NULL, -1);
+        }
         return recreate_panel(hwnd, tvfaff.treeview, pds);
+
+      case WM_MOVE:
+        if (pds->initialised) {
+            (void)WffGeneralOperation(
+                WFF_GENERAL_OP_POSITION_SET, pds->dp->data,
+                hinst, hwnd, -1, -1, NULL, -1);
+        }
+        return pds_default_dlgproc(pds, hwnd, msg, wParam, lParam);
       /* winfrip }}} */
 
       default:
