@@ -169,6 +169,8 @@ you should use PuTTie:
 15. **Resizable configuration window**  
     The configuration window is fully resizable, the session listbox control will dynamically adjust its size
     on resize.
+16. **Duplicate current session with \<Ctrl\> \<Shift\> LMB**, similarly to the KiTTY[[27](#r27)] implementation  
+    This is disabled by default and can be enabled in the Frippery panel.  
 
 [Back to top](#table-of-contents)
 
@@ -308,6 +310,7 @@ Ben Harris, or Jacob Nevins.
 ``Fri, 27 Aug 2021 18:42:02 +0200 [24]`` <a href="https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecutea" id="r24">ShellExecuteA function (shellapi.h) - Win32 apps | Microsoft Docs</a>  
 ``Mon, 30 Jan 2023 16:49:06 +0100 [25]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/win-jumplist-trouble.html" id="r25">PuTTY bug win-jumplist-trouble</a>  
 ``Mon, 30 Jan 2023 16:55:44 +0100 [26]`` <a href="https://github.com/MicrosoftDocs/win32/blob/docs/desktop-src/shell/appids.md" id="r26">win32/appids.md at docs · MicrosoftDocs/win32</a>  
+` Fri, 17 May 2024 15:06:16 +0200 [27]`` <a href="https://www.9bis.net/kitty/#!pages/Duplicate.md">KiTTY, a free telnet/ssh client for Windows</a>  
 
 [Back to top](#table-of-contents)
 
