@@ -11,7 +11,6 @@
  */
 
 #define	WFF_GENERAL_DEFAULT_ALWAYS_ON_TOP		false
-#define	WFF_GENERAL_DEFAULT_DUPSESS_SHORTCUT		false
 #define	WFF_GENERAL_DEFAULT_MINIMISE_TO_SYSTRAY		true
 #define	WFF_GENERAL_DEFAULT_RESTART_SESSION		false
 
@@ -35,11 +34,10 @@ typedef enum WffGeneralOp {
 	WFF_GENERAL_OP_SYSTRAY_WM_MENU		= 5,
 	WFF_GENERAL_OP_SYSTRAY_WM_OTHER		= 6,
 	WFF_GENERAL_OP_RESTART_SESSION		= 7,
-	WFF_GENERAL_OP_DUPLICATE_SESSION	= 8,
 } WffGeneralOp;
 
 UINT		WffGeneralGetWmSysTray(void);
-WfReturn	WffGeneralOperation(WffGeneralOp op, Conf *conf, HINSTANCE hinst, HWND hwnd, UINT message, LPARAM lParam, int reconfiguring, void *wgs, WPARAM wParam);
+WfReturn	WffGeneralOperation(WffGeneralOp op, Conf *conf, HINSTANCE hinst, HWND hwnd, LPARAM lParam, int reconfiguring, void *wgs, WPARAM wParam);
 
 #endif // !PUTTY_WINFRIP_FEATURE_GENERAL_H
 
