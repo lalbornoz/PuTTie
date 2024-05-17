@@ -71,6 +71,11 @@ CONF_OPTION(frip_mouse_font_size_wheel,				\
     DEFAULT_BOOL(WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL),		\
     SAVE_KEYWORD("FripMouseFontSizeWheel"),			\
 )								\
+CONF_OPTION(frip_mouse_font_size_wheel_shortcut,		\
+    VALUE_TYPE(BOOL),						\
+    DEFAULT_BOOL(WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL_SHORTCUT),	\
+    SAVE_KEYWORD("FripMouseFontSizeWheelShortcut"),		\
+)								\
 CONF_OPTION(frip_trans_custom,					\
     VALUE_TYPE(INT),						\
     DEFAULT_INT(WFF_TRANS_DEFAULT_CUSTOM),			\
