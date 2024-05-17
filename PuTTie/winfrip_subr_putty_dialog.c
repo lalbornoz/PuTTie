@@ -239,6 +239,8 @@ WfPuttyDialogResizeControls(
 	if ((rect_parent.bottom - WINFRIPP_DIALOG_YMAGIC1) > ypos_initial) {
 		bottom_extra = (rect_parent.bottom - WINFRIPP_DIALOG_YMAGIC1)
 			     - ypos_initial;
+	} else {
+		bottom_extra = 0;
 	}
 
 	/*
