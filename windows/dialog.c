@@ -420,9 +420,7 @@ static void winfripp_dialog_resize_dynamic_controls(
      * the client area minus WINFRIPP_DIALOG_YMAGIC3.
      */
 
-    if (foundfl
-    && ((index = ctrl_find_path(pds->ctrlbox, "", -1)) >= 0))
-    {
+    if ((index = ctrl_find_path(pds->ctrlbox, "", -1)) >= 0) {
         s = pds->ctrlbox->ctrlsets[index];
 
         for (size_t n = 0; n < s->ncontrols; n++) {
