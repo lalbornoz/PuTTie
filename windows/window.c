@@ -3521,6 +3521,18 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
          */
         noise_ultralight(NOISE_SOURCE_KEY, lParam);
 
+        /* {{{ winfrip */
+        switch (WffMouseOperation(WFF_MOUSE_OP_KEY_MESSAGE, wgs->conf, message, wParam)) {
+        case WF_RETURN_BREAK:
+            return 0;
+        case WF_RETURN_BREAK_RESET_WINDOW:
+            reset_window(wgs, 2);
+            return 0;
+        default:
+            break;
+        }
+        /* winfrip }}} */
+
         /*
          * We don't do TranslateMessage since it disassociates the
          * resulting CHAR message from the KEYDOWN that sparked it,

@@ -10,7 +10,8 @@
  * Public defaults
  */
 
-#define	WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL	true
+#define	WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL		true
+#define	WFF_MOUSE_DEFAULT_FONT_SIZE_WHEEL_SHORTCUT	false
 
 /*
  * Public subroutine prototypes used by/in:
@@ -27,6 +28,7 @@ void		WffMouseConfigPanel(struct controlbox *b);
 typedef enum WffMouseOp {
 	WFF_MOUSE_OP_MOUSE_EVENT	= 1,
 	WFF_MOUSE_OP_WHEEL		= 2,
+	WFF_MOUSE_OP_KEY_MESSAGE	= 3,
 } WffMouseOp;
 
 WfReturn	WffMouseOperation(WffMouseOp op, Conf *conf, UINT message, WPARAM wParam);

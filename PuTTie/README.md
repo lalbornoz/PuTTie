@@ -104,6 +104,8 @@ you should use PuTTie:
    Extend/shrink URL selection for URLs spanning multiple lines prior to opening URL
    with mouse wheel and configurable (defaults to \<Alt\>) modifier key
 4. **Change font size with \<Ctrl\> + \<Mouse wheel\>**, similarly to the mintty[[7](#r7)] and PuTTYTray[[11](#r11)] implementations  
+   Optionally, \<Ctrl\> 0/+/- will also reset/increase/decrease the font size; this feature may be
+   turned on or off (default) from the Frippery -> Mouse panel.
 5. **Always on top**, similarly to the PuTTYTray[[11](#r11)] implementation
 6. **Minimise to system tray[[2](#r2)]**, similarly to[[11](#r11)]
 7. **Store configuration in disk files[[1](#r1)]**, similarly to[[11](#r11)]  
@@ -161,8 +163,12 @@ you should use PuTTie:
    WARNING: If and while enabled, this will cache passwords in memory insecurely. Consider not using this on
    shared computers.
 13. **Automatic session restart on disconnect**  
+    This is disabled by default and can be enabled in the Frippery panel.  
 14. **putty.exe help screen**  
     Pass any of: ``-?``, ``-h``, ``--help``.
+15. **Resizable configuration window**  
+    The configuration window is fully resizable, the session listbox control will dynamically adjust its size
+    on resize.
 
 [Back to top](#table-of-contents)
 

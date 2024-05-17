@@ -15,6 +15,12 @@
 #include "PuTTie/winfrip_rtl_debug.h"
 
 /*
+ * Private variables
+ */
+
+static bool WffpMouseControlState = false;
+
+/*
  * Public subroutines private to PuTTie/winfrip*.c
  */
 
@@ -35,6 +41,8 @@ WffMouseConfigPanel(
 
 	ctrl_checkbox(s, "Change font size with mouse wheel", 'n', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_mouse_font_size_wheel));
 	ctrl_text(s, "This only affects mouse wheel actions with the CTRL modifier.", WFP_HELP_CTX);
+
+	ctrl_checkbox(s, "Change font size with CTRL 0/+/-:", 'k', WFP_HELP_CTX, conf_checkbox_handler, I(CONF_frip_mouse_font_size_wheel_shortcut));
 }
 
 /*
@@ -88,6 +96,48 @@ WffMouseOperation(
 			return WF_RETURN_FAILURE;
 		}
 		break;
+
+	case WFF_MOUSE_OP_KEY_MESSAGE:
+		if (WffpMouseControlState) {
+			if (wParam == '0') {
+				if (conf_get_bool(conf, CONF_frip_mouse_font_size_wheel_shortcut)) {
+					font = conf_get_fontspec(conf, CONF_font);
+					font->height = 10;
+					return WF_RETURN_BREAK_RESET_WINDOW;
+				} else {
+					return WF_RETURN_CONTINUE;
+				}
+			} else if (wParam == VK_OEM_MINUS) {
+				if (conf_get_bool(conf, CONF_frip_mouse_font_size_wheel_shortcut)) {
+					font = conf_get_fontspec(conf, CONF_font);
+					if (font->height > 1) {
+						font->height--;
+					}
+					return WF_RETURN_BREAK_RESET_WINDOW;
+				} else {
+					return WF_RETURN_CONTINUE;
+				}
+			} else if (wParam == VK_OEM_PLUS) {
+				if (conf_get_bool(conf, CONF_frip_mouse_font_size_wheel_shortcut)) {
+					font = conf_get_fontspec(conf, CONF_font);
+					if (font->height < 32) {
+						font->height++;
+					}
+					return WF_RETURN_BREAK_RESET_WINDOW;
+				} else {
+					return WF_RETURN_CONTINUE;
+				}
+			} else {
+				return WF_RETURN_CONTINUE;
+			}
+		} else {
+			if ((message == WM_KEYDOWN) && (wParam == VK_CONTROL)) {
+				WffpMouseControlState = true;
+			} else if ((message == WM_KEYUP) && (wParam == VK_CONTROL)) {
+				WffpMouseControlState = false;
+			}
+			return WF_RETURN_CONTINUE;
+		}
 	}
 }
 
