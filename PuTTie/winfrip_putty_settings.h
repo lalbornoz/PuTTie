@@ -58,7 +58,7 @@
 	write_setting_b((sesskey), "FripGeneralRestartSession", conf_get_bool((conf), CONF_frip_general_restart_session));		\
 	write_setting_b((sesskey), "FripMouseDupSessShortcut", conf_get_bool((conf), CONF_frip_mouse_dupsess_shortcut));		\
 	write_setting_b((sesskey), "FripMouseFontSizeWheel", conf_get_bool((conf), CONF_frip_mouse_font_size_wheel));			\
-	write_setting_b((sesskey), "FripMouseFontSizeWheelShortcut", conf_get_int((conf), CONF_frip_mouse_font_size_wheel_shortcut));	\
+	write_setting_b((sesskey), "FripMouseFontSizeWheelShortcut", conf_get_bool((conf), CONF_frip_mouse_font_size_wheel_shortcut));	\
 	write_setting_i((sesskey), "FripTranspCustom", conf_get_int((conf), CONF_frip_trans_custom));					\
 	write_setting_i((sesskey), "FripTranspOpaqueOn", conf_get_int((conf), CONF_frip_trans_opaque_on));				\
 	write_setting_i((sesskey), "FripTranspSetting", conf_get_int((conf), CONF_frip_trans_setting));					\
