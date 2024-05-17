@@ -1296,7 +1296,15 @@ const BackendVtable ssh_backend = {
     .cfg_info = ssh_cfg_info,
     .test_for_upstream = ssh_test_for_upstream,
     .close_warn_text = ssh_close_warn_text,
+    /* {{{ winfrip */
+#if 0
+    /* winfrip }}} */
     .id = "ssh",
+    /* {{{ winfrip */
+#else
+    .id = "SSH",
+#endif
+    /* winfrip }}} */
     .displayname_tc = "SSH",
     .displayname_lc = "SSH", /* proper name, so capitalise it anyway */
     .protocol = PROT_SSH,
