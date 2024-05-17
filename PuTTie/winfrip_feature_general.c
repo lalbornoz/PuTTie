@@ -15,6 +15,7 @@
 #include "PuTTie/winfrip_rtl_debug.h"
 #include "PuTTie/winfrip_feature.h"
 #include "PuTTie/winfrip_feature_general.h"
+#include "PuTTie/winfrip_storage_options.h"
 
 /*
  * Preprocessor macros
@@ -34,6 +35,13 @@
  */
 
 #define WM_SYSTRAY		(WM_USER + (0x7FFF - WM_USER))
+
+/*
+ * Private constants
+ */
+
+#define WFFGP_OPTION_CONFIG_LAST_POSITION	"PuttyConfigLastPosition"
+#define WFFGP_OPTION_CONFIG_LAST_SIZE		"PuttyConfigLastSize"
 
 /*
  * Private variables
@@ -198,6 +206,15 @@ WffGeneralOperation(
 	WPARAM		wParam
 	)
 {
+	WfsBackend	backend;
+	char *		last_position = NULL, *last_size = NULL;
+	size_t		last_position_size, last_size_size;
+	int		last_x, last_y;
+	int		last_w, last_h;
+	RECT		rect;
+	WfrStatus	status;
+
+
 	switch (op) {
 	case WFF_GENERAL_OP_CONFIG_DIALOG:
 		if (conf_get_bool(conf, CONF_frip_general_always_on_top)) {
@@ -232,6 +249,70 @@ WffGeneralOperation(
 		lp_eventlog(&((WinGuiSeat *)wgs)->logpolicy, "----- Session restarted -----");
 		term_pwron(((WinGuiSeat *)wgs)->term, false);
 		start_backend(wgs);
+		break;
+
+	case WFF_GENERAL_OP_POSITION_RESTORE:
+		backend = WfsGetBackend();
+		if (WFR_SUCCESS(status = WfsGetOption(
+			backend, WFFGP_OPTION_CONFIG_LAST_POSITION, NULL,
+			(void **)&last_position, NULL, NULL)))
+		{
+			if (sscanf(last_position, "%d,%d", &last_x, &last_y) == 2) {
+				SetWindowPos(
+					hwnd, NULL, last_x, last_y,
+					0, 0, SWP_NOSIZE | SWP_NOZORDER);
+			}
+		}
+		break;
+
+	case WFF_GENERAL_OP_SIZE_RESTORE:
+		backend = WfsGetBackend();
+		if (WFR_SUCCESS(status = WfsGetOption(
+			backend, WFFGP_OPTION_CONFIG_LAST_SIZE, NULL,
+			(void **)&last_size, NULL, NULL)))
+		{
+			if (sscanf(last_size, "%dx%d", &last_w, &last_h) == 2) {
+				SetWindowPos(
+					hwnd, NULL, 0, 0, last_w, last_h,
+					SWP_NOMOVE | SWP_NOZORDER);
+			}
+		}
+		break;
+
+	case WFF_GENERAL_OP_POSITION_SET:
+		backend = WfsGetBackend();
+
+		if (WFR_FAILURE_WINDOWS(status,
+			(GetWindowRect(hwnd, &rect) > 0))
+		||  WFR_FAILURE(status = WfrSnDuprintF(
+			&last_position, &last_position_size, "%d,%d",
+			rect.left, rect.top))
+		||  WFR_FAILURE(status = WfsSetOption(
+			backend, false, true,
+			WFFGP_OPTION_CONFIG_LAST_POSITION,
+			last_position, last_position_size,
+			WFR_TREE_ITYPE_STRING)))
+		{
+			WFR_FREE_IF_NOTNULL(last_position);
+		}
+		break;
+
+	case WFF_GENERAL_OP_SIZE_SET:
+		backend = WfsGetBackend();
+
+		if (WFR_FAILURE_WINDOWS(status,
+			(GetWindowRect(hwnd, &rect) > 0))
+		||  WFR_FAILURE(status = WfrSnDuprintF(
+			&last_size, &last_size_size, "%dx%d",
+			rect.right - rect.left, rect.bottom - rect.top))
+		||  WFR_FAILURE(status = WfsSetOption(
+			backend, false, true,
+			WFFGP_OPTION_CONFIG_LAST_SIZE,
+			last_size, last_size_size,
+			WFR_TREE_ITYPE_STRING)))
+		{
+			WFR_FREE_IF_NOTNULL(last_size);
+		}
 		break;
 
 	default:
