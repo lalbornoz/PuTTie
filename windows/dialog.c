@@ -204,9 +204,11 @@ static void pds_create_controls(
     }
 
     /* {{{ winfrip */
+#if 0
     WfPuttyDialogResizeControls(
         pds->ctrlbox, pds->ctrltrees, cp.hwnd,
         treeview_hwnd, path, which_tree, cp.ypos);
+#endif
     /* winfrip }}} */
 }
 
@@ -802,9 +804,11 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
         (void)WffGeneralOperation(
             WFF_GENERAL_OP_POSITION_RESTORE, pds->dp->data,
             hinst, hwnd, -1, -1, NULL, -1);
+    #if 0
         (void)WffGeneralOperation(
             WFF_GENERAL_OP_SIZE_RESTORE, pds->dp->data,
             hinst, hwnd, -1, -1, NULL, -1);
+    #endif
         /* winfrip }}} */
 
         return 0;
@@ -900,11 +904,13 @@ static INT_PTR GenericMainDlgProc(HWND hwnd, UINT msg, WPARAM wParam,
 
       /* {{{ winfrip */
       case WM_SIZE:
+      #if 0
         if (pds->initialised) {
             (void)WffGeneralOperation(
                 WFF_GENERAL_OP_SIZE_SET, pds->dp->data,
                 hinst, hwnd, -1, -1, NULL, -1);
         }
+      #endif
         return recreate_panel(hwnd, tvfaff.treeview, pds, tvfaff.treeview);
 
       case WM_MOVE:
