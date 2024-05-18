@@ -1951,7 +1951,11 @@ void setup_config_box(struct controlbox *b, bool midsession,
     ssd->listbox->listbox.height = 7;
     /* {{{ winfrip */
 #else
+#if 0
     ssd->listbox->listbox.height = -1;
+#else
+    ssd->listbox->listbox.height = 7;
+#endif
 #endif
     /* winfrip }}} */
     if (!midsession) {
