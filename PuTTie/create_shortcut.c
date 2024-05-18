@@ -24,7 +24,7 @@
  */
 
 // [see windows/putty.c]
-#define PUTTIE_APP_USER_MODEL_ID	L"SimonTatham.PuTTY"
+#define PUTTIE_APP_USER_MODEL_ID	L"Roarie.PuTTie"
 #define PUTTIE_PATH_DEFAULT		L"putty.exe"
 #define PUTTIE_SHORTCUT_DESCRIPTION	L"SSH, Telnet and Rlogin client"
 #define PUTTIE_SHORTCUT_PATH_DEFAULT	L"PuTTie.lnk"
