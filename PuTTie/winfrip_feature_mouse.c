@@ -103,7 +103,7 @@ WffMouseOperation(
 
 	case WFF_MOUSE_OP_KEY_MESSAGE:
 		if (WffpMouseControlState) {
-			if (wParam == '0') {
+			if ((wParam == '0') || (wParam == VK_NUMPAD0)) {
 				if (conf_get_bool(conf, CONF_frip_mouse_font_size_wheel_shortcut)) {
 					font = conf_get_fontspec(conf, CONF_font);
 					font->height = 10;
@@ -111,7 +111,7 @@ WffMouseOperation(
 				} else {
 					return WF_RETURN_CONTINUE;
 				}
-			} else if (wParam == VK_OEM_MINUS) {
+			} else if ((wParam == VK_OEM_MINUS) || (wParam == VK_SUBTRACT)) {
 				if (conf_get_bool(conf, CONF_frip_mouse_font_size_wheel_shortcut)) {
 					font = conf_get_fontspec(conf, CONF_font);
 					if (font->height > 1) {
@@ -121,7 +121,7 @@ WffMouseOperation(
 				} else {
 					return WF_RETURN_CONTINUE;
 				}
-			} else if (wParam == VK_OEM_PLUS) {
+			} else if ((wParam == VK_OEM_PLUS) || (wParam == VK_ADD)) {
 				if (conf_get_bool(conf, CONF_frip_mouse_font_size_wheel_shortcut)) {
 					font = conf_get_fontspec(conf, CONF_font);
 					if (font->height < 32) {
