@@ -1,7 +1,10 @@
 # PuTTie 💚
 
-![socks cat courtesy of sad](https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/putty256.ico "socks cat courtesy of sad")  
-PuTTY plus *pointless frippery* and tremendous amounts of *bloat*[[1](#r1)][[2](#r2)][[3](#r3)][[4](#r4)][[5](#r5)][[9](#r9)]
+<p align="center">
+    <img src="https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/putty256.ico" alt="socks cat courtesy of sad">
+    <br>
+    PuTTY plus <em>pointless frippery</em> and tremendous amounts of <em>bloat</em>[<a href="#r1">1</a>][<a href="#r2">2</a>][<a href="#r3">3</a>][<a href="#r4">4</a>][<a href="#r5">5</a>][<a href="#r9">9</a>]
+</p>
 
 # Table of contents
 
@@ -309,7 +312,7 @@ Ben Harris, or Jacob Nevins.
 ``Fri, 27 Aug 2021 18:42:02 +0200 [24]`` <a href="https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecutea" id="r24">ShellExecuteA function (shellapi.h) - Win32 apps | Microsoft Docs</a>  
 ``Mon, 30 Jan 2023 16:49:06 +0100 [25]`` <a href="https://www.chiark.greenend.org.uk/~sgtatham/putty/wishlist/win-jumplist-trouble.html" id="r25">PuTTY bug win-jumplist-trouble</a>  
 ``Mon, 30 Jan 2023 16:55:44 +0100 [26]`` <a href="https://github.com/MicrosoftDocs/win32/blob/docs/desktop-src/shell/appids.md" id="r26">win32/appids.md at docs · MicrosoftDocs/win32</a>  
-` Fri, 17 May 2024 15:06:16 +0200 [27]`` <a href="https://www.9bis.net/kitty/#!pages/Duplicate.md">KiTTY, a free telnet/ssh client for Windows</a>  
+``Fri, 17 May 2024 15:06:16 +0200 [27]`` <a href="https://www.9bis.net/kitty/#!pages/Duplicate.md">KiTTY, a free telnet/ssh client for Windows</a>  
 
 [Back to top](#table-of-contents)
 
