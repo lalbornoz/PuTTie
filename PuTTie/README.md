@@ -1,5 +1,6 @@
 # PuTTie 💚
 
+![socks cat courtesy of sad](https://github.com/lalbornoz/PuTTie/raw/master/PuTTie/putty256.ico "socks cat courtesy of sad")  
 PuTTY plus *pointless frippery* and tremendous amounts of *bloat*[[1](#r1)][[2](#r2)][[3](#r3)][[4](#r4)][[5](#r5)][[9](#r9)]
 
 # Table of contents
