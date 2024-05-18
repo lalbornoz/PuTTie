@@ -166,9 +166,7 @@ you should use PuTTie:
     This is disabled by default and can be enabled in the Frippery panel.  
 14. **putty.exe help screen**  
     Pass any of: ``-?``, ``-h``, ``--help``.
-15. **Resizable configuration window**  
-    The configuration window is fully resizable, the session listbox control will dynamically adjust its size
-    on resize. PuTTie will remember and restore the last position and size of the configuration window.
+15. **Remember last configuration window position**  
 16. **Duplicate current session with \<Ctrl\> \<Shift\> LMB**, similarly to the KiTTY[[27](#r27)] implementation  
     This is disabled by default and can be enabled in the Frippery panel.  
 
