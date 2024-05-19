@@ -965,7 +965,9 @@ WfrRenameFile(
 	&&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(pname_new, strlen(pname_new), &pname_newW)))
 	{
 		WFR_SUCCESS_WINDOWS(status,
-			MoveFileExW(pnameW, pname_newW, MOVEFILE_REPLACE_EXISTING));
+			MoveFileExW(
+				pnameW, pname_newW,
+				MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING));
 	}
 
 	WFR_FREE_IF_NOTNULL(pname_newW);
