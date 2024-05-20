@@ -224,21 +224,26 @@ build_install() {
 				-type f);
 		do
 			_fname="${_fname#./}";
-			cp -a "${_fname}" "PuTTie/${_install_dname}";
-			stat "PuTTie/${_install_dname}/${_fname}";
+			if [ "${_fname}" = "putty.exe" ]; then
+				cp -a "${_fname}" "PuTTie/${_install_dname}/puttie.exe";
+				stat "PuTTie/${_install_dname}/puttie.exe";
+			else
+				cp -a "${_fname}" "PuTTie/${_install_dname}";
+				stat "PuTTie/${_install_dname}/${_fname}";
+			fi;
 		done; IFS="${_IFS0}";
 		cp -a "PuTTie/create_shortcut.exe" "PuTTie/${_install_dname}";
 		stat "PuTTie/${_install_dname}/create_shortcut.exe";
 		cp -a "PuTTie/README.md" "PuTTie/${_install_dname}";
 		stat "PuTTie/${_install_dname}/README.md";
-		ln -s "putty.exe" "PuTTie/${_install_dname}/putty-ephemeral.exe";
-		stat "PuTTie/${_install_dname}/putty-ephemeral.exe";
-		ln -s "putty.exe" "PuTTie/${_install_dname}/putty-file.exe";
-		stat "PuTTie/${_install_dname}/putty-file.exe";
-		ln -s "putty.exe" "PuTTie/${_install_dname}/putty-portable.exe";
-		stat "PuTTie/${_install_dname}/putty-portable.exe";
-		ln -s "putty.exe" "PuTTie/${_install_dname}/putty-registry.exe";
-		stat "PuTTie/${_install_dname}/putty-registry.exe";
+		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-ephemeral.exe";
+		stat "PuTTie/${_install_dname}/puttie-ephemeral.exe";
+		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-file.exe";
+		stat "PuTTie/${_install_dname}/puttie-file.exe";
+		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-portable.exe";
+		stat "PuTTie/${_install_dname}/puttie-portable.exe";
+		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-registry.exe";
+		stat "PuTTie/${_install_dname}/puttie-registry.exe";
 	fi;
 	if [ "${_Rflag:-0}" -eq 1 ]; then
 		if [ -e "PuTTie/${_install_dname}.zip" ]; then
