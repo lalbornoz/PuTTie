@@ -5,6 +5,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include <windows.h>
 
@@ -92,7 +93,7 @@ WfrClearRegSubKey(
 	if (WFR_SUCCESS(status = WfrEscapeRegKey(subkey, &subkey_escaped))
 	&&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(subkey_escaped, strlen(subkey_escaped), &subkey_escapedW))
 	&&  WFR_SUCCESS(status = WfrOpenRegKeyRw(HKEY_CURRENT_USER, &hKey, subkey))
-	&&  WFR_SUCCESS_LSTATUS(status, RegDeleteTreeW(hKey, subkey_escapedW)))
+	&&  WFR_SUCCESS_LSTATUS(status, RegDeleteTreeW(hKey, NULL)))
 	{
 		status = WFR_STATUS_CONDITION_SUCCESS;
 	}
