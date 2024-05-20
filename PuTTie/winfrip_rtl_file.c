@@ -487,7 +487,9 @@ WfrEnumerateFiles(
 
 
 	if (!(*pstate)->dirp) {
-		*pdonefl = true;
+		if (pdonefl != NULL) {
+			*pdonefl = true;
+		}
 		*pfname = NULL;
 		WfrEnumerateFilesCancel(pstate);
 		return WFR_STATUS_CONDITION_SUCCESS;
@@ -541,7 +543,9 @@ WfrEnumerateFiles(
 					*fname_extW = L'\0';
 				}
 
-				*pdonefl = false;
+				if (pdonefl != NULL) {
+					*pdonefl = false;
+				}
 				status = WfrConvertUtf16ToUtf8String(fnameW, wcslen(fnameW), (char **)pfname);
 				(*pstate)->donefl = false;
 				(void)_wchdir(path_cwdW);
@@ -556,7 +560,9 @@ WfrEnumerateFiles(
 
 	if (WFR_SUCCESS(status)) {
 		status = ((errno == 0) ? status : WFR_STATUS_FROM_ERRNO());
-		*pdonefl = true;
+		if (pdonefl != NULL) {
+			*pdonefl = true;
+		}
 		*pfname = NULL;
 		WfrEnumerateFilesCancel(pstate);
 	}
@@ -823,6 +829,32 @@ WfrMakeDirectoryW(
 }
 
 WfrStatus
+WfrMoveFileW(
+	wchar_t *	pname_oldW,
+	wchar_t	*	pname_newW
+)
+{
+	WfrStatus	status;
+
+
+	if (WFR_FAILURE_WINDOWS(status,
+		(MoveFileExW(
+			pname_oldW, pname_newW,
+			MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING) > 0))
+	&&  (WFR_STATUS_CONDITION(status) == ERROR_NOT_SAME_DEVICE))
+	{
+		if (WFR_SUCCESS_WINDOWS(status,
+			(CopyFileW(pname_oldW, pname_newW, FALSE) > 0)))
+		{
+			WFR_SUCCESS_WINDOWS(status,
+				(DeleteFileW(pname_oldW) > 0));
+		}
+	}
+
+	return status;
+}
+
+WfrStatus
 WfrPathNameToAbsoluteW(
 	const wchar_t *		pname,
 	wchar_t **		ppname_abs
@@ -964,10 +996,7 @@ WfrRenameFile(
 	&&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(pname, strlen(pname), &pnameW))
 	&&  WFR_SUCCESS(status = WfrConvertUtf8ToUtf16String(pname_new, strlen(pname_new), &pname_newW)))
 	{
-		WFR_SUCCESS_WINDOWS(status,
-			MoveFileExW(
-				pnameW, pname_newW,
-				MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING));
+		status = WfrMoveFileW(pnameW, pname_newW);
 	}
 
 	WFR_FREE_IF_NOTNULL(pname_newW);

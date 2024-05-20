@@ -115,9 +115,7 @@ WfrSaveListToFile(
 	}
 
 	if (WFR_SUCCESS(status)
-	&&  WFR_FAILURE_WINDOWS(status, MoveFileExW(
-			pname_tmpW, fnameW,
-			MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING)))
+	&&  WFR_FAILURE(status = WfrMoveFileW(pname_tmpW, fnameW)))
 	{
 		(void)_wunlink(pname_tmpW);
 	} else if (WFR_FAILURE(status)) {
@@ -217,9 +215,7 @@ WfrSaveRawFile(
 	}
 
 	if (WFR_SUCCESS(status)
-	&&  WFR_FAILURE_WINDOWS(status, MoveFileExW(
-			pname_tmpW, pnameW,
-			MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING)))
+	&&  WFR_FAILURE(status = WfrMoveFileW(pname_tmpW, pnameW)))
 	{
 		(void)_wunlink(pname_tmpW);
 	} else if (WFR_FAILURE(status)) {
@@ -334,9 +330,7 @@ WfrSaveToFileV(
 	}
 
 	if (WFR_SUCCESS(status)
-	&&  WFR_FAILURE_WINDOWS(status, MoveFileExW(
-			fname_tmpW, fname_fullW,
-			MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING)))
+	&&  WFR_FAILURE(status = WfrMoveFileW(fname_tmpW, fname_fullW)))
 	{
 		(void)_wunlink(fname_tmpW);
 	} else if (WFR_FAILURE(status)) {
@@ -528,9 +522,7 @@ WfrSaveTreeToFile(
 	}
 
 	if (WFR_SUCCESS(status)
-	&&  WFR_FAILURE_WINDOWS(status, MoveFileExW(
-			fname_tmpW, fname_fullW,
-			MOVEFILE_COPY_ALLOWED | MOVEFILE_REPLACE_EXISTING)))
+	&&  WFR_FAILURE(status = WfrMoveFileW(fname_tmpW, fname_fullW)))
 	{
 		(void)_wunlink(fname_tmpW);
 	} else if (WFR_FAILURE(status)) {
