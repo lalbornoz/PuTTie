@@ -73,6 +73,7 @@ WfrStatus	WfrEnumerateFilesV(const char *dname, const char *filter_list, size_t 
 WfrStatus	WfrEscapeFileName(const char *dname, const char *ext, const char *name, bool tmpfl, char *pname, size_t pname_size);
 WfrStatus	WfrMakeDirectory(char *path, bool existsfl);
 WfrStatus	WfrMakeDirectoryW(wchar_t *pathW, bool existsfl);
+WfrStatus	WfrMoveFileW(wchar_t *pname_oldW, wchar_t *pname_newW);
 WfrStatus	WfrPathNameToAbsoluteW(const wchar_t *pname, wchar_t **ppname_abs);
 WfrStatus	WfrPathNameToDirectory(char *pname, char **pdname);
 WfrStatus	WfrPathNameToDirectoryW(wchar_t *pname, wchar_t **pdname);
