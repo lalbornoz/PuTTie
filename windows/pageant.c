@@ -1795,7 +1795,15 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
         if (p && p >= r) r = p+1;
         q = strrchr(b, ':');
         if (q && q >= r) r = q+1;
+        /* {{{ winfrip */
+    #if 0
+        /* winfrip }}} */
         strcpy(r, "putty.exe");
+        /* {{{ winfrip */
+    #else
+        strcpy(r, "puttie.exe");
+    #endif
+        /* winfrip }}} */
         if ( (fp = fopen(b, "r")) != NULL) {
             putty_path = dupstr(b);
             fclose(fp);
