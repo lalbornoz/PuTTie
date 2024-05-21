@@ -25,7 +25,7 @@
 
 // [see windows/putty.c]
 #define PUTTIE_APP_USER_MODEL_ID	L"Roarie.PuTTie"
-#define PUTTIE_PATH_DEFAULT		L"putty.exe"
+#define PUTTIE_PATH_DEFAULT		L"puttie.exe"
 #define PUTTIE_SHORTCUT_DESCRIPTION	L"SSH, Telnet and Rlogin client"
 #define PUTTIE_SHORTCUT_PATH_DEFAULT	L"PuTTie.lnk"
 
@@ -62,7 +62,7 @@ WinMain(
 		status = WFR_STATUS_FROM_ERRNO1(EINVAL);
 		(void)WfrMessageBoxF(
 			NULL, "PuTTie", MB_OK | MB_ICONEXCLAMATION,
-			"Invalid arguments, should be: [<shortcut file path>=%S] [<putty.exe file path>=%S]",
+			"Invalid arguments, should be: [<shortcut file path>=%S] [<puttie.exe file path>=%S]",
 			PUTTIE_SHORTCUT_PATH_DEFAULT, PUTTIE_PATH_DEFAULT);
 	} else if (((argc >= 2) && !(shortcut_path = wcsdup(argv[1])))
 		|| (!shortcut_path && (!(shortcut_path = wcsdup(PUTTIE_SHORTCUT_PATH_DEFAULT))))
