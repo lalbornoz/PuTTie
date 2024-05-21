@@ -229,35 +229,51 @@ $ git clone --recurse https://github.com/lalbornoz/PuTTie
 
 #
 # Release build, create release archive, no build parallelisation/max. 4 jobs, resp.:
-$ ./PuTTie/build.sh -c -R
-$ ./PuTTie/build.sh -c -R -j 4
+$ ./PuTTie/build.sh distclean_all and install
+$ ./PuTTie/build.sh -j 4 distclean_all and install
 
 #
 # Debug build, create release archive, no build parallelisation/max. 4 jobs, resp.:
-$ ./PuTTie/build.sh -c -d -R
-$ ./PuTTie/build.sh -c -d -R -j 4
+$ ./PuTTie/build.sh -d distclean_all and install
+$ ./PuTTie/build.sh -d -j 4 distclean_all and install
 
 #
 # Release build, default to file as storage backend, create release archive, no build parallelisation/max. 4 jobs, resp.:
-$ ./PuTTie/build.sh -B file -c -R
-$ ./PuTTie/build.sh -B file -c -R -j 4
+$ ./PuTTie/build.sh -B file distclean_all and install
+$ ./PuTTie/build.sh -B file -j 4 distclean_all and install
 
 #
 # Help screen:
 $ ./PuTTie/build.sh -h
-usage: ./PuTTie/build.sh [-B <backend>] [-c] [--clang] [-d] [-D] [--dbg-svr <fname> [..]] [--dbg-cli <fname>] [-h] [-i] [-j <jobs>] [-R] [-t <target>]
-       -B <backend>..........: set default storage backend to either of ephemeral, file, or registry (default)
-       -c....................: clean cmake(1) cache file(s) and output directory/ies before build
-       --clang...............: regenerate compile_commands.json
-       -d....................: select Debug (vs. Release) build (NB: pass -c when switching between build types)
-       -D....................: select Debug w/o debugging console (vs. Release) build (for usage w/ --dbg-{svr,cli} (NB: pass -c when switching between build types)
-       --dbg-svr <fname> [..]: run <fname> w/ optional arguments via wine & local gdbserver on port 1234
-       --dbg-cli <fname>.....: debug <fname> w/ MingW gdb previously launched w/ --dbg-svr
-       -h....................: show this screen
-       -i....................: {clean,install} images {pre,post}-build
-       -j <jobs>.............: set cmake(1) max. job count
-       -R....................: create release archive (implies -i)
-       -t <target>...........: build PuTTY <target> instead of default target
+usage: build.sh [-B <backend>] [-d] [-D] [-h] [-i] [-j <jobs>] [-t <target>]
+      [<command> [<args>[...]] [and] [...]
+
+      -B <backend>....: set default storage backend to either of ephemeral, file, or registry (default)
+      -d..............: select Debug (vs. Release) build
+      -D..............: select Debug w/o debugging console (vs. Release) build (for usage w/ dbg_server)
+      -h..............: show this screen
+      -i..............: ignore command dependencies
+      -j <jobs>.......: set cmake(1) max. job count
+      -t <target>.....: build <target> instead of default target
+
+Available commands:
+clang_compile_cmds      Create compile_commands.json file
+clean                   Clean PuTTie build directory
+clean_all               Clean pcre2 and PuTTie build directory
+clean_pcre2             Clean pcre2 build directory
+configure               Configure PuTTie
+configure_pcre2         Configure pcre2
+dbg_client [...]        Attach to gdbserver on localhost:1234 with optional arguments to gdb
+dbg_server [...]        Start gdbserver on localhost:1234 with optional arguments to putty.exe
+distclean               Reset PuTTie build directory
+distclean_all           Reset pcre2 and PuTTie build directory
+distclean_pcre2         Reset pcre2 build directory
+make                    Build PuTTie
+make_pcre2              Build pcre2
+install                 Create PuTTie release archive
+publish                 Publish PuTTie release archive on GitHub
+
+N.B.: When switching build types, run clean.
 ```
 
 [Back to top](#table-of-contents)
