@@ -432,7 +432,7 @@ int cmdline_process_param(const char *p, char *value,
         return 2;
     }
     for (size_t i = 0; backends[i]; i++) {
-        if (p[0] == '-' && !strcmp(p+1, backends[i]->id)) {
+        if (p[0] == '-' && !strcasecmp(p+1, backends[i]->id)) {
             RETURN(1);
             UNAVAILABLE_IN(TOOLTYPE_NONNETWORK);
             SAVEABLE(0);
