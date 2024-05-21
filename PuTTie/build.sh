@@ -236,14 +236,8 @@ build_install() {
 		stat "PuTTie/${_install_dname}/create_shortcut.exe";
 		cp -a "PuTTie/README.md" "PuTTie/${_install_dname}";
 		stat "PuTTie/${_install_dname}/README.md";
-		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-ephemeral.exe";
-		stat "PuTTie/${_install_dname}/puttie-ephemeral.exe";
-		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-file.exe";
-		stat "PuTTie/${_install_dname}/puttie-file.exe";
 		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-portable.exe";
 		stat "PuTTie/${_install_dname}/puttie-portable.exe";
-		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-registry.exe";
-		stat "PuTTie/${_install_dname}/puttie-registry.exe";
 	fi;
 	if [ "${_Rflag:-0}" -eq 1 ]; then
 		if [ -e "PuTTie/${_install_dname}.zip" ]; then
