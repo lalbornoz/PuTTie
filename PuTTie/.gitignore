@@ -5,3 +5,4 @@ PuTTie-file-*/
 PuTTie-registry-*.zip
 PuTTie-registry-*/
 TODO
+.build.github.token
