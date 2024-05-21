@@ -211,8 +211,11 @@ build_install() {
 		_fname="" _IFS0="${IFS:- 	}";
 
 	if [ "${_iflag:-0}" -eq 1 ]; then
+		if [ -d "PuTTie/${_install_dname}" ]; then
+			rm -fr "PuTTie/${_install_dname}" || return 1;
+		fi;
 		if ! [ -d "PuTTie/${_install_dname}" ]; then
-			mkdir -p "PuTTie/${_install_dname}";
+			mkdir -p "PuTTie/${_install_dname}" || return 1;
 		fi;
 		IFS="
 ";		for _fname in $(find .					\
@@ -239,7 +242,7 @@ build_install() {
 		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-portable.exe";
 		stat "PuTTie/${_install_dname}/puttie-portable.exe";
 	fi;
-	if [ "${_Rflag:-0}" -eq 1 ]; then
+	if [ "${_Rflag:-0}" -ge 1 ]; then
 		if [ -e "PuTTie/${_install_dname}.zip" ]; then
 			rm -f "PuTTie/${_install_dname}.zip";
 		fi;
@@ -248,9 +251,86 @@ build_install() {
 	fi;
 };
 # }}}
+# {{{ build_publish($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
+build_publish() {
+	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
+		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
+		_tflag="${9}"							\
+		_backend="" _body="" _body_tmp_fname="" _fname=""		\
+		_release_id="" _response_json=""				\
+		_IFS0="${IFS:- 	}";
+
+	if [ "${_Rflag:-0}" -ge 2 ]\
+	&& [ -e "PuTTie/${_install_dname}.zip" ];
+	then
+		case "${_Bflag}" in
+		WFS_BACKEND_FILE)	_backend="file-based"; ;;
+		WFS_BACKEND_REGISTRY)	_backend="Registry-based"; ;;
+		WFS_BACKEND_EPHEMERAL)	_backend="ephemeral"; ;;
+		*)			return 1; ;;
+		esac;
+
+		_body_tmp_fname="$(mktemp)" || return 1;
+		cat >"${_body_tmp_fname}" <<EOF
+${_install_dname}
+
+PuTTie ${_build_type} build $(git rev-parse --short HEAD)
+Defaults to ${_backend} global options, host CA, host key, jump list, Pageant private key list, and session storage
+Select portable file backend with puttie-portable.exe.
+
+Changes:
+
+
+Upstream at $(git rev-parse --short upstream/main)
+pcre2 at $(cd PuTTie/pcre2 && git describe --tags)
+EOF
+
+		trap "rm -f \"${_body_tmp_fname}\" 2>/dev/null" HUP INT TERM USR1 USR2;
+		"${EDITOR}" "${_body_tmp_fname}" || return 1;
+		_response_json="$(curl							\
+			-L								\
+			-X POST								\
+			-H "Accept: application/vnd.github+json"			\
+			-H "Authorization: Bearer $(cat PuTTie/.build.github.token)"	\
+			-H "X-GitHub-Api-Version: 2022-11-28"				\
+			"https://api.github.com/repos/lalbornoz/PuTTie/releases"	\
+			-d '{
+				"body":'"$(json_xs -f string < "${_body_tmp_fname}")"',
+				"draft":true,
+				"name":"'"${_install_dname}"'",
+				"prerelease":false,
+				"tag_name":"'"${_install_dname}"'",
+				"target_commitish":"master",
+				"generate_release_notes":false
+			}')" || return 1;
+
+		_release_id="$(
+			printf "%s\n" "${_response_json}"							|\
+			perl -wle										 \
+				'local $/ = undef; use JSON qw(from_json); print(from_json(<>)->{"id"})')"	 \
+					|| return 1;
+
+		curl	\
+			-L														\
+			-X POST														\
+			-H "Accept: application/vnd.github+json"									\
+			-H "Authorization: Bearer $(cat PuTTie/.build.github.token)"							\
+			-H "X-GitHub-Api-Version: 2022-11-28"										\
+			-H "Content-Type: application/octet-stream"									\
+			"https://uploads.github.com/repos/lalbornoz/PuTTie/releases/${_release_id}/assets?name=${_install_dname}.zip"	\
+			--data-binary "@PuTTie/${_install_dname}.zip" || return 1;
+
+		rm -f "${_body_tmp_fname}" 2>/dev/null;
+		trap - HUP INT TERM USR1 USR2;
+	fi;
+};
+# }}}
 
 buildp_usage() {
-	echo "usage: ${0} [-B <backend>] [-c] [--clang] [-d] [-D] [--dbg-svr <fname> [..]] [--dbg-cli <fname>] [-h] [-i] [-j <jobs>] [-R] [-t <target>]" >&2;
+	echo "usage: ${0} [-B <backend>] [-c] [--clang]" >&2;
+	echo "       [-d] [-D] [--dbg-svr <fname> [..]] [--dbg-cli <fname>]" >&2;
+	echo "       [-h] [-i] [-j <jobs>] [-P] [-R] [-t <target>]" >&2;
+	echo "" >&2;
 	echo "       -B <backend>..........: set default storage backend to either of ephemeral, file, or registry (default)" >&2;
 	echo "       -c....................: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
 	echo "       --clang...............: regenerate compile_commands.json" >&2;
@@ -261,6 +341,7 @@ buildp_usage() {
 	echo "       -h....................: show this screen" >&2;
 	echo "       -i....................: {clean,install} images {pre,post}-build" >&2;
 	echo "       -j <jobs>.............: set cmake(1) max. job count" >&2;
+	echo "       -P....................: publish release archive (implies -R)" >&2;
 	echo "       -R....................: create release archive (implies -i)" >&2;
 	echo "       -t <target>...........: build PuTTY <target> instead of default target" >&2;
 };
@@ -290,7 +371,7 @@ build() {
 				buildp_usage; exit 1;
 			fi;
 			;;
-		*)	if getopts B:cdDhij:Rt: _opt; then
+		*)	if getopts B:cdDhij:PRt: _opt; then
 				case "${_opt}" in
 				B)	_Bflag="${OPTARG}"; ;;
 				c)	_cflag=1; ;;
@@ -299,6 +380,7 @@ build() {
 				h)	buildp_usage; exit 0; ;;
 				i)	_iflag=1; ;;
 				j)	_jflag="${OPTARG}"; ;;
+				P)	_iflag=1; _Rflag=2; ;;
 				R)	_iflag=1; _Rflag=1; ;;
 				t)	_tflag="${OPTARG}"; ;;
 				*)	buildp_usage; exit 1; ;;
@@ -329,6 +411,7 @@ build() {
 	build_configure "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
 	build_make "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
 	build_install "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	build_publish "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
 };
 
 set -o errexit -o noglob -o nounset;
