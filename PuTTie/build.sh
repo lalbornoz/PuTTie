@@ -1,48 +1,71 @@
 #!/bin/sh
-# Copyright (c) 2018, 2019, 2020, 2021, 2022, 2023 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
+# Copyright (c) 2018, 2019, 2020, 2021, 2022, 2023, 2024 Lucía Andrea Illanes Albornoz <lucia@luciaillanes.de>
 #
 
-DBG_ADDR="localhost:1234";
-DBG_GDBSERVER_FNAME="Z:/usr/share/win64/gdbserver.exe";
+# {{{ dict_get($_dict, $_key, $_rvalue)
+dict_get() {
+	local _dg_dict="${1}" _dg_key="${2}" _dg_rvalue="${3#\$}";
+	eval ${_dg_rvalue}=\${${_dg_dict}_${_dg_key}};
+};
+# }}}
+# {{{ dict_set($_dict, $_key, $_value)
+dict_set() {
+	local _ds_dict="${1}" _ds_key="${2}" _ds_value="${3}";
+	eval ${_ds_dict}_${_ds_key}=\${_ds_value};
+};
+# }}}
+# {{{ dict_test_int($_dict, $_key, $_test_expr)
+dict_test_int() {
+	local	_dti_dict="${1}" _dti_key="${2}"	\
+		_dti_value="";
+	shift 2;
 
-# {{{ build_clang_compile_cmds()
+	eval _dti_value=\${${_dti_dict}_${_dti_key}};
+	eval [ \"\${_dti_value}\" \"\${@}\" ];
+};
+# }}}
+
+# {{{ build_clang_compile_cmds($_dict)
 build_clang_compile_cmds() {
-	local	_args="" _clang_fname=""			\
-		_compile_commands_fname=""			\
-		_compile_flags_fname="" _dname="" _fname=""	\
-		_pname="" _pwd="" _tmp_fname="" _uname_os="";
+	local	_bccc_dict="${1}"					\
+		_bccc_args="" _clang_fname=""				\
+		_bccc_compile_commands_fname=""				\
+		_bccc_compile_flags_fname="" _dname="" _fname=""	\
+		_bccc_pname="" _pwd="" _tmp_fname="" _uname_os="";
+	shift 1;
 
-	_clang_fname="$(which clang)" || return 1;
-	_compile_commands_fname="${0%/*}/../compile_commands.json";
-	_pwd="${PWD}";
-	_uname_os="$(uname -o)" || return 1;
-	if [ "${_uname_os}" = "Cygwin" ]; then
-		_pwd="$(cygpath -m "${_pwd}")" || return 1;
+	_bccc_clang_fname="$(which clang)" || return "${?}";
+	_bccc_compile_commands_fname="${0%/*}/../compile_commands.json";
+	_bccc_pwd="${PWD}";
+	_bccc_uname_os="$(uname -o)" || return "${?}";
+	if [ "${_bccc_uname_os}" = "Cygwin" ]; then
+		_bccc_pwd="$(cygpath -m "${_bccc_pwd}")" || return "${?}";
 	fi;
-	_tmp_fname="$(mktemp)" || return 1;
-	trap "rm -f \"${_tmp_fname}\" 2>/dev/null" HUP INT TERM USR1 USR2;
+	_bccc_tmp_fname="$(mktemp)" || return "${?}";
+	trap "rm -f \"${_bccc_tmp_fname}\" 2>/dev/null" EXIT HUP INT TERM USR1 USR2;
 
-	_compile_flags_fname="${0%/*}/compile_flags.txt.tmpl.${_uname_os##*/}";
+	_bccc_compile_flags_fname="${0%/*}/compile_flags.txt.tmpl.${_bccc_uname_os##*/}";
 
-	_args="$(
+	_bccc_args="$(
 		sed						\
 			-e 's/^/"/'				\
 			-e 's/$/",/'				\
-			"${_compile_flags_fname}"		|\
+			"${_bccc_compile_flags_fname}"		|\
 		paste -sd " "					|\
-		sed 's/,$//')";
-	_args='["'"${_clang_fname}"'", '"${_args}"', "-c", "-o"';
+		sed 's/,$//')" || return "${?}";
+	_bccc_args='["'"${_bccc_clang_fname}"'", '"${_bccc_args}"', "-c", "-o"';
 
-	for _pname in $(					\
+	for _bccc_pname in $(					\
 		cd "${0%/*}/.." && find .			\
 			-not -path "./PuTTie/pcre2/\*"		\
 			-not -path "./PuTTie/PuTTie-\*-\*/\*"	\
 			-not -path "\*/CMake\*/\*"		\
 			-iname \*.c);
 	do
-		_pname="${_pname#./}";
-		_fname="${_pname##*/}"; _dname="${_pname%/*}";
-		[ "${_dname}" = "${_pname}" ] && _dname="";
+		_bccc_pname="${_bccc_pname#./}";
+		_bccc_fname="${_bccc_pname##*/}";
+		_bccc_dname="${_bccc_pname%/*}";
+		[ "${_bccc_dname}" = "${_bccc_pname}" ] && _bccc_dname="";
 
 		printf '
 	{
@@ -50,10 +73,10 @@ build_clang_compile_cmds() {
 		"arguments": %s, "%s.o", "%s"],
 		"file": "%s%s"
 	},'							\
-			"${_pwd}"				\
-			"${_args}" "${_fname%.c}" "${_fname}"	\
-			"${_dname:+${_dname}/}" "${_fname}";
-	done > "${_tmp_fname}";
+			"${_bccc_pwd}"				\
+			"${_bccc_args}" "${_bccc_fname%.c}" "${_bccc_fname}"	\
+			"${_bccc_dname:+${_bccc_dname}/}" "${_bccc_fname}";
+	done > "${_bccc_tmp_fname}" || return "${?}";
 
 	sed	-i""						\
 		-e '$s/},$/}/'					\
@@ -61,357 +84,577 @@ build_clang_compile_cmds() {
 ['								\
 		-e '1d'						\
 		-e '$a\
-]'		"${_tmp_fname}";
+]'		"${_tmp_fname}" || return "${?}";
 
-	mv -i "${_tmp_fname}" "${_compile_commands_fname}";
+	mv -i "${_tmp_fname}" "${_compile_commands_fname}" || return "${?}";
+
 	if [ -e "${_tmp_fname}" ]; then
-		rm -f "${_tmp_fname}" 2>/dev/null;
+		rm -f "${_tmp_fname}";
 	fi;
-	trap - HUP INT TERM USR1 USR2;
-};
-# }}}
-# {{{ build_dbg_svr($_addr, $_gdbserver_fname, $_exe_fname, ...)
-build_dbg_svr() {
-	local _addr="${1}" _gdbserver_fname="${2}" _exe_fname="${3}"; shift 3;
+	trap - EXIT HUP INT TERM USR1 USR2;
 
-	wine	\
-		"${_gdbserver_fname}"	\
-		"${_addr}"		\
-		"${_exe_fname}"		\
-		"${@}";
-	return "${?}";
+	return 0;
 };
 # }}}
-# {{{ build_dbg_cli($_addr, $_exe_fname)
-build_dbg_cli() {
-	local _addr="${1}" _exe_fname="${2}";
+# {{{ build_clean($_dict)
+build_clean() {
+	make clean;
+};
+# }}}
+# {{{ build_clean_all($_dict)
+build_clean_all() {
+	local _bca_dict="${1}";
+	build_clean_pcre2 "${_bca_dict}" || return "${?}";
+	build_clean "${_bca_dict}" || return "${?}";
+	return 0;
+};
+# }}}
+# {{{ build_clean_pcre2($_dict)
+build_clean_pcre2() {
+	(cd PuTTie/pcre2 || return "${?}";
+	 make clean) || return "${?}";
+	return 0;
+};
+# }}}
+# {{{ build_configure($_dict)
+build_configure() {
+	local	_bc_dict="${1}"				\
+		_bc_backend_define="" _bc_build_type=""	\
+		_bc_mingw_debug_build=""		\
+		_bc_version_ssh="" _bc_version_text="";
+	shift 1;
+
+	if [ -e CMakeCache.txt ]\
+	|| [ -e CMakeFiles/ ]\
+	|| [ -e windows/CMakeCache.txt ]\
+	|| [ -e windows/CMakeFiles/ ];
+	then
+		return 0;
+	fi;
+
+	dict_get "${_bc_dict}" "backend_define" \$_bc_backend_define;
+	dict_get "${_bc_dict}" "build_type" \$_bc_build_type;
+	dict_get "${_bc_dict}" "version_ssh" \$_bc_version_ssh;
+	dict_get "${_bc_dict}" "version_text" \$_bc_version_text;
+
+	if dict_test_int "${_bc_dict}" "mingw_debug_build" -eq 1; then
+		_bc_mingw_debug_build="-DWINFRIP_DEBUG_NOCONSOLE=1";
+	fi;
+
+	"${CMAKE}" . \
+		-DBUILD_SSH_VERSION="${_bc_version_ssh}"			\
+		-DBUILD_TEXT_VERSION="${_bc_version_text}"			\
+		-DCMAKE_BUILD_TYPE="${_bc_build_type}"				\
+		-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -DWINFRIP_DEBUG -g3 -O0"		\
+		-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
+		-DCMAKE_TOOLCHAIN_FILE="cmake/toolchain-mingw.cmake"		\
+		-DDEFAULT_STORAGE_BACKEND="${_bc_backend_define}"		\
+		${_bc_mingw_debug_build}					\
+		|| return "${?}";
+
+	return 0;
+};
+# }}}
+# {{{ build_configure_pcre2($_dict)
+build_configure_pcre2() {
+	local	_bcp_dict="${1}"	\
+		_bcp_build_type="" _bcp_git_tag_pcre2="";
+	shift 1;
+
+	if [ -e PuTTie/pcre2/CMakeCache.txt ]\
+	|| [ -e PuTTie/pcre2/CMakeFiles/ ]; then
+		return 0;
+	fi;
+
+	dict_get "${_bcp_dict}" "build_type" \$_bcp_build_type;
+	dict_get "${_bcp_dict}" "git_tag_pcre2" \$_bcp_git_tag_pcre2;
+
+	(cd PuTTie/pcre2 || return "${?}";
+	 git checkout "${_bcp_git_tag_pcre2}" || return "${?}";
+
+	 "${CMAKE}"								\
+		 . 								\
+		-DCMAKE_BUILD_TYPE="${_bcp_build_type}"				\
+		-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -g3 -O0"				\
+		-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
+		-DCMAKE_TOOLCHAIN_FILE="../../cmake/toolchain-mingw.cmake"	\
+										\
+		-DBUILD_SHARED_LIBS=OFF						\
+		-DBUILD_STATIC_LIBS=ON						\
+		-DPCRE2_BUILD_PCRE2_8=OFF					\
+		-DPCRE2_BUILD_PCRE2_16=ON					\
+		-DPCRE2_BUILD_PCRE2_32=OFF					\
+		-DPCRE2_STATIC_PIC=ON						\
+		-DPCRE2_DEBUG=OFF						\
+		-DPCRE2_DISABLE_PERCENT_ZT=ON					\
+		-DPCRE2_EBCDIC=OFF						\
+		-DPCRE2_SUPPORT_UNICODE=ON					\
+										\
+		-DPCRE2_BUILD_PCRE2GREP=OFF					\
+		-DPCRE2_BUILD_TESTS=OFF						\
+										\
+		-DPCRE2_SUPPORT_LIBBZ2=OFF					\
+		-DPCRE2_SUPPORT_LIBZ=OFF					\
+		-DPCRE2_SUPPORT_LIBEDIT=OFF					\
+		-DPCRE2_SUPPORT_LIBREADLINE=OFF					\
+		|| return "${?}") || return "${?}";
+
+	return 0;
+};
+# }}}
+# {{{ build_dbg_client($_dict, [...])
+build_dbg_client() {
+	local	_bdc_dict="${1}"	\
+		_bdc_dbg_addr="" _bdc_dbg_exe_fname="";
+	shift 1;
+
+	dict_get "${_bdc_dict}" "dbg_addr"	\$_bdc_dbg_addr;
+	dict_get "${_bdc_dict}" "dbg_exe_fname"	\$_bdc_dbg_exe_fname;
 
 	x86_64-w64-mingw32-gdb				\
 		-ex "set pagination off"		\
-		-ex "target remote ${_addr}"		\
-		"${_exe_fname}"				\
-		"${@}";
-	return "${?}";
+		-ex "target remote ${_bdc_dbg_addr}"	\
+		"${_bdc_dbg_exe_fname}"			\
+		"${@}" || return "${?}";
+
+	return 0;
 };
 # }}}
+# {{{ build_dbg_server($_dict, [...])
+build_dbg_server() {
+	local	_bds_dict="${1}"	\
+		_bds_dbg_addr="" _bds_dbg_gdbserver_fname="" _bds_dbg_exe_fname="";
+	shift 1;
 
-# {{{ build_clean($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
-build_clean() {
-	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-		_tflag="${9}"							\
-		_fname="" _IFS0="${IFS:- 	}";
+	dict_get "${_bds_dict}" "dbg_addr"		\$_bds_dbg_addr;
+	dict_get "${_bds_dict}" "dbg_gdbserver_fname"	\$_bds_dbg_gdbserver_fname;
+	dict_get "${_bds_dict}" "dbg_exe_fname"		\$_bds_dbg_exe_fname;
 
-	if [ "${_cflag:-0}" -eq 1 ]; then
-		rm -fr	\
-			CMakeCache.txt			\
-			CMakeFiles/			\
-			windows/CMakeCache.txt		\
-			windows/CMakeFiles/		\
-			PuTTie/pcre2/CMakeCache.txt	\
-			PuTTie/pcre2/CMakeFiles/	\
-			PuTTie/pcre2/libpcre2-16.a	\
-			PuTTie/pcre2/libpcre2-16d.a	\
-			;
-		if [ "${_iflag:-0}" -eq 1 ]\
-		&& [ -e "PuTTie/${_install_dname}" ]; then
-			IFS="
-";			for _fname in $(find "PuTTie/${_install_dname}" -type f); do
-				rm -fr "${_fname}";
-			done; IFS="${_IFS0}";
-		fi;
-	fi;
+	wine					\
+		"${_bds_dbg_gdbserver_fname}"	\
+		"${_bds_dbg_addr}"		\
+		"${_bds_dbg_exe_fname}"		\
+		"${@}" || return "${?}";
+
+	return 0;
 };
 # }}}
-# {{{ build_configure($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
-build_configure() {
-	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-		_tflag="${9}"							\
-		_git_branch="" _git_commit="" _git_pcre2_commit="pcre2-10.42"	\
-		_special_mingw_diva_debug_build=""				\
-		_version_ssh="" _version_text="";
-
-	_git_branch="$(git branch --show-current)" || exit 2;
-	_git_commit="$(git rev-parse --short HEAD)" || exit 2;
-	_version_text="PuTTie ${_build_type} build (Git commit ${_git_commit} on branch ${_git_branch})";
-
-	if [ "${_dflag}" -eq 2 ]; then
-		_special_mingw_diva_debug_build="-DWINFRIP_DEBUG_NOCONSOLE=1";
-	fi;
-
-	if ! [ -e PuTTie/pcre2/CMakeCache.txt ]\
-	|| ! [ -e PuTTie/pcre2/CMakeFiles/ ]; then
-		cd PuTTie/pcre2;
-		git checkout "${_git_pcre2_commit}" || exit 2;
-		"${CMAKE}" . \
-			-DCMAKE_BUILD_TYPE="${_build_type}"				\
-			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -g3 -O0"				\
-			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
-			-DCMAKE_TOOLCHAIN_FILE="../../cmake/toolchain-mingw.cmake"	\
-											\
-			-DBUILD_SHARED_LIBS=OFF						\
-			-DBUILD_STATIC_LIBS=ON						\
-			-DPCRE2_BUILD_PCRE2_8=OFF					\
-			-DPCRE2_BUILD_PCRE2_16=ON					\
-			-DPCRE2_BUILD_PCRE2_32=OFF					\
-			-DPCRE2_STATIC_PIC=ON						\
-			-DPCRE2_DEBUG=OFF						\
-			-DPCRE2_DISABLE_PERCENT_ZT=ON					\
-			-DPCRE2_EBCDIC=OFF						\
-			-DPCRE2_SUPPORT_UNICODE=ON					\
-											\
-			-DPCRE2_BUILD_PCRE2GREP=OFF					\
-			-DPCRE2_BUILD_TESTS=OFF						\
-											\
-			-DPCRE2_SUPPORT_LIBBZ2=OFF					\
-			-DPCRE2_SUPPORT_LIBZ=OFF					\
-			-DPCRE2_SUPPORT_LIBEDIT=OFF					\
-			-DPCRE2_SUPPORT_LIBREADLINE=OFF					\
-			;
-		cd "${OLDPWD}";
-	fi;
-	if ! [ -e CMakeCache.txt ]\
-	|| ! [ -e CMakeFiles/ ]\
-	|| ! [ -e windows/CMakeCache.txt ]\
-	|| ! [ -e windows/CMakeFiles/ ]; then
-		"${CMAKE}" . \
-			-DBUILD_SSH_VERSION="${_version_ssh}"				\
-			-DBUILD_TEXT_VERSION="${_version_text}"				\
-			-DCMAKE_BUILD_TYPE="${_build_type}"				\
-			-DCMAKE_C_FLAGS_DEBUG="-DDEBUG -DWINFRIP_DEBUG -g3 -O0"		\
-			-DCMAKE_C_FLAGS_RELEASE="-g0 -O3"				\
-			-DCMAKE_TOOLCHAIN_FILE="cmake/toolchain-mingw.cmake"		\
-			-DDEFAULT_STORAGE_BACKEND="${_Bflag}"				\
-			${_special_mingw_diva_debug_build}				\
-			;
-	fi;
+# {{{ build_distclean($_dict)
+build_distclean() {
+	rm -fr	\
+		CMakeCache.txt			\
+		CMakeFiles/			\
+		windows/CMakeCache.txt		\
+		windows/CMakeFiles/		\
+		;
 };
 # }}}
-# {{{ build_make($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
+# {{{ build_distclean_al($_dict)
+build_distclean_all() {
+	local _bda_dict="${1}";
+	build_distclean_pcre2 "${_bda_dict}" || return "${?}";
+	build_distclean "${_bda_dict}" || return "${?}";
+	return 0;
+};
+# }}}
+# {{{ build_distclean_pcre2($_dict)
+build_distclean_pcre2() {
+	rm -fr	\
+		PuTTie/pcre2/CMakeCache.txt	\
+		PuTTie/pcre2/CMakeFiles/	\
+		PuTTie/pcre2/libpcre2-16.a	\
+		PuTTie/pcre2/libpcre2-16d.a	\
+		;
+};
+# }}}
+# {{{ build_make($_dict)
+build_make_depends="build_configure build_make_pcre2";
 build_make() {
-	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-		_tflag="${9}";
+	local	_bm_dict="${1}"	\
+		_bm_build_type="" _bm_jobs_count=0 _bm_target="";
+	shift 1;
 
-	cd PuTTie/pcre2;
-	"${CMAKE}" --build . --parallel "${_jflag:-1}";
-	if [ "x${_build_type}" = "xDebug" ]; then
-		ln -fs "libpcre2-16d.a" "libpcre2-16.a";
-	fi;
-	cd "${OLDPWD}";
-	"${CMAKE}" --build . --parallel "${_jflag:-1}" ${_tflag:+--target "${_tflag}"};
+	dict_get "${_bm_dict}" "build_type"	\$_bm_build_type;
+	dict_get "${_bm_dict}" "jobs_count"	\$_bm_jobs_count;
+	dict_get "${_bm_dict}" "target"		\$_bm_target;
+
+	"${CMAKE}"				\
+		--build .			\
+		--parallel "${_bm_jobs_count}"	\
+		${_bm_target:+--target "${_bm_target}"} || return "${?}";
+
+	return 0;
 };
 # }}}
-# {{{ build_install($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
+# {{{ build_make_pcre2($_dict)
+build_make_pcre2_depends="build_configure_pcre2";
+build_make_pcre2() {
+	local	_bmp_dict="${1}"	\
+		_bmp_build_type="" _bmp_jobs_count="";
+	shift 1;
+
+	dict_get "${_bmp_dict}" "build_type"	\$_bmp_build_type;
+	dict_get "${_bmp_dict}" "jobs_count"	\$_bmp_jobs_count;
+
+	(cd PuTTie/pcre2 || return "${?}";
+	 "${CMAKE}" --build . --parallel "${_bmp_jobs_count}" || return "${?}";
+	 if [ "${_bmp_build_type}" = "Debug" ]; then
+		ln -fs "libpcre2-16d.a" "libpcre2-16.a" || return "${?}";
+	 fi) || return "${?}";
+
+	return 0;
+};
+# }}}
+# {{{ build_install($_dict)
+build_install_depends="build_make";
 build_install() {
-	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-		_tflag="${9}"							\
-		_fname="" _IFS0="${IFS:- 	}";
+	local	_bi_dict="${1}"				\
+		_bi_fname="" _bi_release_name=""	\
+		_bi_IFS0="${IFS:- 	}";
+	shift 1;
 
-	if [ "${_iflag:-0}" -eq 1 ]; then
-		if [ -d "PuTTie/${_install_dname}" ]; then
-			rm -fr "PuTTie/${_install_dname}" || return 1;
-		fi;
-		if ! [ -d "PuTTie/${_install_dname}" ]; then
-			mkdir -p "PuTTie/${_install_dname}" || return 1;
-		fi;
-		IFS="
-";		for _fname in $(find .					\
-				-maxdepth 1				\
-				-mindepth 1				\
-				-iname \*.exe				\
-				\( -not -iname \*test\* \)		\
-				\( -not -iname bidi_gettype.exe \)	\
-				-type f);
-		do
-			_fname="${_fname#./}";
-			if [ "${_fname}" = "putty.exe" ]; then
-				cp -a "${_fname}" "PuTTie/${_install_dname}/puttie.exe";
-				stat "PuTTie/${_install_dname}/puttie.exe";
-			else
-				cp -a "${_fname}" "PuTTie/${_install_dname}";
-				stat "PuTTie/${_install_dname}/${_fname}";
-			fi;
-		done; IFS="${_IFS0}";
-		cp -a "PuTTie/create_shortcut.exe" "PuTTie/${_install_dname}";
-		stat "PuTTie/${_install_dname}/create_shortcut.exe";
-		cp -a "PuTTie/README.md" "PuTTie/${_install_dname}";
-		stat "PuTTie/${_install_dname}/README.md";
-		ln -s "puttie.exe" "PuTTie/${_install_dname}/puttie-portable.exe";
-		stat "PuTTie/${_install_dname}/puttie-portable.exe";
+	dict_get "${_bi_dict}" "release_name" \$_bi_release_name;
+
+	if [ -d "PuTTie/${_bi_release_name}" ]; then
+		rm -fr "PuTTie/${_bi_release_name}" || return "${?}";
 	fi;
-	if [ "${_Rflag:-0}" -ge 1 ]; then
-		if [ -e "PuTTie/${_install_dname}.zip" ]; then
-			rm -f "PuTTie/${_install_dname}.zip";
+	mkdir -p "PuTTie/${_bi_release_name}" || return "${?}";
+
+	IFS="
+";	for _bi_fname in $(find .				\
+			-maxdepth 1				\
+			-mindepth 1				\
+			-iname \*.exe				\
+			\( -not -iname \*test\* \)		\
+			\( -not -iname bidi_gettype.exe \)	\
+			-type f);
+	do
+		_bi_fname="${_bi_fname#./}";
+		if [ "${_bi_fname}" = "putty.exe" ]; then
+			cp -a "${_bi_fname}" "PuTTie/${_bi_release_name}/puttie.exe" || return "${?}";
+			stat "PuTTie/${_bi_release_name}/puttie.exe" || return "${?}";
+		else
+			cp -a "${_bi_fname}" "PuTTie/${_bi_release_name}" || return "${?}";
+			stat "PuTTie/${_bi_release_name}/${_bi_fname}" || return "${?}";
 		fi;
-		cd PuTTie; zip -r "${_install_dname}.zip" "${_install_dname}"; cd "${OLDPWD}";
-		stat "PuTTie/${_install_dname}.zip";
+	done; IFS="${_bi_IFS0}";
+
+	cp -a "PuTTie/create_shortcut.exe" "PuTTie/${_bi_release_name}" || return "${?}";
+	stat "PuTTie/${_bi_release_name}/create_shortcut.exe" || return "${?}";
+
+	cp -a "PuTTie/README.md" "PuTTie/${_bi_release_name}" || return "${?}";
+	stat "PuTTie/${_bi_release_name}/README.md" || return "${?}";
+
+	ln -s "puttie.exe" "PuTTie/${_bi_release_name}/puttie-portable.exe" || return "${?}";
+	stat "PuTTie/${_bi_release_name}/puttie-portable.exe" || return "${?}";
+
+	if [ -e "PuTTie/${_bi_release_name}.zip" ]; then
+		rm -f "PuTTie/${_bi_release_name}.zip" || return "${?}";
 	fi;
+	(cd PuTTie || return "${?}";
+	 zip					\
+		-r "${_bi_release_name}.zip"	\
+		"${_bi_release_name}" || return "${?}") || return "${?}";
+	stat "PuTTie/${_bi_release_name}.zip" || return "${?}";
+
+	return 0;
 };
 # }}}
-# {{{ build_publish($_build_type, $_Bflag, $_cflag, $_dflag, $_iflag, $_install_dname, $_jflag, $_Rflag, $_tflag)
+# {{{ build_publish($_dict)
+build_publish_depends="build_install";
 build_publish() {
-	local	_build_type="${1}" _Bflag="${2}" _cflag="${3}" _dflag="${4}"	\
-		_iflag="${5}" _install_dname="${6}" _jflag="${7}" _Rflag="${8}"	\
-		_tflag="${9}"							\
-		_backend="" _body="" _body_tmp_fname="" _fname=""		\
-		_release_id="" _response_json=""				\
-		_IFS0="${IFS:- 	}";
+	local	_bp_dict="${1}"									\
+		_bp_backend="" _bp_backend_descr="" _bp_body_tmp_fname="" _bp_build_type=""	\
+		_bp_git_commit="" _bp_git_commit_upstream="" _bp_git_tag_pcre2=""		\
+		_bp_github_rest_assets=""  _bp_github_rest_releases="" _bp_github_token=""	\
+		_bp_release_id="" _bp_release_name="" _bp_response_json="";
+	shift 1;
 
-	if [ "${_Rflag:-0}" -ge 2 ]\
-	&& [ -e "PuTTie/${_install_dname}.zip" ];
-	then
-		case "${_Bflag}" in
-		WFS_BACKEND_FILE)	_backend="file-based"; ;;
-		WFS_BACKEND_REGISTRY)	_backend="Registry-based"; ;;
-		WFS_BACKEND_EPHEMERAL)	_backend="ephemeral"; ;;
-		*)			return 1; ;;
-		esac;
+	dict_get "${_bp_dict}" "backend"		\$_bp_backend;
+	dict_get "${_bp_dict}" "build_type"		\$_bp_build_type;
+	dict_get "${_bp_dict}" "git_commit"		\$_bp_git_commit;
+	dict_get "${_bp_dict}" "git_commit_upstream"	\$_bp_git_commit_upstream;
+	dict_get "${_bp_dict}" "git_tag_pcre2"		\$_bp_git_tag_pcre2;
+	dict_get "${_bp_dict}" "github_rest_assets"	\$_bp_github_rest_assets;
+	dict_get "${_bp_dict}" "github_rest_releases"	\$_bp_github_rest_releases;
+	dict_get "${_bp_dict}" "github_token"		\$_bp_github_token;
+	dict_get "${_bp_dict}" "release_name"		\$_bp_release_name;
 
-		_body_tmp_fname="$(mktemp)" || return 1;
-		cat >"${_body_tmp_fname}" <<EOF
-${_install_dname}
+	if ! [ -e "PuTTie/${_bp_release_name}.zip" ]; then
+		return 1;
+	fi;
 
-PuTTie ${_build_type} build $(git rev-parse --short HEAD)
-Defaults to ${_backend} global options, host CA, host key, jump list, Pageant private key list, and session storage
+	case "${_bp_backend}" in
+	file)		_bp_backend_descr="file-based"; ;;
+	registry)	_bp_backend_descr="Registry-based"; ;;
+	ephemeral)	_bp_backend_descr="ephemeral"; ;;
+	*)		return 1; ;;
+	esac;
+
+	_bp_body_tmp_fname="$(mktemp)" || return "${?}";
+	trap "rm -f \"${_bp_body_tmp_fname}\" 2>/dev/null" EXIT HUP INT TERM USR1 USR2;
+	cat >"${_bp_body_tmp_fname}" <<EOF
+${_bp_release_name}
+
+PuTTie ${_bp_build_type} build ${_bp_git_commit}
+Defaults to ${_bp_backend_descr} global options, host CA, host key, jump list, Pageant private key list, and session storage
 Select portable file backend with puttie-portable.exe.
 
 Changes:
 
 
-Upstream at $(git rev-parse --short upstream/main)
-pcre2 at $(cd PuTTie/pcre2 && git describe --tags)
+Upstream at ${_bp_git_commit_upstream}
+pcre2 at ${_bp_git_tag_pcre2}
 EOF
+	"${EDITOR}" "${_bp_body_tmp_fname}" || return "${?}";
 
-		trap "rm -f \"${_body_tmp_fname}\" 2>/dev/null" HUP INT TERM USR1 USR2;
-		"${EDITOR}" "${_body_tmp_fname}" || return 1;
-		_response_json="$(curl							\
-			-L								\
-			-X POST								\
-			-H "Accept: application/vnd.github+json"			\
-			-H "Authorization: Bearer $(cat PuTTie/.build.github.token)"	\
-			-H "X-GitHub-Api-Version: 2022-11-28"				\
-			"https://api.github.com/repos/lalbornoz/PuTTie/releases"	\
-			-d '{
-				"body":'"$(json_xs -f string < "${_body_tmp_fname}")"',
-				"draft":true,
-				"name":"'"${_install_dname}"'",
-				"prerelease":false,
-				"tag_name":"'"${_install_dname}"'",
-				"target_commitish":"master",
-				"generate_release_notes":false
-			}')" || return 1;
+	_bp_response_json="$(curl				\
+		-L						\
+		-X POST						\
+		-H "Accept: application/vnd.github+json"	\
+		-H "Authorization: Bearer ${_bp_github_token}"	\
+		-H "X-GitHub-Api-Version: 2022-11-28"		\
+		"${_bp_github_rest_releases}"			\
+		-d '{
+			"body":'"$(json_xs -f string < "${_bp_body_tmp_fname}")"',
+			"draft":true,
+			"name":"'"${_bp_release_name}"'",
+			"prerelease":false,
+			"tag_name":"'"${_bp_release_name}"'",
+			"target_commitish":"master",
+			"generate_release_notes":false
+		}')" || return "${?}";
 
-		_release_id="$(
-			printf "%s\n" "${_response_json}"							|\
-			perl -wle										 \
-				'local $/ = undef; use JSON qw(from_json); print(from_json(<>)->{"id"})')"	 \
-					|| return 1;
+	_bp_release_id="$(
+		printf "%s\n" "${_bp_response_json}"							|\
+		perl -wle										 \
+			'local $/ = undef; use JSON qw(from_json); print(from_json(<>)->{"id"})')"	 \
+				|| return "${?}";
 
-		curl	\
-			-L														\
-			-X POST														\
-			-H "Accept: application/vnd.github+json"									\
-			-H "Authorization: Bearer $(cat PuTTie/.build.github.token)"							\
-			-H "X-GitHub-Api-Version: 2022-11-28"										\
-			-H "Content-Type: application/octet-stream"									\
-			"https://uploads.github.com/repos/lalbornoz/PuTTie/releases/${_release_id}/assets?name=${_install_dname}.zip"	\
-			--data-binary "@PuTTie/${_install_dname}.zip" || return 1;
+	curl	\
+		-L											\
+		-X POST											\
+		-H "Accept: application/vnd.github+json"						\
+		-H "Authorization: Bearer ${_bp_github_token}"						\
+		-H "X-GitHub-Api-Version: 2022-11-28"							\
+		-H "Content-Type: application/octet-stream"						\
+		"${_bp_github_rest_assets%/}/${_bp_release_id}/assets?name=${_bp_release_name}.zip"	\
+		--data-binary "@PuTTie/${_bp_release_name}.zip" || return "${?}";
 
-		rm -f "${_body_tmp_fname}" 2>/dev/null;
-		trap - HUP INT TERM USR1 USR2;
-	fi;
+	rm -f "${_bp_body_tmp_fname}";
+	trap - EXIT HUP INT TERM USR1 USR2;
+
+	return 0;
 };
 # }}}
 
-buildp_usage() {
-	echo "usage: ${0} [-B <backend>] [-c] [--clang]" >&2;
-	echo "       [-d] [-D] [--dbg-svr <fname> [..]] [--dbg-cli <fname>]" >&2;
-	echo "       [-h] [-i] [-j <jobs>] [-P] [-R] [-t <target>]" >&2;
-	echo "" >&2;
-	echo "       -B <backend>..........: set default storage backend to either of ephemeral, file, or registry (default)" >&2;
-	echo "       -c....................: clean cmake(1) cache file(s) and output directory/ies before build" >&2;
-	echo "       --clang...............: regenerate compile_commands.json" >&2;
-	echo "       -d....................: select Debug (vs. Release) build (NB: pass -c when switching between build types)" >&2;
-	echo "       -D....................: select Debug w/o debugging console (vs. Release) build (for usage w/ --dbg-{svr,cli} (NB: pass -c when switching between build types)" >&2;
-	echo "       --dbg-svr <fname> [..]: run <fname> w/ optional arguments via wine & local gdbserver on port 1234" >&2;
-	echo "       --dbg-cli <fname> [..]: debug <fname> w/ MingW gdb and optional arguments previously launched w/ --dbg-svr" >&2;
-	echo "       -h....................: show this screen" >&2;
-	echo "       -i....................: {clean,install} images {pre,post}-build" >&2;
-	echo "       -j <jobs>.............: set cmake(1) max. job count" >&2;
-	echo "       -P....................: publish release archive (implies -R)" >&2;
-	echo "       -R....................: create release archive (implies -i)" >&2;
-	echo "       -t <target>...........: build PuTTY <target> instead of default target" >&2;
+# {{{ buildp_check_deps([...]) {
+buildp_check_deps() {
+	local _bpcd_cmd_name="" _bpcd_cmd_names_missing="";
+
+	for _bpcd_cmd_name in "${@}"; do
+		if ! which "${_bpcd_cmd_name}" >/dev/null 2>&1; then
+			_cmd_names_missing="${_bpcd_cmd_names_missing:+${_bpcd_cmd_names_missing} }${_bpcd_cmd_name}";
+		fi;
+	done;
+
+	if [ "${_bpcd_cmd_names_missing:+1}" = 1 ]; then
+		printf "Error: missing dependencies: %s\n" "${_bpcd_cmd_names_missing}" >&2;
+		return 1;
+	else
+		return 0;
+	fi;
 };
+# }}}
+# {{{ buildp_dict_from_args($_dict, $_rshift_count)
+buildp_dict_from_args() {
+	local	_bpdfa_dict="${1}" _bpdfa_rshift_count="${2#\$}"	\
+		_bpdfa_backend="" _bpdfa_build_type=""			\
+		_bpdfa_git_branch="" _bpdfa_git_commit=""		\
+		_bpdfa_ignore_deps=0					\
+		_bpdfa_jobs_count=0					\
+		_bpdfa_mingw_debug_build=0				\
+		_bpdfa_opt="" _bpdfa_target=""				\
+		OPTARG="" OPTIND=1;
+	shift 2;
+
+	_bpdfa_backend="registry";
+	_bpdfa_build_type="Release";
+	_bpdfa_git_branch="$(git branch --show-current)" || return "${?}";
+	_bpdfa_git_commit="$(git rev-parse --short HEAD)" || return "${?}";
+	_bpdfa_jobs_count=1;
+
+	while getopts B:dDhij:t: _bpdfa_opt; do
+	case "${_bpdfa_opt}" in
+	B)	_bpdfa_backend="${OPTARG}"; ;;
+	d)	_bpdfa_build_type="Debug"; ;;
+	D)	_bpdfa_build_type="Debug";
+		_bpdfa_mingw_debug_build=1; ;;
+	h)	buildp_usage; exit 0; ;;
+	i)	_bpdfa_ignore_deps=1; ;;
+	j)	_bpdfa_jobs_count="${OPTARG}"; ;;
+	t)	_bpdfa_target="${OPTARG}"; ;;
+	*)	buildp_usage; exit 1; ;;
+	esac; done;
+	shift $((${OPTIND}-1));
+	eval ${_bpdfa_rshift_count}=$((${OPTIND}-1));
+
+	dict_set "${_bpdfa_dict}" "backend"			"${_bpdfa_backend}";
+	dict_set "${_bpdfa_dict}" "backend_define"		"WFS_BACKEND_$(printf "${_bpdfa_backend}" | tr a-z A-Z)" || return "${?}";
+	dict_set "${_bpdfa_dict}" "build_type"			"${_bpdfa_build_type}";
+	dict_set "${_bpdfa_dict}" "dbg_addr"			"localhost:1234";
+	dict_set "${_bpdfa_dict}" "dbg_exe_fname"		"putty.exe";
+	dict_set "${_bpdfa_dict}" "dbg_gdbserver_fname"		"Z:/usr/share/win64/gdbserver.exe";
+	dict_set "${_bpdfa_dict}" "git_branch"			"${_bpdfa_git_branch}";
+	dict_set "${_bpdfa_dict}" "git_commit"			"${_bpdfa_git_commit}";
+	dict_set "${_bpdfa_dict}" "git_commit_upstream"		"$(git rev-parse --short upstream/main)" || return "${?}";
+	dict_set "${_bpdfa_dict}" "git_tag_pcre2"		"pcre2-10.42";
+	dict_set "${_bpdfa_dict}" "github_rest_releases"	"https://api.github.com/repos/lalbornoz/PuTTie/releases";
+	dict_set "${_bpdfa_dict}" "github_rest_assets"		"https://uploads.github.com/repos/lalbornoz/PuTTie/releases/";
+	dict_set "${_bpdfa_dict}" "github_token"		"$(cat "PuTTie/.build.github.token")" || return "${?}";
+	dict_set "${_bpdfa_dict}" "ignore_deps"			"${_bpdfa_ignore_deps}";
+	dict_set "${_bpdfa_dict}" "jobs_count"			"${_bpdfa_jobs_count}";
+	dict_set "${_bpdfa_dict}" "mingw_debug_build"		"${_bpdfa_mingw_debug_build}";
+	dict_set "${_bpdfa_dict}" "release_name"		"PuTTie-${_bpdfa_backend}-${_bpdfa_build_type}-${_bpdfa_git_commit}"
+	dict_set "${_bpdfa_dict}" "target"			"${_bpdfa_target}";
+	dict_set "${_bpdfa_dict}" "version_ssh"			"";
+	dict_set "${_bpdfa_dict}" "version_text"		"PuTTie ${_bpdfa_build_type} build (Git commit ${_bpdfa_git_commit} on branch ${_bpdfa_git_branch})";
+
+	return 0;
+};
+# }}}
+# {{{ buildp_exec($_dict, [...])
+buildp_exec() {
+	local	_bpe_dict="${1}"					\
+		_bpe_and_found="" _bpe_and_idx=0			\
+		_bpe_fn_cmd_line="" _bpe_fn_name="" _bpe_fn_rc=0	\
+		_bpe_idx=0;
+	shift 1;
+
+	while [ "${#}" -ge 1 ]; do
+		_bpe_fn_name="${1}"; shift 1;
+		_bpe_and_found=0; _bpe_and_idx=1;
+
+		while [ "${_bpe_and_idx}" -le "${#}" ]; do
+			if eval [ \"\${${_bpe_and_idx}}\" = \"and\" ]; then
+				_bpe_and_found=1; break;
+			else
+				: $((_bpe_and_idx+=1));
+			fi;
+		done;
+
+		if [ "${_bpe_and_found}" -eq 0 ]; then
+			_bpe_and_idx="$((${#} + 1))";
+		fi;
+
+		_bpe_fn_name="build_${_bpe_fn_name}";
+		if command -v "${_bpe_fn_name}" >/dev/null; then
+			if dict_test_int "${_bpe_dict}" "ignore_deps" -eq 0; then
+				buildp_exec_depends "${_bpe_dict}" "${_bpe_fn_name}" || return "${?}";
+			fi;
+
+			_bpe_fn_cmd_line='${_bpe_fn_name} ${_bpe_dict}';
+			_bpe_idx=1;
+			while [ "${_bpe_idx}" -lt "${_bpe_and_idx}" ]; do
+				_bpe_fn_cmd_line="${_bpe_fn_cmd_line:+${_bpe_fn_cmd_line} }\"\${${_bpe_idx}}\"";
+				: $((_bpe_idx+=1));
+			done;
+			eval ${_bpe_fn_cmd_line}; _bpe_fn_rc="${?}";
+		else
+			return 1;
+		fi;
+
+		if [ "${_bpe_and_found}" -eq 1 ]; then
+			shift "${_bpe_and_idx}";
+		else
+			shift "${#}";
+		fi;
+
+		if [ "${_bpe_fn_rc}" -ne 0 ]; then
+			return "${_bpe_fn_rc}";
+		fi;
+	done;
+
+	return 0;
+};
+# }}}
+# {{{ buildp_exec_depends($_dict, $_fn_name)
+buildp_exec_depends() {
+	local	_bped_dict="${1}" _bped_fn_name="${2}"	\
+		_bped_rc=0;
+
+	eval set -- \${${_bped_fn_name}_depends:-};
+	while [ "${#}" -gt 0 ]; do
+		buildp_exec_depends "${_bped_dict}" "${1}" || return "${?}";
+		if command -v "${1}" >/dev/null; then
+			"${1}" "${_bped_dict}" || return "${?}";
+		else
+			return 1;
+		fi;
+		shift;
+	done;
+
+	return 0;
+};
+# }}}
+# {{{ buildp_usage()
+buildp_usage() {
+	cat >&2 <<EOF
+usage: ${0##*/} [-B <backend>] [-d] [-D] [-h] [-i] [-j <jobs>] [-t <target>]
+      [<command> [<args>[...]] [and] [...]
+
+      -B <backend>....: set default storage backend to either of ephemeral, file, or registry (default)
+      -d..............: select Debug (vs. Release) build
+      -D..............: select Debug w/o debugging console (vs. Release) build (for usage w/ dbg_server)
+      -h..............: show this screen
+      -i..............: ignore command dependencies
+      -j <jobs>.......: set cmake(1) max. job count
+      -t <target>.....: build <target> instead of default target
+
+Available commands:
+clang_compile_cmds      Create compile_commands.json file
+clean                   Clean PuTTie build directory
+clean_all               Clean pcre2 and PuTTie build directory
+clean_pcre2             Clean pcre2 build directory
+configure               Configure PuTTie
+configure_pcre2         Configure pcre2
+dbg_client [...]        Attach to gdbserver on localhost:1234 with optional arguments to gdb
+dbg_server [...]        Start gdbserver on localhost:1234 with optional arguments to putty.exe
+distclean               Reset PuTTie build directory
+distclean_all           Reset pcre2 and PuTTie build directory
+distclean_pcre2         Reset pcre2 build directory
+make                    Build PuTTie
+make_pcre2              Build pcre2
+install                 Create PuTTie release archive
+publish                 Publish PuTTie release archive on GitHub
+
+N.B.: When switching build types, run clean.
+EOF
+};
+# }}}
 
 build() {
-	local	_build_type="Release" _Bflag="registry" _cflag=0 _clangflag=0	\
-		_dflag=0 _dbgflag=0 _iflag=0 _jflag=1 _Rflag=0 _tflag=""	\
-		_install_dname="" _opt=""					\
-		CMAKE="${CMAKE:-cmake}" OPTIND=1;
-
-	while [ "${#}" -gt 0 ]; do
-		case "${1}" in
-		--clang)
-			_clangflag=1; shift 1;
-			;;
-		--dbg-svr)
-			_dbgflag=1; shift 1;
-			if [ "${#}" -lt 1 ]; then
-				printf "error: missing <fname> argument to --dbg-svr\n" >&2;
-				buildp_usage; exit 1;
-			fi;
-			;;
-		--dbg-cli)
-			_dbgflag=2; shift 1;
-			if [ "${#}" -lt 1 ]; then
-				printf "error: missing <fname> argument to --dbg-cli\n" >&2;
-				buildp_usage; exit 1;
-			fi;
-			;;
-		*)	if getopts B:cdDhij:PRt: _opt; then
-				case "${_opt}" in
-				B)	_Bflag="${OPTARG}"; ;;
-				c)	_cflag=1; ;;
-				d)	_dflag=1; _build_type="Debug"; ;;
-				D)	_dflag=2; _build_type="Debug"; ;;
-				h)	buildp_usage; exit 0; ;;
-				i)	_iflag=1; ;;
-				j)	_jflag="${OPTARG}"; ;;
-				P)	_iflag=1; _Rflag=2; ;;
-				R)	_iflag=1; _Rflag=1; ;;
-				t)	_tflag="${OPTARG}"; ;;
-				*)	buildp_usage; exit 1; ;;
-				esac;
-			else
-				break;
-			fi; ;;
-		esac;
-	done; shift $((${OPTIND}-1));
-
-	_install_dname="PuTTie-${_Bflag}-${_build_type}-$(git rev-parse --short HEAD)";
-	_Bflag="WFS_BACKEND_$(printf "${_Bflag}" | tr a-z A-Z)" || exit 2;
+	local	_b_dict="BUILD" _b_shift_count=0	\
+		CMAKE="${CMAKE:-cmake}";
 
 	if [ "$(uname -o 2>/dev/null)" = "Cygwin" ]; then
 		export CMAKE="/usr/bin/cmake";
 	fi;
 
-	case "${_clangflag}" in
-	1)	build_clang_compile_cmds; exit "${?}"; ;;
-	esac;
+	buildp_check_deps				\
+		"${CMAKE}" cat cp curl find git json_xs	\
+		ln make mkdir mktemp mv paste perl rm	\
+		sed stat tr uname zip			\
+			|| return "${?}";
 
-	case "${_dbgflag}" in
-	1)	build_dbg_svr "${DBG_ADDR}" "${DBG_GDBSERVER_FNAME}" "${@}"; exit "${?}"; ;;
-	2)	build_dbg_cli "${DBG_ADDR}" "${@}"; exit "${?}"; ;;
-	esac;
+	buildp_dict_from_args				\
+		"${_b_dict}" \$_b_shift_count "${@}"	\
+			|| return "${?}";
+	shift "${_b_shift_count}";
 
-	build_clean "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-	build_configure "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-	build_make "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-	build_install "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
-	build_publish "${_build_type}" "${_Bflag}" "${_cflag}" "${_dflag}" "${_iflag}" "${_install_dname}" "${_jflag}" "${_Rflag}" "${_tflag}";
+	buildp_exec "${_b_dict}" "${@}" || return "${?}";
+
+	return 0;
 };
 
 set -o errexit -o noglob -o nounset;
