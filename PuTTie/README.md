@@ -253,7 +253,7 @@ usage: build.sh [-B <backend>] [-d] [-D] [-h] [-i] [-j <jobs>] [-t <target>]
       -D..............: select Debug w/o debugging console (vs. Release) build (for usage w/ dbg_server)
       -h..............: show this screen
       -i..............: ignore command dependencies
-      -j <jobs>.......: set cmake(1) max. job count
+      -j <jobs>.......: set cmake(1) max. job count; defaults to processor count in /proc/cpuinfo on Linux
       -t <target>.....: build <target> instead of default target
 
 Available commands:

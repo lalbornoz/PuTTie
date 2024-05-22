@@ -484,6 +484,10 @@ buildp_dict_from_args() {
 	_bpdfa_git_commit="$(git rev-parse --short HEAD)" || return "${?}";
 	_bpdfa_jobs_count=1;
 
+	if [ "$(uname -s 2>/dev/null)" = "Linux" ]; then
+		_bpdfa_jobs_count="$(awk '/^processor/' /proc/cpuinfo | wc -l)" || return "${?}";
+	fi;
+
 	while getopts B:dDhij:t: _bpdfa_opt; do
 	case "${_bpdfa_opt}" in
 	B)	_bpdfa_backend="${OPTARG}"; ;;
@@ -608,7 +612,7 @@ usage: ${0##*/} [-B <backend>] [-d] [-D] [-h] [-i] [-j <jobs>] [-t <target>]
       -D..............: select Debug w/o debugging console (vs. Release) build (for usage w/ dbg_server)
       -h..............: show this screen
       -i..............: ignore command dependencies
-      -j <jobs>.......: set cmake(1) max. job count
+      -j <jobs>.......: set cmake(1) max. job count; defaults to processor count in /proc/cpuinfo on Linux
       -t <target>.....: build <target> instead of default target
 
 Available commands:
