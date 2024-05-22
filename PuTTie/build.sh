@@ -417,7 +417,8 @@ EOF
 		"${_bp_github_rest_releases}"			\
 		-d '{
 			"body":'"$(json_xs -f string < "${_bp_body_tmp_fname}")"',
-			"draft":true,
+			"draft":false,
+			"make_latest":true,
 			"name":"'"${_bp_release_name}"'",
 			"prerelease":false,
 			"tag_name":"'"${_bp_release_name}"'",
