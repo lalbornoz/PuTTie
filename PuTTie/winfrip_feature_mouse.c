@@ -131,6 +131,9 @@ WffMouseOperation(
 				} else {
 					return WF_RETURN_CONTINUE;
 				}
+			} else if ((message == WM_KEYUP) && (wParam == VK_CONTROL)) {
+				WffpMouseControlState = false;
+				return WF_RETURN_CONTINUE;
 			} else {
 				return WF_RETURN_CONTINUE;
 			}
