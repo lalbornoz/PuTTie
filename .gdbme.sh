@@ -2,7 +2,7 @@
 case "${1}" in
 --print-program)
 	shift 1;
-	printf "putty.exe\n";
+	printf "./putty.exe";
 	return 0;
 	;;
 
