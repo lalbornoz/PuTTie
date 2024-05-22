@@ -418,13 +418,15 @@ EOF
 		-d '{
 			"body":'"$(json_xs -f string < "${_bp_body_tmp_fname}")"',
 			"draft":false,
-			"make_latest":true,
+			"make_latest":"true",
 			"name":"'"${_bp_release_name}"'",
 			"prerelease":false,
 			"tag_name":"'"${_bp_release_name}"'",
 			"target_commitish":"master",
 			"generate_release_notes":false
 		}')" || return "${?}";
+
+	printf "%s\n" "${_bp_response_json}";
 
 	_bp_release_id="$(
 		printf "%s\n" "${_bp_response_json}"							|\
