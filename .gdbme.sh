@@ -8,7 +8,7 @@ case "${1}" in
 
 --start-server)
 	shift 1;
-	./PuTTie/build.sh --dbg-svr ./putty.exe &
+	./PuTTie/build.sh dbg_server &
 	return "${?}";
 	;;
 esac;
