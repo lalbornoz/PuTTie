@@ -406,17 +406,24 @@ static INT_PTR CALLBACK AboutProc(HWND hwnd, UINT msg,
         char *      buildinfo_text = buildinfo("\\par ");
         char        buildinfo_text_rtf[256];
         HWND        hEdit;
+        RECT        rect, rect_idok;
         SETTEXTEX   settextex;
         char        text[1024];
         char        ver_rtf[64];
 
 
         (void)LoadLibraryW(L"Msftedit.dll");
+        (void)GetClientRect(hwnd, &rect);
+        (void)GetWindowRect(GetDlgItem(hwnd, IDOK), &rect_idok);
+        (void)ScreenToClient(hwnd, (LPPOINT)&rect_idok);
         hEdit = CreateWindowExW(
             0, MSFTEDIT_CLASS, L"",
               ES_CENTER | ES_READONLY | ES_MULTILINE
             | WS_CHILD | WS_TABSTOP | WS_VISIBLE,
-            10, 6, 375, 175, hwnd, NULL, hinst, NULL);
+            10, 6,
+            rect.right - rect.left,
+            rect_idok.top - rect.top - 15,
+            hwnd, NULL, hinst, NULL);
         (void)SendMessage(
             hEdit, EM_SETBKGNDCOLOR, 0, RGB(240, 240, 240));
 
