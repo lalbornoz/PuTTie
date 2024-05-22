@@ -507,7 +507,7 @@ buildp_dict_from_args() {
 	dict_set "${_bpdfa_dict}" "backend_define"		"WFS_BACKEND_$(printf "${_bpdfa_backend}" | tr a-z A-Z)" || return "${?}";
 	dict_set "${_bpdfa_dict}" "build_type"			"${_bpdfa_build_type}";
 	dict_set "${_bpdfa_dict}" "dbg_addr"			"localhost:1234";
-	dict_set "${_bpdfa_dict}" "dbg_exe_fname"		"putty.exe";
+	dict_set "${_bpdfa_dict}" "dbg_exe_fname"		"./putty.exe";
 	dict_set "${_bpdfa_dict}" "dbg_gdbserver_fname"		"Z:/usr/share/win64/gdbserver.exe";
 	dict_set "${_bpdfa_dict}" "git_branch"			"${_bpdfa_git_branch}";
 	dict_set "${_bpdfa_dict}" "git_commit"			"${_bpdfa_git_commit}";
