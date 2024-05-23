@@ -2855,7 +2855,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
       case WM_RBUTTONUP:
         /* {{{ winfrip */
         if (WffMouseOperation(WFF_MOUSE_OP_DUPLICATE_SESSION, wgs->conf, hwnd,
-                              IDM_DUPSESS, message, wParam) == WF_RETURN_BREAK)
+                              IDM_DUPSESS, message, wgs, wParam) == WF_RETURN_BREAK)
         {
             break;
         }
@@ -3527,7 +3527,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
         noise_ultralight(NOISE_SOURCE_KEY, lParam);
 
         /* {{{ winfrip */
-        switch (WffMouseOperation(WFF_MOUSE_OP_KEY_MESSAGE, wgs->conf, hwnd, lParam, message, wParam)) {
+        switch (WffMouseOperation(WFF_MOUSE_OP_KEY_MESSAGE, wgs->conf, hwnd, lParam, message, wgs, wParam)) {
         case WF_RETURN_BREAK:
             return 0;
         case WF_RETURN_BREAK_RESET_WINDOW:
@@ -3721,7 +3721,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 
                 if (WffMouseOperation(
                             WFF_MOUSE_OP_MOUSE_EVENT, wgs->conf, hwnd, lParam,
-                            message, wParam) == WF_RETURN_BREAK_RESET_WINDOW)
+                            message, wgs, wParam) == WF_RETURN_BREAK_RESET_WINDOW)
                 {
                     reset_window(wgs, 2);
                     return 0;
