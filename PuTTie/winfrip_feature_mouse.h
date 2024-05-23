@@ -33,7 +33,7 @@ typedef enum WffMouseOp {
 	WFF_MOUSE_OP_DUPLICATE_SESSION	= 4,
 } WffMouseOp;
 
-WfReturn	WffMouseOperation(WffMouseOp op, Conf *conf, HWND hwnd, LPARAM lParam, UINT message, WPARAM wParam);
+WfReturn	WffMouseOperation(WffMouseOp op, Conf *conf, HWND hwnd, LPARAM lParam, UINT message, void *wgs, WPARAM wParam);
 
 #endif // !PUTTY_WINFRIP_FEATURE_MOUSE_H
 

@@ -7,6 +7,7 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "putty.h"
 #include "dialog.h"
+#include "windows/win-gui-seat.h"
 #pragma GCC diagnostic pop
 
 #include "PuTTie/winfrip_feature.h"
@@ -58,6 +59,7 @@ WffMouseOperation(
 	HWND		hwnd,
 	LPARAM		lParam,
 	UINT		message,
+	void *		wgs,
 	WPARAM		wParam
 	)
 {
@@ -103,7 +105,19 @@ WffMouseOperation(
 
 	case WFF_MOUSE_OP_KEY_MESSAGE:
 		if (WffpMouseControlState) {
-			if ((wParam == '0') || (wParam == VK_NUMPAD0)) {
+			if ((((WinGuiSeat *)wgs)->compose_state > 0)
+			||  ((GetKeyState(VK_MENU) & 0x80) == 0x80)
+			||  ((GetKeyState(VK_LMENU) & 0x80) == 0x80)
+			||  ((GetKeyState(VK_RMENU) & 0x80) == 0x80))
+			{
+				WffpMouseControlState = false;
+				return WF_RETURN_CONTINUE;
+			} else if ((message == WM_KEYUP)
+			        && (wParam == VK_CONTROL))
+			{
+				WffpMouseControlState = false;
+				return WF_RETURN_CONTINUE;
+			} else if ((wParam == '0') || (wParam == VK_NUMPAD0)) {
 				if (conf_get_bool(conf, CONF_frip_mouse_font_size_wheel_shortcut)) {
 					font = conf_get_fontspec(conf, CONF_font);
 					font->height = 10;
@@ -131,16 +145,18 @@ WffMouseOperation(
 				} else {
 					return WF_RETURN_CONTINUE;
 				}
-			} else if ((message == WM_KEYUP) && (wParam == VK_CONTROL)) {
-				WffpMouseControlState = false;
-				return WF_RETURN_CONTINUE;
 			} else {
 				return WF_RETURN_CONTINUE;
 			}
 		} else {
-			if ((message == WM_KEYDOWN) && (wParam == VK_CONTROL)) {
+			/* (see windows/window.c:TranslateMessage()) */
+			if ((message == WM_KEYDOWN)
+			&&  (wParam == VK_CONTROL))
+			{
 				WffpMouseControlState = true;
-			} else if ((message == WM_KEYUP) && (wParam == VK_CONTROL)) {
+			} else if ((message == WM_KEYUP)
+			        && (wParam == VK_CONTROL))
+			{
 				WffpMouseControlState = false;
 			}
 			return WF_RETURN_CONTINUE;
