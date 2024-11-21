@@ -1,3 +1,5 @@
+# This fork is unmaintained until further notice as I no longer use Windows and hence have no personal use for PuTTie and as life obligations no longer afford opportunities for me to continue maintaining PuTTie and/or implement new features.
+
 # PuTTie 💚
 
 <p align="center">
